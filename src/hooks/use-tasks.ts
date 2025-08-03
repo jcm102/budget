@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { isBefore, startOfToday } from 'date-fns';
+import { isBefore, startOfToday, startOfWeek, startOfMonth as fnsStartOfMonth } from 'date-fns';
 import type { Task, Subtask } from '@/types';
 
 const TASKS_STORAGE_KEY = 'tasktrack-budget-tasks';
@@ -19,25 +19,21 @@ const checkAndResetTask = (task: Task, today: Date): Task => {
       shouldReset = isBefore(completedDate, today);
       break;
     case 'weekly':
-      // `isBefore` check with start of the week
-      const startOfWeek = (d: Date) => {
-        const date = new Date(d);
-        const day = date.getDay();
-        const diff = date.getDate() - day + (day === 0 ? -6:1);
-        return new Date(date.setDate(diff));
-      }
-      shouldReset = isBefore(completedDate, startOfWeek(today));
+      // Sunday as the first day of the week
+      const startOfWeekDate = startOfWeek(today, { weekStartsOn: 0 });
+      shouldReset = isBefore(completedDate, startOfWeekDate);
       break;
     case 'monthly':
-      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-      shouldReset = isBefore(completedDate, startOfMonth);
+      const startOfMonthDate = fnsStartOfMonth(today);
+      shouldReset = isBefore(completedDate, startOfMonthDate);
       break;
     default:
       break;
   }
 
   if (shouldReset) {
-    return { ...task, completed: false, completedAt: null };
+    const resetSubtasks = (task.subtasks || []).map(st => ({...st, completed: false}));
+    return { ...task, completed: false, completedAt: null, subtasks: resetSubtasks };
   }
 
   return task;
@@ -74,11 +70,12 @@ export function useTasks() {
     }
   }, [tasks, isLoading]);
 
-  const addTask = useCallback((taskData: Omit<Task, 'id' | 'completed' | 'dueDate' | 'completedAt'>) => {
+  const addTask = useCallback((taskData: Omit<Task, 'id' | 'completed' | 'dueDate' | 'completedAt' | 'subtasks'>) => {
     const newTask: Task = {
       ...taskData,
       id: crypto.randomUUID(),
       completed: false,
+      completedAt: null,
       subtasks: [],
     };
     setTasks((prevTasks) => [...prevTasks, newTask]);
@@ -120,7 +117,7 @@ export function useTasks() {
     setTasks(prevTasks => prevTasks.map(task => {
       if (task.id === taskId) {
         const updatedSubtasks = [...(task.subtasks || []), newSubtask];
-        return { ...task, subtasks: updatedSubtasks };
+        return { ...task, subtasks: updatedSubtasks, completed: false, completedAt: null };
       }
       return task;
     }));
@@ -143,17 +140,13 @@ export function useTasks() {
       if (task.id === taskId) {
         let allSubtasksCompleted = true;
         const updatedSubtasks = (task.subtasks || []).map(st => {
+          let newSt = st;
           if (st.id === subtaskId) {
-            if (!st.completed) allSubtasksCompleted = false;
-            return { ...st, completed: !st.completed };
+            newSt = { ...st, completed: !st.completed };
           }
-          if (!st.completed) allSubtasksCompleted = false;
-          return st;
+          if (!newSt.completed) allSubtasksCompleted = false;
+          return newSt;
         });
-
-        if (updatedSubtasks.find(st => st.id === subtaskId)!.completed === false) {
-          allSubtasksCompleted = false;
-        }
 
         return {
           ...task,
@@ -170,7 +163,14 @@ export function useTasks() {
     setTasks(prevTasks => prevTasks.map(task => {
       if (task.id === taskId) {
         const updatedSubtasks = (task.subtasks || []).filter(st => st.id !== subtaskId);
-        return { ...task, subtasks: updatedSubtasks };
+        const allSubtasksCompleted = updatedSubtasks.every(st => st.completed);
+        
+        return { 
+          ...task, 
+          subtasks: updatedSubtasks,
+          completed: updatedSubtasks.length > 0 ? allSubtasksCompleted : false,
+          completedAt: updatedSubtasks.length > 0 && allSubtasksCompleted ? new Date().toISOString() : null,
+        };
       }
       return task;
     }));

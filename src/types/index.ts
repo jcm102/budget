@@ -13,6 +13,6 @@ export interface Task {
   dueDate?: string | null; // ISO string
   frequency: TaskFrequency;
   completed: boolean;
-  completedAt?: string | null; // ISO string
-  subtasks?: Subtask[];
+  completedAt: string | null; // ISO string
+  subtasks: Subtask[];
 }
