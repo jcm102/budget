@@ -11,7 +11,18 @@ import { Skeleton } from '@/components/ui/skeleton';
 import type { Task } from '@/types';
 
 export default function Home() {
-  const { tasks, addTask, updateTask, toggleTask, deleteTask, isLoading } = useTasks();
+  const { 
+    tasks, 
+    addTask, 
+    updateTask, 
+    toggleTask, 
+    deleteTask, 
+    isLoading,
+    addSubtask,
+    updateSubtask,
+    toggleSubtask,
+    deleteSubtask,
+  } = useTasks();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
@@ -79,6 +90,10 @@ export default function Home() {
                   onToggle={toggleTask}
                   onDelete={deleteTask}
                   onEdit={handleEdit}
+                  onAddSubtask={addSubtask}
+                  onUpdateSubtask={updateSubtask}
+                  onToggleSubtask={toggleSubtask}
+                  onDeleteSubtask={deleteSubtask}
                   icon={<Sunrise className="h-8 w-8 text-primary/80" />}
                 />
               )}
@@ -91,6 +106,10 @@ export default function Home() {
                   onToggle={toggleTask}
                   onDelete={deleteTask}
                   onEdit={handleEdit}
+                  onAddSubtask={addSubtask}
+                  onUpdateSubtask={updateSubtask}
+                  onToggleSubtask={toggleSubtask}
+                  onDeleteSubtask={deleteSubtask}
                   icon={<CalendarDays className="h-8 w-8 text-primary/80" />}
                 />
               )}
@@ -103,6 +122,10 @@ export default function Home() {
                   onToggle={toggleTask}
                   onDelete={deleteTask}
                   onEdit={handleEdit}
+                  onAddSubtask={addSubtask}
+                  onUpdateSubtask={updateSubtask}
+                  onToggleSubtask={toggleSubtask}
+                  onDeleteSubtask={deleteSubtask}
                   icon={<CalendarRange className="h-8 w-8 text-primary/80" />}
                 />
               )}

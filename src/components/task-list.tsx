@@ -11,9 +11,24 @@ type TaskListProps = {
   onDelete: (id: string) => void;
   onEdit: (task: Task) => void;
   icon: ReactNode;
+  onAddSubtask: (taskId: string, description: string) => void;
+  onUpdateSubtask: (taskId: string, subtaskId: string, description: string) => void;
+  onToggleSubtask: (taskId: string, subtaskId: string) => void;
+  onDeleteSubtask: (taskId: string, subtaskId: string) => void;
 };
 
-export function TaskList({ title, tasks, onToggle, onDelete, onEdit, icon }: TaskListProps) {
+export function TaskList({ 
+  title, 
+  tasks, 
+  onToggle, 
+  onDelete, 
+  onEdit, 
+  icon,
+  onAddSubtask,
+  onUpdateSubtask,
+  onToggleSubtask,
+  onDeleteSubtask
+}: TaskListProps) {
   return (
     <div className="space-y-4">
       <h2 className="text-2xl font-semibold font-headline tracking-tight">{title}</h2>
@@ -29,7 +44,17 @@ export function TaskList({ title, tasks, onToggle, onDelete, onEdit, icon }: Tas
               return 0;
             })
             .map((task) => (
-              <TaskItem key={task.id} task={task} onToggle={onToggle} onDelete={onDelete} onEdit={onEdit} />
+              <TaskItem 
+                key={task.id} 
+                task={task} 
+                onToggle={onToggle} 
+                onDelete={onDelete} 
+                onEdit={onEdit}
+                onAddSubtask={onAddSubtask}
+                onUpdateSubtask={onUpdateSubtask}
+                onToggleSubtask={onToggleSubtask}
+                onDeleteSubtask={onDeleteSubtask}
+              />
             ))}
         </div>
       ) : (

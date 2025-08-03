@@ -47,8 +47,8 @@ const formSchema = z.object({
 type TaskFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  addTask: (task: Omit<Task, 'id' | 'completed' | 'completedAt' | 'dueDate' >) => void;
-  updateTask: (id: string, task: Omit<Task, 'id' | 'completed' | 'completedAt' | 'dueDate'>) => void;
+  addTask: (task: Omit<Task, 'id' | 'completed' | 'completedAt' | 'dueDate' | 'subtasks'>) => void;
+  updateTask: (id: string, task: Omit<Task, 'id' | 'completed' | 'completedAt' | 'dueDate' | 'subtasks'>) => void;
   editingTask: Task | null;
 };
 

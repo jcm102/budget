@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { isBefore, startOfToday } from 'date-fns';
-import type { Task } from '@/types';
+import type { Task, Subtask } from '@/types';
 
 const TASKS_STORAGE_KEY = 'tasktrack-budget-tasks';
 
@@ -79,11 +79,12 @@ export function useTasks() {
       ...taskData,
       id: crypto.randomUUID(),
       completed: false,
+      subtasks: [],
     };
     setTasks((prevTasks) => [...prevTasks, newTask]);
   }, []);
 
-  const updateTask = useCallback((id: string, taskData: Omit<Task, 'id' | 'completed' | 'dueDate' | 'completedAt'>) => {
+  const updateTask = useCallback((id: string, taskData: Omit<Task, 'id' | 'completed' | 'dueDate' | 'completedAt' | 'subtasks'>) => {
     setTasks((prevTasks) =>
       prevTasks.map((task) =>
         task.id === id
@@ -95,11 +96,14 @@ export function useTasks() {
 
   const toggleTask = useCallback((id: string) => {
     setTasks((prevTasks) =>
-      prevTasks.map((task) =>
-        task.id === id
-          ? { ...task, completed: !task.completed, completedAt: !task.completed ? new Date().toISOString() : null }
-          : task
-      )
+      prevTasks.map((task) => {
+        if (task.id === id) {
+          const newCompleted = !task.completed;
+          const newSubtasks = (task.subtasks || []).map(st => ({...st, completed: newCompleted}));
+          return { ...task, completed: newCompleted, completedAt: newCompleted ? new Date().toISOString() : null, subtasks: newSubtasks };
+        }
+        return task;
+      })
     );
   }, []);
 
@@ -107,5 +111,70 @@ export function useTasks() {
     setTasks((prevTasks) => prevTasks.filter((task) => task.id !== id));
   }, []);
 
-  return { tasks, addTask, updateTask, toggleTask, deleteTask, isLoading };
+  const addSubtask = useCallback((taskId: string, description: string) => {
+    const newSubtask: Subtask = {
+      id: crypto.randomUUID(),
+      description,
+      completed: false,
+    };
+    setTasks(prevTasks => prevTasks.map(task => {
+      if (task.id === taskId) {
+        const updatedSubtasks = [...(task.subtasks || []), newSubtask];
+        return { ...task, subtasks: updatedSubtasks };
+      }
+      return task;
+    }));
+  }, []);
+
+  const updateSubtask = useCallback((taskId: string, subtaskId: string, description: string) => {
+    setTasks(prevTasks => prevTasks.map(task => {
+      if (task.id === taskId) {
+        const updatedSubtasks = (task.subtasks || []).map(subtask => 
+          subtask.id === subtaskId ? { ...subtask, description } : subtask
+        );
+        return { ...task, subtasks: updatedSubtasks };
+      }
+      return task;
+    }));
+  }, []);
+  
+  const toggleSubtask = useCallback((taskId: string, subtaskId: string) => {
+    setTasks(prevTasks => prevTasks.map(task => {
+      if (task.id === taskId) {
+        let allSubtasksCompleted = true;
+        const updatedSubtasks = (task.subtasks || []).map(st => {
+          if (st.id === subtaskId) {
+            if (!st.completed) allSubtasksCompleted = false;
+            return { ...st, completed: !st.completed };
+          }
+          if (!st.completed) allSubtasksCompleted = false;
+          return st;
+        });
+
+        if (updatedSubtasks.find(st => st.id === subtaskId)!.completed === false) {
+          allSubtasksCompleted = false;
+        }
+
+        return {
+          ...task,
+          subtasks: updatedSubtasks,
+          completed: allSubtasksCompleted,
+          completedAt: allSubtasksCompleted ? new Date().toISOString() : null,
+        };
+      }
+      return task;
+    }));
+  }, []);
+
+  const deleteSubtask = useCallback((taskId: string, subtaskId: string) => {
+    setTasks(prevTasks => prevTasks.map(task => {
+      if (task.id === taskId) {
+        const updatedSubtasks = (task.subtasks || []).filter(st => st.id !== subtaskId);
+        return { ...task, subtasks: updatedSubtasks };
+      }
+      return task;
+    }));
+  }, []);
+
+  return { tasks, addTask, updateTask, toggleTask, deleteTask, isLoading, addSubtask, updateSubtask, toggleSubtask, deleteSubtask };
 }
