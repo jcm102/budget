@@ -23,6 +23,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -37,6 +38,7 @@ import { generateTaskDescription } from '@/ai/flows/generate-task-description';
 
 const formSchema = z.object({
   description: z.string().min(3, 'Description must be at least 3 characters long.'),
+  details: z.string().optional(),
   frequency: z.enum(['daily', 'weekly', 'monthly'], {
     required_error: 'Please select a frequency.',
   }),
@@ -58,6 +60,7 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
     resolver: zodResolver(formSchema),
     defaultValues: {
       description: '',
+      details: '',
       frequency: 'daily',
     },
   });
@@ -66,11 +69,13 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
     if (editingTask) {
       form.reset({
         description: editingTask.description,
+        details: editingTask.details || '',
         frequency: editingTask.frequency,
       });
     } else {
       form.reset({
         description: '',
+        details: '',
         frequency: 'daily',
       });
     }
@@ -141,10 +146,10 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel>Title</FormLabel>
                   <FormControl>
                     <div className="relative">
-                      <Textarea placeholder="e.g., Review weekly spending" {...field} />
+                      <Input placeholder="e.g., Review weekly spending" {...field} />
                       <Button
                         type="button"
                         variant="ghost"
@@ -161,6 +166,20 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
                         )}
                       </Button>
                     </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="details"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Details (Optional)</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Add more details about the task..." {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

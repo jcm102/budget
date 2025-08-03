@@ -87,7 +87,7 @@ export function useTasks() {
     setTasks((prevTasks) =>
       prevTasks.map((task) =>
         task.id === id
-          ? { ...task, description: taskData.description, frequency: taskData.frequency }
+          ? { ...task, description: taskData.description, details: taskData.details, frequency: taskData.frequency }
           : task
       )
     );

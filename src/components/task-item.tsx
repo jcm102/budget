@@ -42,7 +42,7 @@ export function TaskItem({ task, onToggle, onDelete, onEdit }: TaskItemProps) {
         isOverdue && !task.completed ? 'border-destructive/80 shadow-sm shadow-destructive/20' : ''
       )}
     >
-      <CardContent className="p-4 flex items-center gap-4">
+      <CardContent className="p-4 flex items-start gap-4">
         <Checkbox
           id={`task-${task.id}`}
           checked={task.completed}
@@ -50,7 +50,7 @@ export function TaskItem({ task, onToggle, onDelete, onEdit }: TaskItemProps) {
           aria-label={`Mark task ${task.description} as ${
             task.completed ? 'not completed' : 'completed'
           }`}
-          className="h-6 w-6 rounded-md"
+          className="h-6 w-6 rounded-md mt-1"
         />
         <div className="flex-grow space-y-1">
           <label
@@ -62,13 +62,16 @@ export function TaskItem({ task, onToggle, onDelete, onEdit }: TaskItemProps) {
           >
             {task.description}
           </label>
+          {task.details && (
+             <p className="text-sm text-muted-foreground">{task.details}</p>
+          )}
           {task.dueDate && (
             <p className="text-sm text-muted-foreground">
               Due: {format(new Date(task.dueDate), 'PPP')}
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
             {isOverdue && !task.completed && (<Badge variant="destructive">Overdue</Badge>)}
              <Button
                 variant="ghost"
