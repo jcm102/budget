@@ -4,9 +4,12 @@ import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { Wand2, Loader2 } from 'lucide-react';
+import { Wand2, Loader2, CalendarIcon } from 'lucide-react';
+import { format } from 'date-fns';
 
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import {
   Dialog,
   DialogContent,
@@ -24,6 +27,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -42,13 +46,14 @@ const formSchema = z.object({
   frequency: z.enum(['daily', 'weekly', 'monthly'], {
     required_error: 'Please select a frequency.',
   }),
+  dueDate: z.date().optional(),
 });
 
 type TaskFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  addTask: (task: Omit<Task, 'id' | 'completed' | 'completedAt' | 'dueDate' | 'subtasks'>) => void;
-  updateTask: (id: string, task: Omit<Task, 'id' | 'completed' | 'completedAt' | 'dueDate' | 'subtasks'>) => void;
+  addTask: (task: Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks'>) => void;
+  updateTask: (id: string, task: Partial<Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks'>>) => void;
   editingTask: Task | null;
 };
 
@@ -62,6 +67,7 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
       description: '',
       details: '',
       frequency: 'daily',
+      dueDate: undefined,
     },
   });
 
@@ -71,12 +77,14 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
         description: editingTask.description,
         details: editingTask.details || '',
         frequency: editingTask.frequency,
+        dueDate: editingTask.dueDate ? new Date(editingTask.dueDate) : undefined,
       });
     } else {
       form.reset({
         description: '',
         details: '',
         frequency: 'daily',
+        dueDate: undefined,
       });
     }
   }, [editingTask, form, open]);
@@ -115,16 +123,16 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
   };
 
   function onSubmit(values: z.infer<typeof formSchema>) {
+    const submissionData = {
+      ...values,
+      dueDate: values.dueDate ? values.dueDate.toISOString() : null,
+      frequency: values.frequency as TaskFrequency,
+    };
+
     if (editingTask) {
-        updateTask(editingTask.id, {
-        ...values,
-        frequency: values.frequency as TaskFrequency,
-      });
+        updateTask(editingTask.id, submissionData);
     } else {
-        addTask({
-            ...values,
-            frequency: values.frequency as TaskFrequency,
-        });
+        addTask(submissionData as Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks'>);
     }
     form.reset();
     onOpenChange(false);
@@ -204,6 +212,45 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
                       <SelectItem value="monthly">Monthly</SelectItem>
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="dueDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Due Date (Optional)</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={'outline'}
+                          className={cn(
+                            'w-full pl-3 text-left font-normal',
+                            !field.value && 'text-muted-foreground'
+                          )}
+                        >
+                          {field.value ? (
+                            format(field.value, 'PPP')
+                          ) : (
+                            <span>Pick a date</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                   <FormMessage />
                 </FormItem>
               )}

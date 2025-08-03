@@ -70,7 +70,7 @@ export function useTasks() {
     }
   }, [tasks, isLoading]);
 
-  const addTask = useCallback((taskData: Omit<Task, 'id' | 'completed' | 'dueDate' | 'completedAt' | 'subtasks'>) => {
+  const addTask = useCallback((taskData: Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks'>) => {
     const newTask: Task = {
       ...taskData,
       id: crypto.randomUUID(),
@@ -81,11 +81,11 @@ export function useTasks() {
     setTasks((prevTasks) => [...prevTasks, newTask]);
   }, []);
 
-  const updateTask = useCallback((id: string, taskData: Omit<Task, 'id' | 'completed' | 'dueDate' | 'completedAt' | 'subtasks'>) => {
+  const updateTask = useCallback((id: string, taskData: Partial<Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks'>>) => {
     setTasks((prevTasks) =>
       prevTasks.map((task) =>
         task.id === id
-          ? { ...task, description: taskData.description, details: taskData.details, frequency: taskData.frequency }
+          ? { ...task, ...taskData }
           : task
       )
     );
