@@ -1,13 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { format } from 'date-fns';
 import { Wand2, Loader2 } from 'lucide-react';
 
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -47,10 +45,12 @@ const formSchema = z.object({
 type TaskFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  addTask: (task: Omit<Task, 'id' | 'completed' | 'dueDate' >) => void;
+  addTask: (task: Omit<Task, 'id' | 'completed' | 'completedAt' | 'dueDate' >) => void;
+  updateTask: (id: string, task: Omit<Task, 'id' | 'completed' | 'completedAt' | 'dueDate'>) => void;
+  editingTask: Task | null;
 };
 
-export function TaskForm({ open, onOpenChange, addTask }: TaskFormProps) {
+export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask }: TaskFormProps) {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const { toast } = useToast();
 
@@ -61,6 +61,21 @@ export function TaskForm({ open, onOpenChange, addTask }: TaskFormProps) {
       frequency: 'daily',
     },
   });
+
+  useEffect(() => {
+    if (editingTask) {
+      form.reset({
+        description: editingTask.description,
+        frequency: editingTask.frequency,
+      });
+    } else {
+      form.reset({
+        description: '',
+        frequency: 'daily',
+      });
+    }
+  }, [editingTask, form, open]);
+
 
   const handleGenerateDescription = async () => {
     const currentDesc = form.getValues('description');
@@ -95,10 +110,17 @@ export function TaskForm({ open, onOpenChange, addTask }: TaskFormProps) {
   };
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    addTask({
-      ...values,
-      frequency: values.frequency as TaskFrequency,
-    });
+    if (editingTask) {
+        updateTask(editingTask.id, {
+        ...values,
+        frequency: values.frequency as TaskFrequency,
+      });
+    } else {
+        addTask({
+            ...values,
+            frequency: values.frequency as TaskFrequency,
+        });
+    }
     form.reset();
     onOpenChange(false);
   }
@@ -107,9 +129,9 @@ export function TaskForm({ open, onOpenChange, addTask }: TaskFormProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Add a new task</DialogTitle>
+          <DialogTitle>{editingTask ? 'Edit task' : 'Add a new task'}</DialogTitle>
           <DialogDescription>
-            Fill in the details for your new budgeting task.
+             {editingTask ? 'Update the details for your task.' : 'Fill in the details for your new budgeting task.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -151,7 +173,7 @@ export function TaskForm({ open, onOpenChange, addTask }: TaskFormProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Frequency</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="How often does this task repeat?" />
@@ -169,7 +191,7 @@ export function TaskForm({ open, onOpenChange, addTask }: TaskFormProps) {
             />
 
             <DialogFooter>
-              <Button type="submit">Add Task</Button>
+              <Button type="submit">{editingTask ? 'Save Changes' : 'Add Task'}</Button>
             </DialogFooter>
           </form>
         </Form>

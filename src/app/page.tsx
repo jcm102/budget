@@ -8,10 +8,24 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PlusCircle, Sunrise, CalendarDays, CalendarRange } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import type { Task } from '@/types';
 
 export default function Home() {
-  const { tasks, addTask, toggleTask, deleteTask, isLoading } = useTasks();
+  const { tasks, addTask, updateTask, toggleTask, deleteTask, isLoading } = useTasks();
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+
+  const handleEdit = (task: Task) => {
+    setEditingTask(task);
+    setIsFormOpen(true);
+  };
+
+  const handleFormOpenChange = (isOpen: boolean) => {
+    setIsFormOpen(isOpen);
+    if (!isOpen) {
+      setEditingTask(null);
+    }
+  }
 
   const dailyTasks = tasks.filter((t) => t.frequency === 'daily');
   const weeklyTasks = tasks.filter((t) => t.frequency === 'weekly');
@@ -28,7 +42,13 @@ export default function Home() {
 
   return (
     <>
-      <TaskForm open={isFormOpen} onOpenChange={setIsFormOpen} addTask={addTask} />
+      <TaskForm
+        open={isFormOpen}
+        onOpenChange={handleFormOpenChange}
+        addTask={addTask}
+        updateTask={updateTask}
+        editingTask={editingTask}
+      />
       <div className="container mx-auto max-w-4xl p-4 md:p-8">
         <header className="text-center mb-8">
           <h1 className="text-4xl md:text-5xl font-bold font-headline text-primary">TaskTrack Budget</h1>
@@ -58,6 +78,7 @@ export default function Home() {
                   tasks={dailyTasks}
                   onToggle={toggleTask}
                   onDelete={deleteTask}
+                  onEdit={handleEdit}
                   icon={<Sunrise className="h-8 w-8 text-primary/80" />}
                 />
               )}
@@ -69,6 +90,7 @@ export default function Home() {
                   tasks={weeklyTasks}
                   onToggle={toggleTask}
                   onDelete={deleteTask}
+                  onEdit={handleEdit}
                   icon={<CalendarDays className="h-8 w-8 text-primary/80" />}
                 />
               )}
@@ -80,6 +102,7 @@ export default function Home() {
                   tasks={monthlyTasks}
                   onToggle={toggleTask}
                   onDelete={deleteTask}
+                  onEdit={handleEdit}
                   icon={<CalendarRange className="h-8 w-8 text-primary/80" />}
                 />
               )}

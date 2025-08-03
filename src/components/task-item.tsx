@@ -1,7 +1,7 @@
 'use client';
 
 import { format, isPast } from 'date-fns';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Pencil } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import type { Task } from '@/types';
@@ -26,9 +26,10 @@ type TaskItemProps = {
   task: Task;
   onToggle: (id: string) => void;
   onDelete: (id:string) => void;
+  onEdit: (task: Task) => void;
 };
 
-export function TaskItem({ task, onToggle, onDelete }: TaskItemProps) {
+export function TaskItem({ task, onToggle, onDelete, onEdit }: TaskItemProps) {
   const isOverdue = task.dueDate && isPast(new Date(task.dueDate)) && !task.completed;
 
   return (
@@ -67,14 +68,23 @@ export function TaskItem({ task, onToggle, onDelete }: TaskItemProps) {
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2">
-            {isOverdue && !task.completed && <Badge variant="destructive">Overdue</Badge>}
+        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            {isOverdue && !task.completed && (<Badge variant="destructive">Overdue</Badge>)}
+             <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10"
+                onClick={() => onEdit(task)}
+             >
+                <Pencil className="h-4 w-4" />
+                <span className="sr-only">Edit task</span>
+            </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    className="h-8 w-8 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                 >
                     <Trash2 className="h-4 w-4" />
                     <span className="sr-only">Delete task</span>

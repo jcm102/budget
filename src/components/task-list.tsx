@@ -9,10 +9,11 @@ type TaskListProps = {
   tasks: Task[];
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
+  onEdit: (task: Task) => void;
   icon: ReactNode;
 };
 
-export function TaskList({ title, tasks, onToggle, onDelete, icon }: TaskListProps) {
+export function TaskList({ title, tasks, onToggle, onDelete, onEdit, icon }: TaskListProps) {
   return (
     <div className="space-y-4">
       <h2 className="text-2xl font-semibold font-headline tracking-tight">{title}</h2>
@@ -28,7 +29,7 @@ export function TaskList({ title, tasks, onToggle, onDelete, icon }: TaskListPro
               return 0;
             })
             .map((task) => (
-              <TaskItem key={task.id} task={task} onToggle={onToggle} onDelete={onDelete} />
+              <TaskItem key={task.id} task={task} onToggle={onToggle} onDelete={onDelete} onEdit={onEdit} />
             ))}
         </div>
       ) : (
