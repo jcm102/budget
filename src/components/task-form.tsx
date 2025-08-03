@@ -5,11 +5,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { format } from 'date-fns';
-import { Wand2, Calendar as CalendarIcon, Loader2 } from 'lucide-react';
+import { Wand2, Loader2 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
 import {
   Dialog,
   DialogContent,
@@ -27,11 +26,6 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -45,9 +39,6 @@ import { generateTaskDescription } from '@/ai/flows/generate-task-description';
 
 const formSchema = z.object({
   description: z.string().min(3, 'Description must be at least 3 characters long.'),
-  dueDate: z.date({
-    required_error: 'A due date is required.',
-  }),
   frequency: z.enum(['daily', 'weekly', 'monthly'], {
     required_error: 'Please select a frequency.',
   }),
@@ -56,7 +47,7 @@ const formSchema = z.object({
 type TaskFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  addTask: (task: Omit<Task, 'id' | 'completed'>) => void;
+  addTask: (task: Omit<Task, 'id' | 'completed' | 'dueDate' >) => void;
 };
 
 export function TaskForm({ open, onOpenChange, addTask }: TaskFormProps) {
@@ -106,7 +97,6 @@ export function TaskForm({ open, onOpenChange, addTask }: TaskFormProps) {
   function onSubmit(values: z.infer<typeof formSchema>) {
     addTask({
       ...values,
-      dueDate: values.dueDate.toISOString(),
       frequency: values.frequency as TaskFrequency,
     });
     form.reset();
@@ -150,46 +140,6 @@ export function TaskForm({ open, onOpenChange, addTask }: TaskFormProps) {
                       </Button>
                     </div>
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="dueDate"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Due Date</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={'outline'}
-                          className={cn(
-                            'w-full pl-3 text-left font-normal',
-                            !field.value && 'text-muted-foreground'
-                          )}
-                        >
-                          {field.value ? (
-                            format(field.value, 'PPP')
-                          ) : (
-                            <span>Pick a date</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        disabled={(date) => date < new Date('1900-01-01')}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
                   <FormMessage />
                 </FormItem>
               )}

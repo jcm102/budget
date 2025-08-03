@@ -19,7 +19,14 @@ export function TaskList({ title, tasks, onToggle, onDelete, icon }: TaskListPro
       {tasks.length > 0 ? (
         <div className="space-y-3">
           {tasks
-            .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+            .sort((a, b) => {
+              if (a.dueDate && b.dueDate) {
+                return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+              }
+              if (a.dueDate) return -1;
+              if (b.dueDate) return 1;
+              return 0;
+            })
             .map((task) => (
               <TaskItem key={task.id} task={task} onToggle={onToggle} onDelete={onDelete} />
             ))}

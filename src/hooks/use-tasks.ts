@@ -74,7 +74,7 @@ export function useTasks() {
     }
   }, [tasks, isLoading]);
 
-  const addTask = useCallback((taskData: Omit<Task, 'id' | 'completed'>) => {
+  const addTask = useCallback((taskData: Omit<Task, 'id' | 'completed' | 'dueDate'>) => {
     const newTask: Task = {
       ...taskData,
       id: crypto.randomUUID(),

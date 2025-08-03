@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { buttonVariants } from './ui/button';
 
 type TaskItemProps = {
   task: Task;
@@ -28,7 +29,7 @@ type TaskItemProps = {
 };
 
 export function TaskItem({ task, onToggle, onDelete }: TaskItemProps) {
-  const isOverdue = isPast(new Date(task.dueDate)) && !task.completed;
+  const isOverdue = task.dueDate && isPast(new Date(task.dueDate)) && !task.completed;
 
   return (
     <Card
@@ -60,9 +61,11 @@ export function TaskItem({ task, onToggle, onDelete }: TaskItemProps) {
           >
             {task.description}
           </label>
-          <p className="text-sm text-muted-foreground">
-            Due: {format(new Date(task.dueDate), 'PPP')}
-          </p>
+          {task.dueDate && (
+            <p className="text-sm text-muted-foreground">
+              Due: {format(new Date(task.dueDate), 'PPP')}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2">
             {isOverdue && !task.completed && <Badge variant="destructive">Overdue</Badge>}
