@@ -16,3 +16,12 @@ export interface Task {
   completedAt: string | null; // ISO string
   subtasks: Subtask[];
 }
+
+export interface Debt {
+  id: string;
+  name: string;
+  balance: number;
+  minimumPayment: number;
+  actualPayment: number;
+  dueDate: string; // Should be a date string
+}

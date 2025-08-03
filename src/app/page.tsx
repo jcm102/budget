@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useTasks } from '@/hooks/use-tasks';
 import { TaskForm } from '@/components/task-form';
 import { TaskList } from '@/components/task-list';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, Sunrise, CalendarDays, CalendarRange } from 'lucide-react';
+import { PlusCircle, Sunrise, CalendarDays, CalendarRange, ArrowRight } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Task } from '@/types';
 
@@ -66,6 +67,13 @@ export default function Home() {
           <p className="text-muted-foreground mt-2 text-lg">
             Your personal assistant for daily, weekly, and monthly budgeting tasks.
           </p>
+          <div className="mt-4">
+             <Button asChild variant="link" className="text-lg">
+                <Link href="/debt">
+                  Go to Debt Tracker <ArrowRight className="ml-2 h-5 w-5" />
+                </Link>
+             </Button>
+          </div>
         </header>
 
         <main>
