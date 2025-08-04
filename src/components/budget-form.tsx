@@ -150,7 +150,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                     render={({ field }) => (
                         <FormItem>
                         <FormLabel>Income Source</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                             <SelectTrigger>
                                 <SelectValue placeholder="Select an income source" />
