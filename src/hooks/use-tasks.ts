@@ -145,15 +145,15 @@ export function useTasks() {
   const toggleSubtask = useCallback((taskId: string, subtaskId: string) => {
     setTasks(prevTasks => prevTasks.map(task => {
       if (task.id === taskId) {
-        let allSubtasksCompleted = true;
+        
         const updatedSubtasks = (task.subtasks || []).map(st => {
-          let newSt = st;
           if (st.id === subtaskId) {
-            newSt = { ...st, completed: !st.completed };
+            return { ...st, completed: !st.completed };
           }
-          if (!newSt.completed) allSubtasksCompleted = false;
-          return newSt;
+          return st;
         });
+
+        const allSubtasksCompleted = updatedSubtasks.every(st => st.completed);
 
         return {
           ...task,
