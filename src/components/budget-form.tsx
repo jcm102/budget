@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { BudgetItem, BudgetItemType } from '@/types';
+import { useCategories } from '@/hooks/use-categories';
 
 const formSchema = z.object({
     description: z.string().min(2, 'Description must be at least 2 characters.'),
@@ -57,9 +58,9 @@ type BudgetFormProps = {
   editingItem: BudgetItem | null;
 };
 
-const incomeCategories = ['Paycheck', 'Bonus', 'Freelance', 'Other'];
-
 export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem, editingItem }: BudgetFormProps) {
+  const { categories: incomeCategories } = useCategories();
+  
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -161,7 +162,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                       </FormControl>
                       <SelectContent>
                         {incomeCategories.map(category => (
-                          <SelectItem key={category} value={category}>{category}</SelectItem>
+                          <SelectItem key={category.id} value={category.name}>{category.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
