@@ -86,12 +86,12 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
 
   useEffect(() => {
     if (itemType !== 'transfer') {
-        form.setValue('destination', null);
+      form.setValue('destination', null);
     }
-    if(itemType !== 'income') {
-        if(incomeSources.includes(form.getValues('name') as IncomeSource)) {
-            form.setValue('name', '');
-        }
+    if (itemType !== 'income') {
+      if (incomeSources.includes(form.getValues('name') as IncomeSource)) {
+        form.setValue('name', '');
+      }
     }
   }, [itemType, form]);
 
