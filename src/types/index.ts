@@ -43,3 +43,8 @@ export interface Category {
     id: string;
     name: string;
 }
+
+export interface Transferee {
+    id: string;
+    name: string;
+}

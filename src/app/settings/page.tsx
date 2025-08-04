@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { CategoryManager } from '@/components/category-manager';
 import { ArrowLeft } from 'lucide-react';
+import { TransfereeManager } from '@/components/transferee-manager';
 
 export default function SettingsPage() {
   return (
@@ -16,9 +17,14 @@ export default function SettingsPage() {
           </Link>
         </Button>
       </header>
-      <main>
-        <h1 className="text-3xl font-bold font-headline text-primary mb-6">Settings</h1>
-        <CategoryManager />
+      <main className="space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold font-headline text-primary mb-6">Settings</h1>
+          <CategoryManager />
+        </div>
+        <div>
+          <TransfereeManager />
+        </div>
       </main>
     </div>
   );

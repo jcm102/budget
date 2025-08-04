@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/select';
 import type { BudgetItem, BudgetItemType } from '@/types';
 import { useCategories } from '@/hooks/use-categories';
+import { useTransferees } from '@/hooks/use-transferees';
 
 const formSchema = z.object({
     description: z.string().min(2, 'Description must be at least 2 characters.'),
@@ -60,6 +61,7 @@ type BudgetFormProps = {
 
 export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem, editingItem }: BudgetFormProps) {
   const { categories: incomeCategories } = useCategories();
+  const { transferees } = useTransferees();
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -107,6 +109,10 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
         form.setValue('category', 'N/A');
     } else {
         form.setValue('category', '');
+    }
+     if (itemType !== 'Transfers') {
+      form.setValue('transferFrom', undefined);
+      form.setValue('transferTo', undefined);
     }
   }, [itemType, form]);
 
@@ -196,7 +202,16 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                 <FormField control={form.control} name="transferFrom" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Transfer From</FormLabel>
-                      <FormControl><Input placeholder="e.g., Checking Account" {...field} /></FormControl>
+                      <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                        <FormControl>
+                            <SelectTrigger><SelectValue placeholder="Select a source" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                            {transferees.map(t => (
+                            <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                        </Select>
                        <FormMessage />
                     </FormItem>
                   )}
@@ -204,7 +219,16 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                 <FormField control={form.control} name="transferTo" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Transfer To</FormLabel>
-                      <FormControl><Input placeholder="e.g., Savings Account" {...field} /></FormControl>
+                       <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                        <FormControl>
+                            <SelectTrigger><SelectValue placeholder="Select a destination" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                            {transferees.map(t => (
+                            <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                        </Select>
                        <FormMessage />
                     </FormItem>
                   )}
