@@ -61,6 +61,7 @@ export function BudgetTable() {
         <TableCell><Skeleton className="h-6 w-full" /></TableCell>
         <TableCell><Skeleton className="h-6 w-full" /></TableCell>
         <TableCell><Skeleton className="h-6 w-full" /></TableCell>
+        <TableCell><Skeleton className="h-6 w-full" /></TableCell>
       </TableRow>
     ))
   );
@@ -80,7 +81,7 @@ export function BudgetTable() {
       <Table>
         <TableHeader>
             <TableRow>
-                <TableHead colSpan={4} className="text-lg font-semibold">
+                <TableHead colSpan={5} className="text-lg font-semibold">
                     <div className="flex items-center gap-2">
                         {icon} {title}
                     </div>
@@ -88,6 +89,7 @@ export function BudgetTable() {
             </TableRow>
           <TableRow>
             <TableHead>Name</TableHead>
+            {title === 'Income' && <TableHead>Category</TableHead>}
             <TableHead className="text-right">Amount</TableHead>
             {title === 'Transfers' && <TableHead>Destination</TableHead>}
             <TableHead className="w-[100px] text-right">Actions</TableHead>
@@ -100,6 +102,7 @@ export function BudgetTable() {
             items.map((item) => (
               <TableRow key={item.id}>
                 <TableCell className="font-medium">{item.name}</TableCell>
+                {title === 'Income' && <TableCell>{item.category}</TableCell>}
                 <TableCell className="text-right">{formatCurrency(item.amount)}</TableCell>
                 {title === 'Transfers' && <TableCell>{item.destination}</TableCell>}
                 <TableCell className="text-right">
@@ -134,7 +137,7 @@ export function BudgetTable() {
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={4} className="h-24 text-center">
+              <TableCell colSpan={5} className="h-24 text-center">
                 No items yet. Add one to get started!
               </TableCell>
             </TableRow>

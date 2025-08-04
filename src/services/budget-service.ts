@@ -24,8 +24,15 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
 
 export async function addBudgetItem(itemData: Omit<BudgetItem, 'id'>): Promise<BudgetItem> {
   const docRef = doc(collection(db, BUDGET_COLLECTION));
-  await setDoc(docRef, itemData);
-  return { ...itemData, id: docRef.id };
+  const dataToSave = { ...itemData };
+  if (dataToSave.type !== 'income') {
+    delete dataToSave.category;
+  }
+  if (dataToSave.type !== 'transfer') {
+    delete dataToSave.destination;
+  }
+  await setDoc(docRef, dataToSave);
+  return { ...dataToSave, id: docRef.id } as BudgetItem;
 }
 
 export async function updateBudgetItem(id: string, itemData: Omit<BudgetItem, 'id'>): Promise<void> {
@@ -33,7 +40,14 @@ export async function updateBudgetItem(id: string, itemData: Omit<BudgetItem, 'i
   const docSnap = await getDoc(itemRef);
   if (docSnap.exists()) {
       const existingData = docSnap.data();
-      await setDoc(itemRef, { ...existingData, ...itemData });
+      const dataToSave = { ...existingData, ...itemData };
+       if (dataToSave.type !== 'income') {
+        dataToSave.category = null;
+      }
+      if (dataToSave.type !== 'transfer') {
+        dataToSave.destination = null;
+      }
+      await setDoc(itemRef, dataToSave);
   } else {
       throw new Error(`Budget item with id ${id} not found.`);
   }

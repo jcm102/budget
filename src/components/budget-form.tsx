@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { BudgetItem, BudgetItemType, TransferDestination } from '@/types';
+import type { BudgetItem, BudgetItemType, TransferDestination, IncomeCategory } from '@/types';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.'),
@@ -37,6 +37,7 @@ const formSchema = z.object({
   type: z.enum(['income', 'debt', 'transfer'], {
     required_error: 'Please select a type.',
   }),
+  category: z.enum(['Paycheck', 'Bonus', 'Freelance', 'Other']).optional().nullable(),
   destination: z.enum(['checking', 'savings', 'investment']).optional().nullable(),
 }).refine(data => {
     if (data.type === 'transfer' && !data.destination) {
@@ -63,6 +64,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
       name: '',
       amount: 0,
       type: 'income',
+      category: null,
       destination: null,
     },
   });
@@ -76,6 +78,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
           name: editingItem.name,
           amount: editingItem.amount,
           type: editingItem.type,
+          category: editingItem.category,
           destination: editingItem.destination,
         });
       } else {
@@ -83,6 +86,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
           name: '',
           amount: 0,
           type: 'income',
+          category: null,
           destination: null,
         });
       }
@@ -93,12 +97,16 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
     if (itemType !== 'transfer') {
       form.setValue('destination', null);
     }
+    if (itemType !== 'income') {
+        form.setValue('category', null);
+    }
   }, [itemType, form]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const submissionData = {
         ...values,
         type: values.type as BudgetItemType,
+        category: values.category as IncomeCategory | null,
         destination: values.destination as TransferDestination | null,
     };
     if (editingItem) {
@@ -162,6 +170,31 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                 </FormItem>
               )}
             />
+             {itemType === 'income' && (
+              <FormField
+                control={form.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value ?? undefined}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a category" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Paycheck">Paycheck</SelectItem>
+                        <SelectItem value="Bonus">Bonus</SelectItem>
+                        <SelectItem value="Freelance">Freelance</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
              {itemType === 'transfer' && (
               <FormField
                 control={form.control}
