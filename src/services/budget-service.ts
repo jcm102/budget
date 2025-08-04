@@ -11,7 +11,7 @@ import {
   query,
   getDoc,
 } from 'firebase/firestore';
-import { isSameMonth, startOfMonth, getDate, getMonth, getYear, set, addWeeks, getWeek, differenceInWeeks, isSameDay } from 'date-fns';
+import { isSameMonth, startOfMonth, getDate, getMonth, getYear, set, addWeeks, isAfter } from 'date-fns';
 
 const BUDGET_COLLECTION = 'budget-items';
 
@@ -27,6 +27,7 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
   const allItems = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BudgetItem));
 
   allItems.forEach(item => {
+    // When creating a Date object from an ISO string, it correctly handles the timezone offset.
     const itemStartDate = new Date(item.date);
     
     // Skip if item starts after the current month ends
@@ -39,8 +40,9 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
         currentMonthItems.push(item);
       }
     } else if (item.frequency === 'Monthly') {
-      if (itemStartDate <= today || isSameMonth(itemStartDate, today)) {
+       if (itemStartDate <= today || isSameMonth(itemStartDate, today)) {
         const itemDay = getDate(itemStartDate);
+        
         const currentMonthInstanceDate = set(today, { 
             setDate: itemDay,
             setHours: itemStartDate.getHours(),
@@ -49,8 +51,7 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
             setMilliseconds: itemStartDate.getMilliseconds()
         });
 
-        if (getMonth(currentMonthInstanceDate) === getMonth(today) && (getYear(currentMonthInstanceDate) > getYear(itemStartDate) || 
-            (getYear(currentMonthInstanceDate) === getYear(itemStartDate) && getMonth(currentMonthInstanceDate) >= getMonth(itemStartDate))))
+        if (getMonth(currentMonthInstanceDate) === getMonth(today) && (isAfter(currentMonthInstanceDate, itemStartDate) || isSameMonth(itemStartDate, currentMonthInstanceDate)))
          {
             currentMonthItems.push({
                 ...item,
@@ -65,11 +66,12 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
       while (currentDate < startOfCurrentMonth) {
         currentDate = addWeeks(currentDate, increment);
       }
-
-      while (isSameMonth(currentDate, today) || isSameDay(currentDate, today)) {
-          if (getYear(currentDate) > getYear(itemStartDate) || (getYear(currentDate) === getYear(itemStartDate) && getMonth(currentDate) >= getMonth(itemStartDate))) {
+      
+      while (isSameMonth(currentDate, today)) {
+          if (isAfter(currentDate, itemStartDate) || isSameMonth(itemStartDate, currentDate)) {
               currentMonthItems.push({
                   ...item,
+                  id: `${item.id}-${currentDate.getTime()}`, // Create unique ID for each instance
                   date: currentDate.toISOString()
               });
           }
@@ -94,11 +96,25 @@ export async function updateBudgetItem(id: string, itemData: Omit<BudgetItem, 'i
     const existingData = docSnap.data();
     await setDoc(itemRef, { ...existingData, ...itemData });
   } else {
-    throw new Error(`Budget item with id ${id} not found.`);
+    // This could be an update for a recurring item instance, which doesn't exist as a separate doc.
+    // In this case, we find the original item and update its base data.
+    const originalItemId = id.split('-')[0];
+    const originalItemRef = doc(db, BUDGET_COLLECTION, originalItemId);
+    const originalDocSnap = await getDoc(originalItemRef);
+    if(originalDocSnap.exists()) {
+      const existingData = originalDocSnap.data();
+      // Don't update the date of the original recurring item
+      const { date, ...restOfItemData } = itemData;
+      await setDoc(originalItemRef, { ...existingData, ...restOfItemData });
+    } else {
+      throw new Error(`Budget item with id ${id} not found.`);
+    }
   }
 }
 
 export async function deleteBudgetItem(id: string): Promise<void> {
-  const itemRef = doc(db, BUDGET_COLLECTION, id);
+   // For recurring items, the ID might have a timestamp. We only need the base ID.
+  const baseId = id.split('-')[0];
+  const itemRef = doc(db, BUDGET_COLLECTION, baseId);
   await deleteDoc(itemRef);
 }

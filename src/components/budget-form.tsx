@@ -80,6 +80,20 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
 
   const itemType = form.watch('type');
 
+  const toLocalISOString = (date: Date) => {
+    const tzOffset = -date.getTimezoneOffset();
+    const diff = tzOffset >= 0 ? '+' : '-';
+    const pad = (n: number) => `${Math.floor(Math.abs(n))}`.padStart(2, '0');
+    return date.getFullYear() +
+      '-' + pad(date.getMonth() + 1) +
+      '-' + pad(date.getDate()) +
+      'T' + pad(date.getHours()) +
+      ':' + pad(date.getMinutes()) +
+      ':' + pad(date.getSeconds()) +
+      diff + pad(tzOffset / 60) +
+      ':' + pad(tzOffset % 60);
+  };
+  
   useEffect(() => {
     if (open) {
       if (editingItem) {
@@ -122,9 +136,13 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
 
 
   function onSubmit(values: z.infer<typeof formSchema>) {
+    // This logic ensures the date is treated in the user's local timezone, not UTC.
+    const [year, month, day] = values.date.split('-').map(Number);
+    const localDate = new Date(year, month - 1, day);
+
     const submissionData = {
       ...values,
-      date: new Date(values.date).toISOString(),
+      date: toLocalISOString(localDate), // Store as ISO string with timezone offset
       type: values.type as BudgetItemType,
       frequency: values.frequency as BudgetItemFrequency,
     };

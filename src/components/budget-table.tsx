@@ -127,7 +127,7 @@ export function BudgetTable() {
                             <AlertDialogHeader>
                               <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                This will permanently delete this budget item.
+                                This will permanently delete this budget item. For recurring items, this will delete all future occurrences.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
