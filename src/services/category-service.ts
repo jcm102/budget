@@ -22,8 +22,9 @@ async function seedDefaultCategories() {
   if (snapshot.empty) {
     const batch = writeBatch(db);
     defaultCategories.forEach(categoryName => {
-      const docRef = doc(collection(db, CATEGORY_COLLECTION));
-      batch.set(docRef, { name: categoryName });
+      // Correctly create a new document reference for each category
+      const newDocRef = doc(categoryCollectionRef);
+      batch.set(newDocRef, { name: categoryName });
     });
     await batch.commit();
   }
