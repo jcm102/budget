@@ -26,7 +26,7 @@ export interface Debt {
   dueDate: string; // Should be a date string
 }
 
-export type BudgetItemType = 'Income' | 'Debt Payments' | 'Transfers';
+export type BudgetItemType = 'Income' | 'Debt Payments' | 'Transfers' | 'Pre-Authorized Payments';
 
 export interface BudgetItem {
   id: string;

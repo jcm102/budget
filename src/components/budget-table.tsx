@@ -68,6 +68,10 @@ export function BudgetTable() {
   const renderSection = (title: string, type: BudgetItemType) => {
     const items = budgetItems.filter(item => item.type === type);
     const total = items.reduce((acc, item) => acc + item.amount, 0);
+    
+    let colSpan = 4;
+    if (type === 'Transfers') colSpan = 5;
+    if (type === 'Income') colSpan = 5;
 
     return (
       <div className="mb-8">
@@ -129,7 +133,7 @@ export function BudgetTable() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={type === 'Transfers' ? 5 : (type === 'Income' ? 5 : 4)} className="h-24 text-center">
+                  <TableCell colSpan={colSpan} className="h-24 text-center">
                     No items added yet.
                   </TableCell>
                 </TableRow>
@@ -137,7 +141,7 @@ export function BudgetTable() {
             </TableBody>
             <TableFooter>
               <TableRow>
-                <TableCell colSpan={type === 'Transfers' ? 2 : (type === 'Income' ? 2 : 1)}></TableCell>
+                <TableCell colSpan={colSpan - 2}></TableCell>
                 <TableCell className="font-semibold text-right">Total</TableCell>
                 <TableCell className="text-right font-semibold">{formatCurrency(total)}</TableCell>
                 <TableCell></TableCell>
@@ -151,6 +155,7 @@ export function BudgetTable() {
   
   const totalIncome = budgetItems.filter(i => i.type === 'Income').reduce((acc, i) => acc + i.amount, 0);
   const totalDebtPayments = budgetItems.filter(i => i.type === 'Debt Payments').reduce((acc, i) => acc + i.amount, 0);
+  const totalPAPayments = budgetItems.filter(i => i.type === 'Pre-Authorized Payments').reduce((acc, i) => acc + i.amount, 0);
 
   return (
     <>
@@ -169,7 +174,7 @@ export function BudgetTable() {
         </Button>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <div className="p-4 border rounded-lg bg-card">
             <h4 className="text-muted-foreground">Total Income</h4>
             <p className="text-2xl font-semibold">{formatCurrency(totalIncome)}</p>
@@ -178,10 +183,15 @@ export function BudgetTable() {
             <h4 className="text-muted-foreground">Total Debt Payments</h4>
             <p className="text-2xl font-semibold">{formatCurrency(totalDebtPayments)}</p>
         </div>
+        <div className="p-4 border rounded-lg bg-card">
+            <h4 className="text-muted-foreground">Total Pre-Authorized Payments</h4>
+            <p className="text-2xl font-semibold">{formatCurrency(totalPAPayments)}</p>
+        </div>
       </div>
 
       {renderSection("Income", "Income")}
       {renderSection("Debt Payments", "Debt Payments")}
+      {renderSection("Pre-Authorized Payments", "Pre-Authorized Payments")}
       {renderSection("Transfers", "Transfers")}
     </>
   );

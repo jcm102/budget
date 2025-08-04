@@ -37,7 +37,7 @@ const formSchema = z.object({
     description: z.string().min(2, 'Description must be at least 2 characters.'),
     category: z.string().min(1, 'Category is required.'),
     amount: z.coerce.number().min(0.01, 'Amount must be greater than 0.'),
-    type: z.enum(['Income', 'Debt Payments', 'Transfers']),
+    type: z.enum(['Income', 'Debt Payments', 'Transfers', 'Pre-Authorized Payments']),
     date: z.string().min(1, 'A date is required.'),
     transferTo: z.string().optional(),
     transferFrom: z.string().optional(),
@@ -153,6 +153,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                       <SelectItem value="Income">Income</SelectItem>
                       <SelectItem value="Debt Payments">Debt Payments</SelectItem>
                       <SelectItem value="Transfers">Transfers</SelectItem>
+                      <SelectItem value="Pre-Authorized Payments">Pre-Authorized Payments</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
