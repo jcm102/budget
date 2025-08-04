@@ -28,12 +28,14 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { ExpenseForm } from './expense-form';
 import { useExpenses } from '@/hooks/use-expenses';
+import { useMileage } from '@/hooks/use-mileage';
 import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
 
 export function ExpenseTable() {
   const { expenses, addExpense, updateExpense, deleteExpense, isLoading } = useExpenses();
+  const { addMileage, updateMileage } = useMileage();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Expense | null>(null);
 
@@ -79,6 +81,8 @@ export function ExpenseTable() {
         onOpenChange={handleFormOpenChange}
         addExpense={addExpense}
         updateExpense={updateExpense}
+        addMileage={addMileage}
+        updateMileage={updateMileage}
         editingItem={editingItem}
       />
       <div className="flex justify-between items-center mb-6 gap-2">
