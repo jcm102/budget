@@ -1,160 +1,147 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { isBefore, startOfToday, startOfWeek, startOfMonth as fnsStartOfMonth } from 'date-fns';
 import type { Task, Subtask } from '@/types';
-
-const TASKS_STORAGE_KEY = 'tasktrack-budget-tasks';
-
-const checkAndResetTask = (task: Task, today: Date): Task => {
-  if (!task.completed || !task.completedAt) {
-    return task;
-  }
-  
-  const completedDate = new Date(task.completedAt);
-  let shouldReset = false;
-
-  switch (task.frequency) {
-    case 'daily':
-      shouldReset = isBefore(completedDate, today);
-      break;
-    case 'weekly':
-      // Sunday as the first day of the week
-      const startOfWeekDate = startOfWeek(today, { weekStartsOn: 0 });
-      shouldReset = isBefore(completedDate, startOfWeekDate);
-      break;
-    case 'monthly':
-      const startOfMonthDate = fnsStartOfMonth(today);
-      shouldReset = isBefore(completedDate, startOfMonthDate);
-      break;
-    default:
-      break;
-  }
-
-  if (shouldReset) {
-    const resetSubtasks = (task.subtasks || []).map(st => ({...st, completed: false}));
-    return { ...task, completed: false, completedAt: null, subtasks: resetSubtasks };
-  }
-
-  return task;
-};
-
+import { useToast } from './use-toast';
+import * as TaskService from '@/services/task-service';
 
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isClient, setIsClient] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  useEffect(() => {
-    if(isClient) {
+    const fetchTasks = async () => {
       try {
-        const storedTasks = localStorage.getItem(TASKS_STORAGE_KEY);
-        if (storedTasks) {
-          const parsedTasks: Task[] = JSON.parse(storedTasks);
-          const today = startOfToday();
-          const updatedTasks = parsedTasks.map(task => checkAndResetTask(task, today));
-          setTasks(updatedTasks);
-        }
+        setIsLoading(true);
+        const fetchedTasks = await TaskService.getTasks();
+        setTasks(fetchedTasks);
       } catch (error) {
-        console.error('Failed to load tasks from local storage:', error);
+        console.error('Failed to load tasks:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load tasks from the database.',
+          variant: 'destructive',
+        });
       } finally {
         setIsLoading(false);
       }
-    }
-  }, [isClient]);
-
-  useEffect(() => {
-    if (!isLoading && isClient) {
-      try {
-        localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(tasks));
-      } catch (error) {
-        console.error('Failed to save tasks to local storage:', error);
-      }
-    }
-  }, [tasks, isLoading, isClient]);
-
-  const addTask = useCallback((taskData: Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks'>) => {
-    const newTask: Task = {
-      ...taskData,
-      id: crypto.randomUUID(),
-      completed: false,
-      completedAt: null,
-      subtasks: [],
     };
-    setTasks((prevTasks) => [...prevTasks, newTask]);
-  }, []);
+    fetchTasks();
+  }, [toast]);
 
-  const updateTask = useCallback((id: string, taskData: Partial<Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks'>>) => {
-    setTasks((prevTasks) =>
-      prevTasks.map((task) =>
-        task.id === id
-          ? { ...task, ...taskData }
-          : task
-      )
-    );
-  }, []);
+  const addTask = useCallback(async (taskData: Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks'>) => {
+    try {
+      const newTask = await TaskService.addTask(taskData);
+      setTasks((prevTasks) => [...prevTasks, newTask]);
+    } catch (error) {
+      console.error('Failed to add task:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to add the new task.',
+        variant: 'destructive',
+      });
+    }
+  }, [toast]);
 
-  const toggleTask = useCallback((id: string) => {
-    setTasks((prevTasks) =>
-      prevTasks.map((task) => {
-        if (task.id === id) {
-          const newCompleted = !task.completed;
-          const newSubtasks = (task.subtasks || []).map(st => ({...st, completed: newCompleted}));
-          return { ...task, completed: newCompleted, completedAt: newCompleted ? new Date().toISOString() : null, subtasks: newSubtasks };
+  const updateTask = useCallback(async (id: string, taskData: Partial<Omit<Task, 'id'>>) => {
+    try {
+      await TaskService.updateTask(id, taskData);
+      setTasks((prevTasks) =>
+        prevTasks.map((task) =>
+          task.id === id ? { ...task, ...taskData } : task
+        )
+      );
+    } catch (error) {
+      console.error('Failed to update task:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update the task.',
+        variant: 'destructive',
+      });
+    }
+  }, [toast]);
+
+  const toggleTask = useCallback(async (id: string) => {
+    const originalTasks = tasks;
+    const taskToToggle = tasks.find((t) => t.id === id);
+    if (!taskToToggle) return;
+
+    const newCompleted = !taskToToggle.completed;
+    const newCompletedAt = newCompleted ? new Date().toISOString() : null;
+    const updatedSubtasks = (taskToToggle.subtasks || []).map(st => ({...st, completed: newCompleted}));
+
+    const updatedTask = { ...taskToToggle, completed: newCompleted, completedAt: newCompletedAt, subtasks: updatedSubtasks };
+
+    setTasks(tasks.map((t) => (t.id === id ? updatedTask : t)));
+
+    try {
+      await TaskService.updateTask(id, { completed: newCompleted, completedAt: newCompletedAt, subtasks: updatedSubtasks });
+    } catch (error) {
+      console.error('Failed to toggle task:', error);
+      setTasks(originalTasks);
+      toast({
+        title: 'Error',
+        description: 'Failed to update the task status.',
+        variant: 'destructive',
+      });
+    }
+  }, [tasks, toast]);
+
+  const deleteTask = useCallback(async (id: string) => {
+    const originalTasks = tasks;
+    setTasks((prevTasks) => prevTasks.filter((task) => task.id !== id));
+    try {
+      await TaskService.deleteTask(id);
+    } catch (error) {
+      console.error('Failed to delete task:', error);
+      setTasks(originalTasks);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete the task.',
+        variant: 'destructive',
+      });
+    }
+  }, [tasks, toast]);
+
+  const addSubtask = useCallback(async (taskId: string, description: string) => {
+    try {
+      const newSubtask = await TaskService.addSubtask(taskId, description);
+      setTasks(prevTasks => prevTasks.map(task => {
+        if (task.id === taskId) {
+            const updatedSubtasks = [...(task.subtasks || []), newSubtask];
+            return { ...task, subtasks: updatedSubtasks, completed: false, completedAt: null };
         }
         return task;
-      })
-    );
-  }, []);
-
-  const deleteTask = useCallback((id: string) => {
-    setTasks((prevTasks) => prevTasks.filter((task) => task.id !== id));
-  }, []);
-
-  const addSubtask = useCallback((taskId: string, description: string) => {
-    const newSubtask: Subtask = {
-      id: crypto.randomUUID(),
-      description,
-      completed: false,
-    };
-    setTasks(prevTasks => prevTasks.map(task => {
-      if (task.id === taskId) {
-        const updatedSubtasks = [...(task.subtasks || []), newSubtask];
-        return { ...task, subtasks: updatedSubtasks, completed: false, completedAt: null };
-      }
-      return task;
-    }));
-  }, []);
-
-  const updateSubtask = useCallback((taskId: string, subtaskId: string, description: string) => {
-    setTasks(prevTasks => prevTasks.map(task => {
-      if (task.id === taskId) {
-        const updatedSubtasks = (task.subtasks || []).map(subtask => 
-          subtask.id === subtaskId ? { ...subtask, description } : subtask
-        );
-        return { ...task, subtasks: updatedSubtasks };
-      }
-      return task;
-    }));
-  }, []);
+      }));
+    } catch (error) {
+      console.error('Failed to add subtask:', error);
+      toast({ title: 'Error', description: 'Failed to add subtask.', variant: 'destructive' });
+    }
+  }, [toast]);
   
-  const toggleSubtask = useCallback((taskId: string, subtaskId: string) => {
-    setTasks(prevTasks => prevTasks.map(task => {
+  const updateSubtask = useCallback(async (taskId: string, subtaskId: string, description: string) => {
+    const originalTasks = tasks;
+    setTasks(prev => prev.map(t => t.id === taskId ? {...t, subtasks: t.subtasks.map(st => st.id === subtaskId ? {...st, description} : st)}: t));
+    try {
+      await TaskService.updateSubtask(taskId, subtaskId, description);
+    } catch (error) {
+      console.error('Failed to update subtask:', error);
+      setTasks(originalTasks);
+      toast({ title: 'Error', description: 'Failed to update subtask.', variant: 'destructive' });
+    }
+  }, [tasks, toast]);
+
+  const toggleSubtask = useCallback(async (taskId: string, subtaskId: string) => {
+    const originalTasks = tasks;
+    // Optimistically update UI
+     setTasks(prevTasks => prevTasks.map(task => {
       if (task.id === taskId) {
-        
-        const updatedSubtasks = (task.subtasks || []).map(st => {
-          if (st.id === subtaskId) {
-            return { ...st, completed: !st.completed };
-          }
-          return st;
-        });
-
+        const updatedSubtasks = (task.subtasks || []).map(st => 
+            st.id === subtaskId ? { ...st, completed: !st.completed } : st
+        );
         const allSubtasksCompleted = updatedSubtasks.every(st => st.completed);
-
         return {
           ...task,
           subtasks: updatedSubtasks,
@@ -164,24 +151,40 @@ export function useTasks() {
       }
       return task;
     }));
-  }, []);
 
-  const deleteSubtask = useCallback((taskId: string, subtaskId: string) => {
-    setTasks(prevTasks => prevTasks.map(task => {
-      if (task.id === taskId) {
-        const updatedSubtasks = (task.subtasks || []).filter(st => st.id !== subtaskId);
-        const allSubtasksCompleted = updatedSubtasks.every(st => st.completed);
-        
-        return { 
-          ...task, 
-          subtasks: updatedSubtasks,
-          completed: updatedSubtasks.length > 0 ? allSubtasksCompleted : false,
-          completedAt: updatedSubtasks.length > 0 && allSubtasksCompleted ? new Date().toISOString() : null,
-        };
-      }
-      return task;
+    try {
+        await TaskService.toggleSubtask(taskId, subtaskId);
+    } catch (error) {
+        console.error('Failed to toggle subtask:', error);
+        setTasks(originalTasks); // Revert on error
+        toast({ title: 'Error', description: 'Failed to toggle subtask status.', variant: 'destructive' });
+    }
+  }, [tasks, toast]);
+
+  const deleteSubtask = useCallback(async (taskId: string, subtaskId: string) => {
+    const originalTasks = tasks;
+     setTasks(prevTasks => prevTasks.map(task => {
+        if (task.id === taskId) {
+            const updatedSubtasks = (task.subtasks || []).filter(st => st.id !== subtaskId);
+            const allSubtasksCompleted = updatedSubtasks.length > 0 && updatedSubtasks.every(st => st.completed);
+            return { 
+                ...task, 
+                subtasks: updatedSubtasks,
+                completed: allSubtasksCompleted,
+                completedAt: allSubtasksCompleted ? new Date().toISOString() : null,
+            };
+        }
+        return task;
     }));
-  }, []);
+    try {
+        await TaskService.deleteSubtask(taskId, subtaskId);
+    } catch (error) {
+        console.error('Failed to delete subtask:', error);
+        setTasks(originalTasks);
+        toast({ title: 'Error', description: 'Failed to delete subtask.', variant: 'destructive' });
+    }
+  }, [tasks, toast]);
+
 
   return { tasks, addTask, updateTask, toggleTask, deleteTask, isLoading, addSubtask, updateSubtask, toggleSubtask, deleteSubtask };
 }

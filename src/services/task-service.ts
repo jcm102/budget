@@ -1,0 +1,171 @@
+
+'use server';
+
+import { db } from '@/lib/firebase';
+import type { Task, Subtask } from '@/types';
+import { 
+  collection, 
+  getDocs, 
+  doc, 
+  setDoc, 
+  deleteDoc,
+  query,
+  writeBatch,
+  getDoc
+} from 'firebase/firestore';
+import { isBefore, startOfToday, startOfWeek, startOfMonth as fnsStartOfMonth } from 'date-fns';
+
+const TASKS_COLLECTION = 'tasks';
+
+const checkAndResetTask = (task: Task): Task => {
+  if (!task.completed || !task.completedAt) {
+    return task;
+  }
+  
+  const today = startOfToday();
+  const completedDate = new Date(task.completedAt);
+  let shouldReset = false;
+
+  switch (task.frequency) {
+    case 'daily':
+      shouldReset = isBefore(completedDate, today);
+      break;
+    case 'weekly':
+      const startOfWeekDate = startOfWeek(today, { weekStartsOn: 0 });
+      shouldReset = isBefore(completedDate, startOfWeekDate);
+      break;
+    case 'monthly':
+      const startOfMonthDate = fnsStartOfMonth(today);
+      shouldReset = isBefore(completedDate, startOfMonthDate);
+      break;
+  }
+
+  if (shouldReset) {
+    const resetSubtasks = (task.subtasks || []).map(st => ({...st, completed: false}));
+    return { ...task, completed: false, completedAt: null, subtasks: resetSubtasks };
+  }
+
+  return task;
+};
+
+
+export async function getTasks(): Promise<Task[]> {
+  const tasksCollection = collection(db, TASKS_COLLECTION);
+  const q = query(tasksCollection);
+  const querySnapshot = await getDocs(q);
+  const batch = writeBatch(db);
+  let hasChanges = false;
+
+  const tasks = querySnapshot.docs.map(doc => {
+    const taskData = { id: doc.id, ...doc.data() } as Task;
+    const updatedTask = checkAndResetTask(taskData);
+    if (JSON.stringify(taskData) !== JSON.stringify(updatedTask)) {
+      hasChanges = true;
+      const taskRef = doc.ref;
+      batch.set(taskRef, updatedTask);
+    }
+    return updatedTask;
+  });
+
+  if (hasChanges) {
+    await batch.commit();
+  }
+
+  return tasks;
+}
+
+export async function addTask(taskData: Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks'>): Promise<Task> {
+  const newTask: Omit<Task, 'id'> = {
+    ...taskData,
+    completed: false,
+    completedAt: null,
+    subtasks: [],
+  };
+  const docRef = doc(collection(db, TASKS_COLLECTION));
+  await setDoc(docRef, newTask);
+  return { ...newTask, id: docRef.id };
+}
+
+export async function updateTask(id: string, taskData: Partial<Omit<Task, 'id'>>): Promise<void> {
+  const taskRef = doc(db, TASKS_COLLECTION, id);
+  const docSnap = await getDoc(taskRef);
+  if (docSnap.exists()) {
+    const existingData = docSnap.data();
+    await setDoc(taskRef, { ...existingData, ...taskData });
+  } else {
+    throw new Error(`Task with id ${id} not found.`);
+  }
+}
+
+export async function deleteTask(id: string): Promise<void> {
+  const taskRef = doc(db, TASKS_COLLECTION, id);
+  await deleteDoc(taskRef);
+}
+
+export async function addSubtask(taskId: string, description: string): Promise<Subtask> {
+  const taskRef = doc(db, TASKS_COLLECTION, taskId);
+  const docSnap = await getDoc(taskRef);
+  if (!docSnap.exists()) throw new Error(`Task with id ${taskId} not found.`);
+
+  const task = docSnap.data() as Task;
+  const newSubtask: Subtask = {
+    id: crypto.randomUUID(),
+    description,
+    completed: false,
+  };
+  const updatedSubtasks = [...(task.subtasks || []), newSubtask];
+  await setDoc(taskRef, { ...task, subtasks: updatedSubtasks, completed: false, completedAt: null });
+
+  return newSubtask;
+}
+
+export async function updateSubtask(taskId: string, subtaskId: string, description: string): Promise<void> {
+    const taskRef = doc(db, TASKS_COLLECTION, taskId);
+    const docSnap = await getDoc(taskRef);
+    if (!docSnap.exists()) throw new Error(`Task with id ${taskId} not found.`);
+    
+    const task = docSnap.data() as Task;
+    const updatedSubtasks = (task.subtasks || []).map(subtask => 
+      subtask.id === subtaskId ? { ...subtask, description } : subtask
+    );
+    await setDoc(taskRef, { ...task, subtasks: updatedSubtasks });
+}
+
+export async function toggleSubtask(taskId: string, subtaskId: string): Promise<void> {
+    const taskRef = doc(db, TASKS_COLLECTION, taskId);
+    const docSnap = await getDoc(taskRef);
+    if (!docSnap.exists()) throw new Error(`Task with id ${taskId} not found.`);
+    
+    let task = docSnap.data() as Task;
+    const updatedSubtasks = (task.subtasks || []).map(st => 
+        st.id === subtaskId ? { ...st, completed: !st.completed } : st
+    );
+
+    const allSubtasksCompleted = updatedSubtasks.every(st => st.completed);
+
+    const updatedTask = {
+        ...task,
+        subtasks: updatedSubtasks,
+        completed: allSubtasksCompleted,
+        completedAt: allSubtasksCompleted ? new Date().toISOString() : null,
+    };
+    await setDoc(taskRef, updatedTask);
+}
+
+export async function deleteSubtask(taskId: string, subtaskId: string): Promise<void> {
+    const taskRef = doc(db, TASKS_COLLECTION, taskId);
+    const docSnap = await getDoc(taskRef);
+    if (!docSnap.exists()) throw new Error(`Task with id ${taskId} not found.`);
+
+    let task = docSnap.data() as Task;
+    const updatedSubtasks = (task.subtasks || []).filter(st => st.id !== subtaskId);
+    const allSubtasksCompleted = updatedSubtasks.length > 0 && updatedSubtasks.every(st => st.completed);
+
+    const updatedTask = {
+        ...task,
+        subtasks: updatedSubtasks,
+        completed: allSubtasksCompleted,
+        completedAt: allSubtasksCompleted ? new Date().toISOString() : null,
+    };
+    await setDoc(taskRef, updatedTask);
+}

@@ -1,65 +1,88 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Debt } from '@/types';
-
-const DEBT_STORAGE_KEY = 'tasktrack-budget-debt';
+import { useToast } from './use-toast';
+import * as DebtService from '@/services/debt-service';
 
 export function useDebt() {
   const [debts, setDebts] = useState<Debt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isClient, setIsClient] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  useEffect(() => {
-    if (isClient) {
+    const fetchDebts = async () => {
       try {
-        const storedDebts = localStorage.getItem(DEBT_STORAGE_KEY);
-        if (storedDebts) {
-          setDebts(JSON.parse(storedDebts));
-        }
+        setIsLoading(true);
+        const fetchedDebts = await DebtService.getDebts();
+        setDebts(fetchedDebts);
       } catch (error) {
-        console.error('Failed to load debts from local storage:', error);
+        console.error('Failed to load debts:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load debts from the database.',
+          variant: 'destructive',
+        });
       } finally {
         setIsLoading(false);
       }
-    }
-  }, [isClient]);
-
-  useEffect(() => {
-    if (isClient && !isLoading) {
-      try {
-        localStorage.setItem(DEBT_STORAGE_KEY, JSON.stringify(debts));
-      } catch (error) {
-        console.error('Failed to save debts to local storage:', error);
-      }
-    }
-  }, [debts, isLoading, isClient]);
-
-  const addDebt = useCallback((debtData: Omit<Debt, 'id'>) => {
-    const newDebt: Debt = {
-      ...debtData,
-      id: crypto.randomUUID(),
     };
-    setDebts((prevDebts) => [...prevDebts, newDebt]);
-  }, []);
+    fetchDebts();
+  }, [toast]);
 
-  const updateDebt = useCallback((id: string, debtData: Omit<Debt, 'id'>) => {
+  const addDebt = useCallback(async (debtData: Omit<Debt, 'id'>) => {
+    try {
+      const newDebt = await DebtService.addDebt(debtData);
+      setDebts((prevDebts) => [...prevDebts, newDebt]);
+    } catch (error) {
+      console.error('Failed to add debt:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to add the new debt entry.',
+        variant: 'destructive',
+      });
+    }
+  }, [toast]);
+
+  const updateDebt = useCallback(async (id: string, debtData: Omit<Debt, 'id'>) => {
+    const originalDebts = debts;
     setDebts((prevDebts) =>
-      prevDebts.map((debt) => (debt.id === id ? { ...debt, ...debtData } : debt))
+      prevDebts.map((debt) => (debt.id === id ? { id, ...debtData } : debt))
     );
-  }, []);
+    try {
+      await DebtService.updateDebt(id, debtData);
+    } catch (error) {
+      console.error('Failed to update debt:', error);
+      setDebts(originalDebts);
+      toast({
+        title: 'Error',
+        description: 'Failed to update the debt entry.',
+        variant: 'destructive',
+      });
+    }
+  }, [debts, toast]);
 
-  const deleteDebt = useCallback((id: string) => {
+  const deleteDebt = useCallback(async (id: string) => {
+    const originalDebts = debts;
     setDebts((prevDebts) => prevDebts.filter((debt) => debt.id !== id));
-  }, []);
-
-  const resetDebtValues = useCallback(() => {
-    setDebts((prevDebts) =>
-      prevDebts.map((debt) => ({
+    try {
+      await DebtService.deleteDebt(id);
+    } catch (error) {
+      console.error('Failed to delete debt:', error);
+      setDebts(originalDebts);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete the debt entry.',
+        variant: 'destructive',
+      });
+    }
+  }, [debts, toast]);
+  
+  const resetDebtValues = useCallback(async () => {
+    const originalDebts = [...debts];
+    setDebts(prevDebts =>
+      prevDebts.map(debt => ({
         ...debt,
         balance: 0,
         minimumPayment: 0,
@@ -67,7 +90,18 @@ export function useDebt() {
         dueDate: new Date().toISOString(),
       }))
     );
-  }, []);
+    try {
+      await DebtService.resetDebtValues();
+    } catch (error) {
+      console.error('Failed to reset debts:', error);
+      setDebts(originalDebts);
+      toast({
+        title: 'Error',
+        description: 'Failed to reset debt values.',
+        variant: 'destructive',
+      });
+    }
+  }, [debts, toast]);
 
   return { debts, addDebt, updateDebt, deleteDebt, resetDebtValues, isLoading };
 }
