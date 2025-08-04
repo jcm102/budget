@@ -43,32 +43,39 @@ const checkAndResetTask = (task: Task, today: Date): Task => {
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    try {
-      const storedTasks = localStorage.getItem(TASKS_STORAGE_KEY);
-      if (storedTasks) {
-        const parsedTasks: Task[] = JSON.parse(storedTasks);
-        const today = startOfToday();
-        const updatedTasks = parsedTasks.map(task => checkAndResetTask(task, today));
-        setTasks(updatedTasks);
-      }
-    } catch (error) {
-      console.error('Failed to load tasks from local storage:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    setIsClient(true);
   }, []);
 
   useEffect(() => {
-    if (!isLoading) {
+    if(isClient) {
+      try {
+        const storedTasks = localStorage.getItem(TASKS_STORAGE_KEY);
+        if (storedTasks) {
+          const parsedTasks: Task[] = JSON.parse(storedTasks);
+          const today = startOfToday();
+          const updatedTasks = parsedTasks.map(task => checkAndResetTask(task, today));
+          setTasks(updatedTasks);
+        }
+      } catch (error) {
+        console.error('Failed to load tasks from local storage:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  }, [isClient]);
+
+  useEffect(() => {
+    if (!isLoading && isClient) {
       try {
         localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(tasks));
       } catch (error) {
         console.error('Failed to save tasks to local storage:', error);
       }
     }
-  }, [tasks, isLoading]);
+  }, [tasks, isLoading, isClient]);
 
   const addTask = useCallback((taskData: Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks'>) => {
     const newTask: Task = {

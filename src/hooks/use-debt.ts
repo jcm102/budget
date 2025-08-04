@@ -8,29 +8,36 @@ const DEBT_STORAGE_KEY = 'tasktrack-budget-debt';
 export function useDebt() {
   const [debts, setDebts] = useState<Debt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    try {
-      const storedDebts = localStorage.getItem(DEBT_STORAGE_KEY);
-      if (storedDebts) {
-        setDebts(JSON.parse(storedDebts));
-      }
-    } catch (error) {
-      console.error('Failed to load debts from local storage:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    setIsClient(true);
   }, []);
 
   useEffect(() => {
-    if (!isLoading) {
+    if (isClient) {
+      try {
+        const storedDebts = localStorage.getItem(DEBT_STORAGE_KEY);
+        if (storedDebts) {
+          setDebts(JSON.parse(storedDebts));
+        }
+      } catch (error) {
+        console.error('Failed to load debts from local storage:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  }, [isClient]);
+
+  useEffect(() => {
+    if (isClient && !isLoading) {
       try {
         localStorage.setItem(DEBT_STORAGE_KEY, JSON.stringify(debts));
       } catch (error) {
         console.error('Failed to save debts to local storage:', error);
       }
     }
-  }, [debts, isLoading]);
+  }, [debts, isLoading, isClient]);
 
   const addDebt = useCallback((debtData: Omit<Debt, 'id'>) => {
     const newDebt: Debt = {
