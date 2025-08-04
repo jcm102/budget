@@ -66,15 +66,13 @@ export function BudgetTable() {
   );
 
   const incomeItems = budgetItems.filter(i => i.type === 'income');
-  const savingsItems = budgetItems.filter(i => i.type === 'savings');
   const debtItems = budgetItems.filter(i => i.type === 'debt');
   const transferItems = budgetItems.filter(i => i.type === 'transfer');
 
   const totalIncome = incomeItems.reduce((acc, item) => acc + item.amount, 0);
-  const totalSavings = savingsItems.reduce((acc, item) => acc + item.amount, 0);
   const totalDebt = debtItems.reduce((acc, item) => acc + item.amount, 0);
   const totalTransfers = transferItems.reduce((acc, item) => acc + item.amount, 0);
-  const totalExpenses = totalSavings + totalDebt + totalTransfers;
+  const totalExpenses = totalDebt + totalTransfers;
   const netFlow = totalIncome - totalExpenses;
 
   const renderSection = (title: string, items: BudgetItem[], icon: React.ReactNode) => (
@@ -194,7 +192,6 @@ export function BudgetTable() {
         </div>
 
       {renderSection('Income', incomeItems, <DollarSign className="h-6 w-6 text-green-500" />)}
-      {renderSection('Savings', savingsItems, <PiggyBank className="h-6 w-6 text-blue-500" />)}
       {renderSection('Debt Payments', debtItems, <Landmark className="h-6 w-6 text-red-500" />)}
       {renderSection('Transfers', transferItems, <ArrowRightLeft className="h-6 w-6 text-yellow-500" />)}
     </>

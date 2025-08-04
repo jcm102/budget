@@ -34,7 +34,7 @@ import type { BudgetItem, BudgetItemType, TransferDestination } from '@/types';
 const formSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.'),
   amount: z.coerce.number().min(0, 'Amount must be a positive number.'),
-  type: z.enum(['income', 'savings', 'debt', 'transfer'], {
+  type: z.enum(['income', 'debt', 'transfer'], {
     required_error: 'Please select a type.',
   }),
   destination: z.enum(['checking', 'savings', 'investment']).optional().nullable(),
@@ -154,7 +154,6 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="income">Income</SelectItem>
-                      <SelectItem value="savings">Savings</SelectItem>
                       <SelectItem value="debt">Debt Payment</SelectItem>
                       <SelectItem value="transfer">Transfer</SelectItem>
                     </SelectContent>
