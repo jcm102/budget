@@ -57,6 +57,8 @@ type BudgetFormProps = {
   editingItem: BudgetItem | null;
 };
 
+const incomeCategories = ['Paycheck', 'Bonus', 'Freelance', 'Other'];
+
 export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem, editingItem }: BudgetFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -152,7 +154,20 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
              <FormField control={form.control} name="category" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Category</FormLabel>
-                  <FormControl><Input placeholder="e.g., Paycheck" {...field} /></FormControl>
+                  {itemType === 'Income' ? (
+                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                       <FormControl>
+                        <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {incomeCategories.map(category => (
+                          <SelectItem key={category} value={category}>{category}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <FormControl><Input placeholder="e.g., Student Loan" {...field} /></FormControl>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
