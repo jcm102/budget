@@ -25,15 +25,3 @@ export interface Debt {
   actualPayment: number;
   dueDate: string; // Should be a date string
 }
-
-export type BudgetItemType = 'income' | 'debt' | 'transfer';
-export type TransferDestination = 'checking' | 'savings' | 'investment';
-
-export interface BudgetItem {
-    id: string;
-    name: string;
-    amount: number;
-    type: BudgetItemType;
-    destination?: TransferDestination | null;
-    category?: string | null;
-}
