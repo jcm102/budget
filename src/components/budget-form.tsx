@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { BudgetItem, BudgetItemType } from '@/types';
+import type { BudgetItem, BudgetItemType, BudgetItemFrequency } from '@/types';
 import { useCategories } from '@/hooks/use-categories';
 import { useTransferees } from '@/hooks/use-transferees';
 
@@ -39,6 +39,7 @@ const formSchema = z.object({
     amount: z.coerce.number().min(0.01, 'Amount must be greater than 0.'),
     type: z.enum(['Income', 'Debt Payments', 'Transfers', 'Pre-Authorized Payments']),
     date: z.string().min(1, 'A date is required.'),
+    frequency: z.enum(['One-Time', 'Monthly']),
     transferTo: z.string().optional(),
     transferFrom: z.string().optional(),
   }).refine(data => {
@@ -71,6 +72,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
       amount: 0,
       type: 'Income',
       date: new Date().toISOString().split('T')[0],
+      frequency: 'One-Time',
       transferFrom: '',
       transferTo: '',
     },
@@ -87,6 +89,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
           amount: editingItem.amount,
           type: editingItem.type,
           date: new Date(editingItem.date).toISOString().split('T')[0],
+          frequency: editingItem.frequency || 'One-Time',
           transferFrom: editingItem.transferFrom || '',
           transferTo: editingItem.transferTo || '',
         });
@@ -97,6 +100,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
           amount: 0,
           type: 'Income',
           date: new Date().toISOString().split('T')[0],
+          frequency: 'One-Time',
           transferFrom: '',
           transferTo: '',
         });
@@ -122,6 +126,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
       ...values,
       date: new Date(values.date).toISOString(),
       type: values.type as BudgetItemType,
+      frequency: values.frequency as BudgetItemFrequency,
     };
     if (editingItem) {
       updateBudgetItem(editingItem.id, submissionData);
@@ -240,6 +245,22 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                 <FormItem>
                   <FormLabel>Date</FormLabel>
                   <FormControl><Input type="date" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField control={form.control} name="frequency" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Frequency</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger><SelectValue placeholder="Select frequency" /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="One-Time">One-Time</SelectItem>
+                      <SelectItem value="Monthly">Monthly</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

@@ -1,7 +1,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import type { BudgetItem } from '@/types';
+import type { BudgetItem, BudgetItemFrequency } from '@/types';
 import {
   collection,
   getDocs,
@@ -11,6 +11,7 @@ import {
   query,
   getDoc,
 } from 'firebase/firestore';
+import { isSameMonth, startOfMonth, getDate, getMonth, getYear, set } from 'date-fns';
 
 const BUDGET_COLLECTION = 'budget-items';
 
@@ -18,8 +19,44 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
   const budgetCollection = collection(db, BUDGET_COLLECTION);
   const q = query(budgetCollection);
   const querySnapshot = await getDocs(q);
-  const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BudgetItem));
-  return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  
+  const today = new Date();
+  const currentMonthItems: BudgetItem[] = [];
+
+  const allItems = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BudgetItem));
+
+  allItems.forEach(item => {
+    const itemStartDate = new Date(item.date);
+    if (item.frequency === 'One-Time') {
+      if (isSameMonth(itemStartDate, today)) {
+        currentMonthItems.push(item);
+      }
+    } else if (item.frequency === 'Monthly') {
+      // If the item started this month or a previous month
+      if (itemStartDate <= today || isSameMonth(itemStartDate, today)) {
+        const itemDay = getDate(itemStartDate);
+        const currentMonthInstanceDate = set(today, { 
+            setDate: itemDay,
+            setHours: itemStartDate.getHours(),
+            setMinutes: itemStartDate.getMinutes(),
+            setSeconds: itemStartDate.getSeconds(),
+            setMilliseconds: itemStartDate.getMilliseconds()
+        });
+
+        // Ensure we don't show items that started in a future month but have a day that passed.
+         if (getYear(currentMonthInstanceDate) > getYear(itemStartDate) || 
+            (getYear(currentMonthInstanceDate) === getYear(itemStartDate) && getMonth(currentMonthInstanceDate) >= getMonth(itemStartDate)))
+         {
+            currentMonthItems.push({
+                ...item,
+                date: currentMonthInstanceDate.toISOString(),
+            });
+        }
+      }
+    }
+  });
+
+  return currentMonthItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
 export async function addBudgetItem(itemData: Omit<BudgetItem, 'id'>): Promise<BudgetItem> {

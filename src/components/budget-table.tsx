@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, ArrowUpDown } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, ArrowUpDown, Repeat } from 'lucide-react';
 import type { BudgetItem, BudgetItemType } from '@/types';
 import {
   Table,
@@ -30,6 +30,7 @@ import { useBudget } from '@/hooks/use-budget';
 import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
+import { Badge } from './ui/badge';
 
 export function BudgetTable() {
   const { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, isLoading } = useBudget();
@@ -69,9 +70,9 @@ export function BudgetTable() {
     const items = budgetItems.filter(item => item.type === type);
     const total = items.reduce((acc, item) => acc + item.amount, 0);
     
-    let colSpan = 4;
-    if (type === 'Transfers') colSpan = 5;
-    if (type === 'Income') colSpan = 5;
+    let colSpan = 5;
+    if (type === 'Transfers') colSpan = 6;
+    if (type === 'Income') colSpan = 6;
 
     return (
       <div className="mb-8">
@@ -85,6 +86,7 @@ export function BudgetTable() {
                 {type === 'Transfers' && <TableHead>From</TableHead>}
                 {type === 'Transfers' && <TableHead>To</TableHead>}
                 <TableHead>Date</TableHead>
+                <TableHead>Frequency</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
                 <TableHead className="w-[100px] text-right">Actions</TableHead>
               </TableRow>
@@ -100,6 +102,15 @@ export function BudgetTable() {
                     {type === 'Transfers' && <TableCell>{item.transferFrom}</TableCell>}
                     {type === 'Transfers' && <TableCell>{item.transferTo}</TableCell>}
                     <TableCell>{format(new Date(item.date), 'PPP')}</TableCell>
+                     <TableCell>
+                      {item.frequency === 'Monthly' ? (
+                        <Badge variant="secondary" className="gap-1 items-center">
+                          <Repeat className="h-3 w-3" /> Monthly
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline">One-Time</Badge>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">{formatCurrency(item.amount)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
