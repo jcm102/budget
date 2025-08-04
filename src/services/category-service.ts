@@ -22,10 +22,10 @@ async function seedDefaultCategories() {
   const snapshot = await getDocs(query(categoryCollection));
   if (snapshot.empty) {
     const batch = writeBatch(db);
-    for (const categoryName of defaultCategories) {
+    defaultCategories.forEach(categoryName => {
       const docRef = doc(categoryCollection);
       batch.set(docRef, { name: categoryName });
-    }
+    });
     await batch.commit();
   }
 }
