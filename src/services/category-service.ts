@@ -11,6 +11,7 @@ import {
   query,
   orderBy,
   addDoc,
+  writeBatch,
 } from 'firebase/firestore';
 
 const CATEGORY_COLLECTION = 'income-categories';
@@ -20,11 +21,12 @@ async function seedDefaultCategories() {
   const categoryCollection = collection(db, CATEGORY_COLLECTION);
   const snapshot = await getDocs(query(categoryCollection));
   if (snapshot.empty) {
-    const batch = setDoc;
+    const batch = writeBatch(db);
     for (const categoryName of defaultCategories) {
       const docRef = doc(categoryCollection);
-      await setDoc(docRef, { name: categoryName });
+      batch.set(docRef, { name: categoryName });
     }
+    await batch.commit();
   }
 }
 
