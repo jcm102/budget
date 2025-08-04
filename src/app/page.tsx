@@ -85,12 +85,12 @@ export default function Home() {
                   <h4 className="font-medium leading-none">Entering Splitwise Transactions</h4>
                   <div className="text-sm text-muted-foreground mt-2 space-y-2">
                     <div>
-                      <h5 className="font-semibold">Jordan Pays:</h5>
+                      <h5 className="font-semibold">Jordan Paid:</h5>
                       <p>1. Enter split transaction in Actual</p>
                       <p>2. First half into appropriate category. Transfer second half to splitwise account.</p>
                     </div>
                     <div>
-                      <h5 className="font-semibold">Eric Pays:</h5>
+                      <h5 className="font-semibold">Eric Paid:</h5>
                       <p>1. Enter my portion of the transaction into splitwise account. Categorize appropriately.</p>
                     </div>
                   </div>
