@@ -1,14 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { format } from 'date-fns';
-import { CalendarIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
 import {
   Dialog,
   DialogContent,
@@ -26,7 +22,6 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { Debt } from '@/types';
 
 const formSchema = z.object({
@@ -34,7 +29,7 @@ const formSchema = z.object({
   balance: z.coerce.number().min(0, 'Balance must be a positive number.'),
   minimumPayment: z.coerce.number().min(0, 'Minimum payment must be a positive number.'),
   actualPayment: z.coerce.number().min(0, 'Actual payment must be a positive number.'),
-  dueDate: z.date({ required_error: 'A due date is required.' }),
+  dueDate: z.string().min(1, 'A due date is required.'),
 });
 
 type DebtFormProps = {
@@ -46,7 +41,6 @@ type DebtFormProps = {
 };
 
 export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt }: DebtFormProps) {
-  const [isCalendarOpen, setCalendarOpen] = useState(false);
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -54,6 +48,7 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
       balance: 0,
       minimumPayment: 0,
       actualPayment: 0,
+      dueDate: '',
     },
   });
 
@@ -65,7 +60,7 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
           balance: editingDebt.balance,
           minimumPayment: editingDebt.minimumPayment,
           actualPayment: editingDebt.actualPayment,
-          dueDate: new Date(editingDebt.dueDate),
+          dueDate: new Date(editingDebt.dueDate).toISOString().split('T')[0],
         });
       } else {
         form.reset({
@@ -73,14 +68,14 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
           balance: 0,
           minimumPayment: 0,
           actualPayment: 0,
-          dueDate: new Date(),
+          dueDate: new Date().toISOString().split('T')[0],
         });
       }
     }
   }, [editingDebt, open, form]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    const submissionData = { ...values, dueDate: values.dueDate.toISOString() };
+    const submissionData = { ...values, dueDate: new Date(values.dueDate).toISOString() };
     if (editingDebt) {
       updateDebt(editingDebt.id, submissionData);
     } else {
@@ -141,29 +136,11 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
               )}
             />
             <FormField control={form.control} name="dueDate" render={({ field }) => (
-                <FormItem className="flex flex-col">
+                <FormItem>
                   <FormLabel>Due Date</FormLabel>
-                  <Popover open={isCalendarOpen} onOpenChange={setCalendarOpen}>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button variant={'outline'} className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>
-                          {field.value ? format(field.value, 'PPP') : <span>Pick a date</span>}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar 
-                        mode="single" 
-                        selected={field.value} 
-                        onSelect={(date) => {
-                          field.onChange(date);
-                          setCalendarOpen(false);
-                        }} 
-                        initialFocus 
-                      />
-                    </PopoverContent>
-                  </Popover>
+                   <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
