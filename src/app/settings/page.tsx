@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { CategoryManager } from '@/components/category-manager';
 import { ArrowLeft } from 'lucide-react';
 import { TransfereeManager } from '@/components/transferee-manager';
+import { MileageRateManager } from '@/components/mileage-rate-manager';
 
 export default function SettingsPage() {
   return (
@@ -20,10 +21,11 @@ export default function SettingsPage() {
       <main className="space-y-8">
         <div>
           <h1 className="text-3xl font-bold font-headline text-primary mb-6">Settings</h1>
-          <CategoryManager />
-        </div>
-        <div>
-          <TransfereeManager />
+          <div className="space-y-4">
+            <CategoryManager />
+            <TransfereeManager />
+            <MileageRateManager />
+          </div>
         </div>
       </main>
     </div>

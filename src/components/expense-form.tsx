@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -35,6 +35,7 @@ import type { Expense, MileageLog, ExpenseType } from '@/types';
 import { useCategories } from '@/hooks/use-categories';
 import { useTransferees } from '@/hooks/use-transferees';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
+import { useMileageRate } from '@/hooks/use-mileage-rate';
 
 const formSchema = z.object({
   expenseType: z.enum(['Monetary', 'Mileage']),
@@ -88,6 +89,7 @@ export function ExpenseForm({
 }: ExpenseFormProps) {
   const { categories } = useCategories();
   const { transferees } = useTransferees();
+  const { mileageRate, isLoading: isRateLoading } = useMileageRate();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -100,14 +102,21 @@ export function ExpenseForm({
       transferee: '',
       reimbursable: false,
       distance: 0,
-      rate: 0.50, // Default rate
+      rate: 0.50,
     },
   });
 
   const expenseType = form.watch('expenseType');
 
   useEffect(() => {
+    if (!isRateLoading && mileageRate !== null) {
+        form.setValue('rate', mileageRate);
+    }
+  }, [isRateLoading, mileageRate, form]);
+
+  useEffect(() => {
     if (open) {
+      const defaultRate = mileageRate || 0.50;
       if (editingItem) {
         form.reset({
           expenseType: editingItem.type,
@@ -118,7 +127,7 @@ export function ExpenseForm({
           category: 'category' in editingItem ? editingItem.category : '',
           transferee: 'transferee' in editingItem ? editingItem.transferee : '',
           distance: 'distance' in editingItem ? editingItem.distance : 0,
-          rate: 'rate' in editingItem ? editingItem.rate : 0.50,
+          rate: 'rate' in editingItem ? editingItem.rate : defaultRate,
         });
       } else {
         form.reset({
@@ -130,11 +139,11 @@ export function ExpenseForm({
           category: '',
           transferee: '',
           distance: 0,
-          rate: 0.50,
+          rate: defaultRate,
         });
       }
     }
-  }, [editingItem, open, form]);
+  }, [editingItem, open, form, mileageRate]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const [year, month, day] = values.date.split('-').map(Number);
