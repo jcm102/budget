@@ -30,6 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import type { Expense } from '@/types';
 import { useCategories } from '@/hooks/use-categories';
 import { useTransferees } from '@/hooks/use-transferees';
@@ -40,6 +41,7 @@ const formSchema = z.object({
   category: z.string().min(1, 'Category is required.'),
   transferee: z.string().min(1, 'Payment source is required.'),
   date: z.string().min(1, 'A date is required.'),
+  reimbursable: z.boolean(),
 });
 
 type ExpenseFormProps = {
@@ -62,6 +64,7 @@ export function ExpenseForm({ open, onOpenChange, addExpense, updateExpense, edi
       category: '',
       transferee: '',
       date: new Date().toISOString().split('T')[0],
+      reimbursable: false,
     },
   });
 
@@ -74,6 +77,7 @@ export function ExpenseForm({ open, onOpenChange, addExpense, updateExpense, edi
           category: editingItem.category,
           transferee: editingItem.transferee,
           date: new Date(editingItem.date).toISOString().split('T')[0],
+          reimbursable: editingItem.reimbursable,
         });
       } else {
         form.reset({
@@ -82,6 +86,7 @@ export function ExpenseForm({ open, onOpenChange, addExpense, updateExpense, edi
           category: '',
           transferee: '',
           date: new Date().toISOString().split('T')[0],
+          reimbursable: false,
         });
       }
     }
@@ -169,6 +174,24 @@ export function ExpenseForm({ open, onOpenChange, addExpense, updateExpense, edi
                   <FormLabel>Date</FormLabel>
                   <FormControl><Input type="date" {...field} /></FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+              control={form.control}
+              name="reimbursable"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                  <div className="space-y-0.5">
+                    <FormLabel>Reimbursable</FormLabel>
+                    <FormMessage />
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
                 </FormItem>
               )}
             />

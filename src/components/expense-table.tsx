@@ -26,6 +26,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
 import { ExpenseForm } from './expense-form';
 import { useExpenses } from '@/hooks/use-expenses';
 import { Skeleton } from './ui/skeleton';
@@ -62,11 +63,15 @@ export function ExpenseTable() {
         <TableCell><Skeleton className="h-6 w-full" /></TableCell>
         <TableCell><Skeleton className="h-6 w-full" /></TableCell>
         <TableCell><Skeleton className="h-6 w-full" /></TableCell>
+        <TableCell><Skeleton className="h-6 w-full" /></TableCell>
       </TableRow>
     ))
   );
 
   const totalExpenses = expenses.reduce((acc, item) => acc + item.amount, 0);
+  const totalReimbursable = expenses
+    .filter((item) => item.reimbursable)
+    .reduce((acc, item) => acc + item.amount, 0);
 
   return (
     <>
@@ -85,6 +90,17 @@ export function ExpenseTable() {
         </Button>
       </div>
 
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+        <div className="p-4 border rounded-lg bg-card">
+            <h4 className="text-muted-foreground">Total Expenses</h4>
+            <p className="text-2xl font-semibold">{formatCurrency(totalExpenses)}</p>
+        </div>
+        <div className="p-4 border rounded-lg bg-card">
+            <h4 className="text-muted-foreground">Total Reimbursable</h4>
+            <p className="text-2xl font-semibold">{formatCurrency(totalReimbursable)}</p>
+        </div>
+      </div>
+
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
         <Table>
           <TableHeader>
@@ -93,6 +109,7 @@ export function ExpenseTable() {
               <TableHead>Description</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Paid From</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead className="text-right">Amount</TableHead>
               <TableHead className="w-[100px] text-right">Actions</TableHead>
             </TableRow>
@@ -107,6 +124,13 @@ export function ExpenseTable() {
                   <TableCell className="font-medium">{item.description}</TableCell>
                   <TableCell>{item.category}</TableCell>
                   <TableCell>{item.transferee}</TableCell>
+                   <TableCell>
+                    {item.reimbursable ? (
+                      <Badge variant="default">Reimbursable</Badge>
+                    ) : (
+                      <Badge variant="secondary">Non-Reimbursable</Badge>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">{formatCurrency(item.amount)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
@@ -140,7 +164,7 @@ export function ExpenseTable() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">
+                <TableCell colSpan={7} className="h-24 text-center">
                   No expenses added yet.
                 </TableCell>
               </TableRow>
@@ -148,7 +172,7 @@ export function ExpenseTable() {
           </TableBody>
           <TableFooter>
             <TableRow>
-              <TableCell colSpan={4} className="font-semibold text-right">Total Expenses</TableCell>
+              <TableCell colSpan={5} className="font-semibold text-right">Total Expenses</TableCell>
               <TableCell className="text-right font-semibold">{formatCurrency(totalExpenses)}</TableCell>
               <TableCell></TableCell>
             </TableRow>

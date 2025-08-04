@@ -59,4 +59,5 @@ export interface Expense {
   category: string;
   date: string; // ISO string
   transferee: string;
+  reimbursable: boolean;
 }
