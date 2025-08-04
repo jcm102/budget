@@ -11,7 +11,7 @@ import {
   query,
   getDoc,
 } from 'firebase/firestore';
-import { isSameMonth, startOfMonth, getDate, getMonth, getYear, set, addWeeks, isAfter } from 'date-fns';
+import { isSameMonth, startOfMonth, getDate, getMonth, getYear, set, addWeeks, isAfter, isLastDayOfMonth, lastDayOfMonth } from 'date-fns';
 
 const BUDGET_COLLECTION = 'budget-items';
 
@@ -41,15 +41,27 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
       }
     } else if (item.frequency === 'Monthly') {
        if (itemStartDate <= today || isSameMonth(itemStartDate, today)) {
-        const itemDay = getDate(itemStartDate);
-        
-        const currentMonthInstanceDate = set(today, { 
-            setDate: itemDay,
-            setHours: itemStartDate.getHours(),
-            setMinutes: itemStartDate.getMinutes(),
-            setSeconds: itemStartDate.getSeconds(),
-            setMilliseconds: itemStartDate.getMilliseconds()
-        });
+        const itemIsLastDayOfMonth = isLastDayOfMonth(itemStartDate);
+
+        let currentMonthInstanceDate;
+
+        if (itemIsLastDayOfMonth) {
+            currentMonthInstanceDate = set(lastDayOfMonth(today), {
+                setHours: itemStartDate.getHours(),
+                setMinutes: itemStartDate.getMinutes(),
+                setSeconds: itemStartDate.getSeconds(),
+                setMilliseconds: itemStartDate.getMilliseconds()
+            });
+        } else {
+            const itemDay = getDate(itemStartDate);
+            currentMonthInstanceDate = set(today, { 
+                setDate: itemDay,
+                setHours: itemStartDate.getHours(),
+                setMinutes: itemStartDate.getMinutes(),
+                setSeconds: itemStartDate.getSeconds(),
+                setMilliseconds: itemStartDate.getMilliseconds()
+            });
+        }
 
         if (getMonth(currentMonthInstanceDate) === getMonth(today) && (isAfter(currentMonthInstanceDate, itemStartDate) || isSameMonth(itemStartDate, currentMonthInstanceDate)))
          {
