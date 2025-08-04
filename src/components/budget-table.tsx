@@ -77,7 +77,7 @@ export function BudgetTable() {
             <TableHeader>
               <TableRow>
                 <TableHead>Description</TableHead>
-                <TableHead>Category</TableHead>
+                {type === 'Income' && <TableHead>Category</TableHead>}
                 {type === 'Transfers' && <TableHead>From</TableHead>}
                 {type === 'Transfers' && <TableHead>To</TableHead>}
                 <TableHead>Date</TableHead>
@@ -92,7 +92,7 @@ export function BudgetTable() {
                 items.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{item.description}</TableCell>
-                    <TableCell>{item.category}</TableCell>
+                    {type === 'Income' && <TableCell>{item.category}</TableCell>}
                     {type === 'Transfers' && <TableCell>{item.transferFrom}</TableCell>}
                     {type === 'Transfers' && <TableCell>{item.transferTo}</TableCell>}
                     <TableCell>{format(new Date(item.date), 'PPP')}</TableCell>
@@ -129,7 +129,7 @@ export function BudgetTable() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={type === 'Transfers' ? 7 : 5} className="h-24 text-center">
+                  <TableCell colSpan={type === 'Transfers' ? 5 : (type === 'Income' ? 5 : 4)} className="h-24 text-center">
                     No items added yet.
                   </TableCell>
                 </TableRow>
@@ -137,7 +137,7 @@ export function BudgetTable() {
             </TableBody>
             <TableFooter>
               <TableRow>
-                <TableCell colSpan={type === 'Transfers' ? 3 : 2}></TableCell>
+                <TableCell colSpan={type === 'Transfers' ? 2 : (type === 'Income' ? 2 : 1)}></TableCell>
                 <TableCell className="font-semibold text-right">Total</TableCell>
                 <TableCell className="text-right font-semibold">{formatCurrency(total)}</TableCell>
                 <TableCell></TableCell>

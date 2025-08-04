@@ -34,7 +34,7 @@ import { useCategories } from '@/hooks/use-categories';
 
 const formSchema = z.object({
     description: z.string().min(2, 'Description must be at least 2 characters.'),
-    category: z.string().min(2, 'Category must be at least 2 characters.'),
+    category: z.string().min(1, 'Category is required.'),
     amount: z.coerce.number().min(0.01, 'Amount must be greater than 0.'),
     type: z.enum(['Income', 'Debt Payments', 'Transfers']),
     date: z.string().min(1, 'A date is required.'),
@@ -47,7 +47,7 @@ const formSchema = z.object({
     return true;
   }, {
     message: 'Both "Transfer From" and "Transfer To" are required for transfers.',
-    path: ['transferTo'],
+    path: ['transferTo'], // You can associate the error with a specific field
   });
 
 type BudgetFormProps = {
@@ -102,6 +102,15 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
     }
   }, [editingItem, open, form]);
 
+  useEffect(() => {
+    if (itemType !== 'Income') {
+        form.setValue('category', 'N/A');
+    } else {
+        form.setValue('category', '');
+    }
+  }, [itemType, form]);
+
+
   function onSubmit(values: z.infer<typeof formSchema>) {
     const submissionData = {
       ...values,
@@ -152,31 +161,32 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                 </FormItem>
               )}
             />
-             <FormField control={form.control} name="category" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Category</FormLabel>
-                  {itemType === 'Income' ? (
-                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                       <FormControl>
-                        <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {incomeCategories.map(category => (
-                          <SelectItem key={category.id} value={category.name}>{category.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <FormControl><Input placeholder="e.g., Student Loan" {...field} /></FormControl>
-                  )}
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+             {itemType === 'Income' ? (
+                <FormField control={form.control} name="category" render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Category</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                        <FormControl>
+                            <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                            {incomeCategories.map(category => (
+                            <SelectItem key={category.id} value={category.name}>{category.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                        </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+             ) : (
+                // Hidden or non-existent for other types
+                <></>
+             )}
             <FormField control={form.control} name="amount" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Amount</FormLabel>
-                  <FormControl><Input type="number" {...field} /></FormControl>
+                  <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
