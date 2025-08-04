@@ -6,7 +6,6 @@ import {
   collection,
   getDocs,
   doc,
-  setDoc,
   deleteDoc,
   query,
   orderBy,
@@ -23,7 +22,7 @@ async function seedDefaultCategories() {
   if (snapshot.empty) {
     const batch = writeBatch(db);
     defaultCategories.forEach(categoryName => {
-      const docRef = doc(categoryCollection);
+      const docRef = doc(collection(db, CATEGORY_COLLECTION));
       batch.set(docRef, { name: categoryName });
     });
     await batch.commit();
