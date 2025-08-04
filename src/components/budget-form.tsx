@@ -47,6 +47,14 @@ const formSchema = z.object({
 }, {
     message: 'Destination is required for transfers.',
     path: ['destination'],
+}).refine(data => {
+    if (data.type === 'income' && !data.category) {
+        return false;
+    }
+    return true;
+}, {
+    message: 'Category is required for income.',
+    path: ['category'],
 });
 
 const incomeCategories = ['Paycheck', 'Bonus', 'Freelance', 'Other'];
@@ -66,7 +74,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
       name: '',
       amount: 0,
       type: 'income',
-      category: null,
+      category: 'Paycheck',
       destination: null,
     },
   });
@@ -101,6 +109,10 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
     }
     if (itemType !== 'income') {
         form.setValue('category', null);
+    } else {
+        if (!form.getValues('category')) {
+            form.setValue('category', 'Paycheck');
+        }
     }
   }, [itemType, form]);
 
