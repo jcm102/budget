@@ -57,5 +57,16 @@ export function useDebt() {
     setDebts((prevDebts) => prevDebts.filter((debt) => debt.id !== id));
   }, []);
 
-  return { debts, addDebt, updateDebt, deleteDebt, isLoading };
+  const resetDebtValues = useCallback(() => {
+    setDebts((prevDebts) =>
+      prevDebts.map((debt) => ({
+        ...debt,
+        balance: 0,
+        minimumPayment: 0,
+        actualPayment: 0,
+      }))
+    );
+  }, []);
+
+  return { debts, addDebt, updateDebt, deleteDebt, resetDebtValues, isLoading };
 }

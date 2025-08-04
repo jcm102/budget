@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Pencil, Trash2, PlusCircle } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, RotateCcw } from 'lucide-react';
 import type { Debt } from '@/types';
 import {
   Table,
@@ -31,7 +31,7 @@ import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
 
 export function DebtTable() {
-  const { debts, addDebt, updateDebt, deleteDebt, isLoading } = useDebt();
+  const { debts, addDebt, updateDebt, deleteDebt, resetDebtValues, isLoading } = useDebt();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
 
@@ -73,12 +73,36 @@ export function DebtTable() {
         updateDebt={updateDebt}
         editingDebt={editingDebt}
       />
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-6 gap-2">
         <h2 className="text-3xl font-bold font-headline text-primary">Debt Tracker</h2>
-        <Button onClick={() => setIsFormOpen(true)}>
-          <PlusCircle className="mr-2 h-5 w-5" />
-          Add Debt
-        </Button>
+        <div className="flex gap-2">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" disabled={debts.length === 0}>
+                <RotateCcw className="mr-2 h-5 w-5" />
+                Reset All
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action will reset the balance, minimum payment, and actual payment for ALL debts to $0.00. This cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={resetDebtValues} className={cn(buttonVariants({ variant: "destructive" }))}>
+                  Yes, Reset All
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <Button onClick={() => setIsFormOpen(true)}>
+            <PlusCircle className="mr-2 h-5 w-5" />
+            Add Debt
+          </Button>
+        </div>
       </div>
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
         <Table>
