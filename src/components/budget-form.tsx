@@ -40,16 +40,16 @@ const formSchema = z.object({
   category: z.string().optional().nullable(),
   destination: z.enum(['checking', 'savings', 'investment']).optional().nullable(),
 }).refine(data => {
-    if (data.type === 'transfer' && !data.destination) {
-        return false;
+    if (data.type === 'transfer') {
+        return !!data.destination;
     }
     return true;
 }, {
     message: 'Destination is required for transfers.',
     path: ['destination'],
 }).refine(data => {
-    if (data.type === 'income' && !data.category) {
-        return false;
+    if (data.type === 'income') {
+        return !!data.category;
     }
     return true;
 }, {
