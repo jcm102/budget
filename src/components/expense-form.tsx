@@ -30,11 +30,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import type { Expense, MileageLog, ExpenseType } from '@/types';
+import type { Expense, MileageLog } from '@/types';
 import { useWorkCategories } from '@/hooks/use-work-categories';
 import { useTransferees } from '@/hooks/use-transferees';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { useMileageRate } from '@/hooks/use-mileage-rate';
+import { calculateDistance } from '@/ai/flows/calculate-distance';
+import { Loader2, Route } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
   expenseType: z.enum(['Monetary', 'Mileage']),
@@ -91,6 +94,8 @@ export function ExpenseForm({
   const { categories: workCategories } = useWorkCategories();
   const { transferees } = useTransferees();
   const { mileageRate, isLoading: isRateLoading } = useMileageRate();
+  const [isCalculating, setIsCalculating] = useState(false);
+  const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -151,6 +156,40 @@ export function ExpenseForm({
       }
     }
   }, [editingItem, open, form, mileageRate]);
+
+  const handleCalculateDistance = async () => {
+    const origin = form.getValues('origin');
+    const destination = form.getValues('destination');
+
+    if (!origin || !destination) {
+      toast({
+        title: 'Heads up!',
+        description: 'Please enter both an origin and a destination.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setIsCalculating(true);
+    try {
+      const result = await calculateDistance({ origin, destination });
+      form.setValue('distance', parseFloat(result.distance.toFixed(1)), { shouldValidate: true });
+      toast({
+        title: 'Success!',
+        description: 'Distance has been calculated and filled in.',
+      });
+    } catch (error) {
+      console.error('Distance calculation failed:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to calculate distance. Please check addresses or your API key.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsCalculating(false);
+    }
+  };
+
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const [year, month, day] = values.date.split('-').map(Number);
@@ -313,14 +352,20 @@ export function ExpenseForm({
                         </FormItem>
                     )}
                     />
-                    <FormField control={form.control} name="distance" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Distance (km)</FormLabel>
-                            <FormControl><Input type="number" step="0.1" {...field} /></FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                    />
+                    <div className="flex items-end gap-2">
+                        <FormField control={form.control} name="distance" render={({ field }) => (
+                            <FormItem className="flex-grow">
+                                <FormLabel>Distance (km)</FormLabel>
+                                <FormControl><Input type="number" step="0.1" {...field} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                         <Button type="button" variant="outline" onClick={handleCalculateDistance} disabled={isCalculating}>
+                           {isCalculating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Route className="mr-2 h-4 w-4" />}
+                            Calculate
+                        </Button>
+                    </div>
                     <FormField control={form.control} name="rate" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Rate ($ per km)</FormLabel>
