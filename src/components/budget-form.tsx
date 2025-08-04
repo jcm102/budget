@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect } from 'react';
@@ -88,7 +89,11 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
     if (itemType !== 'transfer') {
       form.setValue('destination', null);
     }
-    if (itemType !== 'income') {
+    if (itemType === 'income') {
+      // No specific action needed here anymore for name, 
+      // as it's handled by the conditional rendering below.
+    } else {
+      // If the type is NOT income, and the current name is one of the income sources, clear it.
       if (incomeSources.includes(form.getValues('name') as IncomeSource)) {
         form.setValue('name', '');
       }
