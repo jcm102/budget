@@ -29,11 +29,6 @@ export interface Debt {
 export type BudgetItemType = 'income' | 'debt' | 'transfer';
 export type TransferDestination = 'checking' | 'savings' | 'investment';
 
-export interface IncomeCategory {
-    id: string;
-    name: string;
-}
-
 export interface BudgetItem {
     id: string;
     name: string;

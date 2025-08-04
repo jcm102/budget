@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -30,7 +30,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { BudgetItem, BudgetItemType, TransferDestination } from '@/types';
-import { useCategories } from '@/hooks/use-categories';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.'),
@@ -50,6 +49,8 @@ const formSchema = z.object({
     path: ['destination'],
 });
 
+const incomeCategories = ['Paycheck', 'Bonus', 'Freelance', 'Other'];
+
 type BudgetFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -59,7 +60,6 @@ type BudgetFormProps = {
 };
 
 export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem, editingItem }: BudgetFormProps) {
-  const { categories, isLoading } = useCategories();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -88,7 +88,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
           name: '',
           amount: 0,
           type: 'income',
-          category: null,
+          category: 'Paycheck',
           destination: null,
         });
       }
@@ -108,8 +108,8 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
     const submissionData = {
         ...values,
         type: values.type as BudgetItemType,
-        category: values.category as string | null,
-        destination: values.destination as TransferDestination | null,
+        category: values.category,
+        destination: values.destination,
     };
     if (editingItem) {
       updateBudgetItem(editingItem.id, submissionData);
@@ -179,15 +179,15 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Category</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value ?? undefined} disabled={isLoading}>
+                    <Select onValueChange={field.onChange} value={field.value ?? undefined}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a category" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {categories.map(cat => (
-                            <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
+                        {incomeCategories.map(cat => (
+                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
