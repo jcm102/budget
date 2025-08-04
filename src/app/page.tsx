@@ -78,7 +78,7 @@ export default function Home() {
                 <PopoverTrigger asChild>
                   <Button variant="outline" size="lg">
                     <Lightbulb className="mr-2 h-5 w-5" />
-                    Process Tip
+                    Splitwise Tip
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-80">
