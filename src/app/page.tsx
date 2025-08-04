@@ -7,8 +7,9 @@ import { TaskForm } from '@/components/task-form';
 import { TaskList } from '@/components/task-list';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, Sunrise, CalendarDays, CalendarRange, ArrowRight } from 'lucide-react';
+import { PlusCircle, Sunrise, CalendarDays, CalendarRange, ArrowRight, Lightbulb } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { Task } from '@/types';
 
 export default function Home() {
@@ -67,12 +68,26 @@ export default function Home() {
           <p className="text-muted-foreground mt-2 text-lg">
             Your personal assistant for daily, weekly, and monthly budgeting tasks.
           </p>
-          <div className="mt-4">
+          <div className="mt-4 flex justify-center items-center gap-4">
              <Button asChild variant="outline" size="lg">
                 <Link href="/debt">
                   Debt Payment Worksheet <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
              </Button>
+             <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="lg">
+                    <Lightbulb className="mr-2 h-5 w-5" />
+                    Process Tip
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent>
+                  <h4 className="font-medium leading-none">Process Reminder</h4>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    This is where the reminder for your particular process will go. Just let me know what you want it to say!
+                  </p>
+                </PopoverContent>
+              </Popover>
           </div>
         </header>
 
