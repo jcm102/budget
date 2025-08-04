@@ -10,7 +10,6 @@ import {
   deleteDoc,
   query,
   getDoc,
-  orderBy,
   addDoc,
   where,
 } from 'firebase/firestore';
@@ -19,10 +18,14 @@ const EXPENSE_COLLECTION = 'expenses'; // We store mileage in the same collectio
 
 export async function getMileageLogs(): Promise<MileageLog[]> {
   const expenseCollection = collection(db, EXPENSE_COLLECTION);
-  const q = query(expenseCollection, where('type', '==', 'Mileage'), orderBy('date', 'desc'));
+  // Remove the orderBy clause to avoid needing a composite index
+  const q = query(expenseCollection, where('type', '==', 'Mileage'));
   const querySnapshot = await getDocs(q);
 
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MileageLog));
+  const mileageLogs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MileageLog));
+  
+  // Sort in-memory instead
+  return mileageLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
 export async function addMileageLog(itemData: Omit<MileageLog, 'id'>): Promise<MileageLog> {

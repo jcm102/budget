@@ -11,7 +11,6 @@ import {
   deleteDoc,
   query,
   getDoc,
-  orderBy,
   addDoc,
   where,
 } from 'firebase/firestore';
@@ -20,10 +19,14 @@ const EXPENSE_COLLECTION = 'expenses';
 
 export async function getExpenses(): Promise<Expense[]> {
   const expenseCollection = collection(db, EXPENSE_COLLECTION);
-  const q = query(expenseCollection, where('type', '==', 'Monetary'), orderBy('date', 'desc'));
+  // Remove the orderBy clause to avoid needing a composite index
+  const q = query(expenseCollection, where('type', '==', 'Monetary'));
   const querySnapshot = await getDocs(q);
 
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense));
+  const expenses = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense));
+  
+  // Sort in-memory instead
+  return expenses.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
 export async function addExpense(itemData: Omit<Expense, 'id'>): Promise<Expense> {
