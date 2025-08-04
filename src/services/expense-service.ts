@@ -13,13 +13,14 @@ import {
   getDoc,
   orderBy,
   addDoc,
+  where,
 } from 'firebase/firestore';
 
 const EXPENSE_COLLECTION = 'expenses';
 
 export async function getExpenses(): Promise<Expense[]> {
   const expenseCollection = collection(db, EXPENSE_COLLECTION);
-  const q = query(expenseCollection, orderBy('date', 'desc'));
+  const q = query(expenseCollection, where('type', '==', 'Monetary'), orderBy('date', 'desc'));
   const querySnapshot = await getDocs(q);
 
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense));

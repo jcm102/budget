@@ -48,7 +48,7 @@ export function useExpenses() {
   const updateExpense = useCallback(async (id: string, itemData: Omit<Expense, 'id'>) => {
     const originalItems = expenses;
     setExpenses((prev) =>
-      prev.map((item) => (item.id === id ? { id, ...itemData } : item))
+      prev.map((item) => (item.id === id ? { ...item, ...itemData } as Expense : item))
          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     );
     try {

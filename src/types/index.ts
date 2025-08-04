@@ -52,12 +52,25 @@ export interface Transferee {
     name: string;
 }
 
-export interface Expense {
+export type ExpenseType = 'Monetary' | 'Mileage';
+
+interface BaseExpense {
   id: string;
+  type: ExpenseType;
   description: string;
+  date: string; // ISO string
+  reimbursable: boolean;
+}
+
+export interface Expense extends BaseExpense {
+  type: 'Monetary';
   amount: number;
   category: string;
-  date: string; // ISO string
   transferee: string;
-  reimbursable: boolean;
+}
+
+export interface MileageLog extends BaseExpense {
+  type: 'Mileage';
+  distance: number;
+  rate: number;
 }
