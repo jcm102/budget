@@ -54,26 +54,30 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
       balance: 0,
       minimumPayment: 0,
       actualPayment: 0,
-      dueDate: new Date(),
     },
   });
 
   useEffect(() => {
-    if (editingDebt) {
-      form.reset({
-        ...editingDebt,
-        dueDate: new Date(editingDebt.dueDate),
-      });
-    } else {
-      form.reset({
-        name: '',
-        balance: 0,
-        minimumPayment: 0,
-        actualPayment: 0,
-        dueDate: new Date(),
-      });
+    if (open) {
+      if (editingDebt) {
+        form.reset({
+          name: editingDebt.name,
+          balance: editingDebt.balance,
+          minimumPayment: editingDebt.minimumPayment,
+          actualPayment: editingDebt.actualPayment,
+          dueDate: new Date(editingDebt.dueDate),
+        });
+      } else {
+        form.reset({
+          name: '',
+          balance: 0,
+          minimumPayment: 0,
+          actualPayment: 0,
+          dueDate: new Date(),
+        });
+      }
     }
-  }, [editingDebt, form, open]);
+  }, [editingDebt, open, form]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const submissionData = { ...values, dueDate: values.dueDate.toISOString() };
