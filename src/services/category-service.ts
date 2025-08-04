@@ -11,6 +11,8 @@ import {
   orderBy,
   addDoc,
   writeBatch,
+  getDoc,
+  limit
 } from 'firebase/firestore';
 
 const CATEGORY_COLLECTION = 'income-categories';
@@ -18,7 +20,9 @@ const defaultCategories = ['Paycheck', 'Bonus', 'Freelance', 'Other'];
 
 async function seedDefaultCategories() {
   const categoryCollectionRef = collection(db, CATEGORY_COLLECTION);
-  const snapshot = await getDocs(query(categoryCollectionRef));
+  const q = query(categoryCollectionRef, limit(1));
+  const snapshot = await getDocs(q);
+  
   if (snapshot.empty) {
     const batch = writeBatch(db);
     defaultCategories.forEach(categoryName => {
@@ -40,7 +44,9 @@ export async function getCategories(): Promise<Category[]> {
 export async function addCategory(name: string): Promise<Category> {
   const categoryCollection = collection(db, CATEGORY_COLLECTION);
   const docRef = await addDoc(categoryCollection, { name });
-  return { id: docRef.id, name };
+  const docSnap = await getDoc(docRef);
+  const newCategory = { id: docSnap.id, ...docSnap.data() } as Category;
+  return newCategory;
 }
 
 export async function deleteCategory(id: string): Promise<void> {
