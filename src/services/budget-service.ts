@@ -1,7 +1,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import type { BudgetItem, BudgetItemFrequency } from '@/types';
+import type { BudgetItem } from '@/types';
 import {
   collection,
   getDocs,
@@ -11,7 +11,7 @@ import {
   query,
   getDoc,
 } from 'firebase/firestore';
-import { isSameMonth, startOfMonth, getDate, getMonth, getYear, set } from 'date-fns';
+import { isSameMonth, startOfMonth, getDate, getMonth, getYear, set, addWeeks, getWeek, differenceInWeeks, isSameDay } from 'date-fns';
 
 const BUDGET_COLLECTION = 'budget-items';
 
@@ -22,17 +22,23 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
   
   const today = new Date();
   const currentMonthItems: BudgetItem[] = [];
+  const startOfCurrentMonth = startOfMonth(today);
 
   const allItems = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BudgetItem));
 
   allItems.forEach(item => {
     const itemStartDate = new Date(item.date);
+    
+    // Skip if item starts after the current month ends
+    if (getYear(itemStartDate) > getYear(today) || (getYear(itemStartDate) === getYear(today) && getMonth(itemStartDate) > getMonth(today))) {
+        return;
+    }
+
     if (item.frequency === 'One-Time') {
       if (isSameMonth(itemStartDate, today)) {
         currentMonthItems.push(item);
       }
     } else if (item.frequency === 'Monthly') {
-      // If the item started this month or a previous month
       if (itemStartDate <= today || isSameMonth(itemStartDate, today)) {
         const itemDay = getDate(itemStartDate);
         const currentMonthInstanceDate = set(today, { 
@@ -43,9 +49,8 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
             setMilliseconds: itemStartDate.getMilliseconds()
         });
 
-        // Ensure we don't show items that started in a future month but have a day that passed.
-         if (getYear(currentMonthInstanceDate) > getYear(itemStartDate) || 
-            (getYear(currentMonthInstanceDate) === getYear(itemStartDate) && getMonth(currentMonthInstanceDate) >= getMonth(itemStartDate)))
+        if (getMonth(currentMonthInstanceDate) === getMonth(today) && (getYear(currentMonthInstanceDate) > getYear(itemStartDate) || 
+            (getYear(currentMonthInstanceDate) === getYear(itemStartDate) && getMonth(currentMonthInstanceDate) >= getMonth(itemStartDate))))
          {
             currentMonthItems.push({
                 ...item,
@@ -53,10 +58,27 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
             });
         }
       }
+    } else if (item.frequency === 'Weekly' || item.frequency === 'Bi-Weekly') {
+      let currentDate = itemStartDate;
+      const increment = item.frequency === 'Weekly' ? 1 : 2;
+
+      while (currentDate < startOfCurrentMonth) {
+        currentDate = addWeeks(currentDate, increment);
+      }
+
+      while (isSameMonth(currentDate, today) || isSameDay(currentDate, today)) {
+          if (getYear(currentDate) > getYear(itemStartDate) || (getYear(currentDate) === getYear(itemStartDate) && getMonth(currentDate) >= getMonth(itemStartDate))) {
+              currentMonthItems.push({
+                  ...item,
+                  date: currentDate.toISOString()
+              });
+          }
+          currentDate = addWeeks(currentDate, increment);
+      }
     }
   });
 
-  return currentMonthItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  return currentMonthItems.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 }
 
 export async function addBudgetItem(itemData: Omit<BudgetItem, 'id'>): Promise<BudgetItem> {

@@ -103,9 +103,9 @@ export function BudgetTable() {
                     {type === 'Transfers' && <TableCell>{item.transferTo}</TableCell>}
                     <TableCell>{format(new Date(item.date), 'PPP')}</TableCell>
                      <TableCell>
-                      {item.frequency === 'Monthly' ? (
+                      {item.frequency !== 'One-Time' ? (
                         <Badge variant="secondary" className="gap-1 items-center">
-                          <Repeat className="h-3 w-3" /> Monthly
+                          <Repeat className="h-3 w-3" /> {item.frequency}
                         </Badge>
                       ) : (
                         <Badge variant="outline">One-Time</Badge>

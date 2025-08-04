@@ -39,7 +39,7 @@ const formSchema = z.object({
     amount: z.coerce.number().min(0.01, 'Amount must be greater than 0.'),
     type: z.enum(['Income', 'Debt Payments', 'Transfers', 'Pre-Authorized Payments']),
     date: z.string().min(1, 'A date is required.'),
-    frequency: z.enum(['One-Time', 'Monthly']),
+    frequency: z.enum(['One-Time', 'Weekly', 'Bi-Weekly', 'Monthly']),
     transferTo: z.string().optional(),
     transferFrom: z.string().optional(),
   }).refine(data => {
@@ -258,6 +258,8 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="One-Time">One-Time</SelectItem>
+                      <SelectItem value="Weekly">Weekly</SelectItem>
+                      <SelectItem value="Bi-Weekly">Bi-Weekly</SelectItem>
                       <SelectItem value="Monthly">Monthly</SelectItem>
                     </SelectContent>
                   </Select>
