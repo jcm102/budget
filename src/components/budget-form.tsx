@@ -109,7 +109,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
         ...values,
         type: values.type as BudgetItemType,
         category: values.category,
-        destination: values.destination,
+        destination: values.destination as TransferDestination | null,
     };
     if (editingItem) {
       updateBudgetItem(editingItem.id, submissionData);
