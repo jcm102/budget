@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -46,6 +46,7 @@ type DebtFormProps = {
 };
 
 export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt }: DebtFormProps) {
+  const [isCalendarOpen, setCalendarOpen] = useState(false);
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -138,7 +139,7 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
             <FormField control={form.control} name="dueDate" render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>Due Date</FormLabel>
-                  <Popover>
+                  <Popover open={isCalendarOpen} onOpenChange={setCalendarOpen}>
                     <PopoverTrigger asChild>
                       <FormControl>
                         <Button variant={'outline'} className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>
@@ -148,7 +149,15 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
                       </FormControl>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                      <Calendar 
+                        mode="single" 
+                        selected={field.value} 
+                        onSelect={(date) => {
+                          field.onChange(date);
+                          setCalendarOpen(false);
+                        }} 
+                        initialFocus 
+                      />
                     </PopoverContent>
                   </Popover>
                   <FormMessage />
