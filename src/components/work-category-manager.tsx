@@ -1,8 +1,7 @@
-
 'use client';
 
 import { useState } from 'react';
-import { useIncomeCategories } from '@/hooks/use-income-categories';
+import { useWorkCategories } from '@/hooks/use-work-categories';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,8 +21,8 @@ import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
 import { Skeleton } from './ui/skeleton';
 
-export function IncomeCategoryManager() {
-  const { categories, addCategory, deleteCategory, isLoading } = useIncomeCategories();
+export function WorkCategoryManager() {
+  const { categories, addCategory, deleteCategory, isLoading } = useWorkCategories();
   const [newCategory, setNewCategory] = useState('');
 
   const handleAddCategory = () => {
@@ -44,7 +43,7 @@ export function IncomeCategoryManager() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Income Categories</CardTitle>
+        <CardTitle>Work Expense Categories</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex gap-2 mb-4">
@@ -93,7 +92,7 @@ export function IncomeCategoryManager() {
             ))
           ) : (
             <p className="text-muted-foreground text-center p-4">
-              No custom income categories yet. Add one to get started.
+              No custom work expense categories yet. Add one to get started.
             </p>
           )}
         </div>

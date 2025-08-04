@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Category } from '@/types';
 import { useToast } from './use-toast';
-import * as IncomeCategoryService from '@/services/income-category-service';
+import * as WorkCategoryService from '@/services/work-category-service';
 
-export function useIncomeCategories() {
+export function useWorkCategories() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
@@ -14,13 +14,13 @@ export function useIncomeCategories() {
     const fetchCategories = async () => {
       try {
         setIsLoading(true);
-        const fetchedCategories = await IncomeCategoryService.getCategories();
+        const fetchedCategories = await WorkCategoryService.getCategories();
         setCategories(fetchedCategories);
       } catch (error) {
         console.error('Failed to load categories:', error);
         toast({
           title: 'Error',
-          description: 'Failed to load income categories from the database.',
+          description: 'Failed to load work expense categories from the database.',
           variant: 'destructive',
         });
       } finally {
@@ -32,7 +32,7 @@ export function useIncomeCategories() {
 
   const addCategory = useCallback(async (name: string) => {
     try {
-      const newCategory = await IncomeCategoryService.addCategory(name);
+      const newCategory = await WorkCategoryService.addCategory(name);
       setCategories((prev) => [...prev, newCategory]);
     } catch (error) {
       console.error('Failed to add category:', error);
@@ -48,7 +48,7 @@ export function useIncomeCategories() {
     const originalCategories = categories;
     setCategories((prev) => prev.filter((category) => category.id !== id));
     try {
-      await IncomeCategoryService.deleteCategory(id);
+      await WorkCategoryService.deleteCategory(id);
     } catch (error) {
       console.error('Failed to delete category:', error);
       setCategories(originalCategories);

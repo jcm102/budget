@@ -30,7 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { BudgetItem, BudgetItemType, BudgetItemFrequency } from '@/types';
-import { useCategories } from '@/hooks/use-categories';
+import { useIncomeCategories } from '@/hooks/use-income-categories';
 import { useTransferees } from '@/hooks/use-transferees';
 
 const formSchema = z.object({
@@ -61,7 +61,7 @@ type BudgetFormProps = {
 };
 
 export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem, editingItem }: BudgetFormProps) {
-  const { categories: incomeCategories } = useCategories();
+  const { categories: incomeCategories } = useIncomeCategories();
   const { transferees } = useTransferees();
   
   const form = useForm<z.infer<typeof formSchema>>({

@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import type { Expense, MileageLog, ExpenseType } from '@/types';
-import { useCategories } from '@/hooks/use-categories';
+import { useWorkCategories } from '@/hooks/use-work-categories';
 import { useTransferees } from '@/hooks/use-transferees';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { useMileageRate } from '@/hooks/use-mileage-rate';
@@ -87,7 +87,7 @@ export function ExpenseForm({
     updateMileage,
     editingItem 
 }: ExpenseFormProps) {
-  const { categories } = useCategories();
+  const { categories: workCategories } = useWorkCategories();
   const { transferees } = useTransferees();
   const { mileageRate, isLoading: isRateLoading } = useMileageRate();
 
@@ -257,7 +257,7 @@ export function ExpenseForm({
                                 <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                                {categories.map(category => (
+                                {workCategories.map(category => (
                                 <SelectItem key={category.id} value={category.name}>{category.name}</SelectItem>
                                 ))}
                             </SelectContent>
