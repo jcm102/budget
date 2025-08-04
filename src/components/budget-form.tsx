@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { BudgetItem, BudgetItemType, Account } from '@/types';
+import type { BudgetItem, BudgetItemType, Account, IncomeSource } from '@/types';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.'),
@@ -48,6 +48,8 @@ type BudgetFormProps = {
 
 const itemTypes: BudgetItemType[] = ['income', 'savings', 'debt', 'transfer'];
 const accounts: Account[] = ['Checking', 'Savings', 'Credit Card', 'Investment', 'Other'];
+const incomeSources: IncomeSource[] = ['Paycheck', 'Bonus', 'Other'];
+
 
 export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem, editingItem }: BudgetFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
@@ -86,6 +88,11 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
     if (itemType !== 'transfer') {
         form.setValue('destination', null);
     }
+    if(itemType !== 'income') {
+        if(incomeSources.includes(form.getValues('name') as IncomeSource)) {
+            form.setValue('name', '');
+        }
+    }
   }, [itemType, form]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
@@ -113,16 +120,6 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField control={form.control} name="name" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., Paycheck, Groceries" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
              <FormField
               control={form.control}
               name="type"
@@ -145,6 +142,43 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                 </FormItem>
               )}
             />
+
+            {itemType === 'income' ? (
+                 <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Income Source</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                            <FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select an income source" />
+                            </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                            {incomeSources.map(source => (
+                                <SelectItem key={source} value={source}>{source}</SelectItem>
+                            ))}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
+            ) : (
+                <FormField control={form.control} name="name" render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Name</FormLabel>
+                    <FormControl>
+                        <Input placeholder="e.g., Groceries, Rent" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            )}
+
             <FormField control={form.control} name="amount" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Amount</FormLabel>
@@ -155,6 +189,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                 </FormItem>
               )}
             />
+
             {itemType === 'transfer' && (
                <FormField
                 control={form.control}
@@ -166,7 +201,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a destination account" />
-                        </SelectTrigger>
+                        </Trigger>
                       </FormControl>
                       <SelectContent>
                         {accounts.map(account => (

@@ -28,6 +28,7 @@ export interface Debt {
 
 export type BudgetItemType = 'income' | 'savings' | 'debt' | 'transfer';
 export type Account = 'Checking' | 'Savings' | 'Credit Card' | 'Investment' | 'Other';
+export type IncomeSource = 'Paycheck' | 'Bonus' | 'Other';
 
 export interface BudgetItem {
     id: string;
