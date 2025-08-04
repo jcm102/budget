@@ -38,6 +38,7 @@ import { useMileageRate } from '@/hooks/use-mileage-rate';
 import { calculateDistance } from '@/ai/flows/calculate-distance';
 import { Loader2, Route } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { AddressAutocompleteInput } from './address-autocomplete-input';
 
 const formSchema = z.object({
   expenseType: z.enum(['Monetary', 'Mileage']),
@@ -339,7 +340,10 @@ export function ExpenseForm({
                     <FormField control={form.control} name="origin" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Origin</FormLabel>
-                            <FormControl><Input placeholder="e.g., 123 Main St, Anytown" {...field} /></FormControl>
+                            <AddressAutocompleteInput
+                                field={field}
+                                onSelect={(address) => form.setValue('origin', address, { shouldValidate: true })}
+                            />
                             <FormMessage />
                         </FormItem>
                     )}
@@ -347,7 +351,10 @@ export function ExpenseForm({
                      <FormField control={form.control} name="destination" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Destination</FormLabel>
-                            <FormControl><Input placeholder="e.g., 456 Oak Ave, Othertown" {...field} /></FormControl>
+                            <AddressAutocompleteInput
+                                field={field}
+                                onSelect={(address) => form.setValue('destination', address, { shouldValidate: true })}
+                            />
                             <FormMessage />
                         </FormItem>
                     )}
