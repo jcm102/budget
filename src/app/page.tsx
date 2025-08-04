@@ -82,7 +82,7 @@ export default function Home() {
              </Button>
               <Button asChild variant="outline" size="lg">
                 <Link href="/expenses">
-                  Expense Tracking <CreditCard className="ml-2 h-5 w-5" />
+                  Work Expense Tracking <CreditCard className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
               <Button asChild variant="outline" size="lg">

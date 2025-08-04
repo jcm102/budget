@@ -107,9 +107,9 @@ export function ExpenseForm({ open, onOpenChange, addExpense, updateExpense, edi
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>{editingItem ? 'Edit Expense' : 'Add New Expense'}</DialogTitle>
+          <DialogTitle>{editingItem ? 'Edit Work Expense' : 'Add New Work Expense'}</DialogTitle>
           <DialogDescription>
-            {editingItem ? 'Update the details for your expense.' : 'Fill in the details for your new expense.'}
+            {editingItem ? 'Update the details for your work expense.' : 'Fill in the details for your new work expense.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>

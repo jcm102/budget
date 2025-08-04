@@ -78,10 +78,10 @@ export function ExpenseTable() {
         editingItem={editingItem}
       />
       <div className="flex justify-between items-center mb-6 gap-2">
-        <h2 className="text-3xl font-bold font-headline text-primary">Expense Tracking</h2>
+        <h2 className="text-3xl font-bold font-headline text-primary">Work Expense Tracking</h2>
         <Button onClick={() => setIsFormOpen(true)}>
           <PlusCircle className="mr-2 h-5 w-5" />
-          Add Expense
+          Add Work Expense
         </Button>
       </div>
 
