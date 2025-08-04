@@ -1,3 +1,4 @@
+
 export type TaskFrequency = "daily" | "weekly" | "monthly";
 
 export interface Subtask {
@@ -49,4 +50,13 @@ export interface Category {
 export interface Transferee {
     id: string;
     name: string;
+}
+
+export interface Expense {
+  id: string;
+  description: string;
+  amount: number;
+  category: string;
+  date: string; // ISO string
+  transferee: string;
 }
