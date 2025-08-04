@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { BudgetItem, BudgetItemType, TransferDestination, IncomeCategory } from '@/types';
+import type { BudgetItem, BudgetItemType, TransferDestination } from '@/types';
 import { useCategories } from '@/hooks/use-categories';
 
 const formSchema = z.object({
@@ -108,7 +108,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
     const submissionData = {
         ...values,
         type: values.type as BudgetItemType,
-        category: values.category as IncomeCategory | null,
+        category: values.category as string | null,
         destination: values.destination as TransferDestination | null,
     };
     if (editingItem) {
