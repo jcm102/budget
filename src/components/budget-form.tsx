@@ -48,7 +48,7 @@ const formSchema = z.object({
     }
     return true;
   }, {
-    message: 'Both "Transfer From" and "Transfer To" are required for transfers.',
+    message: 'Both "Source" and "Destination" accounts are required for transfers.',
     path: ['transferTo'], // You can associate the error with a specific field
   });
 
@@ -225,7 +225,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
               <>
                 <FormField control={form.control} name="transferFrom" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Transfer From</FormLabel>
+                      <FormLabel>Source Account</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                         <FormControl>
                             <SelectTrigger><SelectValue placeholder="Select a source" /></SelectTrigger>
@@ -242,7 +242,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                 />
                 <FormField control={form.control} name="transferTo" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Transfer To</FormLabel>
+                      <FormLabel>Destination Account</FormLabel>
                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                         <FormControl>
                             <SelectTrigger><SelectValue placeholder="Select a destination" /></SelectTrigger>

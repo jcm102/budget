@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -55,7 +54,7 @@ const formSchema = z.object({
     }
     return true;
 }, {
-    message: 'Amount, category, and paid from are required for monetary expenses.',
+    message: 'Amount, category, and payment source are required for monetary expenses.',
     path: ['amount'],
 }).refine(data => {
     if (data.expenseType === 'Mileage') {
@@ -268,7 +267,7 @@ export function ExpenseForm({
                     />
                     <FormField control={form.control} name="transferee" render={({ field }) => (
                         <FormItem>
-                        <FormLabel>Paid From</FormLabel>
+                        <FormLabel>Payment Source</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                             <FormControl>
                                 <SelectTrigger><SelectValue placeholder="Select a payment source" /></SelectTrigger>

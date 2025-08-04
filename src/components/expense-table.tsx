@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -108,7 +107,7 @@ export function ExpenseTable() {
               <TableHead>Date</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Category</TableHead>
-              <TableHead>Paid From</TableHead>
+              <TableHead>Payment Source</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Amount</TableHead>
               <TableHead className="w-[100px] text-right">Actions</TableHead>

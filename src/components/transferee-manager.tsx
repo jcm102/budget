@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useTransferees } from '@/hooks/use-transferees';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Trash2, PlusCircle } from 'lucide-react';
 import {
   AlertDialog,
@@ -43,7 +43,10 @@ export function TransfereeManager() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Transferee Accounts</CardTitle>
+        <CardTitle>Payment Sources / Accounts</CardTitle>
+         <CardDescription>
+          Manage the accounts used for payments and transfers across the app.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex gap-2 mb-4">
@@ -92,7 +95,7 @@ export function TransfereeManager() {
             ))
           ) : (
             <p className="text-muted-foreground text-center p-4">
-              No transferee accounts yet. Add one to get started.
+              No payment source accounts yet. Add one to get started.
             </p>
           )}
         </div>
