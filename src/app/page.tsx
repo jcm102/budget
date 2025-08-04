@@ -68,9 +68,9 @@ export default function Home() {
             Your personal assistant for daily, weekly, and monthly budgeting tasks.
           </p>
           <div className="mt-4">
-             <Button asChild variant="link" className="text-lg">
+             <Button asChild variant="outline" size="lg">
                 <Link href="/debt">
-                  Go to Debt Tracker <ArrowRight className="ml-2 h-5 w-5" />
+                  Debt Payment Worksheet <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
              </Button>
           </div>

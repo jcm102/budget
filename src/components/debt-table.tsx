@@ -79,7 +79,7 @@ export function DebtTable() {
         editingDebt={editingDebt}
       />
       <div className="flex justify-between items-center mb-6 gap-2">
-        <h2 className="text-3xl font-bold font-headline text-primary">Debt Tracker</h2>
+        <h2 className="text-3xl font-bold font-headline text-primary">Debt Payment Worksheet</h2>
         <div className="flex gap-2">
           <AlertDialog>
             <AlertDialogTrigger asChild>
