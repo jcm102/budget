@@ -87,7 +87,7 @@ export function DebtTable() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This action will reset the balance, minimum payment, and actual payment for ALL debts to $0.00. This cannot be undone.
+                  This action will reset the balance, payments, and due date for ALL debts. This cannot be undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

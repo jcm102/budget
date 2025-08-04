@@ -64,6 +64,7 @@ export function useDebt() {
         balance: 0,
         minimumPayment: 0,
         actualPayment: 0,
+        dueDate: new Date().toISOString(),
       }))
     );
   }, []);
