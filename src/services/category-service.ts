@@ -17,8 +17,8 @@ const CATEGORY_COLLECTION = 'income-categories';
 const defaultCategories = ['Paycheck', 'Bonus', 'Freelance', 'Other'];
 
 async function seedDefaultCategories() {
-  const categoryCollection = collection(db, CATEGORY_COLLECTION);
-  const snapshot = await getDocs(query(categoryCollection));
+  const categoryCollectionRef = collection(db, CATEGORY_COLLECTION);
+  const snapshot = await getDocs(query(categoryCollectionRef));
   if (snapshot.empty) {
     const batch = writeBatch(db);
     defaultCategories.forEach(categoryName => {
