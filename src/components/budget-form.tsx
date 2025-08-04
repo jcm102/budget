@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { BudgetItem, BudgetItemType, TransferDestination, IncomeCategory } from '@/types';
+import { useCategories } from '@/hooks/use-categories';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.'),
@@ -37,7 +38,7 @@ const formSchema = z.object({
   type: z.enum(['income', 'debt', 'transfer'], {
     required_error: 'Please select a type.',
   }),
-  category: z.enum(['Paycheck', 'Bonus', 'Freelance', 'Other']).optional().nullable(),
+  category: z.string().optional().nullable(),
   destination: z.enum(['checking', 'savings', 'investment']).optional().nullable(),
 }).refine(data => {
     if (data.type === 'transfer' && !data.destination) {
@@ -58,6 +59,7 @@ type BudgetFormProps = {
 };
 
 export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem, editingItem }: BudgetFormProps) {
+  const { categories, isLoading } = useCategories();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -177,17 +179,16 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Category</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value ?? undefined}>
+                    <Select onValueChange={field.onChange} value={field.value ?? undefined} disabled={isLoading}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a category" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="Paycheck">Paycheck</SelectItem>
-                        <SelectItem value="Bonus">Bonus</SelectItem>
-                        <SelectItem value="Freelance">Freelance</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
+                        {categories.map(cat => (
+                            <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -206,7 +207,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a destination" />
-                        </SelectTrigger>
+                        </Trigger>
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="checking">Checking</SelectItem>
