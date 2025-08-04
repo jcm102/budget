@@ -3,12 +3,13 @@ import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "your-project-id.firebaseapp.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project-id.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID",
+  "projectId": "tasktrack-budget",
+  "appId": "1:1046918211235:web:ff0666313439436b7fc116",
+  "storageBucket": "tasktrack-budget.firebasestorage.app",
+  "apiKey": "AIzaSyD2Lqb1HoYVNUjD1LC6HUhRk-Xy1zL3jec",
+  "authDomain": "tasktrack-budget.firebaseapp.com",
+  "measurementId": "",
+  "messagingSenderId": "1046918211235"
 };
 
 // Initialize Firebase
