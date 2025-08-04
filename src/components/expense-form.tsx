@@ -46,6 +46,8 @@ const formSchema = z.object({
   transferee: z.string().optional(),
   reimbursable: z.boolean(),
   // Mileage fields
+  origin: z.string().optional(),
+  destination: z.string().optional(),
   distance: z.coerce.number().optional(),
   rate: z.coerce.number().optional(),
 }).refine(data => {
@@ -100,6 +102,8 @@ export function ExpenseForm({
       category: '',
       transferee: '',
       reimbursable: false,
+      origin: '',
+      destination: '',
       distance: 0,
       rate: 0.50,
     },
@@ -125,6 +129,8 @@ export function ExpenseForm({
           amount: 'amount' in editingItem ? editingItem.amount : 0,
           category: 'category' in editingItem ? editingItem.category : '',
           transferee: 'transferee' in editingItem ? editingItem.transferee : '',
+          origin: 'origin' in editingItem ? editingItem.origin : '',
+          destination: 'destination' in editingItem ? editingItem.destination : '',
           distance: 'distance' in editingItem ? editingItem.distance : 0,
           rate: 'rate' in editingItem ? editingItem.rate : defaultRate,
         });
@@ -137,6 +143,8 @@ export function ExpenseForm({
           amount: 0,
           category: '',
           transferee: '',
+          origin: '',
+          destination: '',
           distance: 0,
           rate: defaultRate,
         });
@@ -167,6 +175,8 @@ export function ExpenseForm({
         const submissionData: Omit<MileageLog, 'id'> = {
             type: 'Mileage',
             description: values.description,
+            origin: values.origin,
+            destination: values.destination,
             distance: values.distance!,
             rate: values.rate!,
             date: localDate.toISOString(),
@@ -287,6 +297,22 @@ export function ExpenseForm({
 
             {expenseType === 'Mileage' && (
                  <>
+                    <FormField control={form.control} name="origin" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Origin</FormLabel>
+                            <FormControl><Input placeholder="e.g., 123 Main St, Anytown" {...field} /></FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                     <FormField control={form.control} name="destination" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Destination</FormLabel>
+                            <FormControl><Input placeholder="e.g., 456 Oak Ave, Othertown" {...field} /></FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                    />
                     <FormField control={form.control} name="distance" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Distance (km)</FormLabel>

@@ -73,4 +73,6 @@ export interface MileageLog extends BaseExpense {
   type: 'Mileage';
   distance: number;
   rate: number;
+  origin?: string;
+  destination?: string;
 }

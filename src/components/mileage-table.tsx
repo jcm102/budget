@@ -110,6 +110,8 @@ export function MileageTable() {
             <TableRow>
               <TableHead>Date</TableHead>
               <TableHead>Description</TableHead>
+              <TableHead>Origin</TableHead>
+              <TableHead>Destination</TableHead>
               <TableHead>Distance</TableHead>
               <TableHead>Rate</TableHead>
               <TableHead>Total</TableHead>
@@ -125,6 +127,8 @@ export function MileageTable() {
                 <TableRow key={item.id}>
                   <TableCell>{format(new Date(item.date), 'PPP')}</TableCell>
                   <TableCell className="font-medium">{item.description}</TableCell>
+                  <TableCell>{item.origin}</TableCell>
+                  <TableCell>{item.destination}</TableCell>
                   <TableCell>{item.distance.toFixed(1)} km</TableCell>
                   <TableCell>{formatCurrency(item.rate)}</TableCell>
                   <TableCell>{formatCurrency(item.distance * item.rate)}</TableCell>
@@ -167,7 +171,7 @@ export function MileageTable() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center">
+                <TableCell colSpan={9} className="h-24 text-center">
                   No mileage logged yet.
                 </TableCell>
               </TableRow>
@@ -175,7 +179,7 @@ export function MileageTable() {
           </TableBody>
           <TableFooter>
             <TableRow>
-              <TableCell colSpan={2} className="font-semibold text-right">Totals</TableCell>
+              <TableCell colSpan={4} className="font-semibold text-right">Totals</TableCell>
               <TableCell className="font-semibold">{totalDistance.toFixed(1)} km</TableCell>
               <TableCell colSpan={1}></TableCell>
               <TableCell className="font-semibold">{formatCurrency(totalReimbursement)}</TableCell>
