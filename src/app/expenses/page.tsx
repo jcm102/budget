@@ -91,7 +91,7 @@ export default function ExpensesPage() {
             Back to Home
           </Link>
         </Button>
-        <Button variant="outline" onClick={handleExport} disabled={expenses.length === 0 && mileageLogs.length === 0}>
+        <Button variant="outline" onClick={handleExport}>
             <Download className="mr-2 h-4 w-4" />
             Export to CSV
         </Button>
