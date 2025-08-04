@@ -69,7 +69,7 @@ export function ExpenseTable() {
 
   const totalExpenses = expenses.reduce((acc, item) => acc + item.amount, 0);
   const totalReimbursable = expenses
-    .filter((item) => item.reimbursable)
+    .filter((item) => item.reimbursable && item.transferee !== 'Work Visa')
     .reduce((acc, item) => acc + item.amount, 0);
 
   return (
