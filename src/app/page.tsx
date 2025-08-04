@@ -7,7 +7,7 @@ import { TaskForm } from '@/components/task-form';
 import { TaskList } from '@/components/task-list';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, Sunrise, CalendarDays, CalendarRange, ArrowRight, Lightbulb } from 'lucide-react';
+import { PlusCircle, Sunrise, CalendarDays, CalendarRange, ArrowRight, Lightbulb, Banknote } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { Task } from '@/types';
@@ -72,6 +72,11 @@ export default function Home() {
              <Button asChild variant="outline" size="lg">
                 <Link href="/debt">
                   Debt Payment Worksheet <ArrowRight className="ml-2 h-5 w-5" />
+                </Link>
+             </Button>
+             <Button asChild variant="outline" size="lg">
+                <Link href="/budget">
+                  Budget Overview <Banknote className="ml-2 h-5 w-5" />
                 </Link>
              </Button>
              <Popover>

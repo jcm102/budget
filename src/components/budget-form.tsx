@@ -1,0 +1,204 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import * as z from 'zod';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import type { BudgetItem, BudgetItemType } from '@/types';
+
+const formSchema = z.object({
+    description: z.string().min(2, 'Description must be at least 2 characters.'),
+    category: z.string().min(2, 'Category must be at least 2 characters.'),
+    amount: z.coerce.number().min(0.01, 'Amount must be greater than 0.'),
+    type: z.enum(['Income', 'Debt Payments', 'Transfers']),
+    date: z.string().min(1, 'A date is required.'),
+    transferTo: z.string().optional(),
+    transferFrom: z.string().optional(),
+  }).refine(data => {
+    if (data.type === 'Transfers') {
+      return !!data.transferTo && !!data.transferFrom;
+    }
+    return true;
+  }, {
+    message: 'Both "Transfer From" and "Transfer To" are required for transfers.',
+    path: ['transferTo'],
+  });
+
+type BudgetFormProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  addBudgetItem: (item: Omit<BudgetItem, 'id'>) => void;
+  updateBudgetItem: (id: string, item: Omit<BudgetItem, 'id'>) => void;
+  editingItem: BudgetItem | null;
+};
+
+export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem, editingItem }: BudgetFormProps) {
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      description: '',
+      category: '',
+      amount: 0,
+      type: 'Income',
+      date: new Date().toISOString().split('T')[0],
+      transferFrom: '',
+      transferTo: '',
+    },
+  });
+
+  const itemType = form.watch('type');
+
+  useEffect(() => {
+    if (open) {
+      if (editingItem) {
+        form.reset({
+          description: editingItem.description,
+          category: editingItem.category,
+          amount: editingItem.amount,
+          type: editingItem.type,
+          date: new Date(editingItem.date).toISOString().split('T')[0],
+          transferFrom: editingItem.transferFrom || '',
+          transferTo: editingItem.transferTo || '',
+        });
+      } else {
+        form.reset({
+          description: '',
+          category: '',
+          amount: 0,
+          type: 'Income',
+          date: new Date().toISOString().split('T')[0],
+          transferFrom: '',
+          transferTo: '',
+        });
+      }
+    }
+  }, [editingItem, open, form]);
+
+  function onSubmit(values: z.infer<typeof formSchema>) {
+    const submissionData = {
+      ...values,
+      date: new Date(values.date).toISOString(),
+      type: values.type as BudgetItemType,
+    };
+    if (editingItem) {
+      updateBudgetItem(editingItem.id, submissionData);
+    } else {
+      addBudgetItem(submissionData);
+    }
+    onOpenChange(false);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>{editingItem ? 'Edit Item' : 'Add New Item'}</DialogTitle>
+          <DialogDescription>
+            {editingItem ? 'Update the details for your budget item.' : 'Fill in the details for your new budget item.'}
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField control={form.control} name="type" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Type</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger><SelectValue placeholder="Select item type" /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Income">Income</SelectItem>
+                      <SelectItem value="Debt Payments">Debt Payments</SelectItem>
+                      <SelectItem value="Transfers">Transfers</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField control={form.control} name="description" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description</FormLabel>
+                  <FormControl><Input placeholder="e.g., Monthly Salary" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField control={form.control} name="category" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Category</FormLabel>
+                  <FormControl><Input placeholder="e.g., Paycheck" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField control={form.control} name="amount" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Amount</FormLabel>
+                  <FormControl><Input type="number" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {itemType === 'Transfers' && (
+              <>
+                <FormField control={form.control} name="transferFrom" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Transfer From</FormLabel>
+                      <FormControl><Input placeholder="e.g., Checking Account" {...field} /></FormControl>
+                       <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField control={form.control} name="transferTo" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Transfer To</FormLabel>
+                      <FormControl><Input placeholder="e.g., Savings Account" {...field} /></FormControl>
+                       <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
+            <FormField control={form.control} name="date" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Date</FormLabel>
+                  <FormControl><Input type="date" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <DialogFooter>
+              <Button type="submit">{editingItem ? 'Save Changes' : 'Add Item'}</Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}

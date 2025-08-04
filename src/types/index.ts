@@ -18,10 +18,23 @@ export interface Task {
 }
 
 export interface Debt {
-  id: string;
+  id:string;
   name: string;
   balance: number;
   minimumPayment: number;
   actualPayment: number;
   dueDate: string; // Should be a date string
+}
+
+export type BudgetItemType = 'Income' | 'Debt Payments' | 'Transfers';
+
+export interface BudgetItem {
+  id: string;
+  type: BudgetItemType;
+  category: string;
+  description: string;
+  amount: number;
+  date: string; // ISO string
+  transferTo?: string;
+  transferFrom?: string;
 }
