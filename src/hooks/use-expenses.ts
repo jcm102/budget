@@ -34,7 +34,12 @@ export function useExpenses() {
 
   const addExpense = useCallback(async (itemData: Omit<Expense, 'id'>) => {
     try {
-      await ExpenseService.addExpense(itemData);
+      const newItem = await ExpenseService.addExpense(itemData);
+      // Manually add to state to ensure UI updates for one-off items
+      if (newItem.frequency === 'One-Time') {
+        setExpenses((prev) => [...prev, newItem].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+      }
+      // For recurring items, a refetch is better to get all instances
       await fetchExpenses();
     } catch (error) {
       console.error('Failed to add expense:', error);
