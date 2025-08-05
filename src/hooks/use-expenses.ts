@@ -34,12 +34,8 @@ export function useExpenses() {
 
   const addExpense = useCallback(async (itemData: Omit<Expense, 'id'>) => {
     try {
-      const newItem = await ExpenseService.addExpense(itemData);
-      // Manually add to state to ensure UI updates for one-off items
-      if (newItem.frequency === 'One-Time') {
-        setExpenses((prev) => [...prev, newItem].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
-      }
-      // For recurring items, a refetch is better to get all instances
+      await ExpenseService.addExpense(itemData);
+      // Always refetch the expenses to get the correct state including all recurring instances.
       await fetchExpenses();
     } catch (error) {
       console.error('Failed to add expense:', error);
@@ -81,6 +77,7 @@ export function useExpenses() {
     setExpenses((prev) => prev.filter((item) => item.id !== id));
     try {
       await ExpenseService.deleteExpense(id);
+      await fetchExpenses(); // Refetch to ensure recurring items are handled correctly
     } catch (error) {
       console.error('Failed to delete expense:', error);
       setExpenses(originalItems);
@@ -90,7 +87,7 @@ export function useExpenses() {
         variant: 'destructive',
       });
     }
-  }, [expenses, toast]);
+  }, [expenses, toast, fetchExpenses]);
 
   const toggleExpenseCompleted = useCallback(async (id: string, completed: boolean) => {
     const originalItems = [...expenses];
