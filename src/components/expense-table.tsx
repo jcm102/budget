@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { Pencil, Trash2, PlusCircle } from 'lucide-react';
-import type { Expense } from '@/types';
+import type { Expense, MileageLog } from '@/types';
 import {
   Table,
   TableBody,
@@ -84,10 +84,7 @@ export function ExpenseTable() {
   );
 
   const totalExpenses = expenses.reduce((acc, item) => acc + item.amount, 0);
-  const totalReimbursable = expenses
-    .filter((item) => item.reimbursable && item.transferee !== 'Work Visa')
-    .reduce((acc, item) => acc + item.amount, 0);
-
+  
   return (
     <>
       <ExpenseForm
@@ -99,23 +96,11 @@ export function ExpenseTable() {
         updateMileage={updateMileage}
         editingItem={editingItem}
       />
-      <div className="flex justify-between items-center mb-6 gap-2">
-        <h2 className="text-3xl font-bold font-headline text-primary">Work Expense Tracking</h2>
+      <div className="flex justify-end items-center mb-6 gap-2">
         <Button onClick={() => setIsFormOpen(true)}>
           <PlusCircle className="mr-2 h-5 w-5" />
-          Add Work Expense
+          Add Monetary Expense
         </Button>
-      </div>
-
-       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-        <div className="p-4 border rounded-lg bg-card">
-            <h4 className="text-muted-foreground">Total Expenses</h4>
-            <p className="text-2xl font-semibold">{formatCurrency(totalExpenses)}</p>
-        </div>
-        <div className="p-4 border rounded-lg bg-card">
-            <h4 className="text-muted-foreground">Total Reimbursable</h4>
-            <p className="text-2xl font-semibold">{formatCurrency(totalReimbursable)}</p>
-        </div>
       </div>
 
       {/* Mobile Card View */}

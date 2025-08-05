@@ -85,6 +85,19 @@ export default function ExpensesPage() {
     document.body.removeChild(link);
   };
 
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+  };
+
+  const totalMonetaryExpenses = expenses.reduce((acc, item) => acc + item.amount, 0);
+  const reimbursableMonetary = expenses
+    .filter((item) => item.reimbursable && item.transferee !== 'Work Visa')
+    .reduce((acc, item) => acc + item.amount, 0);
+  const reimbursableMileage = mileageLogs
+    .filter(item => item.reimbursable)
+    .reduce((acc, item) => acc + (item.distance * item.rate), 0);
+  const totalReimbursable = reimbursableMonetary + reimbursableMileage;
+
 
   return (
     <div className="container mx-auto max-w-6xl p-4 md:p-8">
@@ -101,6 +114,21 @@ export default function ExpensesPage() {
         </Button>
       </header>
       <main>
+        <div className="flex justify-between items-center mb-6 gap-2">
+            <h2 className="text-3xl font-bold font-headline text-primary">Work Expense Tracking</h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+            <div className="p-4 border rounded-lg bg-card">
+                <h4 className="text-muted-foreground">Total Monetary Expenses</h4>
+                <p className="text-2xl font-semibold">{formatCurrency(totalMonetaryExpenses)}</p>
+            </div>
+            <div className="p-4 border rounded-lg bg-card">
+                <h4 className="text-muted-foreground">Total Reimbursable (Monetary + Mileage)</h4>
+                <p className="text-2xl font-semibold">{formatCurrency(totalReimbursable)}</p>
+            </div>
+        </div>
+
         <Tabs defaultValue="monetary" className="w-full">
           <TabsList className="grid w-full grid-cols-2 bg-secondary/50 mb-6">
             <TabsTrigger value="monetary"><Banknote className="mr-2 h-4 w-4" />Monetary Expenses</TabsTrigger>
