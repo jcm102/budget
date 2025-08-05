@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Pencil, Trash2, PlusCircle } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, MapPin } from 'lucide-react';
 import type { MileageLog } from '@/types';
 import {
   Table,
@@ -32,6 +32,7 @@ import { useExpenses } from '@/hooks/use-expenses';
 import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from './ui/card';
 
 export function MileageTable() {
   const { mileageLogs, addMileage, updateMileage, deleteMileage, isLoading } = useMileage();
@@ -57,7 +58,23 @@ export function MileageTable() {
 
   const renderLoadingSkeleton = () => (
     Array.from({ length: 4 }).map((_, i) => (
-      <TableRow key={`skeleton-mileage-${i}`}>
+       <Card key={`skeleton-mileage-${i}`} className="md:hidden">
+        <CardContent className="p-4 space-y-2">
+            <Skeleton className="h-5 w-3/4" />
+            <Skeleton className="h-4 w-1/2" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-1/4" />
+        </CardContent>
+      </Card>
+    ))
+  );
+
+  const renderLoadingSkeletonTable = () => (
+    Array.from({ length: 4 }).map((_, i) => (
+      <TableRow key={`skeleton-mileage-table-${i}`}>
+        <TableCell><Skeleton className="h-6 w-full" /></TableCell>
+        <TableCell><Skeleton className="h-6 w-full" /></TableCell>
         <TableCell><Skeleton className="h-6 w-full" /></TableCell>
         <TableCell><Skeleton className="h-6 w-full" /></TableCell>
         <TableCell><Skeleton className="h-6 w-full" /></TableCell>
@@ -104,7 +121,74 @@ export function MileageTable() {
         </div>
       </div>
 
-      <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-4">
+        {isLoading ? (
+          renderLoadingSkeleton()
+        ) : mileageLogs.length > 0 ? (
+          mileageLogs.map((item) => (
+            <Card key={item.id}>
+                 <CardHeader className="p-4">
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <CardTitle className="text-lg">{item.description}</CardTitle>
+                             <p className="text-sm text-muted-foreground">{format(new Date(item.date), 'PPP')}</p>
+                        </div>
+                        <div className="text-lg font-bold text-right">{formatCurrency(item.distance * item.rate)}</div>
+                    </div>
+                </CardHeader>
+                <CardContent className="p-4 pt-0 text-sm text-muted-foreground space-y-2">
+                    <div className="flex items-start gap-2">
+                        <MapPin className="h-4 w-4 mt-0.5 text-primary" />
+                        <div>
+                            <p><strong>From:</strong> {item.origin}</p>
+                            <p><strong>To:</strong> {item.destination}</p>
+                        </div>
+                    </div>
+                    <p><strong>Distance:</strong> {item.distance.toFixed(1)} km @ {formatCurrency(item.rate)}/km</p>
+                    <div className="mt-2">
+                        {item.reimbursable ? (
+                          <Badge variant="default">Reimbursable</Badge>
+                        ) : (
+                          <Badge variant="secondary">Non-Reimbursable</Badge>
+                        )}
+                    </div>
+                </CardContent>
+                <CardFooter className="p-4 pt-0 flex justify-end gap-2">
+                     <Button variant="ghost" size="sm" onClick={() => handleEdit(item)}>
+                        <Pencil className="mr-2 h-4 w-4" /> Edit
+                      </Button>
+                      <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm" className="hover:text-destructive">
+                              <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently delete this mileage log.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => deleteMileage(item.id)} className={cn(buttonVariants({ variant: "destructive" }))}>
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                 </CardFooter>
+            </Card>
+          ))
+        ) : (
+          <p className="text-center text-muted-foreground py-8">No mileage logged yet.</p>
+        )}
+      </div>
+
+      {/* Desktop Table View */}
+      <div className="hidden md:block rounded-lg border bg-card text-card-foreground shadow-sm">
         <Table>
           <TableHeader>
             <TableRow>
@@ -121,7 +205,7 @@ export function MileageTable() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              renderLoadingSkeleton()
+              renderLoadingSkeletonTable()
             ) : mileageLogs.length > 0 ? (
               mileageLogs.map((item) => (
                 <TableRow key={item.id}>

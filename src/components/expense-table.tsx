@@ -32,6 +32,7 @@ import { useMileage } from '@/hooks/use-mileage';
 import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from './ui/card';
 
 export function ExpenseTable() {
   const { expenses, addExpense, updateExpense, deleteExpense, isLoading } = useExpenses();
@@ -57,7 +58,20 @@ export function ExpenseTable() {
 
   const renderLoadingSkeleton = () => (
     Array.from({ length: 5 }).map((_, i) => (
-      <TableRow key={`skeleton-${i}`}>
+      <Card key={`skeleton-${i}`} className="md:hidden">
+        <CardContent className="p-4 space-y-2">
+            <Skeleton className="h-5 w-3/4" />
+            <Skeleton className="h-4 w-1/2" />
+            <Skeleton className="h-4 w-1/3" />
+            <Skeleton className="h-4 w-1/4" />
+        </CardContent>
+      </Card>
+    ))
+  );
+  
+  const renderLoadingSkeletonTable = () => (
+    Array.from({ length: 5 }).map((_, i) => (
+      <TableRow key={`skeleton-table-${i}`}>
         <TableCell><Skeleton className="h-6 w-full" /></TableCell>
         <TableCell><Skeleton className="h-6 w-full" /></TableCell>
         <TableCell><Skeleton className="h-6 w-full" /></TableCell>
@@ -104,7 +118,68 @@ export function ExpenseTable() {
         </div>
       </div>
 
-      <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-4">
+        {isLoading ? (
+          renderLoadingSkeleton()
+        ) : expenses.length > 0 ? (
+          expenses.map((item) => (
+            <Card key={item.id}>
+                <CardHeader className="p-4">
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <CardTitle className="text-lg">{item.description}</CardTitle>
+                             <p className="text-sm text-muted-foreground">{format(new Date(item.date), 'PPP')}</p>
+                        </div>
+                        <div className="text-lg font-bold text-right">{formatCurrency(item.amount)}</div>
+                    </div>
+                </CardHeader>
+                <CardContent className="p-4 pt-0 text-sm text-muted-foreground">
+                    <p><strong>Category:</strong> {item.category}</p>
+                    <p><strong>Paid From:</strong> {item.transferee}</p>
+                    <div className="mt-2">
+                        {item.reimbursable ? (
+                          <Badge variant="default">Reimbursable</Badge>
+                        ) : (
+                          <Badge variant="secondary">Non-Reimbursable</Badge>
+                        )}
+                    </div>
+                </CardContent>
+                 <CardFooter className="p-4 pt-0 flex justify-end gap-2">
+                     <Button variant="ghost" size="sm" onClick={() => handleEdit(item)}>
+                        <Pencil className="mr-2 h-4 w-4" /> Edit
+                      </Button>
+                      <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm" className="hover:text-destructive">
+                              <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently delete this expense item.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => deleteExpense(item.id)} className={cn(buttonVariants({ variant: "destructive" }))}>
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                 </CardFooter>
+            </Card>
+          ))
+        ) : (
+          <p className="text-center text-muted-foreground py-8">No expenses added yet.</p>
+        )}
+      </div>
+
+      {/* Desktop Table View */}
+      <div className="hidden md:block rounded-lg border bg-card text-card-foreground shadow-sm">
         <Table>
           <TableHeader>
             <TableRow>
@@ -119,7 +194,7 @@ export function ExpenseTable() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              renderLoadingSkeleton()
+              renderLoadingSkeletonTable()
             ) : expenses.length > 0 ? (
               expenses.map((item) => (
                 <TableRow key={item.id}>
