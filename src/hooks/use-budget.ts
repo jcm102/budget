@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -90,5 +91,25 @@ export function useBudget() {
     }
   }, [budgetItems, toast]);
 
-  return { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, isLoading };
+  const toggleBudgetItemCompleted = useCallback(async (id: string, completed: boolean) => {
+    const originalItems = [...budgetItems];
+    setBudgetItems(prev =>
+      prev.map(item =>
+        item.id === id ? { ...item, completed: !item.completed } : item
+      )
+    );
+    try {
+      await BudgetService.updateBudgetItem(id, { completed: !completed });
+    } catch (error) {
+      console.error('Failed to toggle budget item:', error);
+      setBudgetItems(originalItems);
+      toast({
+        title: 'Error',
+        description: 'Failed to update item completion status.',
+        variant: 'destructive',
+      });
+    }
+  }, [budgetItems, toast]);
+
+  return { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, toggleBudgetItemCompleted, isLoading };
 }

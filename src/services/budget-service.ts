@@ -1,3 +1,4 @@
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -13,6 +14,7 @@ import {
   addDoc,
   where,
   writeBatch,
+  updateDoc,
 } from 'firebase/firestore';
 import { isSameMonth, startOfMonth, getDate, getMonth, getYear, set, addWeeks, isAfter, isBefore, isLastDayOfMonth, lastDayOfMonth, addMonths, startOfDay } from 'date-fns';
 
@@ -30,6 +32,11 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
   const allItems = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BudgetItem));
 
   allItems.forEach(item => {
+    // Initialize completed if it's undefined
+    if (item.completed === undefined) {
+      item.completed = false;
+    }
+
     const itemStartDate = new Date(item.date);
     
     if (getYear(itemStartDate) > getYear(today) || (getYear(itemStartDate) === getYear(today) && getMonth(itemStartDate) > getMonth(today))) {
@@ -54,11 +61,17 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
         if (isSameMonth(currentDate, today)) {
             const instanceId = `${item.id}-${currentDate.getTime()}`;
             const modifiedInstance = allItems.find(i => i.originalId === instanceId);
-            if (!modifiedInstance) {
+            if (modifiedInstance) {
+                // if a modified one exists, show that instead.
+                if (isSameMonth(new Date(modifiedInstance.date), today)) {
+                    currentMonthItems.push(modifiedInstance);
+                }
+            } else {
                 currentMonthItems.push({
                     ...item,
                     id: instanceId,
                     date: currentDate.toISOString(),
+                    completed: item.completed || false
                 });
             }
         }
@@ -74,11 +87,16 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
           if (isAfter(currentDate, itemStartDate) || isSameMonth(itemStartDate, currentDate)) {
               const instanceId = `${item.id}-${currentDate.getTime()}`;
               const modifiedInstance = allItems.find(i => i.originalId === instanceId);
-              if (!modifiedInstance) {
+               if (modifiedInstance) {
+                  if(isSameMonth(new Date(modifiedInstance.date), today)) {
+                      currentMonthItems.push(modifiedInstance);
+                  }
+              } else {
                 currentMonthItems.push({
                     ...item,
                     id: instanceId, 
-                    date: currentDate.toISOString()
+                    date: currentDate.toISOString(),
+                    completed: item.completed || false
                 });
               }
           }
@@ -105,27 +123,51 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
 }
 
 export async function addBudgetItem(itemData: Omit<BudgetItem, 'id'>): Promise<BudgetItem> {
-  const docRef = await addDoc(collection(db, BUDGET_COLLECTION), itemData);
+  const dataWithCompleted = { ...itemData, completed: false };
+  const docRef = await addDoc(collection(db, BUDGET_COLLECTION), dataWithCompleted);
   const docSnap = await getDoc(docRef);
   return { id: docSnap.id, ...(docSnap.data() as Omit<BudgetItem, 'id'>) };
 }
 
-export async function updateBudgetItem(id: string, itemData: Omit<BudgetItem, 'id' | 'originalId'>): Promise<void> {
+export async function updateBudgetItem(id: string, itemData: Partial<Omit<BudgetItem, 'id' | 'originalId'>>): Promise<void> {
     const isRecurringInstance = id.includes('-');
     
     if (isRecurringInstance) {
-        const newDocData: Omit<BudgetItem, 'id'> & { originalId: string } = {
-            ...itemData,
-            frequency: 'One-Time', 
-            originalId: id, 
-        };
-        await addDoc(collection(db, BUDGET_COLLECTION), newDocData);
+        const [baseId] = id.split('-');
+        const originalItemRef = doc(db, BUDGET_COLLECTION, baseId);
+        const originalItemSnap = await getDoc(originalItemRef);
+
+        if (originalItemSnap.exists()) {
+            const originalItemData = originalItemSnap.data();
+            
+            // if we are only toggling completion, handle it differently
+            if ('completed' in itemData && Object.keys(itemData).length === 1) {
+                 const newDocData: BudgetItem = {
+                    ...(originalItemData as BudgetItem),
+                    ...itemData,
+                    id: id,
+                    date: new Date(parseInt(id.split('-')[1])).toISOString(),
+                    frequency: 'One-Time', 
+                    originalId: id, 
+                 };
+                 await addDoc(collection(db, BUDGET_COLLECTION), newDocData);
+
+            } else {
+                 const newDocData: Omit<BudgetItem, 'id'> & { originalId: string } = {
+                    ...(originalItemData as BudgetItem),
+                    ...itemData,
+                    frequency: 'One-Time', 
+                    originalId: id,
+                    completed: itemData.completed ?? false,
+                };
+                await addDoc(collection(db, BUDGET_COLLECTION), newDocData);
+            }
+        }
     } else {
         const itemRef = doc(db, BUDGET_COLLECTION, id);
         const docSnap = await getDoc(itemRef);
         if (docSnap.exists()) {
-            const existingData = docSnap.data();
-            await setDoc(itemRef, { ...existingData, ...itemData });
+            await updateDoc(itemRef, itemData);
         } else {
             throw new Error(`Budget item with id ${id} not found.`);
         }
@@ -133,19 +175,35 @@ export async function updateBudgetItem(id: string, itemData: Omit<BudgetItem, 'i
 }
 
 export async function deleteBudgetItem(id: string): Promise<void> {
-  const baseId = id.split('-')[0];
+  const isRecurringInstance = id.includes('-');
+  
+  if (isRecurringInstance) {
+    // This is a virtual instance, we only need to delete the modified one-time items if they exist.
+     const q = query(collection(db, BUDGET_COLLECTION), where('originalId', '==', id));
+     const querySnapshot = await getDocs(q);
+     if (!querySnapshot.empty) {
+         await deleteDoc(querySnapshot.docs[0].ref);
+     }
+     // If no modified version exists, there's nothing in the DB to delete for this instance.
+     return;
+  }
+  
+  // It's a base item. Delete it and all its modified instances.
+  const baseId = id;
   const itemRef = doc(db, BUDGET_COLLECTION, baseId);
   
   const batch = writeBatch(db);
 
-  // Also need to delete any modified one-time instances that point to this recurring item
-  const q = query(collection(db, BUDGET_COLLECTION), where('originalId', '==', id));
+  const q = query(collection(db, BUDGET_COLLECTION), where('originalId', '>=', baseId), where('originalId', '<', baseId + 'z'));
   const querySnapshot = await getDocs(q);
   querySnapshot.forEach(doc => {
       batch.delete(doc.ref);
   });
   
-  batch.delete(itemRef);
+  const docSnap = await getDoc(itemRef);
+  if (docSnap.exists()) {
+    batch.delete(itemRef);
+  }
 
   await batch.commit();
 }

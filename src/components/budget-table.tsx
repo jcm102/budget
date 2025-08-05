@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -36,9 +37,10 @@ import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
 import { Badge } from './ui/badge';
+import { Checkbox } from './ui/checkbox';
 
 export function BudgetTable() {
-  const { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, isLoading } = useBudget();
+  const { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, toggleBudgetItemCompleted, isLoading } = useBudget();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<BudgetItem | null>(null);
 
@@ -78,6 +80,9 @@ export function BudgetTable() {
     let colSpan = 5;
     if (type === 'Transfers') colSpan = 6;
     if (type === 'Income') colSpan = 6;
+    if (type === 'Pre-Authorized Payments') colSpan = 6;
+
+    const showCompletedCheckbox = type === 'Pre-Authorized Payments' || type === 'Transfers';
 
     return (
       <div className="mb-8">
@@ -102,6 +107,7 @@ export function BudgetTable() {
           <Table>
             <TableHeader>
               <TableRow>
+                {showCompletedCheckbox && <TableHead className="w-[50px]">Paid</TableHead>}
                 <TableHead>Description</TableHead>
                 {type === 'Income' && <TableHead>Category</TableHead>}
                 {type === 'Transfers' && <TableHead>From</TableHead>}
@@ -117,8 +123,17 @@ export function BudgetTable() {
                 renderLoadingSkeleton()
               ) : items.length > 0 ? (
                 items.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.description}</TableCell>
+                  <TableRow key={item.id} data-state={item.completed ? "completed" : "" } className={cn(item.completed && "bg-accent/30 text-muted-foreground")}>
+                    {showCompletedCheckbox && (
+                      <TableCell>
+                        <Checkbox
+                          checked={item.completed}
+                          onCheckedChange={() => toggleBudgetItemCompleted(item.id, item.completed || false)}
+                          aria-label={`Mark ${item.description} as paid`}
+                        />
+                      </TableCell>
+                    )}
+                    <TableCell className={cn("font-medium", item.completed && "line-through")}>{item.description}</TableCell>
                     {type === 'Income' && <TableCell>{item.category}</TableCell>}
                     {type === 'Transfers' && <TableCell>{item.transferFrom}</TableCell>}
                     {type === 'Transfers' && <TableCell>{item.transferTo}</TableCell>}
@@ -188,6 +203,16 @@ export function BudgetTable() {
   const totalIncome = budgetItems.filter(i => i.type === 'Income').reduce((acc, i) => acc + i.amount, 0);
   const totalDebtPayments = budgetItems.filter(i => i.type === 'Debt Payments').reduce((acc, i) => acc + i.amount, 0);
   const totalPAPayments = budgetItems.filter(i => i.type === 'Pre-Authorized Payments').reduce((acc, i) => acc + i.amount, 0);
+  const totalTransfers = budgetItems.filter(i => i.type === 'Transfers').reduce((acc, i) => acc + i.amount, 0);
+
+  const remainingPAPayments = budgetItems
+    .filter(i => i.type === 'Pre-Authorized Payments' && !i.completed)
+    .reduce((acc, i) => acc + i.amount, 0);
+
+  const remainingTransfers = budgetItems
+    .filter(i => i.type === 'Transfers' && !i.completed)
+    .reduce((acc, i) => acc + i.amount, 0);
+
 
   return (
     <>
@@ -206,7 +231,7 @@ export function BudgetTable() {
         </Button>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div className="p-4 border rounded-lg bg-card">
             <h4 className="text-muted-foreground">Total Income</h4>
             <p className="text-2xl font-semibold">{formatCurrency(totalIncome)}</p>
@@ -216,8 +241,12 @@ export function BudgetTable() {
             <p className="text-2xl font-semibold">{formatCurrency(totalDebtPayments)}</p>
         </div>
         <div className="p-4 border rounded-lg bg-card">
-            <h4 className="text-muted-foreground">Total Pre-Authorized Payments</h4>
+            <h4 className="text-muted-foreground">Total PA Payments</h4>
             <p className="text-2xl font-semibold">{formatCurrency(totalPAPayments)}</p>
+        </div>
+        <div className="p-4 border rounded-lg bg-card">
+            <h4 className="text-muted-foreground">Remaining PA Payments</h4>
+            <p className="text-2xl font-semibold">{formatCurrency(remainingPAPayments)}</p>
         </div>
       </div>
 

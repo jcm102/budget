@@ -43,6 +43,7 @@ export interface BudgetItem {
   transferTo?: string;
   transferFrom?: string;
   originalId?: string; // To track edited recurring instances
+  completed?: boolean;
 }
 
 export interface Category {
