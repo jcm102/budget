@@ -92,7 +92,7 @@ export function BudgetTable() {
               </PopoverTrigger>
               <PopoverContent className="w-80">
                   <p className="text-sm">
-                    items that will come out of the libro chequing account this month
+                    Items that will come out of the Libro chequing account this month
                   </p>
               </PopoverContent>
             </Popover>
