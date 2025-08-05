@@ -28,10 +28,28 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
   const today = new Date();
   const currentMonthItems: BudgetItem[] = [];
   const startOfCurrentMonth = startOfMonth(today);
+  const processedRecurringInstances = new Set<string>();
 
   const allItems = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BudgetItem));
 
+  // First, find all modified one-time items for the current month
+  const modifiedItemsInMonth = allItems.filter(item => 
+      item.originalId && isSameMonth(new Date(item.date), today)
+  );
+
+  modifiedItemsInMonth.forEach(item => {
+      currentMonthItems.push(item);
+      // Keep track of which original instances have been processed
+      if (item.originalId) {
+          processedRecurringInstances.add(item.originalId);
+      }
+  });
+
+
   allItems.forEach(item => {
+    // Skip modified items as they are already handled
+    if (item.originalId) return;
+
     // Initialize completed if it's undefined
     if (item.completed === undefined) {
       item.completed = false;
@@ -39,7 +57,8 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
 
     const itemStartDate = new Date(item.date);
     
-    if (getYear(itemStartDate) > getYear(today) || (getYear(itemStartDate) === getYear(today) && getMonth(itemStartDate) > getMonth(today))) {
+    // Skip items that start in a future month (unless it's a one-time item in the current month)
+     if (getYear(itemStartDate) > getYear(today) || (getYear(itemStartDate) === getYear(today) && getMonth(itemStartDate) > getMonth(today))) {
         if (item.frequency === 'One-Time' && isSameMonth(itemStartDate, today)) {
           // continue
         } else {
@@ -47,26 +66,21 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
         }
     }
 
+
     if (item.frequency === 'One-Time') {
-      if (isSameMonth(itemStartDate, today)) {
+      if (isSameMonth(itemStartDate, today) && !currentMonthItems.some(i => i.id === item.id)) {
         currentMonthItems.push(item);
       }
     } else if (item.frequency === 'Monthly') {
         let currentDate = startOfDay(itemStartDate);
         
-        while (isBefore(currentDate, startOfCurrentMonth)) {
+        while (getMonth(currentDate) < getMonth(startOfCurrentMonth) && getYear(currentDate) <= getYear(today)) {
              currentDate = addMonths(currentDate, 1);
         }
 
         if (isSameMonth(currentDate, today)) {
             const instanceId = `${item.id}-${currentDate.getTime()}`;
-            const modifiedInstance = allItems.find(i => i.originalId === instanceId);
-            if (modifiedInstance) {
-                // if a modified one exists, show that instead.
-                if (isSameMonth(new Date(modifiedInstance.date), today)) {
-                    currentMonthItems.push(modifiedInstance);
-                }
-            } else {
+             if (!processedRecurringInstances.has(instanceId)) {
                 currentMonthItems.push({
                     ...item,
                     id: instanceId,
@@ -79,19 +93,15 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
       let currentDate = itemStartDate;
       const increment = item.frequency === 'Weekly' ? 1 : 2;
 
+      // Fast-forward to the current month
       while (isBefore(currentDate, startOfCurrentMonth)) {
         currentDate = addWeeks(currentDate, increment);
       }
       
       while (isSameMonth(currentDate, today)) {
+          const instanceId = `${item.id}-${currentDate.getTime()}`;
           if (isAfter(currentDate, itemStartDate) || isSameMonth(itemStartDate, currentDate)) {
-              const instanceId = `${item.id}-${currentDate.getTime()}`;
-              const modifiedInstance = allItems.find(i => i.originalId === instanceId);
-               if (modifiedInstance) {
-                  if(isSameMonth(new Date(modifiedInstance.date), today)) {
-                      currentMonthItems.push(modifiedInstance);
-                  }
-              } else {
+              if (!processedRecurringInstances.has(instanceId)) {
                 currentMonthItems.push({
                     ...item,
                     id: instanceId, 
@@ -103,19 +113,6 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
           currentDate = addWeeks(currentDate, increment);
       }
     }
-  });
-
-  // Now, fetch any one-time items that might have been created from editing a recurring item from a *future* month
-  const qModified = query(collection(db, BUDGET_COLLECTION), where('originalId', '!=', null));
-  const modifiedSnapshot = await getDocs(qModified);
-  modifiedSnapshot.forEach(doc => {
-      const modifiedItem = { id: doc.id, ...doc.data() } as BudgetItem;
-      if (isSameMonth(new Date(modifiedItem.date), today)) {
-          // Avoid duplicates if it's already in the list
-          if (!currentMonthItems.some(item => item.id === modifiedItem.id)) {
-              currentMonthItems.push(modifiedItem);
-          }
-      }
   });
 
 
@@ -139,31 +136,34 @@ export async function updateBudgetItem(id: string, itemData: Partial<Omit<Budget
 
         if (originalItemSnap.exists()) {
             const originalItemData = originalItemSnap.data();
-            
-            // if we are only toggling completion, handle it differently
-            if ('completed' in itemData && Object.keys(itemData).length === 1) {
-                 const newDocData: BudgetItem = {
-                    ...(originalItemData as BudgetItem),
-                    ...itemData,
-                    id: id,
-                    date: new Date(parseInt(id.split('-')[1])).toISOString(),
-                    frequency: 'One-Time', 
-                    originalId: id, 
-                 };
-                 await addDoc(collection(db, BUDGET_COLLECTION), newDocData);
 
+            // Check if an overridden item already exists for this instance
+            const q = query(collection(db, BUDGET_COLLECTION), where('originalId', '==', id));
+            const existingOverrideSnap = await getDocs(q);
+
+            if (!existingOverrideSnap.empty) {
+                // Update the existing override document
+                const overrideDocRef = existingOverrideSnap.docs[0].ref;
+                await updateDoc(overrideDocRef, itemData);
             } else {
-                 const newDocData: Omit<BudgetItem, 'id'> & { originalId: string } = {
+                // Create a new override document
+                const newDocData: Omit<BudgetItem, 'id'> & { originalId: string } = {
                     ...(originalItemData as BudgetItem),
                     ...itemData,
                     frequency: 'One-Time', 
                     originalId: id,
+                    date: new Date(parseInt(id.split('-')[1])).toISOString(),
                     completed: itemData.completed ?? false,
                 };
+                // Ensure the date from the edited item is used if provided
+                if (itemData.date) {
+                    newDocData.date = itemData.date;
+                }
                 await addDoc(collection(db, BUDGET_COLLECTION), newDocData);
             }
         }
     } else {
+        // This is a base item or a one-off item
         const itemRef = doc(db, BUDGET_COLLECTION, id);
         const docSnap = await getDoc(itemRef);
         if (docSnap.exists()) {
@@ -194,10 +194,15 @@ export async function deleteBudgetItem(id: string): Promise<void> {
   
   const batch = writeBatch(db);
 
-  const q = query(collection(db, BUDGET_COLLECTION), where('originalId', '>=', baseId), where('originalId', '<', baseId + 'z'));
+  // This query is too broad, it can delete other items' instances.
+  // We need to be more specific. Let's find docs where originalId starts with baseId.
+  const q = query(collection(db, BUDGET_COLLECTION), where('originalId', '>=', baseId + '-'), where('originalId', '<', baseId + '-z'));
+
   const querySnapshot = await getDocs(q);
   querySnapshot.forEach(doc => {
+    if (doc.data().originalId.startsWith(baseId + '-')) {
       batch.delete(doc.ref);
+    }
   });
   
   const docSnap = await getDoc(itemRef);
