@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, ArrowUpDown, Repeat } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, ArrowUpDown, Repeat, Info } from 'lucide-react';
 import type { BudgetItem, BudgetItemType } from '@/types';
 import {
   Table,
@@ -25,6 +25,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { BudgetForm } from './budget-form';
 import { useBudget } from '@/hooks/use-budget';
 import { Skeleton } from './ui/skeleton';
@@ -76,7 +81,23 @@ export function BudgetTable() {
 
     return (
       <div className="mb-8">
-        <h3 className="text-2xl font-bold font-headline text-primary mb-4">{title}</h3>
+        <div className="flex items-center gap-2 mb-4">
+          <h3 className="text-2xl font-bold font-headline text-primary">{title}</h3>
+          {type === 'Pre-Authorized Payments' && (
+             <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground">
+                  <Info className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80">
+                  <p className="text-sm">
+                    This section is for automatically withdrawn payments from your account, such as car payments, insurance, or subscriptions.
+                  </p>
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
         <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
           <Table>
             <TableHeader>
