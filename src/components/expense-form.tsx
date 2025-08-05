@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
@@ -79,7 +78,7 @@ const formSchema = z.object({
 type ExpenseFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  addExpense: (item: Omit<Expense, 'id'>) => void;
+  addExpense: (item: Omit<Expense, 'id'>, callback: (success: boolean) => void) => void;
   updateExpense: (id: string, item: Partial<Omit<Expense, 'id'>>) => void;
   addMileage: (item: Omit<MileageLog, 'id'>) => void;
   updateMileage: (id: string, item: Omit<MileageLog, 'id'>) => void;
@@ -134,28 +133,32 @@ export function ExpenseForm({
     if (open) {
       const defaultRate = mileageRate || 0.50;
       if (editingItem) {
+        // This is an edit session
+        const isMonetary = 'amount' in editingItem;
         form.reset({
-          expenseType: editingItem.type,
+          expenseType: isMonetary ? 'Monetary' : 'Mileage',
           description: editingItem.description,
           date: new Date(editingItem.date).toISOString().split('T')[0],
-          reimbursable: 'reimbursable' in editingItem ? editingItem.reimbursable : true,
-          amount: 'amount' in editingItem ? editingItem.amount : 0,
-          category: 'category' in editingItem ? editingItem.category : '',
-          transferee: 'transferee' in editingItem ? editingItem.transferee : '',
-          frequency: 'frequency' in editingItem ? editingItem.frequency : 'One-Time',
-          origin: 'origin' in editingItem ? editingItem.origin : '',
-          destination: 'destination' in editingItem ? editingItem.destination : '',
-          distance: 'distance' in editingItem ? editingItem.distance : 0,
-          rate: 'rate' in editingItem ? editingItem.rate : defaultRate,
-          tripType: 'tripType' in editingItem ? editingItem.tripType : 'One-Way',
+          // Monetary
+          amount: isMonetary ? editingItem.amount : 0,
+          category: isMonetary ? editingItem.category : '',
+          transferee: isMonetary ? editingItem.transferee : '',
+          reimbursable: isMonetary ? editingItem.reimbursable : false,
+          frequency: isMonetary ? editingItem.frequency : 'One-Time',
+          // Mileage
+          origin: !isMonetary ? editingItem.origin : '',
+          destination: !isMonetary ? editingItem.destination : '',
+          distance: !isMonetary ? editingItem.distance : 0,
+          rate: !isMonetary ? editingItem.rate : defaultRate,
+          tripType: !isMonetary ? editingItem.tripType : 'One-Way',
         });
         if ('distance' in editingItem && editingItem.tripType === 'Return') {
             oneWayDistanceRef.current = editingItem.distance / 2;
         } else if ('distance' in editingItem) {
             oneWayDistanceRef.current = editingItem.distance;
         }
-
       } else {
+        // This is a new item session
         form.reset({
           expenseType: 'Monetary',
           description: '',
@@ -175,6 +178,7 @@ export function ExpenseForm({
       }
     }
   }, [editingItem, open, form, mileageRate]);
+
 
    useEffect(() => {
     if (expenseType === 'Mileage' && oneWayDistanceRef.current !== null) {
@@ -223,7 +227,6 @@ export function ExpenseForm({
     }
   };
 
-
   function onSubmit(values: z.infer<typeof formSchema>) {
     const [year, month, day] = values.date.split('-').map(Number);
     const localDate = new Date(year, month - 1, day);
@@ -242,15 +245,20 @@ export function ExpenseForm({
         };
         if (editingItem && editingItem.type === 'Monetary') {
             updateExpense(editingItem.id, submissionData);
+            onOpenChange(false);
         } else {
-            addExpense(submissionData);
+             addExpense(submissionData, (success) => {
+              if (success) {
+                onOpenChange(false);
+              }
+            });
         }
     } else { // Mileage
         const submissionData: Omit<MileageLog, 'id'> = {
             type: 'Mileage',
             description: values.description,
-            origin: values.origin,
-            destination: values.destination,
+            origin: values.origin || '',
+            destination: values.destination || '',
             distance: values.distance!,
             rate: values.rate!,
             date: localDate.toISOString(),
@@ -261,9 +269,8 @@ export function ExpenseForm({
         } else {
             addMileage(submissionData);
         }
+        onOpenChange(false);
     }
-
-    onOpenChange(false);
   }
 
   return (

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -32,11 +31,13 @@ export function useExpenses() {
     fetchExpenses();
   }, [fetchExpenses]);
 
-  const addExpense = useCallback(async (itemData: Omit<Expense, 'id'>) => {
+  const addExpense = useCallback(async (itemData: Omit<Expense, 'id'>, callback: (success: boolean) => void) => {
     try {
-      await ExpenseService.addExpense(itemData);
-      // Always refetch the expenses to get the correct state including all recurring instances.
-      await fetchExpenses();
+      const newItem = await ExpenseService.addExpense(itemData);
+      setExpenses((prev) => [...prev, newItem].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      callback(true);
+      // Optional: refetch to ensure consistency with recurring items, though optimistic update handles the immediate UI change.
+      fetchExpenses(); 
     } catch (error) {
       console.error('Failed to add expense:', error);
       toast({
@@ -44,6 +45,7 @@ export function useExpenses() {
         description: 'Failed to add the new expense.',
         variant: 'destructive',
       });
+      callback(false);
     }
   }, [toast, fetchExpenses]);
 
