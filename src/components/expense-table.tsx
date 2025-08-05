@@ -104,7 +104,7 @@ export function ExpenseTable() {
       </div>
 
       {/* Mobile Card View */}
-      <div className="md:hidden space-y-4">
+      <div className="grid grid-cols-1 gap-4 md:hidden">
         {isLoading ? (
           renderLoadingSkeleton()
         ) : expenses.length > 0 ? (

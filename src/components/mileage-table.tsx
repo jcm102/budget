@@ -108,7 +108,7 @@ export function MileageTable() {
       </div>
 
       {/* Mobile Card View */}
-      <div className="md:hidden space-y-4">
+      <div className="grid grid-cols-1 gap-4 md:hidden">
         {isLoading ? (
           renderLoadingSkeleton()
         ) : mileageLogs.length > 0 ? (
