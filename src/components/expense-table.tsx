@@ -38,7 +38,7 @@ export function ExpenseTable() {
   const { expenses, addExpense, updateExpense, deleteExpense, isLoading } = useExpenses();
   const { addMileage, updateMileage } = useMileage();
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<Expense | null>(null);
+  const [editingItem, setEditingItem] = useState<Expense | MileageLog | null>(null);
 
   const handleEdit = (item: Expense) => {
     setEditingItem(item);
@@ -56,9 +56,9 @@ export function ExpenseTable() {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
 
-  const renderLoadingSkeleton = () => (
+  const renderLoadingSkeletonMobile = () => (
     Array.from({ length: 5 }).map((_, i) => (
-      <Card key={`skeleton-${i}`} className="md:hidden">
+      <Card key={`skeleton-${i}`}>
         <CardContent className="p-4 space-y-2">
             <Skeleton className="h-5 w-3/4" />
             <Skeleton className="h-4 w-1/2" />
@@ -72,7 +72,6 @@ export function ExpenseTable() {
   const renderLoadingSkeletonTable = () => (
     Array.from({ length: 5 }).map((_, i) => (
       <TableRow key={`skeleton-table-${i}`}>
-        <TableCell><Skeleton className="h-6 w-full" /></TableCell>
         <TableCell><Skeleton className="h-6 w-full" /></TableCell>
         <TableCell><Skeleton className="h-6 w-full" /></TableCell>
         <TableCell><Skeleton className="h-6 w-full" /></TableCell>
@@ -106,7 +105,7 @@ export function ExpenseTable() {
       {/* Mobile Card View */}
       <div className="grid grid-cols-1 gap-4 md:hidden">
         {isLoading ? (
-          renderLoadingSkeleton()
+          renderLoadingSkeletonMobile()
         ) : expenses.length > 0 ? (
           expenses.map((item) => (
             <Card key={item.id}>

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { Pencil, Trash2, PlusCircle, MapPin } from 'lucide-react';
-import type { MileageLog } from '@/types';
+import type { Expense, MileageLog } from '@/types';
 import {
   Table,
   TableBody,
@@ -38,7 +38,7 @@ export function MileageTable() {
   const { mileageLogs, addMileage, updateMileage, deleteMileage, isLoading } = useMileage();
   const { addExpense, updateExpense } = useExpenses(); // We need this for the form
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<MileageLog | null>(null);
+  const [editingItem, setEditingItem] = useState<MileageLog | Expense | null>(null);
 
   const handleEdit = (item: MileageLog) => {
     setEditingItem(item);
@@ -56,9 +56,9 @@ export function MileageTable() {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
 
-  const renderLoadingSkeleton = () => (
+  const renderLoadingSkeletonMobile = () => (
     Array.from({ length: 4 }).map((_, i) => (
-       <Card key={`skeleton-mileage-${i}`} className="md:hidden">
+       <Card key={`skeleton-mileage-${i}`}>
         <CardContent className="p-4 space-y-2">
             <Skeleton className="h-5 w-3/4" />
             <Skeleton className="h-4 w-1/2" />
@@ -73,7 +73,6 @@ export function MileageTable() {
   const renderLoadingSkeletonTable = () => (
     Array.from({ length: 4 }).map((_, i) => (
       <TableRow key={`skeleton-mileage-table-${i}`}>
-        <TableCell><Skeleton className="h-6 w-full" /></TableCell>
         <TableCell><Skeleton className="h-6 w-full" /></TableCell>
         <TableCell><Skeleton className="h-6 w-full" /></TableCell>
         <TableCell><Skeleton className="h-6 w-full" /></TableCell>
@@ -110,7 +109,7 @@ export function MileageTable() {
       {/* Mobile Card View */}
       <div className="grid grid-cols-1 gap-4 md:hidden">
         {isLoading ? (
-          renderLoadingSkeleton()
+          renderLoadingSkeletonMobile()
         ) : mileageLogs.length > 0 ? (
           mileageLogs.map((item) => (
             <Card key={item.id}>
@@ -132,7 +131,7 @@ export function MileageTable() {
                         </div>
                     </div>
                     <p><strong>Distance:</strong> {item.distance.toFixed(1)} km @ {formatCurrency(item.rate)}/km</p>
-                    <div className="mt-2">
+                     <div className="mt-2">
                         <Badge variant="default">Reimbursable</Badge>
                     </div>
                 </CardContent>
