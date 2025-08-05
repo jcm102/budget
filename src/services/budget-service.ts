@@ -14,7 +14,7 @@ import {
   where,
   writeBatch,
 } from 'firebase/firestore';
-import { isSameMonth, startOfMonth, getDate, getMonth, getYear, set, addWeeks, isAfter, isLastDayOfMonth, lastDayOfMonth, addMonths, startOfDay } from 'date-fns';
+import { isSameMonth, startOfMonth, getDate, getMonth, getYear, set, addWeeks, isAfter, isBefore, isLastDayOfMonth, lastDayOfMonth, addMonths, startOfDay } from 'date-fns';
 
 const BUDGET_COLLECTION = 'budget-items';
 
