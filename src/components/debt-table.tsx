@@ -221,29 +221,29 @@ export function DebtTable() {
             </TableRow>
           </TableHeader>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={sortedDebts.map(d => d.id)} strategy={verticalListSortingStrategy}>
-              <TableBody>
-                {isLoading ? (
-                  renderLoadingSkeleton()
-                ) : sortedDebts.length > 0 ? (
-                  sortedDebts.map((debt) => (
-                    <SortableDebtRow 
-                        key={debt.id} 
-                        debt={debt} 
-                        onEdit={handleEdit} 
-                        onDelete={deleteDebt}
-                        formatCurrency={formatCurrency}
-                    />
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
-                      No debts entered yet. Add one to get started!
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </SortableContext>
+            <TableBody>
+              <SortableContext items={sortedDebts.map(d => d.id)} strategy={verticalListSortingStrategy}>
+                  {isLoading ? (
+                    renderLoadingSkeleton()
+                  ) : sortedDebts.length > 0 ? (
+                    sortedDebts.map((debt) => (
+                      <SortableDebtRow 
+                          key={debt.id} 
+                          debt={debt} 
+                          onEdit={handleEdit} 
+                          onDelete={deleteDebt}
+                          formatCurrency={formatCurrency}
+                      />
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={7} className="h-24 text-center">
+                        No debts entered yet. Add one to get started!
+                      </TableCell>
+                    </TableRow>
+                  )}
+              </SortableContext>
+            </TableBody>
           </DndContext>
            <TableFooter>
             <TableRow>
