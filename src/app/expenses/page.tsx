@@ -93,10 +93,12 @@ export default function ExpensesPage() {
   const reimbursableMonetary = expenses
     .filter((item) => item.reimbursable && item.transferee !== 'Work Visa')
     .reduce((acc, item) => acc + item.amount, 0);
-  const reimbursableMileage = mileageLogs
-    .filter(item => item.reimbursable)
+  
+  // All mileage is considered reimbursable in the total calculation
+  const totalMileageReimbursement = mileageLogs
     .reduce((acc, item) => acc + (item.distance * item.rate), 0);
-  const totalReimbursable = reimbursableMonetary + reimbursableMileage;
+    
+  const totalReimbursable = reimbursableMonetary + totalMileageReimbursement;
 
 
   return (
