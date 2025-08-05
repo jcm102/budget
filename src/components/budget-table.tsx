@@ -92,7 +92,7 @@ export function BudgetTable() {
               </PopoverTrigger>
               <PopoverContent className="w-80">
                   <p className="text-sm">
-                    This section is for automatically withdrawn payments from your account, such as car payments, insurance, or subscriptions.
+                    items that will come out of the libro chequing account this month
                   </p>
               </PopoverContent>
             </Popover>
