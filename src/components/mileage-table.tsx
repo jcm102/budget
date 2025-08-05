@@ -81,7 +81,6 @@ export function MileageTable() {
         <TableCell><Skeleton className="h-6 w-full" /></TableCell>
         <TableCell><Skeleton className="h-6 w-full" /></TableCell>
         <TableCell><Skeleton className="h-6 w-full" /></TableCell>
-        <TableCell><Skeleton className="h-6 w-full" /></TableCell>
       </TableRow>
     ))
   );
@@ -134,11 +133,7 @@ export function MileageTable() {
                     </div>
                     <p><strong>Distance:</strong> {item.distance.toFixed(1)} km @ {formatCurrency(item.rate)}/km</p>
                     <div className="mt-2">
-                        {item.reimbursable ? (
-                          <Badge variant="default">Reimbursable</Badge>
-                        ) : (
-                          <Badge variant="secondary">Non-Reimbursable</Badge>
-                        )}
+                        <Badge variant="default">Reimbursable</Badge>
                     </div>
                 </CardContent>
                 <CardFooter className="p-4 pt-0 flex justify-end gap-2">
@@ -186,7 +181,6 @@ export function MileageTable() {
               <TableHead>Distance</TableHead>
               <TableHead>Rate</TableHead>
               <TableHead>Total</TableHead>
-              <TableHead>Status</TableHead>
               <TableHead className="w-[100px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -203,13 +197,6 @@ export function MileageTable() {
                   <TableCell>{item.distance.toFixed(1)} km</TableCell>
                   <TableCell>{formatCurrency(item.rate)}</TableCell>
                   <TableCell>{formatCurrency(item.distance * item.rate)}</TableCell>
-                   <TableCell>
-                    {item.reimbursable ? (
-                      <Badge variant="default">Reimbursable</Badge>
-                    ) : (
-                      <Badge variant="secondary">Non-Reimbursable</Badge>
-                    )}
-                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(item)}>
@@ -242,7 +229,7 @@ export function MileageTable() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={9} className="h-24 text-center">
+                <TableCell colSpan={8} className="h-24 text-center">
                   No mileage logged yet.
                 </TableCell>
               </TableRow>
@@ -254,7 +241,7 @@ export function MileageTable() {
                 <TableCell className="font-semibold">{totalDistance.toFixed(1)} km</TableCell>
                 <TableCell colSpan={1}></TableCell>
                 <TableCell className="font-semibold text-right">{formatCurrency(totalReimbursement)}</TableCell>
-                <TableCell colSpan={2}></TableCell>
+                <TableCell colSpan={1}></TableCell>
             </TableRow>
           </TableFooter>
         </Table>

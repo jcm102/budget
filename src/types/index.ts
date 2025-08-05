@@ -59,7 +59,6 @@ interface BaseExpense {
   type: ExpenseType;
   description: string;
   date: string; // ISO string
-  reimbursable: boolean;
 }
 
 export interface Expense extends BaseExpense {
@@ -67,6 +66,7 @@ export interface Expense extends BaseExpense {
   amount: number;
   category: string;
   transferee: string;
+  reimbursable: boolean;
 }
 
 export interface MileageLog extends BaseExpense {

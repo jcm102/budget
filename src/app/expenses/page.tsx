@@ -26,14 +26,13 @@ export default function ExpensesPage() {
   
   const handleExport = () => {
     // Section 1: Mileage
-    const mileageHeader = ['Date', 'Description', 'Distance (km)', 'Rate', 'Total', 'Reimbursable'];
+    const mileageHeader = ['Date', 'Description', 'Distance (km)', 'Rate', 'Total'];
     const mileageRows = mileageLogs.map(item => [
       format(new Date(item.date), 'yyyy-MM-dd'),
       escapeCsvCell(item.description),
       item.distance.toFixed(1),
       item.rate.toFixed(2),
-      (item.distance * item.rate).toFixed(2),
-      item.reimbursable ? 'Yes' : 'No'
+      (item.distance * item.rate).toFixed(2)
     ].join(','));
     const mileageCsv = [mileageHeader.join(','), ...mileageRows].join('\n');
 

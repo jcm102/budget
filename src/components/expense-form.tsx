@@ -48,7 +48,7 @@ const formSchema = z.object({
   amount: z.coerce.number().optional(),
   category: z.string().optional(),
   transferee: z.string().optional(),
-  reimbursable: z.boolean(),
+  reimbursable: z.boolean().optional(),
   // Mileage fields
   origin: z.string().optional(),
   destination: z.string().optional(),
@@ -56,11 +56,11 @@ const formSchema = z.object({
   rate: z.coerce.number().optional(),
 }).refine(data => {
     if (data.expenseType === 'Monetary') {
-        return !!data.amount && data.amount > 0 && !!data.category && !!data.transferee;
+        return !!data.amount && data.amount > 0 && !!data.category && !!data.transferee && data.reimbursable !== undefined;
     }
     return true;
 }, {
-    message: 'Amount, category, and payment source are required for monetary expenses.',
+    message: 'Amount, category, payment source, and reimbursable status are required for monetary expenses.',
     path: ['amount'],
 }).refine(data => {
     if (data.expenseType === 'Mileage') {
@@ -131,7 +131,7 @@ export function ExpenseForm({
           expenseType: editingItem.type,
           description: editingItem.description,
           date: new Date(editingItem.date).toISOString().split('T')[0],
-          reimbursable: editingItem.reimbursable,
+          reimbursable: 'reimbursable' in editingItem ? editingItem.reimbursable : true,
           amount: 'amount' in editingItem ? editingItem.amount : 0,
           category: 'category' in editingItem ? editingItem.category : '',
           transferee: 'transferee' in editingItem ? editingItem.transferee : '',
@@ -204,7 +204,7 @@ export function ExpenseForm({
             category: values.category!,
             transferee: values.transferee!,
             date: localDate.toISOString(),
-            reimbursable: values.reimbursable,
+            reimbursable: values.reimbursable!,
         };
         if (editingItem && editingItem.type === 'Monetary') {
             updateExpense(editingItem.id, submissionData);
@@ -220,7 +220,6 @@ export function ExpenseForm({
             distance: values.distance!,
             rate: values.rate!,
             date: localDate.toISOString(),
-            reimbursable: values.reimbursable,
         };
         if (editingItem && editingItem.type === 'Mileage') {
             updateMileage(editingItem.id, submissionData);
@@ -384,24 +383,26 @@ export function ExpenseForm({
                 </>
             )}
 
-             <FormField
-              control={form.control}
-              name="reimbursable"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                  <div className="space-y-0.5">
-                    <FormLabel>Reimbursable</FormLabel>
-                    <FormMessage />
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
+            {expenseType === 'Monetary' && (
+              <FormField
+                control={form.control}
+                name="reimbursable"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>Reimbursable</FormLabel>
+                      <FormMessage />
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            )}
             <DialogFooter>
               <Button type="submit">{editingItem ? 'Save Changes' : 'Add Expense'}</Button>
             </DialogFooter>
