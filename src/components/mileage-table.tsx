@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -32,6 +33,7 @@ import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Badge } from './ui/badge';
 
 export function MileageTable() {
   const { mileageLogs, addMileage, updateMileage, deleteMileage, isLoading } = useMileage();
@@ -58,6 +60,7 @@ export function MileageTable() {
   const renderLoadingSkeletonTable = () => (
     Array.from({ length: 4 }).map((_, i) => (
       <TableRow key={`skeleton-mileage-table-${i}`}>
+        <TableCell><Skeleton className="h-6 w-full" /></TableCell>
         <TableCell><Skeleton className="h-6 w-full" /></TableCell>
         <TableCell><Skeleton className="h-6 w-full" /></TableCell>
         <TableCell><Skeleton className="h-6 w-full" /></TableCell>
@@ -102,6 +105,7 @@ export function MileageTable() {
               <TableHead>Description</TableHead>
               <TableHead>Origin</TableHead>
               <TableHead>Destination</TableHead>
+              <TableHead>Trip Type</TableHead>
               <TableHead>Distance</TableHead>
               <TableHead>Rate</TableHead>
               <TableHead>Total</TableHead>
@@ -118,6 +122,7 @@ export function MileageTable() {
                   <TableCell className="font-medium">{item.description}</TableCell>
                   <TableCell>{item.origin}</TableCell>
                   <TableCell>{item.destination}</TableCell>
+                  <TableCell><Badge variant="outline">{item.tripType || 'One-Way'}</Badge></TableCell>
                   <TableCell>{item.distance.toFixed(1)} km</TableCell>
                   <TableCell>{formatCurrency(item.rate)}</TableCell>
                   <TableCell>{formatCurrency(item.distance * item.rate)}</TableCell>
@@ -153,7 +158,7 @@ export function MileageTable() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={8} className="h-24 text-center">
+                <TableCell colSpan={9} className="h-24 text-center">
                   No mileage logged yet.
                 </TableCell>
               </TableRow>
@@ -161,7 +166,7 @@ export function MileageTable() {
           </TableBody>
           <TableFooter>
             <TableRow>
-                <TableCell colSpan={4} className="font-semibold text-right">Totals</TableCell>
+                <TableCell colSpan={5} className="font-semibold text-right">Totals</TableCell>
                 <TableCell className="font-semibold">{totalDistance.toFixed(1)} km</TableCell>
                 <TableCell colSpan={1}></TableCell>
                 <TableCell className="font-semibold text-right">{formatCurrency(totalReimbursement)}</TableCell>

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import type { Expense, MileageLog, BudgetItemFrequency } from '@/types';
+import type { Expense, MileageLog, BudgetItemFrequency, TripType } from '@/types';
 import { useWorkCategories } from '@/hooks/use-work-categories';
 import { useTransferees } from '@/hooks/use-transferees';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
@@ -56,6 +56,7 @@ const formSchema = z.object({
   destination: z.string().optional(),
   distance: z.coerce.number().optional(),
   rate: z.coerce.number().optional(),
+  tripType: z.enum(['One-Way', 'Return']).optional(),
 }).refine(data => {
     if (data.expenseType === 'Monetary') {
         return !!data.amount && data.amount > 0 && !!data.category && !!data.transferee && data.reimbursable !== undefined && !!data.frequency;
@@ -99,6 +100,7 @@ export function ExpenseForm({
   const { mileageRate, isLoading: isRateLoading } = useMileageRate();
   const [isCalculating, setIsCalculating] = useState(false);
   const { toast } = useToast();
+  const oneWayDistanceRef = useRef<number | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -115,10 +117,12 @@ export function ExpenseForm({
       destination: '',
       distance: 0,
       rate: 0.50,
+      tripType: 'One-Way',
     },
   });
 
   const expenseType = form.watch('expenseType');
+  const tripType = form.watch('tripType');
 
   useEffect(() => {
     if (!isRateLoading && mileageRate !== null) {
@@ -143,7 +147,14 @@ export function ExpenseForm({
           destination: 'destination' in editingItem ? editingItem.destination : '',
           distance: 'distance' in editingItem ? editingItem.distance : 0,
           rate: 'rate' in editingItem ? editingItem.rate : defaultRate,
+          tripType: 'tripType' in editingItem ? editingItem.tripType : 'One-Way',
         });
+        if ('distance' in editingItem && editingItem.tripType === 'Return') {
+            oneWayDistanceRef.current = editingItem.distance / 2;
+        } else if ('distance' in editingItem) {
+            oneWayDistanceRef.current = editingItem.distance;
+        }
+
       } else {
         form.reset({
           expenseType: 'Monetary',
@@ -158,10 +169,20 @@ export function ExpenseForm({
           destination: '',
           distance: 0,
           rate: defaultRate,
+          tripType: 'One-Way',
         });
+        oneWayDistanceRef.current = null;
       }
     }
   }, [editingItem, open, form, mileageRate]);
+
+   useEffect(() => {
+    if (expenseType === 'Mileage' && oneWayDistanceRef.current !== null) {
+        const currentOneWayDistance = oneWayDistanceRef.current;
+        const newDistance = tripType === 'Return' ? currentOneWayDistance * 2 : currentOneWayDistance;
+        form.setValue('distance', parseFloat(newDistance.toFixed(1)), { shouldValidate: true });
+    }
+  }, [tripType, expenseType, form]);
 
   const handleCalculateDistance = async () => {
     const origin = form.getValues('origin');
@@ -179,7 +200,13 @@ export function ExpenseForm({
     setIsCalculating(true);
     try {
       const result = await calculateDistance({ origin, destination });
-      form.setValue('distance', parseFloat(result.distance.toFixed(1)), { shouldValidate: true });
+      const oneWayDist = result.distance;
+      oneWayDistanceRef.current = oneWayDist;
+
+      const currentTripType = form.getValues('tripType');
+      const finalDistance = currentTripType === 'Return' ? oneWayDist * 2 : oneWayDist;
+
+      form.setValue('distance', parseFloat(finalDistance.toFixed(1)), { shouldValidate: true });
       toast({
         title: 'Success!',
         description: 'Distance has been calculated and filled in.',
@@ -227,6 +254,7 @@ export function ExpenseForm({
             distance: values.distance!,
             rate: values.rate!,
             date: localDate.toISOString(),
+            tripType: values.tripType as TripType,
         };
         if (editingItem && editingItem.type === 'Mileage') {
             updateMileage(editingItem.id, submissionData);
@@ -383,11 +411,40 @@ export function ExpenseForm({
                         </FormItem>
                     )}
                     />
+                    <FormField
+                        control={form.control}
+                        name="tripType"
+                        render={({ field }) => (
+                            <FormItem className="space-y-3">
+                            <FormLabel>Trip Type</FormLabel>
+                            <FormControl>
+                                <RadioGroup
+                                onValueChange={field.onChange}
+                                defaultValue={field.value}
+                                className="flex space-x-4"
+                                >
+                                <FormItem className="flex items-center space-x-2 space-y-0">
+                                    <FormControl><RadioGroupItem value="One-Way" /></FormControl>
+                                    <FormLabel className="font-normal">One-Way</FormLabel>
+                                </FormItem>
+                                <FormItem className="flex items-center space-x-2 space-y-0">
+                                    <FormControl><RadioGroupItem value="Return" /></FormControl>
+                                    <FormLabel className="font-normal">Return</FormLabel>
+                                </FormItem>
+                                </RadioGroup>
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
                     <div className="flex items-end gap-2">
                         <FormField control={form.control} name="distance" render={({ field }) => (
                             <FormItem className="flex-grow">
                                 <FormLabel>Distance (km)</FormLabel>
-                                <FormControl><Input type="number" step="0.1" {...field} /></FormControl>
+                                <FormControl><Input type="number" step="0.1" {...field} onChange={(e) => {
+                                    field.onChange(e);
+                                    oneWayDistanceRef.current = parseFloat(e.target.value) / (tripType === 'Return' ? 2 : 1);
+                                }} /></FormControl>
                                 <FormMessage />
                             </FormItem>
                         )}

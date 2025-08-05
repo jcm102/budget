@@ -77,10 +77,13 @@ export interface Expense extends BaseExpense {
   completed?: boolean;
 }
 
+export type TripType = 'One-Way' | 'Return';
+
 export interface MileageLog extends BaseExpense {
   type: 'Mileage';
   distance: number;
   rate: number;
   origin?: string;
   destination?: string;
+  tripType?: TripType;
 }

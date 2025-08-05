@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -10,8 +11,7 @@ export function useMileage() {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchMileageLogs = async () => {
+  const fetchMileageLogs = useCallback(async () => {
       try {
         setIsLoading(true);
         const fetchedItems = await MileageService.getMileageLogs();
@@ -26,9 +26,11 @@ export function useMileage() {
       } finally {
         setIsLoading(false);
       }
-    };
-    fetchMileageLogs();
   }, [toast]);
+
+  useEffect(() => {
+    fetchMileageLogs();
+  }, [fetchMileageLogs]);
 
   const addMileage = useCallback(async (itemData: Omit<MileageLog, 'id'>) => {
     try {
@@ -47,7 +49,7 @@ export function useMileage() {
   const updateMileage = useCallback(async (id: string, itemData: Omit<MileageLog, 'id'>) => {
     const originalItems = mileageLogs;
     setMileageLogs((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...itemData } as MileageLog : item))
+      prev.map((item) => (item.id === id ? { id, ...itemData } : item))
          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     );
     try {
@@ -79,5 +81,5 @@ export function useMileage() {
     }
   }, [mileageLogs, toast]);
 
-  return { mileageLogs, addMileage, updateMileage, deleteMileage, isLoading };
+  return { mileageLogs, addMileage, updateMileage, deleteMileage, isLoading, fetchMileageLogs };
 }

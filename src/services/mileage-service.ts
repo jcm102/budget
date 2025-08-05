@@ -1,3 +1,4 @@
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -12,6 +13,7 @@ import {
   getDoc,
   addDoc,
   where,
+  updateDoc,
 } from 'firebase/firestore';
 
 const EXPENSE_COLLECTION = 'expenses'; // We store mileage in the same collection
@@ -34,15 +36,9 @@ export async function addMileageLog(itemData: Omit<MileageLog, 'id'>): Promise<M
   return { id: docSnap.id, ...docSnap.data() } as MileageLog;
 }
 
-export async function updateMileageLog(id: string, itemData: Omit<MileageLog, 'id'>): Promise<void> {
+export async function updateMileageLog(id: string, itemData: Partial<Omit<MileageLog, 'id'>>): Promise<void> {
   const itemRef = doc(db, EXPENSE_COLLECTION, id);
-  const docSnap = await getDoc(itemRef);
-  if (docSnap.exists()) {
-    const existingData = docSnap.data();
-    await setDoc(itemRef, { ...existingData, ...itemData });
-  } else {
-    throw new Error(`Mileage Log with id ${id} not found.`);
-  }
+  await updateDoc(itemRef, itemData);
 }
 
 export async function deleteMileageLog(id: string): Promise<void> {
