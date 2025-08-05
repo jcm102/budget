@@ -37,7 +37,7 @@ export async function addDebt(debtData: Omit<Debt, 'id' | 'order'>): Promise<Deb
   return { ...newDebt, id: docRef.id };
 }
 
-export async function updateDebt(id: string, debtData: Omit<Debt, 'id' | 'order'>): Promise<void> {
+export async function updateDebt(id: string, debtData: Partial<Omit<Debt, 'id' | 'order'>>): Promise<void> {
   const debtRef = doc(db, DEBT_COLLECTION, id);
   await updateDoc(debtRef, debtData);
 }
