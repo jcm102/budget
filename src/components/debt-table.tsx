@@ -208,53 +208,53 @@ export function DebtTable() {
         </div>
       </div>
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[24px] p-0"></TableHead>
-                <TableHead>Debt Name</TableHead>
-                <TableHead className="text-right">Balance</TableHead>
-                <TableHead className="text-right">Minimum Payment</TableHead>
-                <TableHead className="text-right">Actual Payment</TableHead>
-                <TableHead>Due Date</TableHead>
-                <TableHead className="w-[100px] text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-                <SortableContext items={sortedDebts.map(d => d.id)} strategy={verticalListSortingStrategy}>
-                    {isLoading ? (
-                      renderLoadingSkeleton()
-                    ) : sortedDebts.length > 0 ? (
-                      sortedDebts.map((debt) => (
-                        <SortableDebtRow 
-                            key={debt.id} 
-                            debt={debt} 
-                            onEdit={handleEdit} 
-                            onDelete={deleteDebt}
-                            formatCurrency={formatCurrency}
-                        />
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={7} className="h-24 text-center">
-                          No debts entered yet. Add one to get started!
-                        </TableCell>
-                      </TableRow>
-                    )}
-                </SortableContext>
-            </TableBody>
-             <TableFooter>
-              <TableRow>
-                <TableCell colSpan={2} className="font-semibold">Totals</TableCell>
-                <TableCell className="text-right font-semibold">{formatCurrency(totalBalance)}</TableCell>
-                <TableCell className="text-right font-semibold">{formatCurrency(totalMinimumPayment)}</TableCell>
-                <TableCell className="text-right font-semibold">{formatCurrency(totalActualPayment)}</TableCell>
-                <TableCell colSpan={2}></TableCell>
-              </TableRow>
-            </TableFooter>
-          </Table>
-        </DndContext>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[24px] p-0"></TableHead>
+              <TableHead>Debt Name</TableHead>
+              <TableHead className="text-right">Balance</TableHead>
+              <TableHead className="text-right">Minimum Payment</TableHead>
+              <TableHead className="text-right">Actual Payment</TableHead>
+              <TableHead>Due Date</TableHead>
+              <TableHead className="w-[100px] text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={sortedDebts.map(d => d.id)} strategy={verticalListSortingStrategy}>
+              <TableBody>
+                {isLoading ? (
+                  renderLoadingSkeleton()
+                ) : sortedDebts.length > 0 ? (
+                  sortedDebts.map((debt) => (
+                    <SortableDebtRow 
+                        key={debt.id} 
+                        debt={debt} 
+                        onEdit={handleEdit} 
+                        onDelete={deleteDebt}
+                        formatCurrency={formatCurrency}
+                    />
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={7} className="h-24 text-center">
+                      No debts entered yet. Add one to get started!
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </SortableContext>
+          </DndContext>
+          <TableFooter>
+            <TableRow>
+              <TableCell colSpan={2} className="font-semibold">Totals</TableCell>
+              <TableCell className="text-right font-semibold">{formatCurrency(totalBalance)}</TableCell>
+              <TableCell className="text-right font-semibold">{formatCurrency(totalMinimumPayment)}</TableCell>
+              <TableCell className="text-right font-semibold">{formatCurrency(totalActualPayment)}</TableCell>
+              <TableCell colSpan={2}></TableCell>
+            </TableRow>
+          </TableFooter>
+        </Table>
       </div>
     </>
   );

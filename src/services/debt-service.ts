@@ -65,7 +65,6 @@ export async function resetDebtValues(): Promise<void> {
   querySnapshot.forEach(docSnap => {
     const debtRef = doc(db, DEBT_COLLECTION, docSnap.id);
     const updatedData = {
-        ...docSnap.data(),
         balance: 0,
         minimumPayment: 0,
         actualPayment: 0,
