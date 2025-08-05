@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Pencil, Trash2, PlusCircle } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, Fuel, Wrench } from 'lucide-react';
 import type { Expense, MileageLog } from '@/types';
 import {
   Table,
@@ -31,6 +31,7 @@ import { useExpenses } from '@/hooks/use-expenses';
 import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 
 export function MileageTable() {
   const { mileageLogs, addMileage, updateMileage, deleteMileage, isLoading } = useMileage();
@@ -71,6 +72,9 @@ export function MileageTable() {
   const totalDistance = mileageLogs.reduce((acc, item) => acc + item.distance, 0);
   const totalReimbursement = mileageLogs
     .reduce((acc, item) => acc + (item.distance * item.rate), 0);
+  
+  const gasSplit = totalReimbursement * 0.6;
+  const maintenanceSplit = totalReimbursement * 0.4;
 
   return (
     <>
@@ -166,6 +170,32 @@ export function MileageTable() {
           </TableFooter>
         </Table>
       </div>
+      
+      {mileageLogs.length > 0 && (
+        <Card className="mt-8">
+            <CardHeader>
+                <CardTitle>Mileage Reimbursement Allocation</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-center gap-4 p-4 border rounded-lg">
+                        <Fuel className="h-8 w-8 text-primary" />
+                        <div>
+                            <p className="text-muted-foreground">Gas (60%)</p>
+                            <p className="text-xl font-semibold">{formatCurrency(gasSplit)}</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-4 p-4 border rounded-lg">
+                        <Wrench className="h-8 w-8 text-primary" />
+                        <div>
+                            <p className="text-muted-foreground">Maintenance (40%)</p>
+                            <p className="text-xl font-semibold">{formatCurrency(maintenanceSplit)}</p>
+                        </div>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+      )}
     </>
   );
 }
