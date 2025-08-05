@@ -224,7 +224,7 @@ export function BudgetTable() {
         </Button>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <div className="p-4 border rounded-lg bg-card">
             <h4 className="text-muted-foreground">Total Income</h4>
             <p className="text-2xl font-semibold">{formatCurrency(totalIncome)}</p>
