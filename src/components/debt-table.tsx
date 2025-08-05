@@ -69,9 +69,9 @@ function SortableDebtRow({ debt, onEdit, onDelete, formatCurrency }: SortableDeb
   };
 
   return (
-    <TableRow ref={setNodeRef} style={style} key={debt.id}>
+    <TableRow ref={setNodeRef} style={style} {...attributes}>
         <TableCell className="w-[24px] p-0 pr-2">
-            <Button variant="ghost" size="icon" className="h-8 w-8 cursor-grab" {...attributes} {...listeners}>
+            <Button variant="ghost" size="icon" className="h-8 w-8 cursor-grab" {...listeners}>
                 <GripVertical className="h-4 w-4 text-muted-foreground" />
             </Button>
         </TableCell>
@@ -220,9 +220,9 @@ export function DebtTable() {
               <TableHead className="w-[100px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={sortedDebts.map(d => d.id)} strategy={verticalListSortingStrategy}>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={sortedDebts.map(d => d.id)} strategy={verticalListSortingStrategy}>
+              <TableBody>
                   {isLoading ? (
                     renderLoadingSkeleton()
                   ) : sortedDebts.length > 0 ? (
@@ -242,9 +242,9 @@ export function DebtTable() {
                       </TableCell>
                     </TableRow>
                   )}
-              </SortableContext>
-            </DndContext>
-          </TableBody>
+              </TableBody>
+            </SortableContext>
+          </DndContext>
            <TableFooter>
             <TableRow>
               <TableCell colSpan={2} className="font-semibold">Totals</TableCell>
