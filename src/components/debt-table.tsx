@@ -2,8 +2,24 @@
 
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, RotateCcw } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, RotateCcw, GripVertical } from 'lucide-react';
 import type { Debt } from '@/types';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
 import {
   Table,
   TableBody,
@@ -31,10 +47,84 @@ import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
 
+type SortableDebtRowProps = {
+  debt: Debt;
+  onEdit: (debt: Debt) => void;
+  onDelete: (id: string) => void;
+  formatCurrency: (amount: number) => string;
+};
+
+function SortableDebtRow({ debt, onEdit, onDelete, formatCurrency }: SortableDebtRowProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: debt.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <TableRow ref={setNodeRef} style={style} key={debt.id}>
+        <TableCell className="w-[24px] p-0 pr-2">
+            <Button variant="ghost" size="icon" className="h-8 w-8 cursor-grab" {...attributes} {...listeners}>
+                <GripVertical className="h-4 w-4 text-muted-foreground" />
+            </Button>
+        </TableCell>
+        <TableCell className="font-medium">{debt.name}</TableCell>
+        <TableCell className="text-right">{formatCurrency(debt.balance)}</TableCell>
+        <TableCell className="text-right">{formatCurrency(debt.minimumPayment)}</TableCell>
+        <TableCell className="text-right">{formatCurrency(debt.actualPayment)}</TableCell>
+        <TableCell>{format(new Date(debt.dueDate), 'PPP')}</TableCell>
+        <TableCell className="text-right">
+        <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(debt)}>
+            <Pencil className="h-4 w-4" />
+            </Button>
+            <AlertDialog>
+            <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive">
+                <Trash2 className="h-4 w-4" />
+                </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete this debt entry.
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => onDelete(debt.id)} className={cn(buttonVariants({ variant: "destructive" }))}>
+                    Delete
+                </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+            </AlertDialog>
+        </div>
+        </TableCell>
+    </TableRow>
+  );
+}
+
+
 export function DebtTable() {
-  const { debts, addDebt, updateDebt, deleteDebt, resetDebtValues, isLoading } = useDebt();
+  const { debts, addDebt, updateDebt, deleteDebt, resetDebtValues, updateDebtOrder, isLoading } = useDebt();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
 
   const handleEdit = (debt: Debt) => {
     setEditingDebt(debt);
@@ -48,6 +138,17 @@ export function DebtTable() {
     }
   };
 
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (active.id !== over?.id) {
+      const oldIndex = sortedDebts.findIndex((debt) => debt.id === active.id);
+      const newIndex = sortedDebts.findIndex((debt) => debt.id === over!.id);
+      const reorderedDebts = arrayMove(sortedDebts, oldIndex, newIndex);
+      updateDebtOrder(reorderedDebts);
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
@@ -55,12 +156,7 @@ export function DebtTable() {
   const renderLoadingSkeleton = () => (
     Array.from({ length: 3 }).map((_, i) => (
       <TableRow key={`skeleton-${i}`}>
-        <TableCell><Skeleton className="h-6 w-full" /></TableCell>
-        <TableCell><Skeleton className="h-6 w-full" /></TableCell>
-        <TableCell><Skeleton className="h-6 w-full" /></TableCell>
-        <TableCell><Skeleton className="h-6 w-full" /></TableCell>
-        <TableCell><Skeleton className="h-6 w-full" /></TableCell>
-        <TableCell><Skeleton className="h-6 w-full" /></TableCell>
+        <TableCell colSpan={7}><Skeleton className="h-8 w-full" /></TableCell>
       </TableRow>
     ))
   );
@@ -68,6 +164,8 @@ export function DebtTable() {
   const totalBalance = debts.reduce((acc, debt) => acc + debt.balance, 0);
   const totalMinimumPayment = debts.reduce((acc, debt) => acc + debt.minimumPayment, 0);
   const totalActualPayment = debts.reduce((acc, debt) => acc + debt.actualPayment, 0);
+
+  const sortedDebts = [...debts].sort((a,b) => a.order - b.order);
 
   return (
     <>
@@ -113,6 +211,7 @@ export function DebtTable() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[24px] p-0"></TableHead>
               <TableHead>Debt Name</TableHead>
               <TableHead className="text-right">Balance</TableHead>
               <TableHead className="text-right">Minimum Payment</TableHead>
@@ -121,58 +220,34 @@ export function DebtTable() {
               <TableHead className="w-[100px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              renderLoadingSkeleton()
-            ) : debts.length > 0 ? (
-              debts.map((debt) => (
-                <TableRow key={debt.id}>
-                  <TableCell className="font-medium">{debt.name}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(debt.balance)}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(debt.minimumPayment)}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(debt.actualPayment)}</TableCell>
-                  <TableCell>{format(new Date(debt.dueDate), 'PPP')}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(debt)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This action cannot be undone. This will permanently delete this debt entry.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => deleteDebt(debt.id)} className={cn(buttonVariants({ variant: "destructive" }))}>
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">
-                  No debts entered yet. Add one to get started!
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={sortedDebts.map(d => d.id)} strategy={verticalListSortingStrategy}>
+              <TableBody>
+                {isLoading ? (
+                  renderLoadingSkeleton()
+                ) : sortedDebts.length > 0 ? (
+                  sortedDebts.map((debt) => (
+                    <SortableDebtRow 
+                        key={debt.id} 
+                        debt={debt} 
+                        onEdit={handleEdit} 
+                        onDelete={deleteDebt}
+                        formatCurrency={formatCurrency}
+                    />
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={7} className="h-24 text-center">
+                      No debts entered yet. Add one to get started!
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </SortableContext>
+          </DndContext>
            <TableFooter>
             <TableRow>
-              <TableCell className="font-semibold">Totals</TableCell>
+              <TableCell colSpan={2} className="font-semibold">Totals</TableCell>
               <TableCell className="text-right font-semibold">{formatCurrency(totalBalance)}</TableCell>
               <TableCell className="text-right font-semibold">{formatCurrency(totalMinimumPayment)}</TableCell>
               <TableCell className="text-right font-semibold">{formatCurrency(totalActualPayment)}</TableCell>

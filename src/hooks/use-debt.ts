@@ -31,7 +31,7 @@ export function useDebt() {
     fetchDebts();
   }, [toast]);
 
-  const addDebt = useCallback(async (debtData: Omit<Debt, 'id'>) => {
+  const addDebt = useCallback(async (debtData: Omit<Debt, 'id' | 'order'>) => {
     try {
       const newDebt = await DebtService.addDebt(debtData);
       setDebts((prevDebts) => [...prevDebts, newDebt]);
@@ -45,10 +45,10 @@ export function useDebt() {
     }
   }, [toast]);
 
-  const updateDebt = useCallback(async (id: string, debtData: Omit<Debt, 'id'>) => {
+  const updateDebt = useCallback(async (id: string, debtData: Omit<Debt, 'id' | 'order'>) => {
     const originalDebts = debts;
     setDebts((prevDebts) =>
-      prevDebts.map((debt) => (debt.id === id ? { id, ...debtData } : debt))
+      prevDebts.map((debt) => (debt.id === id ? { ...debt, ...debtData } as Debt : debt))
     );
     try {
       await DebtService.updateDebt(id, debtData);
@@ -62,6 +62,20 @@ export function useDebt() {
       });
     }
   }, [debts, toast]);
+
+  const updateDebtOrder = useCallback(async (reorderedDebts: Debt[]) => {
+    setDebts(reorderedDebts);
+    try {
+        await DebtService.updateDebtOrder(reorderedDebts);
+    } catch (error) {
+        console.error('Failed to update debt order:', error);
+        toast({
+            title: 'Error',
+            description: 'Failed to save the new debt order.',
+            variant: 'destructive',
+        });
+    }
+  }, [toast]);
 
   const deleteDebt = useCallback(async (id: string) => {
     const originalDebts = debts;
@@ -103,5 +117,5 @@ export function useDebt() {
     }
   }, [debts, toast]);
 
-  return { debts, addDebt, updateDebt, deleteDebt, resetDebtValues, isLoading };
+  return { debts, addDebt, updateDebt, deleteDebt, resetDebtValues, updateDebtOrder, isLoading };
 }

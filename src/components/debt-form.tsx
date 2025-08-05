@@ -35,8 +35,8 @@ const formSchema = z.object({
 type DebtFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  addDebt: (debt: Omit<Debt, 'id'>) => void;
-  updateDebt: (id: string, debt: Omit<Debt, 'id'>) => void;
+  addDebt: (debt: Omit<Debt, 'id' | 'order'>) => void;
+  updateDebt: (id: string, debt: Omit<Debt, 'id' | 'order'>) => void;
   editingDebt: Debt | null;
 };
 
