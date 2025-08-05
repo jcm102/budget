@@ -266,7 +266,7 @@ export function MileageTable() {
                 <TableCell colSpan={4} className="font-semibold text-right">Totals</TableCell>
                 <TableCell className="font-semibold">{totalDistance.toFixed(1)} km</TableCell>
                 <TableCell colSpan={1}></TableCell>
-                <TableCell className="font-semibold text-right">{formatCurrency(totalReimbursement)}</TableCell>
+                <TableCell className="font-semibold text-right">{formatCurrency(mileageLogs.reduce((acc, item) => acc + (item.distance * item.rate), 0))}</TableCell>
                 <TableCell colSpan={2}></TableCell>
             </TableRow>
           </TableFooter>
