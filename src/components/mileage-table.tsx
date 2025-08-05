@@ -263,11 +263,11 @@ export function MileageTable() {
           </TableBody>
           <TableFooter>
             <TableRow>
-              <TableCell colSpan={4} className="font-semibold text-right">Totals</TableCell>
-              <TableCell className="font-semibold">{totalDistance.toFixed(1)} km</TableCell>
-              <TableCell colSpan={1}></TableCell>
-              <TableCell className="font-semibold">{formatCurrency(totalReimbursement)}</TableCell>
-              <TableCell colSpan={2}></TableCell>
+                <TableCell colSpan={4} className="font-semibold text-right">Totals</TableCell>
+                <TableCell className="font-semibold">{totalDistance.toFixed(1)} km</TableCell>
+                <TableCell colSpan={1}></TableCell>
+                <TableCell className="font-semibold text-right">{formatCurrency(totalReimbursement)}</TableCell>
+                <TableCell colSpan={2}></TableCell>
             </TableRow>
           </TableFooter>
         </Table>
