@@ -202,17 +202,10 @@ export function BudgetTable() {
   
   const totalIncome = budgetItems.filter(i => i.type === 'Income').reduce((acc, i) => acc + i.amount, 0);
   const totalDebtPayments = budgetItems.filter(i => i.type === 'Debt Payments').reduce((acc, i) => acc + i.amount, 0);
-  const totalPAPayments = budgetItems.filter(i => i.type === 'Pre-Authorized Payments').reduce((acc, i) => acc + i.amount, 0);
-  const totalTransfers = budgetItems.filter(i => i.type === 'Transfers').reduce((acc, i) => acc + i.amount, 0);
 
   const remainingPAPayments = budgetItems
     .filter(i => i.type === 'Pre-Authorized Payments' && !i.completed)
     .reduce((acc, i) => acc + i.amount, 0);
-
-  const remainingTransfers = budgetItems
-    .filter(i => i.type === 'Transfers' && !i.completed)
-    .reduce((acc, i) => acc + i.amount, 0);
-
 
   return (
     <>
@@ -231,7 +224,7 @@ export function BudgetTable() {
         </Button>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         <div className="p-4 border rounded-lg bg-card">
             <h4 className="text-muted-foreground">Total Income</h4>
             <p className="text-2xl font-semibold">{formatCurrency(totalIncome)}</p>
@@ -239,10 +232,6 @@ export function BudgetTable() {
         <div className="p-4 border rounded-lg bg-card">
             <h4 className="text-muted-foreground">Total Debt Payments</h4>
             <p className="text-2xl font-semibold">{formatCurrency(totalDebtPayments)}</p>
-        </div>
-        <div className="p-4 border rounded-lg bg-card">
-            <h4 className="text-muted-foreground">Total PA Payments</h4>
-            <p className="text-2xl font-semibold">{formatCurrency(totalPAPayments)}</p>
         </div>
         <div className="p-4 border rounded-lg bg-card">
             <h4 className="text-muted-foreground">Remaining PA Payments</h4>
