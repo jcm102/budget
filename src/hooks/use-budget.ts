@@ -10,8 +10,7 @@ export function useBudget() {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchBudgetItems = async () => {
+  const fetchBudgetItems = useCallback(async () => {
       try {
         setIsLoading(true);
         const fetchedItems = await BudgetService.getBudgetItems();
@@ -26,14 +25,17 @@ export function useBudget() {
       } finally {
         setIsLoading(false);
       }
-    };
+    }, [toast]);
+
+  useEffect(() => {
     fetchBudgetItems();
-  }, [toast]);
+  }, [fetchBudgetItems]);
 
   const addBudgetItem = useCallback(async (itemData: Omit<BudgetItem, 'id'>) => {
     try {
       const newItem = await BudgetService.addBudgetItem(itemData);
       setBudgetItems((prev) => [...prev, newItem]);
+      await fetchBudgetItems(); // refetch to get the correct state
     } catch (error) {
       console.error('Failed to add budget item:', error);
       toast({
@@ -42,15 +44,25 @@ export function useBudget() {
         variant: 'destructive',
       });
     }
-  }, [toast]);
+  }, [toast, fetchBudgetItems]);
 
   const updateBudgetItem = useCallback(async (id: string, itemData: Omit<BudgetItem, 'id'>) => {
     const originalItems = budgetItems;
-    setBudgetItems((prev) =>
-      prev.map((item) => (item.id === id ? { id, ...itemData } : item))
-    );
+    // Optimistic update
+    const isRecurringInstance = id.includes('-');
+    if (isRecurringInstance) {
+        // If it's a recurring instance, we expect it to be replaced by a new one-time item.
+        // The fetchBudgetItems call will handle the display logic.
+        setBudgetItems(prev => prev.filter(item => item.id !== id));
+    } else {
+        setBudgetItems((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, ...itemData } as BudgetItem : item))
+        );
+    }
+
     try {
       await BudgetService.updateBudgetItem(id, itemData);
+      await fetchBudgetItems(); // Refetch to show the new one-time item and remove the old instance
     } catch (error) {
       console.error('Failed to update budget item:', error);
       setBudgetItems(originalItems);
@@ -60,7 +72,7 @@ export function useBudget() {
         variant: 'destructive',
       });
     }
-  }, [budgetItems, toast]);
+  }, [budgetItems, toast, fetchBudgetItems]);
 
   const deleteBudgetItem = useCallback(async (id: string) => {
     const originalItems = budgetItems;

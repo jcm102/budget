@@ -42,6 +42,7 @@ export interface BudgetItem {
   frequency: BudgetItemFrequency;
   transferTo?: string;
   transferFrom?: string;
+  originalId?: string; // To track edited recurring instances
 }
 
 export interface Category {
