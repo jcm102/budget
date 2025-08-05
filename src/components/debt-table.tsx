@@ -220,8 +220,8 @@ export function DebtTable() {
               <TableHead className="w-[100px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <TableBody>
+          <TableBody>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={sortedDebts.map(d => d.id)} strategy={verticalListSortingStrategy}>
                   {isLoading ? (
                     renderLoadingSkeleton()
@@ -243,8 +243,8 @@ export function DebtTable() {
                     </TableRow>
                   )}
               </SortableContext>
-            </TableBody>
-          </DndContext>
+            </DndContext>
+          </TableBody>
            <TableFooter>
             <TableRow>
               <TableCell colSpan={2} className="font-semibold">Totals</TableCell>
