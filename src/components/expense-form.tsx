@@ -133,19 +133,16 @@ export function ExpenseForm({
     if (open) {
       const defaultRate = mileageRate || 0.50;
       if (editingItem) {
-        // This is an edit session
         const isMonetary = 'amount' in editingItem;
         form.reset({
           expenseType: isMonetary ? 'Monetary' : 'Mileage',
           description: editingItem.description,
           date: new Date(editingItem.date).toISOString().split('T')[0],
-          // Monetary
           amount: isMonetary ? editingItem.amount : 0,
           category: isMonetary ? editingItem.category : '',
           transferee: isMonetary ? editingItem.transferee : '',
           reimbursable: isMonetary ? editingItem.reimbursable : false,
           frequency: isMonetary ? editingItem.frequency : 'One-Time',
-          // Mileage
           origin: !isMonetary ? editingItem.origin : '',
           destination: !isMonetary ? editingItem.destination : '',
           distance: !isMonetary ? editingItem.distance : 0,
@@ -163,10 +160,10 @@ export function ExpenseForm({
           expenseType: 'Monetary',
           description: '',
           date: new Date().toISOString().split('T')[0],
-          reimbursable: false,
           amount: 0,
           category: '',
           transferee: '',
+          reimbursable: false,
           frequency: 'One-Time',
           origin: '',
           destination: '',
@@ -243,7 +240,7 @@ export function ExpenseForm({
             frequency: values.frequency as BudgetItemFrequency,
             completed: false,
         };
-        if (editingItem && editingItem.type === 'Monetary') {
+        if (editingItem && 'amount' in editingItem) {
             updateExpense(editingItem.id, submissionData);
             onOpenChange(false);
         } else {
@@ -264,7 +261,7 @@ export function ExpenseForm({
             date: localDate.toISOString(),
             tripType: values.tripType as TripType,
         };
-        if (editingItem && editingItem.type === 'Mileage') {
+        if (editingItem && 'distance' in editingItem) {
             updateMileage(editingItem.id, submissionData);
         } else {
             addMileage(submissionData);

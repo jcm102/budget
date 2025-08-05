@@ -35,9 +35,8 @@ export function useExpenses() {
     try {
       const newItem = await ExpenseService.addExpense(itemData);
       setExpenses((prev) => [...prev, newItem].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      await fetchExpenses(); 
       callback(true);
-      // Optional: refetch to ensure consistency with recurring items, though optimistic update handles the immediate UI change.
-      fetchExpenses(); 
     } catch (error) {
       console.error('Failed to add expense:', error);
       toast({
