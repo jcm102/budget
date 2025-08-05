@@ -72,6 +72,9 @@ export interface Expense extends BaseExpense {
   category: string;
   transferee: string;
   reimbursable: boolean;
+  frequency: BudgetItemFrequency;
+  originalId?: string;
+  completed?: boolean;
 }
 
 export interface MileageLog extends BaseExpense {

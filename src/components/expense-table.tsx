@@ -1,8 +1,9 @@
+
 'use client';
 
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Pencil, Trash2, PlusCircle } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, Repeat } from 'lucide-react';
 import type { Expense, MileageLog } from '@/types';
 import {
   Table,
@@ -32,9 +33,10 @@ import { useMileage } from '@/hooks/use-mileage';
 import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
+import { Checkbox } from './ui/checkbox';
 
 export function ExpenseTable() {
-  const { expenses, addExpense, updateExpense, deleteExpense, isLoading } = useExpenses();
+  const { expenses, addExpense, updateExpense, deleteExpense, toggleExpenseCompleted, isLoading } = useExpenses();
   const { addMileage, updateMileage } = useMileage();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Expense | MileageLog | null>(null);
@@ -58,6 +60,7 @@ export function ExpenseTable() {
   const renderLoadingSkeletonTable = () => (
     Array.from({ length: 5 }).map((_, i) => (
       <TableRow key={`skeleton-table-${i}`}>
+        <TableCell><Skeleton className="h-6 w-full" /></TableCell>
         <TableCell><Skeleton className="h-6 w-full" /></TableCell>
         <TableCell><Skeleton className="h-6 w-full" /></TableCell>
         <TableCell><Skeleton className="h-6 w-full" /></TableCell>
@@ -92,10 +95,12 @@ export function ExpenseTable() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[50px]">Paid</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Payment Source</TableHead>
+              <TableHead>Frequency</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Amount</TableHead>
               <TableHead className="w-[100px] text-right">Actions</TableHead>
@@ -106,11 +111,28 @@ export function ExpenseTable() {
               renderLoadingSkeletonTable()
             ) : expenses.length > 0 ? (
               expenses.map((item) => (
-                <TableRow key={item.id}>
+                <TableRow key={item.id} data-state={item.completed ? "completed" : "" } className={cn(item.completed && "bg-accent/30 text-muted-foreground")}>
+                   <TableCell>
+                        <Checkbox
+                          checked={item.completed}
+                          onCheckedChange={() => toggleExpenseCompleted(item.id, item.completed || false)}
+                          aria-label={`Mark ${item.description} as paid`}
+                          disabled={item.frequency === 'One-Time'}
+                        />
+                      </TableCell>
                   <TableCell>{format(new Date(item.date), 'PPP')}</TableCell>
-                  <TableCell className="font-medium">{item.description}</TableCell>
+                  <TableCell className={cn("font-medium", item.completed && "line-through")}>{item.description}</TableCell>
                   <TableCell>{item.category}</TableCell>
                   <TableCell>{item.transferee}</TableCell>
+                   <TableCell>
+                      {item.frequency !== 'One-Time' ? (
+                        <Badge variant="secondary" className="gap-1 items-center">
+                          <Repeat className="h-3 w-3" /> {item.frequency}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline">One-Time</Badge>
+                      )}
+                    </TableCell>
                    <TableCell>
                     {item.reimbursable ? (
                       <Badge variant="default">Reimbursable</Badge>
@@ -151,7 +173,7 @@ export function ExpenseTable() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center">
+                <TableCell colSpan={9} className="h-24 text-center">
                   No expenses added yet.
                 </TableCell>
               </TableRow>
@@ -159,7 +181,7 @@ export function ExpenseTable() {
           </TableBody>
           <TableFooter>
             <TableRow>
-              <TableCell colSpan={5} className="font-semibold text-right">Total Expenses</TableCell>
+              <TableCell colSpan={7} className="font-semibold text-right">Total Expenses</TableCell>
               <TableCell className="text-right font-semibold">{formatCurrency(totalExpenses)}</TableCell>
               <TableCell></TableCell>
             </TableRow>

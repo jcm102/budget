@@ -11,30 +11,31 @@ export function useExpenses() {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchExpenses = async () => {
-      try {
-        setIsLoading(true);
-        const fetchedItems = await ExpenseService.getExpenses();
-        setExpenses(fetchedItems);
-      } catch (error) {
-        console.error('Failed to load expenses:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load expenses from the database.',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchExpenses();
+  const fetchExpenses = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const fetchedItems = await ExpenseService.getExpenses();
+      setExpenses(fetchedItems);
+    } catch (error) {
+      console.error('Failed to load expenses:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load expenses from the database.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   }, [toast]);
+
+  useEffect(() => {
+    fetchExpenses();
+  }, [fetchExpenses]);
 
   const addExpense = useCallback(async (itemData: Omit<Expense, 'id'>) => {
     try {
-      const newItem = await ExpenseService.addExpense(itemData);
-      setExpenses((prev) => [...prev, newItem].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      await ExpenseService.addExpense(itemData);
+      await fetchExpenses();
     } catch (error) {
       console.error('Failed to add expense:', error);
       toast({
@@ -43,16 +44,22 @@ export function useExpenses() {
         variant: 'destructive',
       });
     }
-  }, [toast]);
+  }, [toast, fetchExpenses]);
 
-  const updateExpense = useCallback(async (id: string, itemData: Omit<Expense, 'id'>) => {
+  const updateExpense = useCallback(async (id: string, itemData: Partial<Omit<Expense, 'id' | 'originalId'>>) => {
     const originalItems = expenses;
-    setExpenses((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...itemData } as Expense : item))
-         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    );
+    const isRecurringInstance = id.includes('-');
+    if (isRecurringInstance) {
+        setExpenses(prev => prev.filter(item => item.id !== id));
+    } else {
+        setExpenses((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, ...itemData } as Expense : item))
+        );
+    }
+    
     try {
       await ExpenseService.updateExpense(id, itemData);
+      await fetchExpenses();
     } catch (error) {
       console.error('Failed to update expense:', error);
       setExpenses(originalItems);
@@ -62,7 +69,7 @@ export function useExpenses() {
         variant: 'destructive',
       });
     }
-  }, [expenses, toast]);
+  }, [expenses, toast, fetchExpenses]);
 
   const deleteExpense = useCallback(async (id: string) => {
     const originalItems = expenses;
@@ -80,5 +87,25 @@ export function useExpenses() {
     }
   }, [expenses, toast]);
 
-  return { expenses, addExpense, updateExpense, deleteExpense, isLoading };
+  const toggleExpenseCompleted = useCallback(async (id: string, completed: boolean) => {
+    const originalItems = [...expenses];
+    setExpenses(prev =>
+      prev.map(item =>
+        item.id === id ? { ...item, completed: !item.completed } : item
+      )
+    );
+    try {
+      await ExpenseService.updateExpense(id, { completed: !completed });
+    } catch (error) {
+      console.error('Failed to toggle expense:', error);
+      setExpenses(originalItems);
+      toast({
+        title: 'Error',
+        description: 'Failed to update item completion status.',
+        variant: 'destructive',
+      });
+    }
+  }, [expenses, toast]);
+
+  return { expenses, addExpense, updateExpense, deleteExpense, toggleExpenseCompleted, isLoading, fetchExpenses };
 }

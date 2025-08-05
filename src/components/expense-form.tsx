@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -30,7 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import type { Expense, MileageLog } from '@/types';
+import type { Expense, MileageLog, BudgetItemFrequency } from '@/types';
 import { useWorkCategories } from '@/hooks/use-work-categories';
 import { useTransferees } from '@/hooks/use-transferees';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
@@ -49,6 +50,7 @@ const formSchema = z.object({
   category: z.string().optional(),
   transferee: z.string().optional(),
   reimbursable: z.boolean().optional(),
+  frequency: z.enum(['One-Time', 'Weekly', 'Bi-Weekly', 'Monthly']).optional(),
   // Mileage fields
   origin: z.string().optional(),
   destination: z.string().optional(),
@@ -56,11 +58,11 @@ const formSchema = z.object({
   rate: z.coerce.number().optional(),
 }).refine(data => {
     if (data.expenseType === 'Monetary') {
-        return !!data.amount && data.amount > 0 && !!data.category && !!data.transferee && data.reimbursable !== undefined;
+        return !!data.amount && data.amount > 0 && !!data.category && !!data.transferee && data.reimbursable !== undefined && !!data.frequency;
     }
     return true;
 }, {
-    message: 'Amount, category, payment source, and reimbursable status are required for monetary expenses.',
+    message: 'All fields are required for monetary expenses.',
     path: ['amount'],
 }).refine(data => {
     if (data.expenseType === 'Mileage') {
@@ -77,7 +79,7 @@ type ExpenseFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   addExpense: (item: Omit<Expense, 'id'>) => void;
-  updateExpense: (id: string, item: Omit<Expense, 'id'>) => void;
+  updateExpense: (id: string, item: Partial<Omit<Expense, 'id'>>) => void;
   addMileage: (item: Omit<MileageLog, 'id'>) => void;
   updateMileage: (id: string, item: Omit<MileageLog, 'id'>) => void;
   editingItem: Expense | MileageLog | null;
@@ -108,6 +110,7 @@ export function ExpenseForm({
       category: '',
       transferee: '',
       reimbursable: false,
+      frequency: 'One-Time',
       origin: '',
       destination: '',
       distance: 0,
@@ -135,6 +138,7 @@ export function ExpenseForm({
           amount: 'amount' in editingItem ? editingItem.amount : 0,
           category: 'category' in editingItem ? editingItem.category : '',
           transferee: 'transferee' in editingItem ? editingItem.transferee : '',
+          frequency: 'frequency' in editingItem ? editingItem.frequency : 'One-Time',
           origin: 'origin' in editingItem ? editingItem.origin : '',
           destination: 'destination' in editingItem ? editingItem.destination : '',
           distance: 'distance' in editingItem ? editingItem.distance : 0,
@@ -149,6 +153,7 @@ export function ExpenseForm({
           amount: 0,
           category: '',
           transferee: '',
+          frequency: 'One-Time',
           origin: '',
           destination: '',
           distance: 0,
@@ -205,6 +210,8 @@ export function ExpenseForm({
             transferee: values.transferee!,
             date: localDate.toISOString(),
             reimbursable: values.reimbursable!,
+            frequency: values.frequency as BudgetItemFrequency,
+            completed: false,
         };
         if (editingItem && editingItem.type === 'Monetary') {
             updateExpense(editingItem.id, submissionData);
@@ -308,6 +315,24 @@ export function ExpenseForm({
                                 {workCategories.map(category => (
                                 <SelectItem key={category.id} value={category.name}>{category.name}</SelectItem>
                                 ))}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                     <FormField control={form.control} name="frequency" render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Frequency</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                            <FormControl>
+                            <SelectTrigger><SelectValue placeholder="Select frequency" /></SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                            <SelectItem value="One-Time">One-Time</SelectItem>
+                            <SelectItem value="Weekly">Weekly</SelectItem>
+                            <SelectItem value="Bi-Weekly">Bi-Weekly</SelectItem>
+                            <SelectItem value="Monthly">Monthly</SelectItem>
                             </SelectContent>
                         </Select>
                         <FormMessage />
