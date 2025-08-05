@@ -52,8 +52,8 @@ const formSchema = z.object({
 type TaskFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  addTask: (task: Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks'>) => void;
-  updateTask: (id: string, task: Partial<Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks'>>) => void;
+  addTask: (task: Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks' | 'order'>) => void;
+  updateTask: (id: string, task: Partial<Omit<Task, 'id' | 'subtasks'>>) => void;
   editingTask: Task | null;
 };
 
@@ -132,7 +132,7 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
     if (editingTask) {
         updateTask(editingTask.id, submissionData);
     } else {
-        addTask(submissionData as Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks'>);
+        addTask(submissionData as Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks' | 'order'>);
     }
     form.reset();
     onOpenChange(false);

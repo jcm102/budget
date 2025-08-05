@@ -5,6 +5,7 @@ export interface Subtask {
   id: string;
   description: string;
   completed: boolean;
+  order: number;
 }
 
 export interface Task {
@@ -16,6 +17,7 @@ export interface Task {
   completed: boolean;
   completedAt: string | null; // ISO string
   subtasks: Subtask[];
+  order: number;
 }
 
 export interface Debt {

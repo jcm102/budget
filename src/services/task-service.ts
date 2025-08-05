@@ -74,12 +74,13 @@ export async function getTasks(): Promise<Task[]> {
   return tasks;
 }
 
-export async function addTask(taskData: Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks'>): Promise<Task> {
+export async function addTask(taskData: Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks' | 'order'>, order: number): Promise<Task> {
   const newTask: Omit<Task, 'id'> = {
     ...taskData,
     completed: false,
     completedAt: null,
     subtasks: [],
+    order,
   };
   const docRef = doc(collection(db, TASKS_COLLECTION));
   await setDoc(docRef, newTask);
@@ -97,12 +98,21 @@ export async function updateTask(id: string, taskData: Partial<Omit<Task, 'id'>>
   }
 }
 
+export async function updateTaskOrder(tasks: Task[]): Promise<void> {
+  const batch = writeBatch(db);
+  tasks.forEach((task, index) => {
+    const taskRef = doc(db, TASKS_COLLECTION, task.id);
+    batch.update(taskRef, { order: index });
+  });
+  await batch.commit();
+}
+
 export async function deleteTask(id: string): Promise<void> {
   const taskRef = doc(db, TASKS_COLLECTION, id);
   await deleteDoc(taskRef);
 }
 
-export async function addSubtask(taskId: string, description: string): Promise<Subtask> {
+export async function addSubtask(taskId: string, description: string, order: number): Promise<Subtask> {
   const taskRef = doc(db, TASKS_COLLECTION, taskId);
   const docSnap = await getDoc(taskRef);
   if (!docSnap.exists()) throw new Error(`Task with id ${taskId} not found.`);
@@ -112,6 +122,7 @@ export async function addSubtask(taskId: string, description: string): Promise<S
     id: crypto.randomUUID(),
     description,
     completed: false,
+    order,
   };
   const updatedSubtasks = [...(task.subtasks || []), newSubtask];
   await setDoc(taskRef, { ...task, subtasks: updatedSubtasks, completed: false, completedAt: null });
@@ -119,16 +130,27 @@ export async function addSubtask(taskId: string, description: string): Promise<S
   return newSubtask;
 }
 
-export async function updateSubtask(taskId: string, subtaskId: string, description: string): Promise<void> {
+export async function updateSubtask(taskId: string, subtaskId: string, subtaskData: Partial<Omit<Subtask, 'id'>>): Promise<void> {
     const taskRef = doc(db, TASKS_COLLECTION, taskId);
     const docSnap = await getDoc(taskRef);
     if (!docSnap.exists()) throw new Error(`Task with id ${taskId} not found.`);
     
     const task = docSnap.data() as Task;
     const updatedSubtasks = (task.subtasks || []).map(subtask => 
-      subtask.id === subtaskId ? { ...subtask, description } : subtask
+      subtask.id === subtaskId ? { ...subtask, ...subtaskData } : subtask
     );
     await setDoc(taskRef, { ...task, subtasks: updatedSubtasks });
+}
+
+export async function updateSubtaskOrder(taskId: string, subtasks: Subtask[]): Promise<void> {
+  const taskRef = doc(db, TASKS_COLLECTION, taskId);
+  const docSnap = await getDoc(taskRef);
+  if (!docSnap.exists()) throw new Error(`Task with id ${taskId} not found.`);
+  const task = docSnap.data() as Task;
+  
+  const updatedSubtasks = subtasks.map((subtask, index) => ({...subtask, order: index}));
+
+  await setDoc(taskRef, { ...task, subtasks: updatedSubtasks });
 }
 
 export async function toggleSubtask(taskId: string, subtaskId: string): Promise<void> {

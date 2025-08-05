@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PlusCircle, Sunrise, CalendarDays, CalendarRange, ArrowRight, Lightbulb, Banknote, Settings, CreditCard } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import type { Task } from '@/types';
+import type { Task, Subtask } from '@/types';
 
 export default function Home() {
   const { 
@@ -21,8 +21,10 @@ export default function Home() {
     toggleTask, 
     deleteTask, 
     isLoading,
+    updateTaskOrder,
     addSubtask,
     updateSubtask,
+    updateSubtaskOrder,
     toggleSubtask,
     deleteSubtask,
   } = useTasks();
@@ -44,6 +46,12 @@ export default function Home() {
   const dailyTasks = tasks.filter((t) => t.frequency === 'daily');
   const weeklyTasks = tasks.filter((t) => t.frequency === 'weekly');
   const monthlyTasks = tasks.filter((t) => t.frequency === 'monthly');
+
+  const handleUpdateTaskOrder = (reorderedTasks: Task[], frequency: Task['frequency']) => {
+    const otherTasks = tasks.filter(t => t.frequency !== frequency);
+    const updatedTasks = [...otherTasks, ...reorderedTasks].map((task, index) => ({...task, order: index}));
+    updateTaskOrder(updatedTasks);
+  }
 
   const renderLoadingSkeleton = () => (
     <div className="space-y-4">
@@ -137,10 +145,12 @@ export default function Home() {
                   onToggle={toggleTask}
                   onDelete={deleteTask}
                   onEdit={handleEdit}
+                  onUpdateTaskOrder={(reorderedTasks) => handleUpdateTaskOrder(reorderedTasks, 'daily')}
                   onAddSubtask={addSubtask}
                   onUpdateSubtask={updateSubtask}
                   onToggleSubtask={toggleSubtask}
                   onDeleteSubtask={deleteSubtask}
+                  onUpdateSubtaskOrder={updateSubtaskOrder}
                   icon={<Sunrise className="h-8 w-8 text-primary/80" />}
                 />
               )}
@@ -153,10 +163,12 @@ export default function Home() {
                   onToggle={toggleTask}
                   onDelete={deleteTask}
                   onEdit={handleEdit}
+                  onUpdateTaskOrder={(reorderedTasks) => handleUpdateTaskOrder(reorderedTasks, 'weekly')}
                   onAddSubtask={addSubtask}
                   onUpdateSubtask={updateSubtask}
                   onToggleSubtask={toggleSubtask}
                   onDeleteSubtask={deleteSubtask}
+                  onUpdateSubtaskOrder={updateSubtaskOrder}
                   icon={<CalendarDays className="h-8 w-8 text-primary/80" />}
                 />
               )}
@@ -169,10 +181,12 @@ export default function Home() {
                   onToggle={toggleTask}
                   onDelete={deleteTask}
                   onEdit={handleEdit}
+                  onUpdateTaskOrder={(reorderedTasks) => handleUpdateTaskOrder(reorderedTasks, 'monthly')}
                   onAddSubtask={addSubtask}
                   onUpdateSubtask={updateSubtask}
                   onToggleSubtask={toggleSubtask}
                   onDeleteSubtask={deleteSubtask}
+                  onUpdateSubtaskOrder={updateSubtaskOrder}
                   icon={<CalendarRange className="h-8 w-8 text-primary/80" />}
                 />
               )}

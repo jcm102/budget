@@ -2,7 +2,23 @@
 
 import React, { useState } from 'react';
 import { format, isPast } from 'date-fns';
-import { Trash2, Pencil, Plus, ChevronsUpDown, CheckCircle2, Circle } from 'lucide-react';
+import { Trash2, Pencil, Plus, ChevronsUpDown, CheckCircle2, Circle, GripVertical } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {CSS} from '@dnd-kit/utilities';
+
 
 import { cn } from '@/lib/utils';
 import type { Task, Subtask } from '@/types';
@@ -29,6 +45,78 @@ import {
 } from '@/components/ui/alert-dialog';
 import { buttonVariants } from './ui/button';
 
+type SubtaskItemProps = {
+  subtask: Subtask;
+  onToggle: () => void;
+  onDelete: () => void;
+  onUpdate: (description: string) => void;
+}
+
+function SubtaskItem({ subtask, onToggle, onDelete, onUpdate }: SubtaskItemProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [description, setDescription] = useState(subtask.description);
+  
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({id: subtask.id});
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  const handleUpdate = () => {
+    if (description.trim()) {
+      onUpdate(description.trim());
+      setIsEditing(false);
+    }
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="flex items-center gap-2 group/subtask">
+        <Button variant="ghost" size="icon" className="h-6 w-6 cursor-grab" {...attributes} {...listeners}>
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+        </Button>
+      <Checkbox
+        id={`subtask-${subtask.id}`}
+        checked={subtask.completed}
+        onCheckedChange={onToggle}
+        className="h-5 w-5"
+      />
+      {isEditing ? (
+        <Input
+          type="text"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          onBlur={handleUpdate}
+          onKeyDown={(e) => e.key === 'Enter' && handleUpdate()}
+          className="h-8"
+          autoFocus
+        />
+      ) : (
+        <label
+          htmlFor={`subtask-${subtask.id}`}
+          className={cn("flex-grow text-sm cursor-pointer", subtask.completed && 'line-through text-muted-foreground')}
+        >
+          {subtask.description}
+        </label>
+      )}
+      <div className="flex items-center gap-1 opacity-0 group-hover/subtask:opacity-100 transition-opacity">
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsEditing(true)}>
+          <Pencil className="h-3 w-3" />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-6 w-6 hover:text-destructive" onClick={onDelete}>
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 type TaskItemProps = {
   task: Task;
   onToggle: (id: string) => void;
@@ -36,6 +124,7 @@ type TaskItemProps = {
   onEdit: (task: Task) => void;
   onAddSubtask: (taskId: string, description: string) => void;
   onUpdateSubtask: (taskId: string, subtaskId: string, description: string) => void;
+  onUpdateSubtaskOrder: (taskId: string, reorderedSubtasks: Subtask[]) => void;
   onToggleSubtask: (taskId: string, subtaskId: string) => void;
   onDeleteSubtask: (taskId: string, subtaskId: string) => void;
 };
@@ -47,16 +136,38 @@ export function TaskItem({
   onEdit,
   onAddSubtask,
   onUpdateSubtask,
+  onUpdateSubtaskOrder,
   onToggleSubtask,
   onDeleteSubtask
 }: TaskItemProps) {
   const [isCollapsibleOpen, setIsCollapsibleOpen] = useState(false);
   const [newSubtask, setNewSubtask] = useState('');
-  const [editingSubtask, setEditingSubtask] = useState<{ id: string, description: string } | null>(null);
+  
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: task.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
 
   const isOverdue = task.dueDate && isPast(new Date(task.dueDate)) && !task.completed;
   const hasSubtasks = task.subtasks && task.subtasks.length > 0;
   const completedSubtasks = task.subtasks?.filter(st => st.completed).length || 0;
+  const sortedSubtasks = (task.subtasks || []).slice().sort((a,b) => a.order - b.order);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    })
+  );
 
   const handleAddSubtask = (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,15 +177,24 @@ export function TaskItem({
     }
   };
 
-  const handleUpdateSubtask = (subtaskId: string) => {
-    if (editingSubtask && editingSubtask.description.trim()) {
-      onUpdateSubtask(task.id, subtaskId, editingSubtask.description.trim());
-      setEditingSubtask(null);
+  const handleSubtaskDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+        const oldIndex = sortedSubtasks.findIndex(st => st.id === active.id);
+        const newIndex = sortedSubtasks.findIndex(st => st.id === over.id);
+
+        if (oldIndex !== -1 && newIndex !== -1) {
+            const reordered = arrayMove(sortedSubtasks, oldIndex, newIndex);
+            onUpdateSubtaskOrder(task.id, reordered);
+        }
     }
   };
 
+
   return (
     <Card
+      ref={setNodeRef}
+      style={style}
       className={cn(
         'transition-all duration-300 ease-in-out group',
         task.completed
@@ -86,15 +206,20 @@ export function TaskItem({
       <Collapsible open={isCollapsibleOpen} onOpenChange={setIsCollapsibleOpen}>
         <CardContent className="p-4">
           <div className="flex items-start gap-4">
-            <Checkbox
-              id={`task-${task.id}`}
-              checked={task.completed}
-              onCheckedChange={() => onToggle(task.id)}
-              aria-label={`Mark task ${task.description} as ${
-                task.completed ? 'not completed' : 'completed'
-              }`}
-              className="h-6 w-6 rounded-md mt-1"
-            />
+            <div className="flex items-center gap-2 pt-1">
+               <Button variant="ghost" size="icon" className="h-6 w-6 cursor-grab" {...attributes} {...listeners}>
+                <GripVertical className="h-4 w-4 text-muted-foreground" />
+               </Button>
+                <Checkbox
+                id={`task-${task.id}`}
+                checked={task.completed}
+                onCheckedChange={() => onToggle(task.id)}
+                aria-label={`Mark task ${task.description} as ${
+                    task.completed ? 'not completed' : 'completed'
+                }`}
+                className="h-6 w-6 rounded-md"
+                />
+            </div>
             <div className="flex-grow space-y-1">
               <label
                 htmlFor={`task-${task.id}`}
@@ -168,42 +293,23 @@ export function TaskItem({
                   {completedSubtasks} of {task.subtasks?.length} completed
                 </p>
                 <CollapsibleContent className="space-y-2 mt-2">
-                  {task.subtasks?.map((subtask) => (
-                    <div key={subtask.id} className="flex items-center gap-2 group/subtask">
-                      <Checkbox
-                        id={`subtask-${subtask.id}`}
-                        checked={subtask.completed}
-                        onCheckedChange={() => onToggleSubtask(task.id, subtask.id)}
-                        className="h-5 w-5"
-                      />
-                      {editingSubtask?.id === subtask.id ? (
-                        <Input
-                          type="text"
-                          value={editingSubtask.description}
-                          onChange={(e) => setEditingSubtask({ ...editingSubtask, description: e.target.value })}
-                          onBlur={() => handleUpdateSubtask(subtask.id)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleUpdateSubtask(subtask.id)}
-                          className="h-8"
-                          autoFocus
-                        />
-                      ) : (
-                        <label
-                          htmlFor={`subtask-${subtask.id}`}
-                          className={cn("flex-grow text-sm cursor-pointer", subtask.completed && 'line-through text-muted-foreground')}
-                        >
-                          {subtask.description}
-                        </label>
-                      )}
-                      <div className="flex items-center gap-1 opacity-0 group-hover/subtask:opacity-100 transition-opacity">
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingSubtask({id: subtask.id, description: subtask.description})}>
-                          <Pencil className="h-3 w-3" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 hover:text-destructive" onClick={() => onDeleteSubtask(task.id, subtask.id)}>
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                    <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleSubtaskDragEnd}
+                    >
+                        <SortableContext items={sortedSubtasks.map(st => st.id)} strategy={verticalListSortingStrategy}>
+                            {sortedSubtasks.map((subtask) => (
+                                <SubtaskItem 
+                                    key={subtask.id}
+                                    subtask={subtask}
+                                    onToggle={() => onToggleSubtask(task.id, subtask.id)}
+                                    onDelete={() => onDeleteSubtask(task.id, subtask.id)}
+                                    onUpdate={(desc) => onUpdateSubtask(task.id, subtask.id, desc)}
+                                />
+                            ))}
+                        </SortableContext>
+                    </DndContext>
                 </CollapsibleContent>
             </div>
           )}

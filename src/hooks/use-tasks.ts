@@ -31,9 +31,10 @@ export function useTasks() {
     fetchTasks();
   }, [toast]);
 
-  const addTask = useCallback(async (taskData: Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks'>) => {
+  const addTask = useCallback(async (taskData: Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks' | 'order'>) => {
     try {
-      const newTask = await TaskService.addTask(taskData);
+      const newOrder = tasks.filter(t => t.frequency === taskData.frequency).length;
+      const newTask = await TaskService.addTask(taskData, newOrder);
       setTasks((prevTasks) => [...prevTasks, newTask]);
     } catch (error) {
       console.error('Failed to add task:', error);
@@ -43,7 +44,7 @@ export function useTasks() {
         variant: 'destructive',
       });
     }
-  }, [toast]);
+  }, [toast, tasks]);
 
   const updateTask = useCallback(async (id: string, taskData: Partial<Omit<Task, 'id'>>) => {
     try {
@@ -58,6 +59,22 @@ export function useTasks() {
       toast({
         title: 'Error',
         description: 'Failed to update the task.',
+        variant: 'destructive',
+      });
+    }
+  }, [toast]);
+
+  const updateTaskOrder = useCallback(async (reorderedTasks: Task[]) => {
+    // Optimistically update the UI
+    setTasks(reorderedTasks);
+    try {
+      await TaskService.updateTaskOrder(reorderedTasks);
+    } catch (error) {
+      console.error('Failed to update task order:', error);
+      // Revert on error - though fetching might be better
+      toast({
+        title: 'Error',
+        description: 'Failed to save the new task order.',
         variant: 'destructive',
       });
     }
@@ -107,29 +124,53 @@ export function useTasks() {
 
   const addSubtask = useCallback(async (taskId: string, description: string) => {
     try {
-      const newSubtask = await TaskService.addSubtask(taskId, description);
-      setTasks(prevTasks => prevTasks.map(task => {
-        if (task.id === taskId) {
-            const updatedSubtasks = [...(task.subtasks || []), newSubtask];
-            return { ...task, subtasks: updatedSubtasks, completed: false, completedAt: null };
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) return;
+
+      const newOrder = task.subtasks.length;
+      const newSubtask = await TaskService.addSubtask(taskId, description, newOrder);
+      
+      setTasks(prevTasks => prevTasks.map(t => {
+        if (t.id === taskId) {
+            const updatedSubtasks = [...(t.subtasks || []), newSubtask];
+            return { ...t, subtasks: updatedSubtasks, completed: false, completedAt: null };
         }
-        return task;
+        return t;
       }));
     } catch (error) {
       console.error('Failed to add subtask:', error);
       toast({ title: 'Error', description: 'Failed to add subtask.', variant: 'destructive' });
     }
-  }, [toast]);
+  }, [tasks, toast]);
   
   const updateSubtask = useCallback(async (taskId: string, subtaskId: string, description: string) => {
     const originalTasks = tasks;
     setTasks(prev => prev.map(t => t.id === taskId ? {...t, subtasks: t.subtasks.map(st => st.id === subtaskId ? {...st, description} : st)}: t));
     try {
-      await TaskService.updateSubtask(taskId, subtaskId, description);
+      await TaskService.updateSubtask(taskId, subtaskId, {description});
     } catch (error) {
       console.error('Failed to update subtask:', error);
       setTasks(originalTasks);
       toast({ title: 'Error', description: 'Failed to update subtask.', variant: 'destructive' });
+    }
+  }, [tasks, toast]);
+
+  const updateSubtaskOrder = useCallback(async (taskId: string, reorderedSubtasks: Subtask[]) => {
+    const originalTasks = [...tasks];
+    const newTasks = tasks.map(task => {
+        if (task.id === taskId) {
+            return { ...task, subtasks: reorderedSubtasks };
+        }
+        return task;
+    });
+    setTasks(newTasks);
+
+    try {
+        await TaskService.updateSubtaskOrder(taskId, reorderedSubtasks);
+    } catch (error) {
+        console.error('Failed to update subtask order:', error);
+        setTasks(originalTasks);
+        toast({ title: 'Error', description: 'Failed to save subtask order.', variant: 'destructive' });
     }
   }, [tasks, toast]);
 
@@ -186,5 +227,5 @@ export function useTasks() {
   }, [tasks, toast]);
 
 
-  return { tasks, addTask, updateTask, toggleTask, deleteTask, isLoading, addSubtask, updateSubtask, toggleSubtask, deleteSubtask };
+  return { tasks, addTask, updateTask, toggleTask, deleteTask, isLoading, updateTaskOrder, addSubtask, updateSubtask, updateSubtaskOrder, toggleSubtask, deleteSubtask };
 }
