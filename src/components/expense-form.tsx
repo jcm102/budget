@@ -123,15 +123,17 @@ export function ExpenseForm({
   const expenseType = form.watch('expenseType');
   const tripType = form.watch('tripType');
 
+  // Effect to set the mileage rate from settings when it loads
   useEffect(() => {
     if (!isRateLoading && mileageRate !== null) {
         form.setValue('rate', mileageRate);
     }
-  }, [isRateLoading, mileageRate, form]);
-
+  }, [isRateLoading, mileageRate, form.setValue]);
+  
+  // Effect to reset form state when opening for a new item or editing an existing one
   useEffect(() => {
     if (open) {
-      const defaultRate = mileageRate || 0.50;
+      const defaultRate = mileageRate ?? 0.50;
       if (editingItem) {
         const isMonetary = 'amount' in editingItem;
         form.reset({
@@ -155,7 +157,7 @@ export function ExpenseForm({
             oneWayDistanceRef.current = editingItem.distance;
         }
       } else {
-        // This is a new item session
+        // Reset to defaults for a new item
         form.reset({
           expenseType: 'Monetary',
           description: '',
@@ -174,7 +176,7 @@ export function ExpenseForm({
         oneWayDistanceRef.current = null;
       }
     }
-  }, [editingItem, open, form, mileageRate]);
+  }, [editingItem, open, form.reset, mileageRate]);
 
 
    useEffect(() => {
