@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { format, addMonths } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, Check, ShoppingCart } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, Check, ShoppingCart, View } from 'lucide-react';
 import type { SavingsItem } from '@/types';
 
 import {
@@ -16,6 +16,14 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,10 +43,41 @@ import { buttonVariants } from './ui/button';
 import { Badge } from './ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 
+type ColumnVisibility = {
+    [key in keyof SavingsItem | 'budgetedCost' | 'monthlyCost' | 'monthsRemaining' | 'budgetedThisMonth' | 'actions']?: boolean;
+};
+
 export function SavingsTable() {
   const { savingsItems, addSavingsItem, updateSavingsItem, deleteSavingsItem, processMonthlySavings, recordPurchase, isLoading } = useSavings();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<SavingsItem | null>(null);
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
+    expense: true,
+    purchaseFrequency: true,
+    cost: true,
+    annualIncrease: true,
+    budgetedCost: true,
+    monthlyCost: true,
+    renewalDate: true,
+    monthsRemaining: true,
+    budgetedThisMonth: true,
+    totalBudgeted: true,
+    actions: true,
+  });
+
+  const columnConfig = {
+    expense: { label: 'Expense', default: true },
+    purchaseFrequency: { label: 'Frequency', default: true },
+    cost: { label: 'Cost', default: true, isNumeric: true },
+    annualIncrease: { label: 'Ann. Increase %', default: false, isNumeric: true },
+    budgetedCost: { label: 'Budgeted Cost', default: true, isNumeric: true },
+    monthlyCost: { label: 'Monthly Cost', default: true, isNumeric: true },
+    renewalDate: { label: 'Renewal Date', default: true },
+    monthsRemaining: { label: 'Months Rem.', default: false },
+    budgetedThisMonth: { label: 'Budgeted This Month', default: false, isNumeric: true },
+    totalBudgeted: { label: 'Total Budgeted', default: true, isNumeric: true },
+    actions: { label: 'Actions', default: true, isAction: true },
+  };
 
   const handleEdit = (item: SavingsItem) => {
     setEditingItem(item);
@@ -116,11 +155,14 @@ export function SavingsTable() {
     }
     return projections;
   }
+  
+  const visibleColumns = Object.keys(columnVisibility).filter(key => columnVisibility[key as keyof ColumnVisibility]);
+  const colSpan = visibleColumns.length;
 
   const renderLoadingSkeleton = () => (
     Array.from({ length: 3 }).map((_, i) => (
       <TableRow key={`skeleton-${i}`}>
-        <TableCell colSpan={11}><Skeleton className="h-8 w-full" /></TableCell>
+        <TableCell colSpan={colSpan}><Skeleton className="h-8 w-full" /></TableCell>
       </TableRow>
     ))
   );
@@ -163,6 +205,33 @@ export function SavingsTable() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <View className="mr-2 h-4 w-4" />
+                  View
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[180px]">
+                <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {Object.entries(columnConfig).map(([key, { label }]) => (
+                   <DropdownMenuCheckboxItem
+                    key={key}
+                    className="capitalize"
+                    checked={columnVisibility[key as keyof ColumnVisibility]}
+                    onCheckedChange={(value) =>
+                      setColumnVisibility((prev) => ({
+                        ...prev,
+                        [key]: !!value,
+                      }))
+                    }
+                  >
+                    {label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           <Button onClick={() => setIsFormOpen(true)}>
             <PlusCircle className="mr-2 h-5 w-5" />
             Add Savings Item
@@ -173,17 +242,11 @@ export function SavingsTable() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Expense</TableHead>
-                <TableHead>Frequency</TableHead>
-                <TableHead className="text-right">Cost</TableHead>
-                <TableHead className="text-right">Ann. Increase %</TableHead>
-                <TableHead className="text-right">Budgeted Cost</TableHead>
-                <TableHead className="text-right">Monthly Cost</TableHead>
-                <TableHead>Renewal Date</TableHead>
-                <TableHead>Months Remaining</TableHead>
-                <TableHead className="text-right">Budgeted This Month</TableHead>
-                <TableHead className="text-right">Total Budgeted</TableHead>
-                <TableHead className="w-[140px] text-right">Actions</TableHead>
+                {Object.entries(columnConfig).map(([key, { label, isNumeric, isAction }]) => (
+                  columnVisibility[key as keyof ColumnVisibility] && (
+                     <TableHead key={key} className={cn(isNumeric && "text-right", isAction && "w-[140px] text-right")}>{label}</TableHead>
+                  )
+                ))}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -194,17 +257,17 @@ export function SavingsTable() {
                         const { budgetedCost, monthlyCost, monthsRemaining, budgetedThisMonth, nextRenewalDate } = calculateValues(item);
                         return (
                             <TableRow key={item.id}>
-                                <TableCell className="font-medium">{item.expense}</TableCell>
-                                <TableCell><Badge variant="secondary">{item.purchaseFrequency}</Badge></TableCell>
-                                <TableCell className="text-right">{formatCurrency(item.cost)}</TableCell>
-                                <TableCell className="text-right">{item.annualIncrease.toFixed(2)}%</TableCell>
-                                <TableCell className="text-right">{formatCurrency(budgetedCost)}</TableCell>
-                                <TableCell className="text-right">{formatCurrency(monthlyCost)}</TableCell>
-                                <TableCell>{format(nextRenewalDate, 'PPP')}</TableCell>
-                                <TableCell>{monthsRemaining}</TableCell>
-                                <TableCell className="text-right">{formatCurrency(budgetedThisMonth)}</TableCell>
-                                <TableCell className="text-right">{formatCurrency(item.totalBudgeted)}</TableCell>
-                                <TableCell className="text-right">
+                                {columnVisibility.expense && <TableCell className="font-medium">{item.expense}</TableCell>}
+                                {columnVisibility.purchaseFrequency && <TableCell><Badge variant="secondary">{item.purchaseFrequency}</Badge></TableCell>}
+                                {columnVisibility.cost && <TableCell className="text-right">{formatCurrency(item.cost)}</TableCell>}
+                                {columnVisibility.annualIncrease && <TableCell className="text-right">{item.annualIncrease.toFixed(2)}%</TableCell>}
+                                {columnVisibility.budgetedCost && <TableCell className="text-right">{formatCurrency(budgetedCost)}</TableCell>}
+                                {columnVisibility.monthlyCost && <TableCell className="text-right">{formatCurrency(monthlyCost)}</TableCell>}
+                                {columnVisibility.renewalDate && <TableCell>{format(nextRenewalDate, 'PPP')}</TableCell>}
+                                {columnVisibility.monthsRemaining && <TableCell>{monthsRemaining}</TableCell>}
+                                {columnVisibility.budgetedThisMonth && <TableCell className="text-right">{formatCurrency(budgetedThisMonth)}</TableCell>}
+                                {columnVisibility.totalBudgeted && <TableCell className="text-right">{formatCurrency(item.totalBudgeted)}</TableCell>}
+                                {columnVisibility.actions && <TableCell className="text-right">
                                     <div className="flex justify-end gap-1">
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
@@ -252,13 +315,13 @@ export function SavingsTable() {
                                         </AlertDialogContent>
                                         </AlertDialog>
                                     </div>
-                                </TableCell>
+                                </TableCell>}
                             </TableRow>
                         )
                     })
                 ) : (
                     <TableRow>
-                    <TableCell colSpan={11} className="h-24 text-center">
+                    <TableCell colSpan={colSpan} className="h-24 text-center">
                         No savings items entered yet. Add one to get started!
                     </TableCell>
                     </TableRow>
@@ -267,11 +330,13 @@ export function SavingsTable() {
             {savingsItems.length > 0 && (
             <TableFooter>
                 <TableRow>
-                    <TableCell colSpan={5} className="font-semibold text-right">Total Monthly Cost</TableCell>
-                    <TableCell className="text-right font-semibold">{formatCurrency(totalMonthlyCost)}</TableCell>
-                    <TableCell colSpan={3} className="font-semibold text-right">Grand Total Budgeted</TableCell>
-                    <TableCell className="text-right font-semibold">{formatCurrency(grandTotalBudgeted)}</TableCell>
-                    <TableCell></TableCell>
+                    <TableCell colSpan={visibleColumns.indexOf('monthlyCost')} className="font-semibold text-right">Total Monthly Cost</TableCell>
+                    {columnVisibility.monthlyCost && <TableCell className="text-right font-semibold">{formatCurrency(totalMonthlyCost)}</TableCell>}
+                    
+                    <TableCell colSpan={visibleColumns.indexOf('totalBudgeted') - visibleColumns.indexOf('monthlyCost') -1} className="font-semibold text-right">Grand Total Budgeted</TableCell>
+                    {columnVisibility.totalBudgeted && <TableCell className="text-right font-semibold">{formatCurrency(grandTotalBudgeted)}</TableCell>}
+
+                    {columnVisibility.actions && <TableCell></TableCell>}
                 </TableRow>
             </TableFooter>
             )}
@@ -297,3 +362,5 @@ export function SavingsTable() {
     </>
   );
 }
+
+    
