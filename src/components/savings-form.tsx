@@ -142,7 +142,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
             />
             <FormField control={form.control} name="cost" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Cost</FormLabel>
+                  <FormLabel>Prior Cost</FormLabel>
                   <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>

@@ -68,7 +68,7 @@ export function SavingsTable() {
   const columnConfig = {
     expense: { label: 'Expense', default: true },
     purchaseFrequency: { label: 'Frequency', default: true },
-    cost: { label: 'Cost', default: true, isNumeric: true },
+    cost: { label: 'Prior Cost', default: true, isNumeric: true },
     annualIncrease: { label: 'Ann. Increase %', default: false, isNumeric: true },
     budgetedCost: { label: 'Budgeted Cost', default: true, isNumeric: true },
     monthlyCost: { label: 'Monthly Cost', default: true, isNumeric: true },
