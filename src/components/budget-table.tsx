@@ -82,10 +82,11 @@ export function BudgetTable() {
       ? items.filter(item => !item.completed).reduce((acc, item) => acc + item.amount, 0)
       : total;
 
-    let colSpan = 5;
-    if (type === 'Transfers') colSpan = 7;
-    if (type === 'Income') colSpan = 6;
-    if (type === 'Pre-Authorized Payments') colSpan = 7;
+    let columns = 5; // Default columns
+    if (type === 'Income') columns = 6;
+    if (type === 'Transfers') columns = 7;
+    if (type === 'Pre-Authorized Payments') columns = 7;
+    
 
     return (
       <div className="mb-8">
@@ -183,7 +184,7 @@ export function BudgetTable() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={colSpan} className="h-24 text-center">
+                  <TableCell colSpan={columns} className="h-24 text-center">
                     No items added yet.
                   </TableCell>
                 </TableRow>
@@ -191,17 +192,23 @@ export function BudgetTable() {
             </TableBody>
             <TableFooter>
                 {showCompletedCheckbox ? (
-                    <TableRow>
-                        <TableCell colSpan={type === 'Transfers' ? 3 : 2}></TableCell>
-                        <TableCell className="font-semibold text-right" colSpan={2}>Remaining</TableCell>
-                        <TableCell className="text-right font-semibold">{formatCurrency(remainingTotal)}</TableCell>
-                        <TableCell className="font-semibold text-right">Total</TableCell>
-                        <TableCell className="text-right font-semibold">{formatCurrency(total)}</TableCell>
-                        <TableCell></TableCell>
-                    </TableRow>
+                    <>
+                        <TableRow>
+                            <TableCell colSpan={columns - 3} />
+                            <TableCell className="font-semibold text-right">Remaining</TableCell>
+                            <TableCell className="text-right font-semibold">{formatCurrency(remainingTotal)}</TableCell>
+                            <TableCell />
+                        </TableRow>
+                        <TableRow>
+                            <TableCell colSpan={columns - 3} />
+                            <TableCell className="font-semibold text-right">Total</TableCell>
+                            <TableCell className="text-right font-semibold">{formatCurrency(total)}</TableCell>
+                            <TableCell />
+                        </TableRow>
+                    </>
                 ) : (
                     <TableRow>
-                        <TableCell colSpan={type === 'Income' ? 4 : 3}></TableCell>
+                        <TableCell colSpan={columns - 2}></TableCell>
                         <TableCell className="font-semibold text-right">Total</TableCell>
                         <TableCell className="text-right font-semibold">{formatCurrency(total)}</TableCell>
                         <TableCell></TableCell>
