@@ -25,6 +25,19 @@ export default function ExpensesPage() {
   };
   
   const handleExport = () => {
+    const allDates = [
+      ...expenses.map(e => new Date(e.date)),
+      ...mileageLogs.map(m => new Date(m.date))
+    ];
+
+    let monthName = format(new Date(), 'MMMM yyyy');
+    if (allDates.length > 0) {
+      const mostRecentDate = new Date(Math.max(...allDates.map(date => date.getTime())));
+      monthName = format(mostRecentDate, 'MMMM yyyy');
+    }
+    
+    const mainHeader = [`${monthName} Expenses`];
+
     // Section 1: Mileage
     const mileageHeader = ['Date', 'Description', 'Distance (km)', 'Rate', 'Total'];
     const mileageRows = mileageLogs.map(item => [
@@ -61,6 +74,8 @@ export default function ExpensesPage() {
     const otherReimbursableCsv = [otherReimbursableHeader.join(','), ...otherReimbursableRows].join('\n');
 
     const csvContent = [
+      mainHeader.join(','),
+      '',
       'Mileage',
       mileageCsv,
       '',
@@ -78,7 +93,7 @@ export default function ExpensesPage() {
     }
     const url = URL.createObjectURL(blob);
     link.href = url;
-    link.setAttribute('download', 'work-expenses.csv');
+    link.setAttribute('download', `work-expenses-${monthName.replace(' ','-')}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
