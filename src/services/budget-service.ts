@@ -29,7 +29,7 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
   const querySnapshot = await getDocs(q);
   
   const today = new Date();
-  const currentMonthItems: BudgetItem[] = [];
+  const allGeneratedItems: BudgetItem[] = [];
   const startOfCurrentMonth = startOfMonth(today);
   const processedRecurringInstances = new Set<string>();
 
@@ -41,38 +41,41 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
   );
 
   modifiedItemsInMonth.forEach(item => {
-      currentMonthItems.push(item);
+      allGeneratedItems.push(item);
       // Keep track of which original instances have been processed
       if (item.originalId) {
           processedRecurringInstances.add(item.originalId);
       }
   });
 
-
   allItems.forEach(item => {
     // Skip modified items as they are already handled
     if (item.originalId) return;
 
-    // Initialize completed if it's undefined
     if (item.completed === undefined) {
       item.completed = false;
     }
 
     const itemStartDate = new Date(item.date);
     
-    // Skip items that start in a future month (unless it's a one-time item in the current month)
-     if (getYear(itemStartDate) > getYear(today) || (getYear(itemStartDate) === getYear(today) && getMonth(itemStartDate) > getMonth(today))) {
-        if (item.frequency === 'One-Time' && isSameMonth(itemStartDate, today)) {
-          // continue
-        } else {
-          return;
-        }
+    // For "Debt Payments", we want to show all of them, regardless of date.
+    if (item.type === 'Debt Payments') {
+        allGeneratedItems.push(item);
+        return; // Move to the next item
     }
 
-
+    // Existing logic for other types (Income, Transfers, PA Payments)
+    if (getYear(itemStartDate) > getYear(today) || (getYear(itemStartDate) === getYear(today) && getMonth(itemStartDate) > getMonth(today))) {
+        if (item.frequency === 'One-Time' && isSameMonth(itemStartDate, today)) {
+            // allow
+        } else {
+            return;
+        }
+    }
+    
     if (item.frequency === 'One-Time') {
-      if (isSameMonth(itemStartDate, today) && !currentMonthItems.some(i => i.id === item.id)) {
-        currentMonthItems.push(item);
+      if (isSameMonth(itemStartDate, today) && !allGeneratedItems.some(i => i.id === item.id)) {
+        allGeneratedItems.push(item);
       }
     } else if (item.frequency === 'Monthly') {
         let currentDate = startOfDay(itemStartDate);
@@ -84,7 +87,7 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
         if (isSameMonth(currentDate, today)) {
             const instanceId = `${item.id}-${currentDate.getTime()}`;
              if (!processedRecurringInstances.has(instanceId)) {
-                currentMonthItems.push({
+                allGeneratedItems.push({
                     ...item,
                     id: instanceId,
                     date: currentDate.toISOString(),
@@ -96,7 +99,6 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
       let currentDate = itemStartDate;
       const increment = item.frequency === 'Weekly' ? 1 : 2;
 
-      // Fast-forward to the current month
       while (isBefore(currentDate, startOfCurrentMonth)) {
         currentDate = addWeeks(currentDate, increment);
       }
@@ -105,7 +107,7 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
           const instanceId = `${item.id}-${currentDate.getTime()}`;
           if (isAfter(currentDate, itemStartDate) || isSameMonth(itemStartDate, currentDate)) {
               if (!processedRecurringInstances.has(instanceId)) {
-                currentMonthItems.push({
+                allGeneratedItems.push({
                     ...item,
                     id: instanceId, 
                     date: currentDate.toISOString(),
@@ -119,7 +121,7 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
   });
 
 
-  return currentMonthItems.sort((a, b) => new Date(a.date).getTime() - new Date(a.date).getTime());
+  return allGeneratedItems.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 }
 
 export async function addBudgetItem(itemData: Omit<BudgetItem, 'id'>): Promise<BudgetItem> {
@@ -234,12 +236,12 @@ export async function syncDebtPayments(): Promise<void> {
     batch.delete(doc.ref);
   });
 
-  // 3. Create new budget items for each debt, without filtering by amount
+  // 3. Create new budget items for each debt, without any filtering
   debts.forEach(debt => {
     const budgetItemData: Omit<BudgetItem, 'id'> = {
       type: 'Debt Payments',
       description: debt.name,
-      amount: debt.actualPayment, // Directly use the value
+      amount: debt.actualPayment,
       date: debt.dueDate,
       frequency: 'One-Time',
       category: 'N/A',
