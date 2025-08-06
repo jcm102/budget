@@ -34,7 +34,7 @@ import type { SavingsItem, SavingsPurchaseFrequency } from '@/types';
 
 const formSchema = z.object({
   expense: z.string().min(2, 'Expense name must be at least 2 characters.'),
-  purchaseFrequency: z.enum(['Annually', 'Every 2 Years', 'Every 3 Years', 'Every 4 Years', 'Every 5 Years']),
+  purchaseFrequency: z.enum(['Semi-Annually', 'Annually', 'Every 2 Years', 'Every 3 Years', 'Every 4 Years', 'Every 5 Years']),
   cost: z.coerce.number().min(0, 'Cost must be a positive number.'),
   annualIncrease: z.coerce.number().min(0, 'Annual increase must be a positive number.'),
   renewalDate: z.string().min(1, 'A renewal date is required.'),
@@ -128,6 +128,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                     <SelectContent>
+                      <SelectItem value="Semi-Annually">Semi-Annually</SelectItem>
                       <SelectItem value="Annually">Annually</SelectItem>
                       <SelectItem value="Every 2 Years">Every 2 Years</SelectItem>
                       <SelectItem value="Every 3 Years">Every 3 Years</SelectItem>

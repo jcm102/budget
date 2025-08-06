@@ -64,14 +64,15 @@ export function SavingsTable() {
       let budgetedCost = item.cost;
 
       const yearsMap = {
-        'Annually': 1, 'Every 2 Years': 2, 'Every 3 Years': 3, 'Every 4 Years': 4, 'Every 5 Years': 5
+        'Semi-Annually': 0.5, 'Annually': 1, 'Every 2 Years': 2, 'Every 3 Years': 3, 'Every 4 Years': 4, 'Every 5 Years': 5
       };
       const purchaseInterval = yearsMap[item.purchaseFrequency];
+      const purchaseIntervalInMonths = purchaseInterval * 12;
 
       let nextRenewalDate = renewalDate;
        while(nextRenewalDate < now) {
           budgetedCost = budgetedCost * (1 + item.annualIncrease / 100);
-          nextRenewalDate.setFullYear(nextRenewalDate.getFullYear() + purchaseInterval);
+          nextRenewalDate.setMonth(nextRenewalDate.getMonth() + purchaseIntervalInMonths);
       }
       
       const monthDiff = (nextRenewalDate.getFullYear() - now.getFullYear()) * 12 + (nextRenewalDate.getMonth() - now.getMonth());
@@ -220,4 +221,3 @@ export function SavingsTable() {
     </>
   );
 }
-
