@@ -223,33 +223,30 @@ export async function syncDebtPayments(): Promise<void> {
   const batch = writeBatch(db);
 
   // 1. Get all debts from the debt worksheet
-  const debtSnapshot = await getDocs(query(debtCollectionRef));
+  const debtSnapshot = await getDocs(query(debtCollectionRef, orderBy('order')));
   const debts = debtSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Debt));
-  
+
   // 2. Get all existing debt payments from the budget to delete them
   const existingBudgetPaymentsQuery = query(budgetCollectionRef, where('type', '==', 'Debt Payments'));
   const existingBudgetPaymentsSnapshot = await getDocs(existingBudgetPaymentsQuery);
-  
+
   existingBudgetPaymentsSnapshot.forEach(doc => {
     batch.delete(doc.ref);
   });
 
-  // 3. Create new budget items for each debt
+  // 3. Create new budget items for each debt, without filtering by amount
   debts.forEach(debt => {
-    // Only sync debts with a valid, non-zero payment amount
-    if (typeof debt.actualPayment === 'number' && debt.actualPayment > 0) {
-        const budgetItemData: Omit<BudgetItem, 'id'> = {
-        type: 'Debt Payments',
-        description: debt.name,
-        amount: debt.actualPayment,
-        date: debt.dueDate,
-        frequency: 'One-Time',
-        category: 'N/A',
-        completed: false,
-        };
-        const newDocRef = doc(budgetCollectionRef);
-        batch.set(newDocRef, budgetItemData);
-    }
+    const budgetItemData: Omit<BudgetItem, 'id'> = {
+      type: 'Debt Payments',
+      description: debt.name,
+      amount: debt.actualPayment, // Directly use the value
+      date: debt.dueDate,
+      frequency: 'One-Time',
+      category: 'N/A',
+      completed: false,
+    };
+    const newDocRef = doc(budgetCollectionRef);
+    batch.set(newDocRef, budgetItemData);
   });
 
   // 4. Commit all the changes at once
