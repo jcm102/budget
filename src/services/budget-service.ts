@@ -15,6 +15,7 @@ import {
   where,
   writeBatch,
   updateDoc,
+  orderBy,
 } from 'firebase/firestore';
 import { isSameMonth, startOfMonth, getDate, getMonth, getYear, set, addWeeks, isAfter, isBefore, isLastDayOfMonth, lastDayOfMonth, addMonths, startOfDay } from 'date-fns';
 
@@ -230,8 +231,9 @@ export async function syncDebtPayments(): Promise<void> {
     batch.delete(doc.ref);
   });
 
-  // 3. Get all debts from the debt worksheet
-  const debtSnapshot = await getDocs(query(debtCollectionRef));
+  // 3. Get all debts from the debt worksheet, ordering by the 'order' field to ensure consistency
+  const debtQuery = query(debtCollectionRef, orderBy('order'));
+  const debtSnapshot = await getDocs(debtQuery);
   const debts = debtSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Debt));
   
   // 4. Create new budget items for each debt
