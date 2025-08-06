@@ -222,9 +222,8 @@ export async function syncDebtPayments(): Promise<void> {
   const budgetCollectionRef = collection(db, BUDGET_COLLECTION);
   const batch = writeBatch(db);
 
-  // 1. Get all debts from the debt worksheet, ordering by the 'order' field to ensure consistency
-  const debtQuery = query(debtCollectionRef, orderBy('order'));
-  const debtSnapshot = await getDocs(debtQuery);
+  // 1. Get all debts from the debt worksheet
+  const debtSnapshot = await getDocs(query(debtCollectionRef));
   const debts = debtSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Debt));
   
   // 2. Get all existing debt payments from the budget to delete them
@@ -237,17 +236,19 @@ export async function syncDebtPayments(): Promise<void> {
 
   // 3. Create new budget items for each debt
   debts.forEach(debt => {
-    const budgetItemData: Omit<BudgetItem, 'id'> = {
-      type: 'Debt Payments',
-      description: debt.name,
-      amount: debt.actualPayment,
-      date: debt.dueDate,
-      frequency: 'One-Time',
-      category: 'N/A',
-      completed: false,
-    };
-    const newDocRef = doc(budgetCollectionRef); // Create a new document reference with a unique ID
-    batch.set(newDocRef, budgetItemData);
+    if (debt.actualPayment > 0) { // Only sync debts with a payment amount
+        const budgetItemData: Omit<BudgetItem, 'id'> = {
+        type: 'Debt Payments',
+        description: debt.name,
+        amount: debt.actualPayment,
+        date: debt.dueDate,
+        frequency: 'One-Time',
+        category: 'N/A',
+        completed: false,
+        };
+        const newDocRef = doc(budgetCollectionRef); // Create a new document reference with a unique ID
+        batch.set(newDocRef, budgetItemData);
+    }
   });
 
   // 4. Commit all the changes at once
