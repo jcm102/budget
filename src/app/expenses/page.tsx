@@ -25,7 +25,8 @@ export default function ExpensesPage() {
     ];
     let monthName = format(new Date(), 'MMMM yyyy');
     if (allDates.length > 0) {
-      const mostRecentDate = new Date(Math.max(...allDates.map(date => date.getTime())));
+      // Correctly find the most recent date
+      const mostRecentDate = allDates.reduce((a, b) => a > b ? a : b);
       monthName = format(mostRecentDate, 'MMMM yyyy');
     }
 
@@ -99,11 +100,14 @@ export default function ExpensesPage() {
 
     // Style section headers
     const sectionHeaderStyle = { font: { bold: true } };
-    ['A3', 'A' + (5 + mileageRows.length), 'A' + (8 + mileageRows.length + creditCardRows.length)].forEach(cellRef => {
-      if(ws[cellRef]) ws[cellRef].s = sectionHeaderStyle;
-      else ws[cellRef] = { t: 's', v: ws[cellRef]?.v || '', s: sectionHeaderStyle };
-    })
-
+    const sectionHeaderRefs = [
+        'A3', // Mileage
+        `A${5 + mileageRows.length}`, // Credit Card
+        `A${8 + mileageRows.length + creditCardRows.length}` // Other Reimbursable
+    ];
+    sectionHeaderRefs.forEach(cellRef => {
+        if(ws[cellRef]) ws[cellRef].s = sectionHeaderStyle;
+    });
 
     // Set column widths
     const colWidths = [
