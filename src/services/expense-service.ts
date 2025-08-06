@@ -22,20 +22,17 @@ const EXPENSE_COLLECTION = 'expenses';
 
 export async function getExpenses(): Promise<Expense[]> {
   const expenseCollection = collection(db, EXPENSE_COLLECTION);
-  // Fetch all monetary expenses and order them by date
+  // Fetch all monetary expenses
   const q = query(
     expenseCollection, 
-    where('type', '==', 'Monetary'),
-    orderBy('date', 'desc')
+    where('type', '==', 'Monetary')
   );
   const querySnapshot = await getDocs(q);
 
   const allItems = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense));
   
-  // For now, we will return all monetary expenses. 
-  // The complex logic for recurring items is being simplified to ensure all data is visible.
-  // A future enhancement could be to re-introduce monthly recurring items with a clear UI.
-  return allItems;
+  // Sort in-memory to avoid needing a composite index
+  return allItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
 
