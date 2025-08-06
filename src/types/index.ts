@@ -87,3 +87,15 @@ export interface MileageLog extends BaseExpense {
   destination?: string;
   tripType?: TripType;
 }
+
+export type SavingsPurchaseFrequency = 'Annually' | 'Every 2 Years' | 'Every 3 Years' | 'Every 4 Years' | 'Every 5 Years';
+
+export interface SavingsItem {
+  id: string;
+  expense: string;
+  purchaseFrequency: SavingsPurchaseFrequency;
+  cost: number;
+  annualIncrease: number;
+  renewalDate: string; // ISO string
+  totalBudgeted: number;
+}

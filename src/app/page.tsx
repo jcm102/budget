@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -8,7 +7,7 @@ import { TaskForm } from '@/components/task-form';
 import { TaskList } from '@/components/task-list';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, Sunrise, CalendarDays, CalendarRange, ArrowRight, Lightbulb, Banknote, Settings, CreditCard } from 'lucide-react';
+import { PlusCircle, Sunrise, CalendarDays, CalendarRange, ArrowRight, Lightbulb, Banknote, Settings, CreditCard, PiggyBank } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { Task, Subtask } from '@/types';
@@ -77,7 +76,7 @@ export default function Home() {
           <p className="text-muted-foreground mt-2 text-lg">
             Your personal assistant for daily, weekly, and monthly budgeting tasks.
           </p>
-          <div className="mt-4 flex justify-center items-center gap-4">
+          <div className="mt-4 flex justify-center items-center gap-4 flex-wrap">
              <Button asChild variant="outline" size="lg">
                 <Link href="/debt">
                   Debt Payment Worksheet <ArrowRight className="ml-2 h-5 w-5" />
@@ -91,6 +90,11 @@ export default function Home() {
               <Button asChild variant="outline" size="lg">
                 <Link href="/expenses">
                   Work Expense Tracking <CreditCard className="ml-2 h-5 w-5" />
+                </Link>
+              </Button>
+               <Button asChild variant="outline" size="lg">
+                <Link href="/savings">
+                  Future Spending <PiggyBank className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
               <Button asChild variant="outline" size="lg">
