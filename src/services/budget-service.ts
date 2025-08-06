@@ -225,34 +225,32 @@ export async function syncDebtPayments(): Promise<void> {
   const batch = writeBatch(db);
 
   for (const debt of debts) {
-    if (debt.actualPayment > 0) {
-      // Use debt name as a unique-enough identifier for the description
-      const q = query(
-        budgetCollectionRef,
-        where('type', '==', 'Debt Payments'),
-        where('description', '==', debt.name)
-      );
-      const budgetSnapshot = await getDocs(q);
+    // Use debt name as a unique-enough identifier for the description
+    const q = query(
+      budgetCollectionRef,
+      where('type', '==', 'Debt Payments'),
+      where('description', '==', debt.name)
+    );
+    const budgetSnapshot = await getDocs(q);
 
-      const budgetItemData = {
-        type: 'Debt Payments',
-        description: debt.name,
-        amount: debt.actualPayment,
-        date: debt.dueDate,
-        frequency: 'One-Time',
-        category: 'N/A',
-        completed: false
-      };
+    const budgetItemData = {
+      type: 'Debt Payments',
+      description: debt.name,
+      amount: debt.actualPayment,
+      date: debt.dueDate,
+      frequency: 'One-Time',
+      category: 'N/A',
+      completed: false
+    };
 
-      if (budgetSnapshot.empty) {
-        // If no item exists, create a new one
-        const newDocRef = doc(budgetCollectionRef);
-        batch.set(newDocRef, budgetItemData);
-      } else {
-        // If an item exists, update it
-        const existingDocRef = budgetSnapshot.docs[0].ref;
-        batch.update(existingDocRef, budgetItemData);
-      }
+    if (budgetSnapshot.empty) {
+      // If no item exists, create a new one
+      const newDocRef = doc(budgetCollectionRef);
+      batch.set(newDocRef, budgetItemData);
+    } else {
+      // If an item exists, update it
+      const existingDocRef = budgetSnapshot.docs[0].ref;
+      batch.update(existingDocRef, budgetItemData);
     }
   }
 
