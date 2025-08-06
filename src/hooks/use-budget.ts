@@ -111,5 +111,24 @@ export function useBudget() {
     }
   }, [budgetItems, toast]);
 
-  return { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, toggleBudgetItemCompleted, isLoading };
+  const syncDebtPayments = useCallback(async () => {
+    try {
+      await BudgetService.syncDebtPayments();
+    } catch (error) {
+      console.error('Failed to sync debt payments:', error);
+      // The calling component will handle the toast
+      throw error;
+    }
+  }, []);
+
+  return { 
+    budgetItems, 
+    addBudgetItem, 
+    updateBudgetItem, 
+    deleteBudgetItem, 
+    toggleBudgetItemCompleted, 
+    isLoading,
+    syncDebtPayments,
+    fetchBudgetItems,
+  };
 }

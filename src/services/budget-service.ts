@@ -2,7 +2,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import type { BudgetItem } from '@/types';
+import type { BudgetItem, Debt } from '@/types';
 import {
   collection,
   getDocs,
@@ -19,6 +19,8 @@ import {
 import { isSameMonth, startOfMonth, getDate, getMonth, getYear, set, addWeeks, isAfter, isBefore, isLastDayOfMonth, lastDayOfMonth, addMonths, startOfDay } from 'date-fns';
 
 const BUDGET_COLLECTION = 'budget-items';
+const DEBT_COLLECTION = 'debts';
+
 
 export async function getBudgetItems(): Promise<BudgetItem[]> {
   const budgetCollection = collection(db, BUDGET_COLLECTION);
@@ -208,6 +210,50 @@ export async function deleteBudgetItem(id: string): Promise<void> {
   const docSnap = await getDoc(itemRef);
   if (docSnap.exists()) {
     batch.delete(itemRef);
+  }
+
+  await batch.commit();
+}
+
+
+export async function syncDebtPayments(): Promise<void> {
+  const debtCollectionRef = collection(db, DEBT_COLLECTION);
+  const budgetCollectionRef = collection(db, BUDGET_COLLECTION);
+  const debtSnapshot = await getDocs(query(debtCollectionRef));
+  const debts = debtSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Debt));
+
+  const batch = writeBatch(db);
+
+  for (const debt of debts) {
+    if (debt.actualPayment > 0) {
+      // Use debt name as a unique-enough identifier for the description
+      const q = query(
+        budgetCollectionRef,
+        where('type', '==', 'Debt Payments'),
+        where('description', '==', debt.name)
+      );
+      const budgetSnapshot = await getDocs(q);
+
+      const budgetItemData = {
+        type: 'Debt Payments',
+        description: debt.name,
+        amount: debt.actualPayment,
+        date: debt.dueDate,
+        frequency: 'One-Time',
+        category: 'N/A',
+        completed: false
+      };
+
+      if (budgetSnapshot.empty) {
+        // If no item exists, create a new one
+        const newDocRef = doc(budgetCollectionRef);
+        batch.set(newDocRef, budgetItemData);
+      } else {
+        // If an item exists, update it
+        const existingDocRef = budgetSnapshot.docs[0].ref;
+        batch.update(existingDocRef, budgetItemData);
+      }
+    }
   }
 
   await batch.commit();
