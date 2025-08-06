@@ -83,10 +83,9 @@ export function BudgetTable() {
       : total;
 
     let colSpan = 5;
-    if (type === 'Transfers') colSpan = 6;
+    if (type === 'Transfers') colSpan = 7;
     if (type === 'Income') colSpan = 6;
-    if (type === 'Pre-Authorized Payments') colSpan = 6;
-
+    if (type === 'Pre-Authorized Payments') colSpan = 7;
 
     return (
       <div className="mb-8">
@@ -193,8 +192,8 @@ export function BudgetTable() {
             <TableFooter>
                 {showCompletedCheckbox ? (
                     <TableRow>
-                        <TableCell colSpan={colSpan - 3}></TableCell>
-                        <TableCell className="font-semibold text-right">Remaining</TableCell>
+                        <TableCell colSpan={type === 'Transfers' ? 3 : 2}></TableCell>
+                        <TableCell className="font-semibold text-right" colSpan={2}>Remaining</TableCell>
                         <TableCell className="text-right font-semibold">{formatCurrency(remainingTotal)}</TableCell>
                         <TableCell className="font-semibold text-right">Total</TableCell>
                         <TableCell className="text-right font-semibold">{formatCurrency(total)}</TableCell>
@@ -202,7 +201,7 @@ export function BudgetTable() {
                     </TableRow>
                 ) : (
                     <TableRow>
-                        <TableCell colSpan={colSpan - 2}></TableCell>
+                        <TableCell colSpan={type === 'Income' ? 4 : 3}></TableCell>
                         <TableCell className="font-semibold text-right">Total</TableCell>
                         <TableCell className="text-right font-semibold">{formatCurrency(total)}</TableCell>
                         <TableCell></TableCell>
