@@ -253,3 +253,18 @@ export async function syncDebtPayments(): Promise<void> {
   // 4. Commit all the changes at once
   await batch.commit();
 }
+
+export async function clearDebtPayments(): Promise<void> {
+  const budgetCollectionRef = collection(db, BUDGET_COLLECTION);
+  const batch = writeBatch(db);
+
+  // Get all existing debt payments from the budget to delete them
+  const existingBudgetPaymentsQuery = query(budgetCollectionRef, where('type', '==', 'Debt Payments'));
+  const existingBudgetPaymentsSnapshot = await getDocs(existingBudgetPaymentsQuery);
+  
+  existingBudgetPaymentsSnapshot.forEach(doc => {
+    batch.delete(doc.ref);
+  });
+
+  await batch.commit();
+}

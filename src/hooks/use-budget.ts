@@ -123,6 +123,16 @@ export function useBudget() {
     }
   }, [fetchBudgetItems]);
 
+  const clearDebtPayments = useCallback(async () => {
+    try {
+      await BudgetService.clearDebtPayments();
+      await fetchBudgetItems();
+    } catch (error) {
+      console.error('Failed to clear debt payments:', error);
+      throw error;
+    }
+  }, [fetchBudgetItems]);
+
   return { 
     budgetItems, 
     addBudgetItem, 
@@ -131,6 +141,7 @@ export function useBudget() {
     toggleBudgetItemCompleted, 
     isLoading,
     syncDebtPayments,
+    clearDebtPayments,
     fetchBudgetItems,
   };
 }
