@@ -119,7 +119,7 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
   });
 
 
-  return currentMonthItems.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  return currentMonthItems.sort((a, b) => new Date(a.date).getTime() - new Date(a.date).getTime());
 }
 
 export async function addBudgetItem(itemData: Omit<BudgetItem, 'id'>): Promise<BudgetItem> {
@@ -222,35 +222,34 @@ export async function syncDebtPayments(): Promise<void> {
   const budgetCollectionRef = collection(db, BUDGET_COLLECTION);
   const batch = writeBatch(db);
 
-  // 1. Get all existing debt payments from the budget
-  const existingBudgetPaymentsQuery = query(budgetCollectionRef, where('type', '==', 'Debt Payments'));
-  const existingBudgetPaymentsSnapshot = await getDocs(existingBudgetPaymentsQuery);
-  
-  // 2. Delete all existing debt payments
-  existingBudgetPaymentsSnapshot.forEach(doc => {
-    batch.delete(doc.ref);
-  });
-
-  // 3. Get all debts from the debt worksheet, ordering by the 'order' field to ensure consistency
+  // 1. Get all debts from the debt worksheet, ordering by the 'order' field to ensure consistency
   const debtQuery = query(debtCollectionRef, orderBy('order'));
   const debtSnapshot = await getDocs(debtQuery);
   const debts = debtSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Debt));
   
-  // 4. Create new budget items for each debt
+  // 2. Get all existing debt payments from the budget to delete them
+  const existingBudgetPaymentsQuery = query(budgetCollectionRef, where('type', '==', 'Debt Payments'));
+  const existingBudgetPaymentsSnapshot = await getDocs(existingBudgetPaymentsQuery);
+  
+  existingBudgetPaymentsSnapshot.forEach(doc => {
+    batch.delete(doc.ref);
+  });
+
+  // 3. Create new budget items for each debt
   debts.forEach(debt => {
-    const budgetItemData = {
-      type: 'Debt Payments' as const,
+    const budgetItemData: Omit<BudgetItem, 'id'> = {
+      type: 'Debt Payments',
       description: debt.name,
       amount: debt.actualPayment,
       date: debt.dueDate,
-      frequency: 'One-Time' as const,
+      frequency: 'One-Time',
       category: 'N/A',
       completed: false,
     };
-    const newDocRef = doc(budgetCollectionRef); // Create a new document reference
+    const newDocRef = doc(budgetCollectionRef); // Create a new document reference with a unique ID
     batch.set(newDocRef, budgetItemData);
   });
 
-  // 5. Commit all the changes at once
+  // 4. Commit all the changes at once
   await batch.commit();
 }
