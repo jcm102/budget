@@ -11,92 +11,110 @@ import { Banknote, Car } from 'lucide-react';
 import { useExpenses } from '@/hooks/use-expenses';
 import { useMileage } from '@/hooks/use-mileage';
 import { format } from 'date-fns';
+import * as XLSX from 'xlsx';
 
 export default function ExpensesPage() {
   const { expenses } = useExpenses();
   const { mileageLogs } = useMileage();
 
-  const escapeCsvCell = (cell: string | number | boolean) => {
-    const cellStr = String(cell);
-    if (cellStr.includes(',')) {
-      return `"${cellStr.replace(/"/g, '""')}"`;
-    }
-    return cellStr;
-  };
-  
   const handleExport = () => {
+    // 1. Determine Month Name
     const allDates = [
       ...expenses.map(e => new Date(e.date)),
       ...mileageLogs.map(m => new Date(m.date))
     ];
-
     let monthName = format(new Date(), 'MMMM yyyy');
     if (allDates.length > 0) {
       const mostRecentDate = new Date(Math.max(...allDates.map(date => date.getTime())));
       monthName = format(mostRecentDate, 'MMMM yyyy');
     }
-    
-    const mainHeader = [`${monthName} Expenses`];
 
+    // 2. Prepare Data for XLSX
+    const mainHeader = [`${monthName} Expenses`];
+    
     // Section 1: Mileage
     const mileageHeader = ['Date', 'Description', 'Distance (km)', 'Rate', 'Total'];
     const mileageRows = mileageLogs.map(item => [
       format(new Date(item.date), 'yyyy-MM-dd'),
-      escapeCsvCell(item.description),
-      item.distance.toFixed(1),
-      item.rate.toFixed(2),
-      (item.distance * item.rate).toFixed(2)
-    ].join(','));
-    const mileageCsv = [mileageHeader.join(','), ...mileageRows].join('\n');
+      item.description,
+      item.distance,
+      item.rate,
+      item.distance * item.rate
+    ]);
 
-    // Section 2: Credit Card Expenses (Work Visa)
+    // Section 2: Credit Card Expenses
     const creditCardExpenses = expenses.filter(e => e.transferee === 'Work Visa');
     const creditCardHeader = ['Date', 'Description', 'Category', 'Amount', 'Reimbursable'];
     const creditCardRows = creditCardExpenses.map(item => [
       format(new Date(item.date), 'yyyy-MM-dd'),
-      escapeCsvCell(item.description),
-      escapeCsvCell(item.category),
-      item.amount.toFixed(2),
+      item.description,
+      item.category,
+      item.amount,
       item.reimbursable ? 'Yes' : 'No'
-    ].join(','));
-    const creditCardCsv = [creditCardHeader.join(','), ...creditCardRows].join('\n');
+    ]);
 
-    // Section 3: Other Reimbursable Expenses
+    // Section 3: Other Reimbursable
     const otherReimbursableExpenses = expenses.filter(e => e.transferee !== 'Work Visa' && e.reimbursable);
     const otherReimbursableHeader = ['Date', 'Description', 'Category', 'Paid From', 'Amount'];
     const otherReimbursableRows = otherReimbursableExpenses.map(item => [
       format(new Date(item.date), 'yyyy-MM-dd'),
-      escapeCsvCell(item.description),
-      escapeCsvCell(item.category),
-      escapeCsvCell(item.transferee),
-      item.amount.toFixed(2)
-    ].join(','));
-    const otherReimbursableCsv = [otherReimbursableHeader.join(','), ...otherReimbursableRows].join('\n');
+      item.description,
+      item.category,
+      item.transferee,
+      item.amount
+    ]);
 
-    const csvContent = [
-      mainHeader.join(','),
-      '',
-      'Mileage',
-      mileageCsv,
-      '',
-      'Credit Card Expenses (Work Visa)',
-      creditCardCsv,
-      '',
-      'Other Reimbursable Expenses',
-      otherReimbursableCsv
-    ].join('\n');
+    // 3. Combine all data into a single array for the worksheet
+    const data = [
+      [mainHeader],
+      [], // Spacer row
+      ['Mileage'],
+      mileageHeader,
+      ...mileageRows,
+      [], // Spacer row
+      ['Credit Card Expenses (Work Visa)'],
+      creditCardHeader,
+      ...creditCardRows,
+      [], // Spacer row
+      ['Other Reimbursable Expenses'],
+      otherReimbursableHeader,
+      ...otherReimbursableRows
+    ];
+    
+    // 4. Create Worksheet and Workbook
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(data);
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    if (link.href) {
-      URL.revokeObjectURL(link.href);
+    // 5. Apply Styling and Merges
+    // Merge and style the main header
+    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }]; // Merge A1 to E1
+    if (ws['A1']) {
+      ws['A1'].s = {
+        font: { sz: 16, bold: true },
+        alignment: { horizontal: 'center' }
+      };
     }
-    const url = URL.createObjectURL(blob);
-    link.href = url;
-    link.setAttribute('download', `work-expenses-${monthName.replace(' ','-')}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+
+    // Style section headers
+    const sectionHeaderStyle = { font: { bold: true } };
+    ['A3', 'A' + (5 + mileageRows.length + 2), 'A' + (5 + mileageRows.length + 2 + creditCardRows.length + 2)].forEach(cell => {
+      if(ws[cell]) ws[cell].s = sectionHeaderStyle;
+    })
+
+
+    // Set column widths
+    const colWidths = [
+      { wch: 15 }, // Date
+      { wch: 30 }, // Description
+      { wch: 15 }, // Category / Distance
+      { wch: 15 }, // Amount / Rate
+      { wch: 15 }  // Reimbursable / Total
+    ];
+    ws['!cols'] = colWidths;
+    
+    // 6. Append worksheet to workbook and download
+    XLSX.utils.book_append_sheet(wb, ws, 'Work Expenses');
+    XLSX.writeFile(wb, `work-expenses-${monthName.replace(' ', '-')}.xlsx`);
   };
 
   const formatCurrency = (amount: number) => {
@@ -126,7 +144,7 @@ export default function ExpensesPage() {
         </Button>
         <Button variant="outline" onClick={handleExport} >
             <Download className="mr-2 h-4 w-4" />
-            Export to CSV
+            Export to XLSX
         </Button>
       </header>
       <main>
