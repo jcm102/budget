@@ -25,7 +25,6 @@ export default function ExpensesPage() {
     ];
     let monthName = format(new Date(), 'MMMM yyyy');
     if (allDates.length > 0) {
-      // Correctly find the most recent date
       const mostRecentDate = allDates.reduce((a, b) => a > b ? a : b);
       monthName = format(mostRecentDate, 'MMMM yyyy');
     }
@@ -87,27 +86,45 @@ export default function ExpensesPage() {
     const ws = XLSX.utils.aoa_to_sheet(data);
 
     // 5. Apply Styling and Merges
-    // Merge and style the main header
     ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }]; 
 
-    // Ensure cell A1 exists before styling
     if (!ws['A1']) ws['A1'] = {t:'s', v: mainHeader[0]};
-
     ws['A1'].s = {
       font: { sz: 16, bold: true },
       alignment: { horizontal: 'center', vertical: 'center' }
     };
 
+    const boldStyle = { font: { bold: true } };
+    
     // Style section headers
-    const sectionHeaderStyle = { font: { bold: true } };
     const sectionHeaderRefs = [
         'A3', // Mileage
-        `A${5 + mileageRows.length}`, // Credit Card
-        `A${8 + mileageRows.length + creditCardRows.length}` // Other Reimbursable
+        `A${6 + mileageRows.length}`, // Credit Card
+        `A${9 + mileageRows.length + creditCardRows.length}` // Other Reimbursable
     ];
     sectionHeaderRefs.forEach(cellRef => {
-        if(ws[cellRef]) ws[cellRef].s = sectionHeaderStyle;
+        if(ws[cellRef]) ws[cellRef].s = boldStyle;
     });
+
+    // Style column headers
+    const mileageHeaderRow = 3;
+    mileageHeader.forEach((_, colIndex) => {
+        const cellRef = XLSX.utils.encode_cell({c: colIndex, r: mileageHeaderRow});
+        if (ws[cellRef]) ws[cellRef].s = boldStyle;
+    });
+    
+    const creditCardHeaderRow = 6 + mileageRows.length;
+    creditCardHeader.forEach((_, colIndex) => {
+        const cellRef = XLSX.utils.encode_cell({c: colIndex, r: creditCardHeaderRow});
+        if (ws[cellRef]) ws[cellRef].s = boldStyle;
+    });
+
+    const otherReimbursableHeaderRow = 9 + mileageRows.length + creditCardRows.length;
+    otherReimbursableHeader.forEach((_, colIndex) => {
+        const cellRef = XLSX.utils.encode_cell({c: colIndex, r: otherReimbursableHeaderRow});
+        if (ws[cellRef]) ws[cellRef].s = boldStyle;
+    });
+
 
     // Set column widths
     const colWidths = [
