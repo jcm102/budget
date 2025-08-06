@@ -39,7 +39,15 @@ export async function addDebt(debtData: Omit<Debt, 'id' | 'order'>): Promise<Deb
 
 export async function updateDebt(id: string, debtData: Partial<Omit<Debt, 'id' | 'order'>>): Promise<void> {
   const debtRef = doc(db, DEBT_COLLECTION, id);
-  await updateDoc(debtRef, debtData);
+  const docSnap = await getDoc(debtRef);
+
+  if (docSnap.exists()) {
+    await updateDoc(debtRef, debtData);
+  } else {
+    console.warn(`Attempted to update a debt document that does not exist: ${id}`);
+    // Optionally, you could throw an error here, but for now we'll just log it
+    // to prevent the app from crashing.
+  }
 }
 
 export async function updateDebtOrder(debts: Debt[]): Promise<void> {
