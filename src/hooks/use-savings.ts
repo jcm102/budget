@@ -91,7 +91,7 @@ export function useSavings() {
       const purchaseInterval = yearsMap[item.purchaseFrequency];
       const purchaseIntervalInMonths = purchaseInterval * 12;
 
-      let nextRenewalDate = renewalDate;
+      let nextRenewalDate = new Date(renewalDate);
       while(nextRenewalDate < now) {
           budgetedCost = budgetedCost * (1 + item.annualIncrease / 100);
           nextRenewalDate = addMonths(nextRenewalDate, purchaseIntervalInMonths);
@@ -125,6 +125,24 @@ export function useSavings() {
 
   }, [savingsItems, toast, fetchSavingsItems]);
 
+  const recordPurchase = useCallback(async (itemId: string) => {
+    try {
+      await SavingsService.recordPurchase(itemId);
+      await fetchSavingsItems();
+      toast({
+        title: 'Purchase Recorded!',
+        description: 'The item cost has been deducted and the renewal date has been updated.',
+      });
+    } catch (error) {
+      console.error('Failed to record purchase:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to record the purchase.',
+        variant: 'destructive',
+      });
+    }
+  }, [fetchSavingsItems, toast]);
 
-  return { savingsItems, isLoading, addSavingsItem, updateSavingsItem, deleteSavingsItem, processMonthlySavings };
+
+  return { savingsItems, isLoading, addSavingsItem, updateSavingsItem, deleteSavingsItem, processMonthlySavings, recordPurchase };
 }

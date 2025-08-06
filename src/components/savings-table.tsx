@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { format, addMonths } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, Check } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, Check, ShoppingCart } from 'lucide-react';
 import type { SavingsItem } from '@/types';
 
 import {
@@ -33,11 +33,10 @@ import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
 import { Badge } from './ui/badge';
-import { Separator } from './ui/separator';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 
 export function SavingsTable() {
-  const { savingsItems, addSavingsItem, updateSavingsItem, deleteSavingsItem, processMonthlySavings, isLoading } = useSavings();
+  const { savingsItems, addSavingsItem, updateSavingsItem, deleteSavingsItem, processMonthlySavings, recordPurchase, isLoading } = useSavings();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<SavingsItem | null>(null);
 
@@ -184,7 +183,7 @@ export function SavingsTable() {
                 <TableHead>Months Remaining</TableHead>
                 <TableHead className="text-right">Budgeted This Month</TableHead>
                 <TableHead className="text-right">Total Budgeted</TableHead>
-                <TableHead className="w-[100px] text-right">Actions</TableHead>
+                <TableHead className="w-[140px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -206,14 +205,35 @@ export function SavingsTable() {
                                 <TableCell className="text-right">{formatCurrency(budgetedThisMonth)}</TableCell>
                                 <TableCell className="text-right">{formatCurrency(item.totalBudgeted)}</TableCell>
                                 <TableCell className="text-right">
-                                    <div className="flex justify-end gap-2">
+                                    <div className="flex justify-end gap-1">
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700">
+                                                    <ShoppingCart className="h-4 w-4" />
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                <AlertDialogTitle>Record Purchase?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    This will deduct {formatCurrency(budgetedCost)} from the budgeted total and advance the renewal date. This cannot be undone.
+                                                </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => recordPurchase(item.id)} className={cn(buttonVariants({ variant: "default" }))}>
+                                                    Confirm Purchase
+                                                </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
                                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(item)}>
-                                        <Pencil className="h-4 w-4" />
+                                            <Pencil className="h-4 w-4" />
                                         </Button>
                                         <AlertDialog>
                                         <AlertDialogTrigger asChild>
                                             <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive">
-                                            <Trash2 className="h-4 w-4" />
+                                                <Trash2 className="h-4 w-4" />
                                             </Button>
                                         </AlertDialogTrigger>
                                         <AlertDialogContent>

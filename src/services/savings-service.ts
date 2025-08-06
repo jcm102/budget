@@ -15,6 +15,7 @@ import {
   getDoc,
   writeBatch
 } from 'firebase/firestore';
+import { addMonths } from 'date-fns';
 
 const SAVINGS_COLLECTION = 'savings-items';
 
@@ -49,4 +50,39 @@ export async function updateAllSavingsItems(items: SavingsItem[]): Promise<void>
         batch.update(itemRef, { totalBudgeted: item.totalBudgeted });
     });
     await batch.commit();
+}
+
+export async function recordPurchase(itemId: string): Promise<void> {
+  const itemRef = doc(db, SAVINGS_COLLECTION, itemId);
+  const docSnap = await getDoc(itemRef);
+
+  if (!docSnap.exists()) {
+    throw new Error('Savings item not found');
+  }
+
+  const item = docSnap.data() as SavingsItem;
+  const now = new Date();
+
+  // --- Calculate current budgeted cost ---
+  let budgetedCost = item.cost;
+  const yearsMap = {
+    'Semi-Annually': 0.5, 'Annually': 1, 'Every 2 Years': 2, 'Every 3 Years': 3, 'Every 4 Years': 4, 'Every 5 Years': 5
+  };
+  const purchaseInterval = yearsMap[item.purchaseFrequency];
+  const purchaseIntervalInMonths = purchaseInterval * 12;
+
+  let nextRenewalDate = new Date(item.renewalDate);
+  while(nextRenewalDate < now) {
+      budgetedCost = budgetedCost * (1 + item.annualIncrease / 100);
+      nextRenewalDate = addMonths(nextRenewalDate, purchaseIntervalInMonths);
+  }
+
+  // --- Calculate new values ---
+  const newTotalBudgeted = item.totalBudgeted - budgetedCost;
+  const newRenewalDate = addMonths(nextRenewalDate, purchaseIntervalInMonths);
+
+  await updateDoc(itemRef, {
+    totalBudgeted: newTotalBudgeted,
+    renewalDate: newRenewalDate.toISOString(),
+  });
 }
