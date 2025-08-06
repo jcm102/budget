@@ -76,13 +76,17 @@ export function BudgetTable() {
   const renderSection = (title: string, type: BudgetItemType) => {
     const items = budgetItems.filter(item => item.type === type);
     const total = items.reduce((acc, item) => acc + item.amount, 0);
-    
+    const showCompletedCheckbox = type === 'Pre-Authorized Payments' || type === 'Transfers';
+
+    const remainingTotal = showCompletedCheckbox 
+      ? items.filter(item => !item.completed).reduce((acc, item) => acc + item.amount, 0)
+      : total;
+
     let colSpan = 5;
     if (type === 'Transfers') colSpan = 6;
     if (type === 'Income') colSpan = 6;
     if (type === 'Pre-Authorized Payments') colSpan = 6;
 
-    const showCompletedCheckbox = type === 'Pre-Authorized Payments' || type === 'Transfers';
 
     return (
       <div className="mb-8">
@@ -187,12 +191,23 @@ export function BudgetTable() {
               )}
             </TableBody>
             <TableFooter>
-              <TableRow>
-                <TableCell colSpan={colSpan - 2}></TableCell>
-                <TableCell className="font-semibold text-right">Total</TableCell>
-                <TableCell className="text-right font-semibold">{formatCurrency(total)}</TableCell>
-                <TableCell></TableCell>
-              </TableRow>
+                {showCompletedCheckbox ? (
+                    <TableRow>
+                        <TableCell colSpan={colSpan - 3}></TableCell>
+                        <TableCell className="font-semibold text-right">Remaining</TableCell>
+                        <TableCell className="text-right font-semibold">{formatCurrency(remainingTotal)}</TableCell>
+                        <TableCell className="font-semibold text-right">Total</TableCell>
+                        <TableCell className="text-right font-semibold">{formatCurrency(total)}</TableCell>
+                        <TableCell></TableCell>
+                    </TableRow>
+                ) : (
+                    <TableRow>
+                        <TableCell colSpan={colSpan - 2}></TableCell>
+                        <TableCell className="font-semibold text-right">Total</TableCell>
+                        <TableCell className="text-right font-semibold">{formatCurrency(total)}</TableCell>
+                        <TableCell></TableCell>
+                    </TableRow>
+                )}
             </TableFooter>
           </Table>
         </div>
