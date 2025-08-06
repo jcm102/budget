@@ -87,25 +87,28 @@ export default function ExpensesPage() {
 
     // 5. Apply Styling and Merges
     // Merge and style the main header
-    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }]; // Merge A1 to E1
-    if (ws['A1']) {
-      ws['A1'].s = {
-        font: { sz: 16, bold: true },
-        alignment: { horizontal: 'center' }
-      };
-    }
+    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }]; 
+
+    // Ensure cell A1 exists before styling
+    if (!ws['A1']) ws['A1'] = {t:'s', v: mainHeader[0]};
+
+    ws['A1'].s = {
+      font: { sz: 16, bold: true },
+      alignment: { horizontal: 'center', vertical: 'center' }
+    };
 
     // Style section headers
     const sectionHeaderStyle = { font: { bold: true } };
-    ['A3', 'A' + (5 + mileageRows.length), 'A' + (7 + mileageRows.length + creditCardRows.length)].forEach(cell => {
-      if(ws[cell]) ws[cell].s = sectionHeaderStyle;
+    ['A3', 'A' + (5 + mileageRows.length), 'A' + (8 + mileageRows.length + creditCardRows.length)].forEach(cellRef => {
+      if(ws[cellRef]) ws[cellRef].s = sectionHeaderStyle;
+      else ws[cellRef] = { t: 's', v: ws[cellRef]?.v || '', s: sectionHeaderStyle };
     })
 
 
     // Set column widths
     const colWidths = [
       { wch: 15 }, // Date
-      { wch: 30 }, // Description
+      { wch: 40 }, // Description
       { wch: 15 }, // Category / Distance
       { wch: 15 }, // Amount / Rate
       { wch: 15 }  // Reimbursable / Total
