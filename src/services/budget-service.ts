@@ -219,51 +219,36 @@ export async function deleteBudgetItem(id: string): Promise<void> {
 export async function syncDebtPayments(): Promise<void> {
   const debtCollectionRef = collection(db, DEBT_COLLECTION);
   const budgetCollectionRef = collection(db, BUDGET_COLLECTION);
-
-  // Get all debts from the debt worksheet
-  const debtSnapshot = await getDocs(query(debtCollectionRef));
-  const debts = debtSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Debt));
-  const debtNames = new Set(debts.map(d => d.name));
-
-  // Get all existing debt payments from the budget
-  const existingBudgetPaymentsQuery = query(budgetCollectionRef, where('type', '==', 'Debt Payments'));
-  const existingBudgetPaymentsSnapshot = await getDocs(existingBudgetPaymentsQuery);
-  const existingBudgetPayments = existingBudgetPaymentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BudgetItem));
-
   const batch = writeBatch(db);
 
-  // Update or create budget items for each debt
+  // 1. Get all existing debt payments from the budget
+  const existingBudgetPaymentsQuery = query(budgetCollectionRef, where('type', '==', 'Debt Payments'));
+  const existingBudgetPaymentsSnapshot = await getDocs(existingBudgetPaymentsQuery);
+  
+  // 2. Delete all existing debt payments
+  existingBudgetPaymentsSnapshot.forEach(doc => {
+    batch.delete(doc.ref);
+  });
+
+  // 3. Get all debts from the debt worksheet
+  const debtSnapshot = await getDocs(query(debtCollectionRef));
+  const debts = debtSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Debt));
+  
+  // 4. Create new budget items for each debt
   for (const debt of debts) {
-    const existingBudgetItem = existingBudgetPayments.find(p => p.description === debt.name);
-    
     const budgetItemData = {
-      type: 'Debt Payments',
+      type: 'Debt Payments' as const,
       description: debt.name,
       amount: debt.actualPayment,
       date: debt.dueDate,
-      frequency: 'One-Time', // Debt payments are synced as one-time events
+      frequency: 'One-Time' as const,
       category: 'N/A',
       completed: false,
     };
-
-    if (existingBudgetItem) {
-      // If a budget item already exists for this debt, update it
-      const docRef = doc(db, BUDGET_COLLECTION, existingBudgetItem.id);
-      batch.update(docRef, budgetItemData);
-    } else {
-      // If no item exists, create a new one
-      const newDocRef = doc(budgetCollectionRef);
-      batch.set(newDocRef, budgetItemData);
-    }
+    const newDocRef = doc(budgetCollectionRef); // Create a new document reference
+    batch.set(newDocRef, budgetItemData);
   }
 
-  // Delete budget items for debts that no longer exist in the debt worksheet
-  for (const budgetPayment of existingBudgetPayments) {
-    if (!debtNames.has(budgetPayment.description)) {
-      const docRef = doc(db, BUDGET_COLLECTION, budgetPayment.id);
-      batch.delete(docRef);
-    }
-  }
-
+  // 5. Commit all the changes at once
   await batch.commit();
 }
