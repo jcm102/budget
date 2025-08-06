@@ -14,6 +14,7 @@ import {
   addDoc,
   where,
   writeBatch,
+  orderBy,
 } from 'firebase/firestore';
 import { isSameMonth, startOfMonth, addWeeks, addMonths, isBefore, isAfter, startOfDay } from 'date-fns';
 
@@ -21,83 +22,20 @@ const EXPENSE_COLLECTION = 'expenses';
 
 export async function getExpenses(): Promise<Expense[]> {
   const expenseCollection = collection(db, EXPENSE_COLLECTION);
-  const q = query(expenseCollection, where('type', '==', 'Monetary'));
+  // Fetch all monetary expenses and order them by date
+  const q = query(
+    expenseCollection, 
+    where('type', '==', 'Monetary'),
+    orderBy('date', 'desc')
+  );
   const querySnapshot = await getDocs(q);
 
-  const today = new Date();
-  const currentMonthItems: Expense[] = [];
-  const startOfCurrentMonth = startOfMonth(today);
-  const processedRecurringInstances = new Set<string>();
-
   const allItems = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense));
-
-  const modifiedItemsInMonth = allItems.filter(item => 
-      item.originalId && isSameMonth(new Date(item.date), today)
-  );
-
-  modifiedItemsInMonth.forEach(item => {
-      currentMonthItems.push(item);
-      if (item.originalId) {
-          processedRecurringInstances.add(item.originalId);
-      }
-  });
-
-  allItems.forEach(item => {
-    if (item.originalId) return;
-
-    if (item.completed === undefined) {
-      item.completed = false;
-    }
-
-    const itemStartDate = new Date(item.date);
-    
-    if (item.frequency === 'One-Time') {
-      if (isSameMonth(itemStartDate, today) && !currentMonthItems.some(i => i.id === item.id)) {
-        currentMonthItems.push(item);
-      }
-    } else if (item.frequency === 'Monthly') {
-        let currentDate = startOfDay(itemStartDate);
-        while (isBefore(currentDate, startOfCurrentMonth)) {
-             currentDate = addMonths(currentDate, 1);
-        }
-
-        if (isSameMonth(currentDate, today)) {
-            const instanceId = `${item.id}-${currentDate.getTime()}`;
-             if (!processedRecurringInstances.has(instanceId)) {
-                currentMonthItems.push({
-                    ...item,
-                    id: instanceId,
-                    date: currentDate.toISOString(),
-                    completed: item.completed || false
-                });
-            }
-        }
-    } else if (item.frequency === 'Weekly' || item.frequency === 'Bi-Weekly') {
-      let currentDate = itemStartDate;
-      const increment = item.frequency === 'Weekly' ? 1 : 2;
-
-      while (isBefore(currentDate, startOfCurrentMonth)) {
-        currentDate = addWeeks(currentDate, increment);
-      }
-      
-      while (isSameMonth(currentDate, today)) {
-          const instanceId = `${item.id}-${currentDate.getTime()}`;
-          if (isAfter(currentDate, itemStartDate) || isSameMonth(itemStartDate, currentDate)) {
-              if (!processedRecurringInstances.has(instanceId)) {
-                currentMonthItems.push({
-                    ...item,
-                    id: instanceId, 
-                    date: currentDate.toISOString(),
-                    completed: item.completed || false
-                });
-              }
-          }
-          currentDate = addWeeks(currentDate, increment);
-      }
-    }
-  });
-
-  return currentMonthItems.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  
+  // For now, we will return all monetary expenses. 
+  // The complex logic for recurring items is being simplified to ensure all data is visible.
+  // A future enhancement could be to re-introduce monthly recurring items with a clear UI.
+  return allItems;
 }
 
 
