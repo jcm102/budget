@@ -219,38 +219,49 @@ export async function deleteBudgetItem(id: string): Promise<void> {
 export async function syncDebtPayments(): Promise<void> {
   const debtCollectionRef = collection(db, DEBT_COLLECTION);
   const budgetCollectionRef = collection(db, BUDGET_COLLECTION);
+
+  // Get all debts from the debt worksheet
   const debtSnapshot = await getDocs(query(debtCollectionRef));
   const debts = debtSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Debt));
+  const debtNames = new Set(debts.map(d => d.name));
+
+  // Get all existing debt payments from the budget
+  const existingBudgetPaymentsQuery = query(budgetCollectionRef, where('type', '==', 'Debt Payments'));
+  const existingBudgetPaymentsSnapshot = await getDocs(existingBudgetPaymentsQuery);
+  const existingBudgetPayments = existingBudgetPaymentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BudgetItem));
 
   const batch = writeBatch(db);
 
+  // Update or create budget items for each debt
   for (const debt of debts) {
-    // Use debt name as a unique-enough identifier for the description
-    const q = query(
-      budgetCollectionRef,
-      where('type', '==', 'Debt Payments'),
-      where('description', '==', debt.name)
-    );
-    const budgetSnapshot = await getDocs(q);
-
+    const existingBudgetItem = existingBudgetPayments.find(p => p.description === debt.name);
+    
     const budgetItemData = {
       type: 'Debt Payments',
       description: debt.name,
       amount: debt.actualPayment,
       date: debt.dueDate,
-      frequency: 'One-Time',
+      frequency: 'One-Time', // Debt payments are synced as one-time events
       category: 'N/A',
-      completed: false
+      completed: false,
     };
 
-    if (budgetSnapshot.empty) {
+    if (existingBudgetItem) {
+      // If a budget item already exists for this debt, update it
+      const docRef = doc(db, BUDGET_COLLECTION, existingBudgetItem.id);
+      batch.update(docRef, budgetItemData);
+    } else {
       // If no item exists, create a new one
       const newDocRef = doc(budgetCollectionRef);
       batch.set(newDocRef, budgetItemData);
-    } else {
-      // If an item exists, update it
-      const existingDocRef = budgetSnapshot.docs[0].ref;
-      batch.update(existingDocRef, budgetItemData);
+    }
+  }
+
+  // Delete budget items for debts that no longer exist in the debt worksheet
+  for (const budgetPayment of existingBudgetPayments) {
+    if (!debtNames.has(budgetPayment.description)) {
+      const docRef = doc(db, BUDGET_COLLECTION, budgetPayment.id);
+      batch.delete(docRef);
     }
   }
 
