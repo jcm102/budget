@@ -60,7 +60,6 @@ export function SavingsTable() {
   const calculateValues = (item: SavingsItem, referenceDate = new Date()) => {
       const renewalDate = new Date(item.renewalDate);
       const now = new Date(referenceDate);
-      now.setDate(1); 
       
       let budgetedCost = item.cost;
 
@@ -128,6 +127,7 @@ export function SavingsTable() {
   );
 
   const totalMonthlyCost = savingsItems.reduce((acc, item) => acc + calculateValues(item).monthlyCost, 0);
+  const grandTotalBudgeted = savingsItems.reduce((acc, item) => acc + item.totalBudgeted, 0);
   const projectedCosts = savingsItems.length > 0 ? calculateProjectedCosts(savingsItems) : [];
 
   return (
@@ -249,19 +249,21 @@ export function SavingsTable() {
                 <TableRow>
                     <TableCell colSpan={5} className="font-semibold text-right">Total Monthly Cost</TableCell>
                     <TableCell className="text-right font-semibold">{formatCurrency(totalMonthlyCost)}</TableCell>
-                    <TableCell colSpan={5}></TableCell>
+                    <TableCell colSpan={3} className="font-semibold text-right">Grand Total Budgeted</TableCell>
+                    <TableCell className="text-right font-semibold">{formatCurrency(grandTotalBudgeted)}</TableCell>
+                    <TableCell></TableCell>
                 </TableRow>
             </TableFooter>
             )}
           </Table>
       </div>
-      {projectedCosts.length > 0 && (
+       {projectedCosts.length > 0 && (
         <Card className="mt-8">
             <CardHeader>
                 <CardTitle>Projected Monthly Savings</CardTitle>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
                     {projectedCosts.map((p, index) => (
                         <div key={index} className="p-4 border rounded-lg bg-secondary/30">
                             <h4 className="text-lg font-semibold text-primary">{p.month}</h4>
