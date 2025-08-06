@@ -235,7 +235,7 @@ export async function syncDebtPayments(): Promise<void> {
   const debts = debtSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Debt));
   
   // 4. Create new budget items for each debt
-  for (const debt of debts) {
+  debts.forEach(debt => {
     const budgetItemData = {
       type: 'Debt Payments' as const,
       description: debt.name,
@@ -247,7 +247,7 @@ export async function syncDebtPayments(): Promise<void> {
     };
     const newDocRef = doc(budgetCollectionRef); // Create a new document reference
     batch.set(newDocRef, budgetItemData);
-  }
+  });
 
   // 5. Commit all the changes at once
   await batch.commit();

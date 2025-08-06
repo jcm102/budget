@@ -114,12 +114,14 @@ export function useBudget() {
   const syncDebtPayments = useCallback(async () => {
     try {
       await BudgetService.syncDebtPayments();
+      // After a successful sync, refetch all items to update the UI
+      await fetchBudgetItems();
     } catch (error) {
       console.error('Failed to sync debt payments:', error);
       // The calling component will handle the toast
       throw error;
     }
-  }, []);
+  }, [fetchBudgetItems]);
 
   return { 
     budgetItems, 

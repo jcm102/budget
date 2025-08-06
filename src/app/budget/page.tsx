@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -9,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 
 export default function BudgetPage() {
-  const { syncDebtPayments, fetchBudgetItems } = useBudget();
+  const { syncDebtPayments } = useBudget();
   const { toast } = useToast();
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -17,7 +18,6 @@ export default function BudgetPage() {
     setIsSyncing(true);
     try {
       await syncDebtPayments();
-      await fetchBudgetItems();
       toast({
         title: 'Success!',
         description: 'Your debt payments have been synced to the budget.',
