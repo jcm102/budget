@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { format } from 'date-fns';
+import { format, addMonths } from 'date-fns';
 import { Pencil, Trash2, PlusCircle, Check } from 'lucide-react';
 import type { SavingsItem } from '@/types';
 
@@ -33,6 +33,7 @@ import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
 import { Badge } from './ui/badge';
+import { Separator } from './ui/separator';
 
 export function SavingsTable() {
   const { savingsItems, addSavingsItem, updateSavingsItem, deleteSavingsItem, processMonthlySavings, isLoading } = useSavings();
@@ -55,10 +56,10 @@ export function SavingsTable() {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
   
-  const calculateValues = (item: SavingsItem) => {
+  const calculateValues = (item: SavingsItem, referenceDate = new Date()) => {
       const renewalDate = new Date(item.renewalDate);
-      const now = new Date();
-      now.setDate(1); //
+      const now = new Date(referenceDate);
+      now.setDate(1); 
       renewalDate.setDate(1);
 
       let budgetedCost = item.cost;
@@ -69,7 +70,7 @@ export function SavingsTable() {
       const purchaseInterval = yearsMap[item.purchaseFrequency];
       const purchaseIntervalInMonths = purchaseInterval * 12;
 
-      let nextRenewalDate = renewalDate;
+      let nextRenewalDate = new Date(renewalDate);
        while(nextRenewalDate < now) {
           budgetedCost = budgetedCost * (1 + item.annualIncrease / 100);
           nextRenewalDate.setMonth(nextRenewalDate.getMonth() + purchaseIntervalInMonths);
@@ -85,6 +86,39 @@ export function SavingsTable() {
       return { budgetedCost, monthlyCost, monthsRemaining, budgetedThisMonth, nextRenewalDate };
   }
 
+  const calculateProjectedCosts = (items: SavingsItem[]) => {
+    const projections = [];
+    const baseDate = new Date();
+
+    for (let i = 0; i < 3; i++) {
+        const projectionDate = addMonths(baseDate, i);
+        let totalCost = 0;
+        
+        items.forEach(item => {
+            let runningTotalBudgeted = item.totalBudgeted;
+            for(let j = 0; j < i; j++) {
+                const pastProjectionDate = addMonths(baseDate, j);
+                const { monthlyCost: pastMonthlyCost } = calculateValues(
+                    {...item, totalBudgeted: runningTotalBudgeted}, 
+                    pastProjectionDate
+                );
+                runningTotalBudgeted += pastMonthlyCost;
+            }
+            const { monthlyCost } = calculateValues(
+                {...item, totalBudgeted: runningTotalBudgeted },
+                projectionDate
+            );
+            totalCost += monthlyCost;
+        });
+
+        projections.push({
+            month: format(projectionDate, 'MMMM'),
+            cost: totalCost,
+        });
+    }
+    return projections;
+  }
+
   const renderLoadingSkeleton = () => (
     Array.from({ length: 3 }).map((_, i) => (
       <TableRow key={`skeleton-${i}`}>
@@ -94,6 +128,7 @@ export function SavingsTable() {
   );
 
   const totalMonthlyCost = savingsItems.reduce((acc, item) => acc + calculateValues(item).monthlyCost, 0);
+  const projectedCosts = savingsItems.length > 0 ? calculateProjectedCosts(savingsItems) : [];
 
   return (
     <>
@@ -210,11 +245,31 @@ export function SavingsTable() {
                 )}
             </TableBody>
             <TableFooter>
-              <TableRow>
-                <TableCell colSpan={5} className="font-semibold text-right">Total Monthly Cost</TableCell>
-                <TableCell className="text-right font-semibold">{formatCurrency(totalMonthlyCost)}</TableCell>
-                <TableCell colSpan={5}></TableCell>
-              </TableRow>
+                <TableRow>
+                    <TableCell colSpan={5} className="font-semibold text-right">Total Monthly Cost</TableCell>
+                    <TableCell className="text-right font-semibold">{formatCurrency(totalMonthlyCost)}</TableCell>
+                    <TableCell colSpan={5}></TableCell>
+                </TableRow>
+                {projectedCosts.length > 0 && (
+                    <>
+                        <TableRow>
+                            <TableCell colSpan={11}>
+                                <Separator />
+                            </TableCell>
+                        </TableRow>
+                        <TableRow>
+                           <TableCell colSpan={11} className="font-semibold text-lg text-primary">Projected Monthly Savings</TableCell>
+                        </TableRow>
+                         <TableRow>
+                            {projectedCosts.map((p, index) => (
+                                <TableCell key={index} colSpan={11 / projectedCosts.length} className="text-center">
+                                    <div className="font-medium">{p.month}</div>
+                                    <div className="text-muted-foreground">{formatCurrency(p.cost)}</div>
+                                </TableCell>
+                            ))}
+                        </TableRow>
+                    </>
+                )}
             </TableFooter>
           </Table>
       </div>
