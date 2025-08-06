@@ -34,6 +34,7 @@ import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 
 export function SavingsTable() {
   const { savingsItems, addSavingsItem, updateSavingsItem, deleteSavingsItem, processMonthlySavings, isLoading } = useSavings();
@@ -244,35 +245,34 @@ export function SavingsTable() {
                     </TableRow>
                 )}
             </TableBody>
+            {savingsItems.length > 0 && (
             <TableFooter>
                 <TableRow>
                     <TableCell colSpan={5} className="font-semibold text-right">Total Monthly Cost</TableCell>
                     <TableCell className="text-right font-semibold">{formatCurrency(totalMonthlyCost)}</TableCell>
                     <TableCell colSpan={5}></TableCell>
                 </TableRow>
-                {projectedCosts.length > 0 && (
-                    <>
-                        <TableRow>
-                            <TableCell colSpan={11}>
-                                <Separator />
-                            </TableCell>
-                        </TableRow>
-                        <TableRow>
-                           <TableCell colSpan={11} className="font-semibold text-lg text-primary">Projected Monthly Savings</TableCell>
-                        </TableRow>
-                         <TableRow>
-                            {projectedCosts.map((p, index) => (
-                                <TableCell key={index} colSpan={11 / projectedCosts.length} className="text-center">
-                                    <div className="font-medium">{p.month}</div>
-                                    <div className="text-muted-foreground">{formatCurrency(p.cost)}</div>
-                                </TableCell>
-                            ))}
-                        </TableRow>
-                    </>
-                )}
             </TableFooter>
+            )}
           </Table>
       </div>
+      {projectedCosts.length > 0 && (
+        <Card className="mt-8">
+            <CardHeader>
+                <CardTitle>Projected Monthly Savings</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                    {projectedCosts.map((p, index) => (
+                        <div key={index} className="p-4 border rounded-lg bg-secondary/30">
+                            <h4 className="text-lg font-semibold text-primary">{p.month}</h4>
+                            <p className="text-2xl font-bold text-foreground">{formatCurrency(p.cost)}</p>
+                        </div>
+                    ))}
+                </div>
+            </CardContent>
+        </Card>
+      )}
     </>
   );
 }
