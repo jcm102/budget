@@ -236,7 +236,8 @@ export async function syncDebtPayments(): Promise<void> {
 
   // 3. Create new budget items for each debt
   debts.forEach(debt => {
-    if (debt.actualPayment > 0) { // Only sync debts with a payment amount
+    // Only sync debts with a valid, non-zero payment amount
+    if (typeof debt.actualPayment === 'number' && debt.actualPayment > 0) {
         const budgetItemData: Omit<BudgetItem, 'id'> = {
         type: 'Debt Payments',
         description: debt.name,
@@ -246,7 +247,7 @@ export async function syncDebtPayments(): Promise<void> {
         category: 'N/A',
         completed: false,
         };
-        const newDocRef = doc(budgetCollectionRef); // Create a new document reference with a unique ID
+        const newDocRef = doc(budgetCollectionRef);
         batch.set(newDocRef, budgetItemData);
     }
   });
