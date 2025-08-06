@@ -66,7 +66,7 @@ export default function ExpensesPage() {
 
     // 3. Combine all data into a single array for the worksheet
     const data = [
-      [mainHeader],
+      mainHeader,
       [], // Spacer row
       ['Mileage'],
       mileageHeader,
@@ -97,7 +97,7 @@ export default function ExpensesPage() {
 
     // Style section headers
     const sectionHeaderStyle = { font: { bold: true } };
-    ['A3', 'A' + (5 + mileageRows.length + 2), 'A' + (5 + mileageRows.length + 2 + creditCardRows.length + 2)].forEach(cell => {
+    ['A3', 'A' + (5 + mileageRows.length), 'A' + (7 + mileageRows.length + creditCardRows.length)].forEach(cell => {
       if(ws[cell]) ws[cell].s = sectionHeaderStyle;
     })
 
