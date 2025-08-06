@@ -61,8 +61,7 @@ export function SavingsTable() {
       const renewalDate = new Date(item.renewalDate);
       const now = new Date(referenceDate);
       now.setDate(1); 
-      renewalDate.setDate(1);
-
+      
       let budgetedCost = item.cost;
 
       const yearsMap = {
