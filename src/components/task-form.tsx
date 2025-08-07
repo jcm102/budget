@@ -54,6 +54,28 @@ const formSchema = z.object({
   linkGroupId: z.string().optional(),
   links: z.array(z.object({ value: z.string().url({ message: "Please enter a valid URL." }) })).optional(),
   internalLink: z.string().optional(),
+}).superRefine((data, ctx) => {
+    if (data.linkType === 'group' && !data.linkGroupId) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Please select a link group.",
+            path: ['linkGroupId'],
+        });
+    }
+    if (data.linkType === 'manual' && (!data.links || data.links.length === 0 || !data.links.some(l => l.value.trim() !== ''))) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Please enter at least one valid URL.",
+            path: ['links'],
+        });
+    }
+    if (data.linkType === 'internal' && !data.internalLink) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Please select an internal page.",
+            path: ['internalLink'],
+        });
+    }
 });
 
 
@@ -176,20 +198,6 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
   };
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    // Manual validation before submission
-    if (values.linkType === 'group' && !values.linkGroupId) {
-        toast({ title: "Validation Error", description: "Please select a link group.", variant: "destructive" });
-        return;
-    }
-    if (values.linkType === 'manual' && (!values.links || values.links.length === 0 || !values.links.some(l => l.value.trim() !== ''))) {
-        toast({ title: "Validation Error", description: "Please enter at least one URL for manual links.", variant: "destructive" });
-        return;
-    }
-    if (values.linkType === 'internal' && !values.internalLink) {
-        toast({ title: "Validation Error", description: "Please select an internal page.", variant: "destructive" });
-        return;
-    }
-
     let links: string[] = [];
     if (values.linkType === 'manual') {
         links = values.links?.map(l => l.value).filter(Boolean) || [];
@@ -459,8 +467,6 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
                     )}
                 />
             )}
-
-
             <DialogFooter>
               <Button type="submit">{editingTask ? 'Save Changes' : 'Add Task'}</Button>
             </DialogFooter>
