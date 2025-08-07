@@ -278,7 +278,6 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
                       {linkGroups.map(group => (
                         <SelectItem key={group.id} value={group.id}>
                           {group.name}
