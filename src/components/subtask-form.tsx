@@ -35,26 +35,29 @@ const formSchema = z.object({
   linkGroupId: z.string().optional(),
   links: z.array(z.object({ value: z.string().url({ message: "Please enter a valid URL." }) })).optional(),
   internalLink: z.string().optional(),
-}).refine(data => {
-    if (data.linkType === 'group') return !!data.linkGroupId;
-    return true;
-}, {
-    message: 'Please select a link group.',
-    path: ['linkGroupId'],
-}).refine(data => {
-    if (data.linkType === 'manual') return data.links && data.links.length > 0 && data.links.every(l => l.value);
-    return true;
-}, {
-    message: 'Please provide at least one manual link.',
-    path: ['links'],
-}).refine(data => {
-    if (data.linkType === 'internal') return !!data.internalLink;
-    return true;
-}, {
-    message: 'Please select an internal page.',
-    path: ['internalLink'],
+}).superRefine((data, ctx) => {
+    if (data.linkType === 'group' && !data.linkGroupId) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Please select a link group.",
+            path: ['linkGroupId'],
+        });
+    }
+    if (data.linkType === 'manual' && (!data.links || data.links.length === 0 || !data.links[0]?.value)) {
+         ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Please provide at least one manual link.",
+            path: ['links'],
+        });
+    }
+    if (data.linkType === 'internal' && !data.internalLink) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Please select an internal page.",
+            path: ['internalLink'],
+        });
+    }
 });
-
 
 
 const internalPages = [
