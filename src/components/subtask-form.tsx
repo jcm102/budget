@@ -28,6 +28,7 @@ import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { useLinkGroups } from '@/hooks/use-link-groups';
 import { PlusCircle, Trash2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
   description: z.string().min(2, 'Description must be at least 2 characters.'),
@@ -35,28 +36,6 @@ const formSchema = z.object({
   linkGroupId: z.string().optional(),
   links: z.array(z.object({ value: z.string().url({ message: "Please enter a valid URL." }) })).optional(),
   internalLink: z.string().optional(),
-}).superRefine((data, ctx) => {
-    if (data.linkType === 'group' && !data.linkGroupId) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "Please select a link group.",
-            path: ['linkGroupId'],
-        });
-    }
-    if (data.linkType === 'manual' && (!data.links || data.links.length === 0 || !data.links[0]?.value)) {
-         ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "Please provide at least one manual link.",
-            path: ['links'],
-        });
-    }
-    if (data.linkType === 'internal' && !data.internalLink) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "Please select an internal page.",
-            path: ['internalLink'],
-        });
-    }
 });
 
 
@@ -78,6 +57,7 @@ type SubtaskFormProps = {
 
 export function SubtaskForm({ open, onOpenChange, onSave, editingSubtask }: SubtaskFormProps) {
   const { linkGroups, isLoading: isLoadingLinkGroups } = useLinkGroups();
+  const { toast } = useToast();
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -134,6 +114,19 @@ export function SubtaskForm({ open, onOpenChange, onSave, editingSubtask }: Subt
   }, [editingSubtask, open, form]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
+     // Manual validation before submission
+    if (values.linkType === 'group' && !values.linkGroupId) {
+        toast({ title: "Validation Error", description: "Please select a link group.", variant: "destructive" });
+        return;
+    }
+    if (values.linkType === 'manual' && (!values.links || values.links.length === 0 || !values.links.some(l => l.value.trim() !== ''))) {
+        toast({ title: "Validation Error", description: "Please enter at least one URL for manual links.", variant: "destructive" });
+        return;
+    }
+    if (values.linkType === 'internal' && !values.internalLink) {
+        toast({ title: "Validation Error", description: "Please select an internal page.", variant: "destructive" });
+        return;
+    }
     onSave(values);
     onOpenChange(false);
   }
