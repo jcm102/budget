@@ -6,7 +6,8 @@ export interface Subtask {
   description: string;
   completed: boolean;
   order: number;
-  link?: string;
+  links?: string[];
+  linkGroupId?: string | null;
 }
 
 export interface Task {

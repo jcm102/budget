@@ -129,13 +129,13 @@ export function useTasks() {
     }
   }, [tasks, toast]);
 
-  const addSubtask = useCallback(async (taskId: string, description: string, link?: string) => {
+  const addSubtask = useCallback(async (taskId: string, data: Omit<Subtask, 'id' | 'completed' | 'order'>) => {
     try {
       const task = tasks.find(t => t.id === taskId);
       if (!task) return;
 
       const newOrder = task.subtasks.length;
-      const newSubtask = await TaskService.addSubtask(taskId, description, newOrder, link);
+      const newSubtask = await TaskService.addSubtask(taskId, data, newOrder);
       
       setTasks(prevTasks => prevTasks.map(t => {
         if (t.id === taskId) {
@@ -150,11 +150,11 @@ export function useTasks() {
     }
   }, [tasks, toast]);
   
-  const updateSubtask = useCallback(async (taskId: string, subtaskId: string, description: string, link?: string) => {
+  const updateSubtask = useCallback(async (taskId: string, subtaskId: string, data: Partial<Omit<Subtask, 'id' | 'completed' | 'order'>>) => {
     const originalTasks = tasks;
-    setTasks(prev => prev.map(t => t.id === taskId ? {...t, subtasks: t.subtasks.map(st => st.id === subtaskId ? {...st, description, link} : st)}: t));
+    setTasks(prev => prev.map(t => t.id === taskId ? {...t, subtasks: t.subtasks.map(st => st.id === subtaskId ? {...st, ...data} as Subtask : st)}: t));
     try {
-      await TaskService.updateSubtask(taskId, subtaskId, {description, link});
+      await TaskService.updateSubtask(taskId, subtaskId, data);
     } catch (error) {
       console.error('Failed to update subtask:', error);
       setTasks(originalTasks);

@@ -28,8 +28,8 @@ type TaskListProps = {
   onEdit: (task: Task) => void;
   icon: ReactNode;
   onUpdateTaskOrder: (reorderedTasks: Task[]) => void;
-  onAddSubtask: (taskId: string, description: string, link?: string) => void;
-  onUpdateSubtask: (taskId: string, subtaskId: string, description: string, link?: string) => void;
+  onAddSubtask: (taskId: string, data: any) => void;
+  onUpdateSubtask: (taskId: string, subtaskId: string, data: any) => void;
   onUpdateSubtaskOrder: (taskId: string, reorderedSubtasks: Subtask[]) => void;
   onToggleSubtask: (taskId: string, subtaskId: string) => void;
   onDeleteSubtask: (taskId: string, subtaskId: string) => void;

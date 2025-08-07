@@ -3,7 +3,7 @@
 
 import { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useFieldArray, useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,39 +24,66 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import type { Subtask } from '@/types';
+import { RadioGroup, RadioGroupItem } from './ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { useLinkGroups } from '@/hooks/use-link-groups';
+import { PlusCircle, Trash2 } from 'lucide-react';
 
 const formSchema = z.object({
   description: z.string().min(2, 'Description must be at least 2 characters.'),
-  link: z.string().url().optional().or(z.literal('')),
+  linkType: z.enum(['none', 'group', 'manual']).default('none'),
+  linkGroupId: z.string().optional(),
+  links: z.array(z.object({ value: z.string().url({ message: "Please enter a valid URL." }) })).optional(),
 });
 
 type SubtaskFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (data: z.infer<typeof formSchema>) => void;
-  editingSubtask: Omit<Subtask, 'id' | 'order' | 'completed'> | null;
+  editingSubtask: Subtask | null;
 };
 
 export function SubtaskForm({ open, onOpenChange, onSave, editingSubtask }: SubtaskFormProps) {
+  const { linkGroups, isLoading: isLoadingLinkGroups } = useLinkGroups();
+  
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       description: '',
-      link: '',
+      linkType: 'none',
+      linkGroupId: '',
+      links: [{ value: '' }],
     },
   });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: 'links'
+  });
+
+  const linkType = form.watch('linkType');
 
   useEffect(() => {
     if (open) {
       if (editingSubtask) {
+        let type: 'group' | 'manual' | 'none' = 'none';
+        if (editingSubtask.linkGroupId) {
+          type = 'group';
+        } else if (editingSubtask.links && editingSubtask.links.length > 0) {
+          type = 'manual';
+        }
         form.reset({
           description: editingSubtask.description,
-          link: editingSubtask.link || '',
+          linkType: type,
+          linkGroupId: editingSubtask.linkGroupId || '',
+          links: editingSubtask.links ? editingSubtask.links.map(l => ({value: l})) : [{ value: '' }],
         });
       } else {
         form.reset({
           description: '',
-          link: '',
+          linkType: 'none',
+          linkGroupId: '',
+          links: [{ value: '' }],
         });
       }
     }
@@ -91,19 +118,101 @@ export function SubtaskForm({ open, onOpenChange, onSave, editingSubtask }: Subt
                 </FormItem>
               )}
             />
+            
             <FormField
               control={form.control}
-              name="link"
+              name="linkType"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Link (Optional)</FormLabel>
+                  <FormItem className="space-y-3">
+                  <FormLabel>Links</FormLabel>
                   <FormControl>
-                    <Input placeholder="https://example.com" {...field} />
+                      <RadioGroup
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      className="flex items-center space-x-4"
+                      >
+                          <FormItem className="flex items-center space-x-2 space-y-0">
+                              <FormControl><RadioGroupItem value="none" /></FormControl>
+                              <FormLabel className="font-normal">None</FormLabel>
+                          </FormItem>
+                          <FormItem className="flex items-center space-x-2 space-y-0">
+                              <FormControl><RadioGroupItem value="group" /></FormControl>
+                              <FormLabel className="font-normal">Link Group</FormLabel>
+                          </FormItem>
+                          <FormItem className="flex items-center space-x-2 space-y-0">
+                              <FormControl><RadioGroupItem value="manual" /></FormControl>
+                              <FormLabel className="font-normal">Manual Links</FormLabel>
+                          </FormItem>
+                      </RadioGroup>
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                  </FormItem>
               )}
             />
+
+            {linkType === 'group' && (
+              <FormField
+                control={form.control}
+                name="linkGroupId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Link Group</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || ''} disabled={isLoadingLinkGroups}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a link group" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {linkGroups.map(group => (
+                          <SelectItem key={group.id} value={group.id}>
+                            {group.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+            
+            {linkType === 'manual' && (
+              <div className="space-y-2">
+                <FormLabel>Manual Links</FormLabel>
+                {fields.map((field, index) => (
+                   <FormField
+                        key={field.id}
+                        control={form.control}
+                        name={`links.${index}.value`}
+                        render={({ field }) => (
+                            <FormItem>
+                                <div className="flex items-center gap-2">
+                                    <FormControl>
+                                        <Input {...field} placeholder="https://example.com" />
+                                    </FormControl>
+                                    <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length <= 1}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                </div>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                ))}
+                 <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => append({ value: '' })}
+                >
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add Link
+                </Button>
+              </div>
+            )}
+
             <DialogFooter>
                 <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
                 <Button type="submit">{editingSubtask ? 'Save Changes' : 'Add Subtask'}</Button>

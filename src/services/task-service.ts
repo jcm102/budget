@@ -115,7 +115,7 @@ export async function deleteTask(id: string): Promise<void> {
   await deleteDoc(taskRef);
 }
 
-export async function addSubtask(taskId: string, description: string, order: number, link?: string): Promise<Subtask> {
+export async function addSubtask(taskId: string, data: Omit<Subtask, 'id' | 'completed' | 'order'>, order: number): Promise<Subtask> {
   const taskRef = doc(db, TASKS_COLLECTION, taskId);
   const docSnap = await getDoc(taskRef);
   if (!docSnap.exists()) throw new Error(`Task with id ${taskId} not found.`);
@@ -123,10 +123,11 @@ export async function addSubtask(taskId: string, description: string, order: num
   const task = docSnap.data() as Task;
   const newSubtask: Subtask = {
     id: crypto.randomUUID(),
-    description,
+    description: data.description,
     completed: false,
     order,
-    link,
+    links: data.links || [],
+    linkGroupId: data.linkGroupId || null,
   };
   const updatedSubtasks = [...(task.subtasks || []), newSubtask];
   await setDoc(taskRef, { ...task, subtasks: updatedSubtasks, completed: false, completedAt: null });
@@ -134,7 +135,7 @@ export async function addSubtask(taskId: string, description: string, order: num
   return newSubtask;
 }
 
-export async function updateSubtask(taskId: string, subtaskId: string, subtaskData: Partial<Omit<Subtask, 'id'>>): Promise<void> {
+export async function updateSubtask(taskId: string, subtaskId: string, subtaskData: Partial<Omit<Subtask, 'id' | 'completed' | 'order'>>): Promise<void> {
     const taskRef = doc(db, TASKS_COLLECTION, taskId);
     const docSnap = await getDoc(taskRef);
     if (!docSnap.exists()) throw new Error(`Task with id ${taskId} not found.`);

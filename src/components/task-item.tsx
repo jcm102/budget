@@ -3,7 +3,7 @@
 
 import React, { useState } from 'react';
 import { format, isPast } from 'date-fns';
-import { Trash2, Pencil, Plus, ChevronsUpDown, CheckCircle2, Circle, GripVertical, Link as LinkIcon, ExternalLink } from 'lucide-react';
+import { Trash2, Pencil, Plus, ChevronsUpDown, CheckCircle2, Circle, GripVertical, Link as LinkIcon } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -44,22 +44,17 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { buttonVariants } from './ui/button';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 import { SubtaskForm } from './subtask-form';
 
 type SubtaskItemProps = {
   subtask: Subtask;
+  linkGroups: LinkGroup[];
   onToggle: () => void;
   onDelete: () => void;
   onEdit: () => void;
 }
 
-function SubtaskItem({ subtask, onToggle, onDelete, onEdit }: SubtaskItemProps) {
+function SubtaskItem({ subtask, linkGroups, onToggle, onDelete, onEdit }: SubtaskItemProps) {
   const {
     attributes,
     listeners,
@@ -72,6 +67,22 @@ function SubtaskItem({ subtask, onToggle, onDelete, onEdit }: SubtaskItemProps) 
     transform: CSS.Transform.toString(transform),
     transition,
   };
+  
+  const associatedLinkGroup = linkGroups.find(lg => lg.id === subtask.linkGroupId);
+  const hasLinks = (associatedLinkGroup && associatedLinkGroup.links.length > 0) || (subtask.links && subtask.links.length > 0);
+  
+  const handleOpenLinks = () => {
+    const linksToOpen = subtask.linkGroupId 
+      ? associatedLinkGroup?.links 
+      : subtask.links;
+
+    if (linksToOpen) {
+      linksToOpen.forEach(link => {
+        window.open(link, '_blank', 'noopener,noreferrer');
+      });
+    }
+  };
+
 
   return (
     <div ref={setNodeRef} style={style} className="flex items-center gap-2 group/subtask">
@@ -90,21 +101,12 @@ function SubtaskItem({ subtask, onToggle, onDelete, onEdit }: SubtaskItemProps) 
             >
             {subtask.description}
         </label>
-         {subtask.link && (
-            <TooltipProvider>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                         <a href={subtask.link} target="_blank" rel="noopener noreferrer" className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-6 w-6")}>
-                            <ExternalLink className="h-3 w-3" />
-                         </a>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <p>{subtask.link}</p>
-                    </TooltipContent>
-                </Tooltip>
-            </TooltipProvider>
-        )}
         <div className="flex items-center gap-1 opacity-0 group-hover/subtask:opacity-100 transition-opacity">
+            {hasLinks && (
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleOpenLinks}>
+                    <LinkIcon className="h-3 w-3" />
+                </Button>
+            )}
             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onEdit}>
                 <Pencil className="h-3 w-3" />
             </Button>
@@ -140,8 +142,8 @@ type TaskItemProps = {
   onToggle: (id: string) => void;
   onDelete: (id:string) => void;
   onEdit: (task: Task) => void;
-  onAddSubtask: (taskId: string, description: string, link?: string) => void;
-  onUpdateSubtask: (taskId: string, subtaskId: string, description: string, link?: string) => void;
+  onAddSubtask: (taskId: string, data: any) => void;
+  onUpdateSubtask: (taskId: string, subtaskId: string, data: any) => void;
   onUpdateSubtaskOrder: (taskId: string, reorderedSubtasks: Subtask[]) => void;
   onToggleSubtask: (taskId: string, subtaskId: string) => void;
   onDeleteSubtask: (taskId: string, subtaskId: string) => void;
@@ -197,11 +199,17 @@ export function TaskItem({
     setIsSubtaskFormOpen(true);
   }
 
-  const handleSaveSubtask = (data: { description: string, link?: string }) => {
+  const handleSaveSubtask = (data: any) => {
+    const submissionData = {
+      description: data.description,
+      linkGroupId: data.linkType === 'group' ? data.linkGroupId : null,
+      links: data.linkType === 'manual' ? data.links?.map((l:any) => l.value).filter(Boolean) : [],
+    };
+
     if (editingSubtask) {
-        onUpdateSubtask(task.id, editingSubtask.id, data.description, data.link);
+        onUpdateSubtask(task.id, editingSubtask.id, submissionData);
     } else {
-        onAddSubtask(task.id, data.description, data.link);
+        onAddSubtask(task.id, submissionData);
     }
     setEditingSubtask(null);
   }
@@ -363,6 +371,7 @@ export function TaskItem({
                                 <SubtaskItem 
                                     key={subtask.id}
                                     subtask={subtask}
+                                    linkGroups={linkGroups}
                                     onToggle={() => onToggleSubtask(task.id, subtask.id)}
                                     onDelete={() => onDeleteSubtask(task.id, subtask.id)}
                                     onEdit={() => handleOpenSubtaskForm(subtask)}
