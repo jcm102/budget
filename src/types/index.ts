@@ -19,7 +19,8 @@ export interface Task {
   completedAt: string | null; // ISO string
   subtasks: Subtask[];
   order: number;
-  links?: string[];
+  links?: string[]; // Kept for old data, but new functionality will use linkGroupId
+  linkGroupId?: string | null;
 }
 
 export interface Debt {
@@ -101,4 +102,10 @@ export interface SavingsItem {
   annualIncrease: number;
   renewalDate: string; // ISO string
   totalBudgeted: number;
+}
+
+export interface LinkGroup {
+  id: string;
+  name: string;
+  links: string[];
 }

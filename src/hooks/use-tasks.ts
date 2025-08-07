@@ -2,33 +2,40 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import type { Task, Subtask } from '@/types';
+import type { Task, Subtask, LinkGroup } from '@/types';
 import { useToast } from './use-toast';
 import * as TaskService from '@/services/task-service';
+import * as LinkGroupService from '@/services/link-group-service';
+
 
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [linkGroups, setLinkGroups] = useState<LinkGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
-    const fetchTasks = async () => {
+    const fetchData = async () => {
       try {
         setIsLoading(true);
-        const fetchedTasks = await TaskService.getTasks();
+        const [fetchedTasks, fetchedLinkGroups] = await Promise.all([
+          TaskService.getTasks(),
+          LinkGroupService.getLinkGroups(),
+        ]);
         setTasks(fetchedTasks);
+        setLinkGroups(fetchedLinkGroups);
       } catch (error) {
-        console.error('Failed to load tasks:', error);
+        console.error('Failed to load tasks or link groups:', error);
         toast({
           title: 'Error',
-          description: 'Failed to load tasks from the database.',
+          description: 'Failed to load data from the database.',
           variant: 'destructive',
         });
       } finally {
         setIsLoading(false);
       }
     };
-    fetchTasks();
+    fetchData();
   }, [toast]);
 
   const addTask = useCallback(async (taskData: Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks' | 'order'>) => {
@@ -51,7 +58,7 @@ export function useTasks() {
       await TaskService.updateTask(id, taskData);
       setTasks((prevTasks) =>
         prevTasks.map((task) =>
-          task.id === id ? { ...task, ...taskData } : task
+          task.id === id ? { ...task, ...taskData } as Task : task
         )
       );
     } catch (error) {
@@ -227,5 +234,5 @@ export function useTasks() {
   }, [tasks, toast]);
 
 
-  return { tasks, addTask, updateTask, toggleTask, deleteTask, isLoading, updateTaskOrder, addSubtask, updateSubtask, updateSubtaskOrder, toggleSubtask, deleteSubtask };
+  return { tasks, linkGroups, addTask, updateTask, toggleTask, deleteTask, isLoading, updateTaskOrder, addSubtask, updateSubtask, updateSubtaskOrder, toggleSubtask, deleteSubtask };
 }

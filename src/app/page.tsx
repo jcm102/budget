@@ -14,7 +14,8 @@ import type { Task, Subtask } from '@/types';
 
 export default function Home() {
   const { 
-    tasks, 
+    tasks,
+    linkGroups,
     addTask, 
     updateTask, 
     toggleTask, 
@@ -146,6 +147,7 @@ export default function Home() {
                 <TaskList
                   title="Daily Tasks"
                   tasks={dailyTasks}
+                  linkGroups={linkGroups}
                   onToggle={toggleTask}
                   onDelete={deleteTask}
                   onEdit={handleEdit}
@@ -164,6 +166,7 @@ export default function Home() {
                 <TaskList
                   title="Weekly Tasks"
                   tasks={weeklyTasks}
+                  linkGroups={linkGroups}
                   onToggle={toggleTask}
                   onDelete={deleteTask}
                   onEdit={handleEdit}
@@ -182,6 +185,7 @@ export default function Home() {
                 <TaskList
                   title="Monthly Tasks"
                   tasks={monthlyTasks}
+                  linkGroups={linkGroups}
                   onToggle={toggleTask}
                   onDelete={deleteTask}
                   onEdit={handleEdit}

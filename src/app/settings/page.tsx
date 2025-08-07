@@ -7,6 +7,7 @@ import { ArrowLeft } from 'lucide-react';
 import { TransfereeManager } from '@/components/transferee-manager';
 import { MileageRateManager } from '@/components/mileage-rate-manager';
 import { WorkCategoryManager } from '@/components/work-category-manager';
+import { LinkGroupManager } from '@/components/link-group-manager';
 
 export default function SettingsPage() {
   return (
@@ -27,6 +28,7 @@ export default function SettingsPage() {
             <WorkCategoryManager />
             <TransfereeManager />
             <MileageRateManager />
+            <LinkGroupManager />
           </div>
         </div>
       </main>

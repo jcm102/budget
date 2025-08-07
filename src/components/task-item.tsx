@@ -22,7 +22,7 @@ import {CSS} from '@dnd-kit/utilities';
 
 
 import { cn } from '@/lib/utils';
-import type { Task, Subtask } from '@/types';
+import type { Task, Subtask, LinkGroup } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -32,12 +32,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import {
   AlertDialog,
@@ -163,6 +157,7 @@ function SubtaskItem({ subtask, onToggle, onDelete, onUpdate }: SubtaskItemProps
 
 type TaskItemProps = {
   task: Task;
+  linkGroups: LinkGroup[];
   onToggle: (id: string) => void;
   onDelete: (id:string) => void;
   onEdit: (task: Task) => void;
@@ -175,6 +170,7 @@ type TaskItemProps = {
 
 export function TaskItem({
   task,
+  linkGroups,
   onToggle,
   onDelete,
   onEdit,
@@ -206,7 +202,9 @@ export function TaskItem({
   const hasSubtasks = task.subtasks && task.subtasks.length > 0;
   const completedSubtasks = task.subtasks?.filter(st => st.completed).length || 0;
   const sortedSubtasks = (task.subtasks || []).slice().sort((a,b) => a.order - b.order);
-  const hasLinks = task.links && task.links.length > 0;
+
+  const associatedLinkGroup = linkGroups.find(lg => lg.id === task.linkGroupId);
+  const hasLinks = associatedLinkGroup && associatedLinkGroup.links.length > 0;
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -240,8 +238,8 @@ export function TaskItem({
   };
   
   const handleOpenLinks = () => {
-    if (task.links) {
-      task.links.forEach(link => {
+    if (associatedLinkGroup?.links) {
+      associatedLinkGroup.links.forEach(link => {
         window.open(link, '_blank', 'noopener,noreferrer');
       });
     }

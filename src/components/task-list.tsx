@@ -16,12 +16,13 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 
-import type { Task, Subtask } from '@/types';
+import type { Task, Subtask, LinkGroup } from '@/types';
 import { TaskItem } from '@/components/task-item';
 
 type TaskListProps = {
   title: string;
   tasks: Task[];
+  linkGroups: LinkGroup[];
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   onEdit: (task: Task) => void;
@@ -36,7 +37,8 @@ type TaskListProps = {
 
 export function TaskList({ 
   title, 
-  tasks, 
+  tasks,
+  linkGroups,
   onToggle, 
   onDelete, 
   onEdit, 
@@ -84,6 +86,7 @@ export function TaskList({
                 <TaskItem
                   key={task.id}
                   task={task}
+                  linkGroups={linkGroups}
                   onToggle={onToggle}
                   onDelete={onDelete}
                   onEdit={onEdit}

@@ -11,7 +11,8 @@ import {
   deleteDoc,
   query,
   writeBatch,
-  getDoc
+  getDoc,
+  updateDoc
 } from 'firebase/firestore';
 import { isBefore, startOfToday, startOfWeek, startOfMonth as fnsStartOfMonth } from 'date-fns';
 
@@ -81,7 +82,7 @@ export async function addTask(taskData: Omit<Task, 'id' | 'completed' | 'complet
     completedAt: null,
     subtasks: [],
     order,
-    links: taskData.links || [],
+    linkGroupId: taskData.linkGroupId || null,
   };
   const docRef = doc(collection(db, TASKS_COLLECTION));
   await setDoc(docRef, newTask);
@@ -92,12 +93,12 @@ export async function updateTask(id: string, taskData: Partial<Omit<Task, 'id'>>
   const taskRef = doc(db, TASKS_COLLECTION, id);
   const docSnap = await getDoc(taskRef);
   if (docSnap.exists()) {
-    const existingData = docSnap.data();
-    const dataToUpdate = { ...existingData, ...taskData };
-    if (!('links' in taskData)) {
-      dataToUpdate.links = existingData.links || [];
+    const dataToUpdate = { ...taskData };
+    // Ensure `links` is not part of the update if it's not provided, to avoid overwriting with undefined
+    if (taskData.links === undefined) {
+      delete (dataToUpdate as Partial<Task>).links;
     }
-    await setDoc(taskRef, dataToUpdate);
+    await updateDoc(taskRef, dataToUpdate);
   } else {
     throw new Error(`Task with id ${id} not found.`);
   }
