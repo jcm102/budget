@@ -99,44 +99,46 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
   const linkType = form.watch('linkType');
 
   useEffect(() => {
-    if (editingTask) {
-      let type: 'group' | 'manual' | 'none' | 'internal' = 'none';
-      let internalLinkValue = '';
+    if (open) {
+      if (editingTask) {
+        let type: 'group' | 'manual' | 'none' | 'internal' = 'none';
+        let internalLinkValue = '';
 
-      if (editingTask.linkGroupId) {
-        type = 'group';
-      } else if (editingTask.links && editingTask.links.length > 0) {
-        const isInternal = internalPages.some(p => p.value === editingTask.links![0]);
-        if (isInternal) {
-            type = 'internal';
-            internalLinkValue = editingTask.links![0];
-        } else {
-            type = 'manual';
+        if (editingTask.linkGroupId) {
+          type = 'group';
+        } else if (editingTask.links && editingTask.links.length > 0) {
+          const isInternal = internalPages.some(p => p.value === editingTask.links![0]);
+          if (isInternal) {
+              type = 'internal';
+              internalLinkValue = editingTask.links![0];
+          } else {
+              type = 'manual';
+          }
         }
+        form.reset({
+          description: editingTask.description,
+          details: editingTask.details || '',
+          frequency: editingTask.frequency,
+          dueDate: editingTask.dueDate ? new Date(editingTask.dueDate) : undefined,
+          linkType: type,
+          linkGroupId: editingTask.linkGroupId || '',
+          links: editingTask.links && editingTask.links.length > 0 ? editingTask.links.map(l => ({value: l})) : [{ value: '' }],
+          internalLink: internalLinkValue,
+        });
+      } else {
+        form.reset({
+          description: '',
+          details: '',
+          frequency: 'daily',
+          dueDate: undefined,
+          linkType: 'none',
+          linkGroupId: '',
+          links: [{ value: '' }],
+          internalLink: '',
+        });
       }
-      form.reset({
-        description: editingTask.description,
-        details: editingTask.details || '',
-        frequency: editingTask.frequency,
-        dueDate: editingTask.dueDate ? new Date(editingTask.dueDate) : undefined,
-        linkType: type,
-        linkGroupId: editingTask.linkGroupId || '',
-        links: editingTask.links && editingTask.links.length > 0 ? editingTask.links.map(l => ({value: l})) : [{ value: '' }],
-        internalLink: internalLinkValue,
-      });
-    } else {
-      form.reset({
-        description: '',
-        details: '',
-        frequency: 'daily',
-        dueDate: undefined,
-        linkType: 'none',
-        linkGroupId: '',
-        links: [{ value: '' }],
-        internalLink: '',
-      });
     }
-  }, [editingTask, form, open]);
+  }, [editingTask, open, form]);
 
 
   const handleGenerateDescription = async () => {
