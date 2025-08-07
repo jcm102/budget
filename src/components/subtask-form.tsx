@@ -148,7 +148,7 @@ export function SubtaskForm({ open, onOpenChange, onSave, editingSubtask }: Subt
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-4">
             <FormField
               control={form.control}
               name="description"
@@ -290,9 +290,9 @@ export function SubtaskForm({ open, onOpenChange, onSave, editingSubtask }: Subt
 
             <DialogFooter>
                 <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-                <Button type="submit">{editingSubtask ? 'Save Changes' : 'Add Subtask'}</Button>
+                <Button type="button" onClick={form.handleSubmit(onSubmit)}>{editingSubtask ? 'Save Changes' : 'Add Subtask'}</Button>
             </DialogFooter>
-          </form>
+          </div>
         </Form>
       </DialogContent>
     </Dialog>

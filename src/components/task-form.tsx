@@ -233,7 +233,7 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-4">
             <FormField
               control={form.control}
               name="description"
@@ -468,9 +468,9 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
                 />
             )}
             <DialogFooter>
-               <Button type="submit">{editingTask ? 'Save Changes' : 'Add Task'}</Button>
+               <Button type="button" onClick={form.handleSubmit(onSubmit)}>{editingTask ? 'Save Changes' : 'Add Task'}</Button>
             </DialogFooter>
-          </form>
+          </div>
         </Form>
       </DialogContent>
     </Dialog>
