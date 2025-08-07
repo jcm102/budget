@@ -327,7 +327,7 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
                         <RadioGroup
                         onValueChange={field.onChange}
                         defaultValue={field.value}
-                        className="flex items-center space-x-4 flex-wrap"
+                        className="grid grid-cols-2 gap-x-4 gap-y-2"
                         >
                             <FormItem className="flex items-center space-x-2 space-y-0">
                                 <FormControl><RadioGroupItem value="none" /></FormControl>

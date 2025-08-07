@@ -148,9 +148,9 @@ export function SubtaskForm({ open, onOpenChange, onSave, editingSubtask }: Subt
                   <FormLabel>Links</FormLabel>
                   <FormControl>
                       <RadioGroup
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      className="flex items-center space-x-4 flex-wrap"
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        className="grid grid-cols-2 gap-x-4 gap-y-2"
                       >
                           <FormItem className="flex items-center space-x-2 space-y-0">
                               <FormControl><RadioGroupItem value="none" /></FormControl>
