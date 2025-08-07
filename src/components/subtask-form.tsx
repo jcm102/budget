@@ -95,7 +95,7 @@ export function SubtaskForm({ open, onOpenChange, onSave, editingSubtask }: Subt
           description: editingSubtask.description,
           linkType: type,
           linkGroupId: editingSubtask.linkGroupId || '',
-          links: editingSubtask.links ? editingSubtask.links.map(l => ({value: l})) : [{ value: '' }],
+          links: editingSubtask.links && editingSubtask.links.length > 0 ? editingSubtask.links.map(l => ({value: l})) : [{ value: '' }],
           internalLink: internalLinkValue,
         });
       } else {

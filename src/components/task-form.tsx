@@ -121,7 +121,7 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
         dueDate: editingTask.dueDate ? new Date(editingTask.dueDate) : undefined,
         linkType: type,
         linkGroupId: editingTask.linkGroupId || '',
-        links: editingTask.links ? editingTask.links.map(l => ({value: l})) : [{ value: '' }],
+        links: editingTask.links && editingTask.links.length > 0 ? editingTask.links.map(l => ({value: l})) : [{ value: '' }],
         internalLink: internalLinkValue,
       });
     } else {
