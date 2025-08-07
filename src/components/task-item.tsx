@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -197,8 +198,12 @@ export function TaskItem({
     }
   };
   
-  const handleOpenLink = (url: string) => {
-    window.open(url, '_blank', 'noopener,noreferrer');
+  const handleOpenLinks = () => {
+    if (task.links) {
+      task.links.forEach(link => {
+        window.open(link, '_blank', 'noopener,noreferrer');
+      });
+    }
   };
 
 
@@ -253,39 +258,15 @@ export function TaskItem({
             <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                 {isOverdue && !task.completed && (<Badge variant="destructive">Overdue</Badge>)}
                 {hasLinks && (
-                  <>
-                    {task.links!.length === 1 ? (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10"
-                        onClick={() => handleOpenLink(task.links![0])}
-                      >
-                        <LinkIcon className="h-4 w-4" />
-                        <span className="sr-only">Open link</span>
-                      </Button>
-                    ) : (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                           <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10"
-                          >
-                            <LinkIcon className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {task.links!.map((link, index) => (
-                             <DropdownMenuItem key={index} onClick={() => handleOpenLink(link)}>
-                                <ExternalLink className="mr-2 h-4 w-4" />
-                                <span>{link.length > 30 ? `${link.substring(0, 30)}...` : link}</span>
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10"
+                    onClick={handleOpenLinks}
+                  >
+                    <LinkIcon className="h-4 w-4" />
+                    <span className="sr-only">Open link(s)</span>
+                  </Button>
                 )}
                 <Button
                     variant="ghost"
