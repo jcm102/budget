@@ -32,7 +32,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { Input } from '@/components/ui/input';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,19 +50,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { SubtaskForm } from './subtask-form';
 
 type SubtaskItemProps = {
   subtask: Subtask;
   onToggle: () => void;
   onDelete: () => void;
-  onUpdate: (description: string, link?: string) => void;
+  onEdit: () => void;
 }
 
-function SubtaskItem({ subtask, onToggle, onDelete, onUpdate }: SubtaskItemProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [description, setDescription] = useState(subtask.description);
-  const [link, setLink] = useState(subtask.link || '');
-  
+function SubtaskItem({ subtask, onToggle, onDelete, onEdit }: SubtaskItemProps) {
   const {
     attributes,
     listeners,
@@ -77,16 +73,8 @@ function SubtaskItem({ subtask, onToggle, onDelete, onUpdate }: SubtaskItemProps
     transition,
   };
 
-  const handleUpdate = () => {
-    if (description.trim()) {
-      onUpdate(description.trim(), link.trim() || undefined);
-      setIsEditing(false);
-    }
-  };
-
   return (
-    <div ref={setNodeRef} style={style} className="flex flex-col gap-1">
-      <div className="flex items-center gap-2 group/subtask">
+    <div ref={setNodeRef} style={style} className="flex items-center gap-2 group/subtask">
         <Button variant="ghost" size="icon" className="h-6 w-6 cursor-grab" {...attributes} {...listeners}>
             <GripVertical className="h-4 w-4 text-muted-foreground" />
         </Button>
@@ -96,25 +84,13 @@ function SubtaskItem({ subtask, onToggle, onDelete, onUpdate }: SubtaskItemProps
             onCheckedChange={onToggle}
             className="h-5 w-5"
         />
-        {isEditing ? (
-            <Input
-            type="text"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            onBlur={handleUpdate}
-            onKeyDown={(e) => e.key === 'Enter' && handleUpdate()}
-            className="h-8"
-            autoFocus
-            />
-        ) : (
-            <label
+        <label
             htmlFor={`subtask-${subtask.id}`}
             className={cn("flex-grow text-sm cursor-pointer", subtask.completed && 'line-through text-muted-foreground')}
             >
             {subtask.description}
-            </label>
-        )}
-         {subtask.link && !isEditing && (
+        </label>
+         {subtask.link && (
             <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger asChild>
@@ -129,28 +105,31 @@ function SubtaskItem({ subtask, onToggle, onDelete, onUpdate }: SubtaskItemProps
             </TooltipProvider>
         )}
         <div className="flex items-center gap-1 opacity-0 group-hover/subtask:opacity-100 transition-opacity">
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsEditing(true)}>
-            <Pencil className="h-3 w-3" />
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onEdit}>
+                <Pencil className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6 hover:text-destructive" onClick={onDelete}>
-            <Trash2 className="h-3 w-3" />
-            </Button>
+            <AlertDialog>
+                <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 hover:text-destructive">
+                        <Trash2 className="h-3 w-3" />
+                    </Button>
+                </AlertDialogTrigger>
+                 <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete this subtask.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={onDelete} className={cn(buttonVariants({ variant: "destructive" }))}>
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+            </AlertDialog>
         </div>
-      </div>
-      {isEditing && (
-         <div className="flex items-center gap-2 pl-8">
-            <LinkIcon className="h-3 w-3 text-muted-foreground" />
-            <Input
-                type="text"
-                value={link}
-                placeholder="https://..."
-                onChange={(e) => setLink(e.target.value)}
-                onBlur={handleUpdate}
-                onKeyDown={(e) => e.key === 'Enter' && handleUpdate()}
-                className="h-7 text-xs"
-            />
-        </div>
-      )}
     </div>
   )
 }
@@ -181,9 +160,8 @@ export function TaskItem({
   onDeleteSubtask
 }: TaskItemProps) {
   const [isCollapsibleOpen, setIsCollapsibleOpen] = useState(false);
-  const [newSubtask, setNewSubtask] = useState('');
-  const [newSubtaskLink, setNewSubtaskLink] = useState('');
-  const [showLinkInput, setShowLinkInput] = useState(false);
+  const [isSubtaskFormOpen, setIsSubtaskFormOpen] = useState(false);
+  const [editingSubtask, setEditingSubtask] = useState<Subtask | null>(null);
   
   const {
     attributes,
@@ -213,16 +191,21 @@ export function TaskItem({
       },
     })
   );
+  
+  const handleOpenSubtaskForm = (subtask: Subtask | null) => {
+    setEditingSubtask(subtask);
+    setIsSubtaskFormOpen(true);
+  }
 
-  const handleAddSubtask = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newSubtask.trim()) {
-      onAddSubtask(task.id, newSubtask.trim(), newSubtaskLink.trim() || undefined);
-      setNewSubtask('');
-      setNewSubtaskLink('');
-      setShowLinkInput(false);
+  const handleSaveSubtask = (data: { description: string, link?: string }) => {
+    if (editingSubtask) {
+        onUpdateSubtask(task.id, editingSubtask.id, data.description, data.link);
+    } else {
+        onAddSubtask(task.id, data.description, data.link);
     }
-  };
+    setEditingSubtask(null);
+  }
+
 
   const handleSubtaskDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -251,6 +234,13 @@ export function TaskItem({
 
 
   return (
+    <>
+    <SubtaskForm
+        open={isSubtaskFormOpen}
+        onOpenChange={setIsSubtaskFormOpen}
+        onSave={handleSaveSubtask}
+        editingSubtask={editingSubtask}
+    />
     <Card
       ref={setNodeRef}
       style={style}
@@ -375,7 +365,7 @@ export function TaskItem({
                                     subtask={subtask}
                                     onToggle={() => onToggleSubtask(task.id, subtask.id)}
                                     onDelete={() => onDeleteSubtask(task.id, subtask.id)}
-                                    onUpdate={(desc, link) => onUpdateSubtask(task.id, subtask.id, desc, link)}
+                                    onEdit={() => handleOpenSubtaskForm(subtask)}
                                 />
                             ))}
                         </SortableContext>
@@ -385,41 +375,14 @@ export function TaskItem({
           )}
 
           <div className="pl-10 mt-2">
-            <form onSubmit={handleAddSubtask}>
-                <div className="flex items-center gap-2">
-                    <Plus className="h-4 w-4 text-muted-foreground"/>
-                    <Input
-                        placeholder="Add a subtask..."
-                        value={newSubtask}
-                        onChange={(e) => setNewSubtask(e.target.value)}
-                        className="h-8 border-none focus-visible:ring-0 focus-visible:ring-offset-0 !bg-transparent flex-grow"
-                    />
-                     <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowLinkInput(!showLinkInput)}>
-                                    <LinkIcon className={cn("h-4 w-4", showLinkInput && "text-primary")} />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Add link to subtask</TooltipContent>
-                        </Tooltip>
-                     </TooltipProvider>
-                    {newSubtask && <Button type="submit" size="sm">Add</Button>}
-                </div>
-                {showLinkInput && (
-                     <div className="flex items-center gap-2 pl-6 mt-1">
-                        <Input
-                            placeholder="https://..."
-                            value={newSubtaskLink}
-                            onChange={(e) => setNewSubtaskLink(e.target.value)}
-                            className="h-7 border-none focus-visible:ring-0 focus-visible:ring-offset-0 !bg-transparent text-xs"
-                        />
-                    </div>
-                )}
-            </form>
+            <Button variant="link" className="p-0 h-auto font-normal text-muted-foreground" onClick={() => handleOpenSubtaskForm(null)}>
+                <Plus className="h-4 w-4 mr-1"/>
+                Add a subtask...
+            </Button>
           </div>
         </CardContent>
       </Collapsible>
     </Card>
+    </>
   );
 }
