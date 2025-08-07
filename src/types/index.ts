@@ -19,7 +19,7 @@ export interface Task {
   completedAt: string | null; // ISO string
   subtasks: Subtask[];
   order: number;
-  links?: string[]; // Kept for old data, but new functionality will use linkGroupId
+  links?: string[];
   linkGroupId?: string | null;
 }
 

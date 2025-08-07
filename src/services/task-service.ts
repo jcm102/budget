@@ -83,6 +83,7 @@ export async function addTask(taskData: Omit<Task, 'id' | 'completed' | 'complet
     subtasks: [],
     order,
     linkGroupId: taskData.linkGroupId || null,
+    links: taskData.links || [],
   };
   const docRef = doc(collection(db, TASKS_COLLECTION));
   await setDoc(docRef, newTask);
@@ -94,10 +95,6 @@ export async function updateTask(id: string, taskData: Partial<Omit<Task, 'id'>>
   const docSnap = await getDoc(taskRef);
   if (docSnap.exists()) {
     const dataToUpdate = { ...taskData };
-    // Ensure `links` is not part of the update if it's not provided, to avoid overwriting with undefined
-    if (taskData.links === undefined) {
-      delete (dataToUpdate as Partial<Task>).links;
-    }
     await updateDoc(taskRef, dataToUpdate);
   } else {
     throw new Error(`Task with id ${id} not found.`);

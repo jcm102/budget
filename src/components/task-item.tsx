@@ -204,7 +204,7 @@ export function TaskItem({
   const sortedSubtasks = (task.subtasks || []).slice().sort((a,b) => a.order - b.order);
 
   const associatedLinkGroup = linkGroups.find(lg => lg.id === task.linkGroupId);
-  const hasLinks = associatedLinkGroup && associatedLinkGroup.links.length > 0;
+  const hasLinks = (associatedLinkGroup && associatedLinkGroup.links.length > 0) || (task.links && task.links.length > 0);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -238,8 +238,12 @@ export function TaskItem({
   };
   
   const handleOpenLinks = () => {
-    if (associatedLinkGroup?.links) {
-      associatedLinkGroup.links.forEach(link => {
+    const linksToOpen = task.linkGroupId 
+      ? associatedLinkGroup?.links 
+      : task.links;
+
+    if (linksToOpen) {
+      linksToOpen.forEach(link => {
         window.open(link, '_blank', 'noopener,noreferrer');
       });
     }

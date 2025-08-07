@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useFieldArray, useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { Wand2, Loader2, CalendarIcon } from 'lucide-react';
+import { Wand2, Loader2, CalendarIcon, PlusCircle, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 import { cn } from '@/lib/utils';
@@ -37,9 +37,10 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import type { Task, TaskFrequency, LinkGroup } from '@/types';
+import type { Task, TaskFrequency } from '@/types';
 import { generateTaskDescription } from '@/ai/flows/generate-task-description';
 import { useLinkGroups } from '@/hooks/use-link-groups';
+import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 
 const formSchema = z.object({
   description: z.string().min(3, 'Description must be at least 3 characters long.'),
@@ -48,7 +49,9 @@ const formSchema = z.object({
     required_error: 'Please select a frequency.',
   }),
   dueDate: z.date().optional(),
+  linkType: z.enum(['none', 'group', 'manual']).default('none'),
   linkGroupId: z.string().optional(),
+  links: z.array(z.object({ value: z.string().url({ message: "Please enter a valid URL." }) })).optional(),
 });
 
 type TaskFormProps = {
@@ -71,18 +74,35 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
       details: '',
       frequency: 'daily',
       dueDate: undefined,
+      linkType: 'none',
       linkGroupId: '',
+      links: [{ value: '' }],
     },
   });
 
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "links"
+  });
+
+  const linkType = form.watch('linkType');
+
   useEffect(() => {
     if (editingTask) {
+      let type: 'group' | 'manual' | 'none' = 'none';
+      if (editingTask.linkGroupId) {
+        type = 'group';
+      } else if (editingTask.links && editingTask.links.length > 0) {
+        type = 'manual';
+      }
       form.reset({
         description: editingTask.description,
         details: editingTask.details || '',
         frequency: editingTask.frequency,
         dueDate: editingTask.dueDate ? new Date(editingTask.dueDate) : undefined,
+        linkType: type,
         linkGroupId: editingTask.linkGroupId || '',
+        links: editingTask.links ? editingTask.links.map(l => ({value: l})) : [{ value: '' }],
       });
     } else {
       form.reset({
@@ -90,7 +110,9 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
         details: '',
         frequency: 'daily',
         dueDate: undefined,
+        linkType: 'none',
         linkGroupId: '',
+        links: [{ value: '' }],
       });
     }
   }, [editingTask, form, open]);
@@ -130,10 +152,12 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const submissionData = {
-      ...values,
+      description: values.description,
+      details: values.details,
       dueDate: values.dueDate ? values.dueDate.toISOString() : null,
       frequency: values.frequency as TaskFrequency,
-      linkGroupId: values.linkGroupId || null,
+      linkGroupId: values.linkType === 'group' ? values.linkGroupId : null,
+      links: values.linkType === 'manual' ? values.links?.map(l => l.value).filter(Boolean) : [],
     };
 
     if (editingTask) {
@@ -265,30 +289,100 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
                 />
             </div>
             
-            <FormField
-              control={form.control}
-              name="linkGroupId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Link Group (Optional)</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ''} disabled={isLoadingLinkGroups}>
+             <FormField
+                control={form.control}
+                name="linkType"
+                render={({ field }) => (
+                    <FormItem className="space-y-3">
+                    <FormLabel>Links</FormLabel>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a link group" />
-                      </SelectTrigger>
+                        <RadioGroup
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        className="flex items-center space-x-4"
+                        >
+                            <FormItem className="flex items-center space-x-2 space-y-0">
+                                <FormControl><RadioGroupItem value="none" /></FormControl>
+                                <FormLabel className="font-normal">None</FormLabel>
+                            </FormItem>
+                            <FormItem className="flex items-center space-x-2 space-y-0">
+                                <FormControl><RadioGroupItem value="group" /></FormControl>
+                                <FormLabel className="font-normal">Link Group</FormLabel>
+                            </FormItem>
+                            <FormItem className="flex items-center space-x-2 space-y-0">
+                                <FormControl><RadioGroupItem value="manual" /></FormControl>
+                                <FormLabel className="font-normal">Manual Links</FormLabel>
+                            </FormItem>
+                        </RadioGroup>
                     </FormControl>
-                    <SelectContent>
-                      {linkGroups.map(group => (
-                        <SelectItem key={group.id} value={group.id}>
-                          {group.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                    <FormMessage />
+                    </FormItem>
+                )}
+             />
+
+            {linkType === 'group' && (
+              <FormField
+                control={form.control}
+                name="linkGroupId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Link Group</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || ''} disabled={isLoadingLinkGroups}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a link group" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {linkGroups.map(group => (
+                          <SelectItem key={group.id} value={group.id}>
+                            {group.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+            
+            {linkType === 'manual' && (
+              <div className="space-y-2">
+                <FormLabel>Manual Links</FormLabel>
+                {fields.map((field, index) => (
+                   <FormField
+                        key={field.id}
+                        control={form.control}
+                        name={`links.${index}.value`}
+                        render={({ field }) => (
+                            <FormItem>
+                                <div className="flex items-center gap-2">
+                                    <FormControl>
+                                        <Input {...field} placeholder="https://example.com" />
+                                    </FormControl>
+                                    <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length <= 1}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                </div>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                ))}
+                 <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => append({ value: '' })}
+                >
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add Link
+                </Button>
+              </div>
+            )}
+
 
             <DialogFooter>
               <Button type="submit">{editingTask ? 'Save Changes' : 'Add Task'}</Button>
