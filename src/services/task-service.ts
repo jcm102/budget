@@ -117,7 +117,7 @@ export async function deleteTask(id: string): Promise<void> {
   await deleteDoc(taskRef);
 }
 
-export async function addSubtask(taskId: string, description: string, order: number): Promise<Subtask> {
+export async function addSubtask(taskId: string, description: string, order: number, link?: string): Promise<Subtask> {
   const taskRef = doc(db, TASKS_COLLECTION, taskId);
   const docSnap = await getDoc(taskRef);
   if (!docSnap.exists()) throw new Error(`Task with id ${taskId} not found.`);
@@ -128,6 +128,7 @@ export async function addSubtask(taskId: string, description: string, order: num
     description,
     completed: false,
     order,
+    link,
   };
   const updatedSubtasks = [...(task.subtasks || []), newSubtask];
   await setDoc(taskRef, { ...task, subtasks: updatedSubtasks, completed: false, completedAt: null });

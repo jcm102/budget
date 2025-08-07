@@ -6,6 +6,7 @@ export interface Subtask {
   description: string;
   completed: boolean;
   order: number;
+  link?: string;
 }
 
 export interface Task {
