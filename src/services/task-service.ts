@@ -81,6 +81,7 @@ export async function addTask(taskData: Omit<Task, 'id' | 'completed' | 'complet
     completedAt: null,
     subtasks: [],
     order,
+    links: taskData.links || [],
   };
   const docRef = doc(collection(db, TASKS_COLLECTION));
   await setDoc(docRef, newTask);
@@ -92,7 +93,11 @@ export async function updateTask(id: string, taskData: Partial<Omit<Task, 'id'>>
   const docSnap = await getDoc(taskRef);
   if (docSnap.exists()) {
     const existingData = docSnap.data();
-    await setDoc(taskRef, { ...existingData, ...taskData });
+    const dataToUpdate = { ...existingData, ...taskData };
+    if (!('links' in taskData)) {
+      dataToUpdate.links = existingData.links || [];
+    }
+    await setDoc(taskRef, dataToUpdate);
   } else {
     throw new Error(`Task with id ${id} not found.`);
   }

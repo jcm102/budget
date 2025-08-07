@@ -18,6 +18,7 @@ export interface Task {
   completedAt: string | null; // ISO string
   subtasks: Subtask[];
   order: number;
+  links?: string[];
 }
 
 export interface Debt {

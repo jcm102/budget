@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import * as z from 'zod';
-import { Wand2, Loader2, CalendarIcon } from 'lucide-react';
+import { Wand2, Loader2, CalendarIcon, Trash2, PlusCircle } from 'lucide-react';
 import { format } from 'date-fns';
 
 import { cn } from '@/lib/utils';
@@ -39,6 +39,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import type { Task, TaskFrequency } from '@/types';
 import { generateTaskDescription } from '@/ai/flows/generate-task-description';
+import { Separator } from './ui/separator';
 
 const formSchema = z.object({
   description: z.string().min(3, 'Description must be at least 3 characters long.'),
@@ -47,6 +48,7 @@ const formSchema = z.object({
     required_error: 'Please select a frequency.',
   }),
   dueDate: z.date().optional(),
+  links: z.array(z.object({ value: z.string().url({ message: "Please enter a valid URL." }) })).optional(),
 });
 
 type TaskFormProps = {
@@ -68,7 +70,13 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
       details: '',
       frequency: 'daily',
       dueDate: undefined,
+      links: [],
     },
+  });
+
+   const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "links"
   });
 
   useEffect(() => {
@@ -78,6 +86,7 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
         details: editingTask.details || '',
         frequency: editingTask.frequency,
         dueDate: editingTask.dueDate ? new Date(editingTask.dueDate) : undefined,
+        links: editingTask.links?.map(link => ({ value: link })) || [],
       });
     } else {
       form.reset({
@@ -85,6 +94,7 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
         details: '',
         frequency: 'daily',
         dueDate: undefined,
+        links: [],
       });
     }
   }, [editingTask, form, open]);
@@ -127,6 +137,7 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
       ...values,
       dueDate: values.dueDate ? values.dueDate.toISOString() : null,
       frequency: values.frequency as TaskFrequency,
+      links: values.links?.map(link => link.value),
     };
 
     if (editingTask) {
@@ -140,7 +151,7 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{editingTask ? 'Edit task' : 'Add a new task'}</DialogTitle>
           <DialogDescription>
@@ -194,67 +205,107 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="frequency"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Frequency</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="How often does this task repeat?" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="daily">Daily</SelectItem>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-2 gap-4">
+                <FormField
+                control={form.control}
+                name="frequency"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Frequency</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                        <FormControl>
+                        <SelectTrigger>
+                            <SelectValue placeholder="How often does this task repeat?" />
+                        </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                
+                <FormField
+                control={form.control}
+                name="dueDate"
+                render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                    <FormLabel>Due Date (Optional)</FormLabel>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                        <FormControl>
+                            <Button
+                            variant={'outline'}
+                            className={cn(
+                                'w-full pl-3 text-left font-normal',
+                                !field.value && 'text-muted-foreground'
+                            )}
+                            >
+                            {field.value ? (
+                                format(field.value, 'PPP')
+                            ) : (
+                                <span>Pick a date</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                        </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            initialFocus
+                        />
+                        </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            </div>
             
-            <FormField
-              control={form.control}
-              name="dueDate"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Due Date (Optional)</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={'outline'}
-                          className={cn(
-                            'w-full pl-3 text-left font-normal',
-                            !field.value && 'text-muted-foreground'
-                          )}
-                        >
-                          {field.value ? (
-                            format(field.value, 'PPP')
-                          ) : (
-                            <span>Pick a date</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <Separator />
+
+            <div>
+              <FormLabel>Links (Optional)</FormLabel>
+              <div className="space-y-2 mt-2">
+                {fields.map((field, index) => (
+                   <FormField
+                    key={field.id}
+                    control={form.control}
+                    name={`links.${index}.value`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <div className="flex items-center gap-2">
+                            <FormControl>
+                                <Input {...field} placeholder="https://example.com" />
+                            </FormControl>
+                            <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ))}
+                 <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => append({ value: "" })}
+                    >
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add Link
+                </Button>
+              </div>
+            </div>
 
             <DialogFooter>
               <Button type="submit">{editingTask ? 'Save Changes' : 'Add Task'}</Button>
