@@ -1,4 +1,3 @@
-
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -115,24 +114,23 @@ export async function deleteTask(id: string): Promise<void> {
   await deleteDoc(taskRef);
 }
 
-export async function addSubtask(taskId: string, data: Omit<Subtask, 'id' | 'completed' | 'order'>, order: number): Promise<Subtask> {
+export async function addSubtask(taskId: string, data: Omit<Subtask, 'id' | 'completed' | 'order'>): Promise<void> {
   const taskRef = doc(db, TASKS_COLLECTION, taskId);
   const docSnap = await getDoc(taskRef);
   if (!docSnap.exists()) throw new Error(`Task with id ${taskId} not found.`);
 
   const task = docSnap.data() as Task;
+  const newOrder = task.subtasks ? task.subtasks.length : 0;
   const newSubtask: Subtask = {
     id: crypto.randomUUID(),
     description: data.description,
     completed: false,
-    order,
+    order: newOrder,
     links: data.links || [],
     linkGroupId: data.linkGroupId || null,
   };
   const updatedSubtasks = [...(task.subtasks || []), newSubtask];
-  await setDoc(taskRef, { ...task, subtasks: updatedSubtasks, completed: false, completedAt: null });
-
-  return newSubtask;
+  await updateDoc(taskRef, { subtasks: updatedSubtasks, completed: false, completedAt: null });
 }
 
 export async function updateSubtask(taskId: string, subtaskId: string, subtaskData: Partial<Omit<Subtask, 'id' | 'completed' | 'order'>>): Promise<void> {
@@ -144,7 +142,7 @@ export async function updateSubtask(taskId: string, subtaskId: string, subtaskDa
     const updatedSubtasks = (task.subtasks || []).map(subtask => 
       subtask.id === subtaskId ? { ...subtask, ...subtaskData } : subtask
     );
-    await setDoc(taskRef, { ...task, subtasks: updatedSubtasks });
+    await updateDoc(taskRef, { subtasks: updatedSubtasks });
 }
 
 export async function updateSubtaskOrder(taskId: string, subtasks: Subtask[]): Promise<void> {
@@ -155,7 +153,7 @@ export async function updateSubtaskOrder(taskId: string, subtasks: Subtask[]): P
   
   const updatedSubtasks = subtasks.map((subtask, index) => ({...subtask, order: index}));
 
-  await setDoc(taskRef, { ...task, subtasks: updatedSubtasks });
+  await updateDoc(taskRef, { subtasks: updatedSubtasks });
 }
 
 export async function toggleSubtask(taskId: string, subtaskId: string): Promise<void> {
@@ -176,7 +174,7 @@ export async function toggleSubtask(taskId: string, subtaskId: string): Promise<
         completed: allSubtasksCompleted,
         completedAt: allSubtasksCompleted ? new Date().toISOString() : null,
     };
-    await setDoc(taskRef, updatedTask);
+    await updateDoc(taskRef, updatedTask);
 }
 
 export async function deleteSubtask(taskId: string, subtaskId: string): Promise<void> {
@@ -194,5 +192,5 @@ export async function deleteSubtask(taskId: string, subtaskId: string): Promise<
         completed: allSubtasksCompleted,
         completedAt: allSubtasksCompleted ? new Date().toISOString() : null,
     };
-    await setDoc(taskRef, updatedTask);
+    await updateDoc(taskRef, updatedTask);
 }

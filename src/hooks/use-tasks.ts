@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -14,29 +13,30 @@ export function useTasks() {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        const [fetchedTasks, fetchedLinkGroups] = await Promise.all([
-          TaskService.getTasks(),
-          LinkGroupService.getLinkGroups(),
-        ]);
-        setTasks(fetchedTasks);
-        setLinkGroups(fetchedLinkGroups);
-      } catch (error) {
-        console.error('Failed to load tasks or link groups:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load data from the database.',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
+  const fetchData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const [fetchedTasks, fetchedLinkGroups] = await Promise.all([
+        TaskService.getTasks(),
+        LinkGroupService.getLinkGroups(),
+      ]);
+      setTasks(fetchedTasks);
+      setLinkGroups(fetchedLinkGroups);
+    } catch (error) {
+      console.error('Failed to load tasks or link groups:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load data from the database.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   }, [toast]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const addTask = useCallback(async (taskData: Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks' | 'order'>) => {
     try {
@@ -56,11 +56,8 @@ export function useTasks() {
   const updateTask = useCallback(async (id: string, taskData: Partial<Omit<Task, 'id'>>) => {
     try {
       await TaskService.updateTask(id, taskData);
-      setTasks((prevTasks) =>
-        prevTasks.map((task) =>
-          task.id === id ? { ...task, ...taskData } as Task : task
-        )
-      );
+       // Refetch all data to ensure consistency
+      await fetchData();
     } catch (error) {
       console.error('Failed to update task:', error);
       toast({
@@ -69,7 +66,7 @@ export function useTasks() {
         variant: 'destructive',
       });
     }
-  }, [toast]);
+  }, [toast, fetchData]);
 
   const updateTaskOrder = useCallback(async (reorderedTasks: Task[]) => {
     // Optimistically update the UI
@@ -131,36 +128,23 @@ export function useTasks() {
 
   const addSubtask = useCallback(async (taskId: string, data: Omit<Subtask, 'id' | 'completed' | 'order'>) => {
     try {
-      const task = tasks.find(t => t.id === taskId);
-      if (!task) return;
-
-      const newOrder = task.subtasks.length;
-      const newSubtask = await TaskService.addSubtask(taskId, data, newOrder);
-      
-      setTasks(prevTasks => prevTasks.map(t => {
-        if (t.id === taskId) {
-            const updatedSubtasks = [...(t.subtasks || []), newSubtask];
-            return { ...t, subtasks: updatedSubtasks, completed: false, completedAt: null };
-        }
-        return t;
-      }));
+      await TaskService.addSubtask(taskId, data);
+      await fetchData();
     } catch (error) {
       console.error('Failed to add subtask:', error);
       toast({ title: 'Error', description: 'Failed to add subtask.', variant: 'destructive' });
     }
-  }, [tasks, toast]);
+  }, [fetchData, toast]);
   
   const updateSubtask = useCallback(async (taskId: string, subtaskId: string, data: Partial<Omit<Subtask, 'id' | 'completed' | 'order'>>) => {
-    const originalTasks = tasks;
-    setTasks(prev => prev.map(t => t.id === taskId ? {...t, subtasks: t.subtasks.map(st => st.id === subtaskId ? {...st, ...data} as Subtask : st)}: t));
     try {
       await TaskService.updateSubtask(taskId, subtaskId, data);
+      await fetchData();
     } catch (error) {
       console.error('Failed to update subtask:', error);
-      setTasks(originalTasks);
       toast({ title: 'Error', description: 'Failed to update subtask.', variant: 'destructive' });
     }
-  }, [tasks, toast]);
+  }, [fetchData, toast]);
 
   const updateSubtaskOrder = useCallback(async (taskId: string, reorderedSubtasks: Subtask[]) => {
     const originalTasks = [...tasks];

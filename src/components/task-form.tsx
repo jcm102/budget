@@ -49,10 +49,20 @@ const formSchema = z.object({
     required_error: 'Please select a frequency.',
   }),
   dueDate: z.date().optional(),
-  linkType: z.enum(['none', 'group', 'manual']).default('none'),
+  linkType: z.enum(['none', 'group', 'manual', 'internal']).default('none'),
   linkGroupId: z.string().optional(),
-  links: z.array(z.object({ value: z.string().url({ message: "Please enter a valid URL." }) })).optional(),
+  links: z.array(z.object({ value: z.string().min(1, { message: "Link cannot be empty."}) })).optional(),
+  internalLink: z.string().optional(),
 });
+
+const internalPages = [
+    { value: '/', label: 'Home' },
+    { value: '/debt', label: 'Debt Payment Worksheet' },
+    { value: '/budget', label: 'Budget Overview' },
+    { value: '/expenses', label: 'Work Expense Tracking' },
+    { value: '/savings', label: 'Future Spending' },
+    { value: '/settings', label: 'Settings' },
+];
 
 type TaskFormProps = {
   open: boolean;
@@ -77,6 +87,7 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
       linkType: 'none',
       linkGroupId: '',
       links: [{ value: '' }],
+      internalLink: '',
     },
   });
 
@@ -89,11 +100,19 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
 
   useEffect(() => {
     if (editingTask) {
-      let type: 'group' | 'manual' | 'none' = 'none';
+      let type: 'group' | 'manual' | 'none' | 'internal' = 'none';
+      let internalLinkValue = '';
+
       if (editingTask.linkGroupId) {
         type = 'group';
       } else if (editingTask.links && editingTask.links.length > 0) {
-        type = 'manual';
+        const isInternal = internalPages.some(p => p.value === editingTask.links![0]);
+        if (isInternal) {
+            type = 'internal';
+            internalLinkValue = editingTask.links![0];
+        } else {
+            type = 'manual';
+        }
       }
       form.reset({
         description: editingTask.description,
@@ -103,6 +122,7 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
         linkType: type,
         linkGroupId: editingTask.linkGroupId || '',
         links: editingTask.links ? editingTask.links.map(l => ({value: l})) : [{ value: '' }],
+        internalLink: internalLinkValue,
       });
     } else {
       form.reset({
@@ -113,6 +133,7 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
         linkType: 'none',
         linkGroupId: '',
         links: [{ value: '' }],
+        internalLink: '',
       });
     }
   }, [editingTask, form, open]);
@@ -151,13 +172,20 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
   };
 
   function onSubmit(values: z.infer<typeof formSchema>) {
+    let links: string[] = [];
+    if (values.linkType === 'manual') {
+        links = values.links?.map(l => l.value).filter(Boolean) || [];
+    } else if (values.linkType === 'internal' && values.internalLink) {
+        links = [values.internalLink];
+    }
+    
     const submissionData = {
       description: values.description,
       details: values.details,
       dueDate: values.dueDate ? values.dueDate.toISOString() : null,
       frequency: values.frequency as TaskFrequency,
       linkGroupId: values.linkType === 'group' ? values.linkGroupId : null,
-      links: values.linkType === 'manual' ? values.links?.map(l => l.value).filter(Boolean) : [],
+      links: links,
     };
 
     if (editingTask) {
@@ -299,7 +327,7 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
                         <RadioGroup
                         onValueChange={field.onChange}
                         defaultValue={field.value}
-                        className="flex items-center space-x-4"
+                        className="flex items-center space-x-4 flex-wrap"
                         >
                             <FormItem className="flex items-center space-x-2 space-y-0">
                                 <FormControl><RadioGroupItem value="none" /></FormControl>
@@ -312,6 +340,10 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
                             <FormItem className="flex items-center space-x-2 space-y-0">
                                 <FormControl><RadioGroupItem value="manual" /></FormControl>
                                 <FormLabel className="font-normal">Manual Links</FormLabel>
+                            </FormItem>
+                             <FormItem className="flex items-center space-x-2 space-y-0">
+                                <FormControl><RadioGroupItem value="internal" /></FormControl>
+                                <FormLabel className="font-normal">Internal Page</FormLabel>
                             </FormItem>
                         </RadioGroup>
                     </FormControl>
@@ -381,6 +413,33 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
                     Add Link
                 </Button>
               </div>
+            )}
+
+            {linkType === 'internal' && (
+                <FormField
+                    control={form.control}
+                    name="internalLink"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Internal Page</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value || ''}>
+                                <FormControl>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select a page" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {internalPages.map(page => (
+                                        <SelectItem key={page.value} value={page.value}>
+                                            {page.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
             )}
 
 

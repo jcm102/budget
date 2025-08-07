@@ -1,9 +1,9 @@
-
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { format, isPast } from 'date-fns';
-import { Trash2, Pencil, Plus, ChevronsUpDown, CheckCircle2, Circle, GripVertical, Link as LinkIcon } from 'lucide-react';
+import { Trash2, Pencil, Plus, ChevronsUpDown, CheckCircle2, Circle, GripVertical, Link as LinkIcon, ArrowRight } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -78,7 +78,15 @@ function SubtaskItem({ subtask, linkGroups, onToggle, onDelete, onEdit }: Subtas
 
     if (linksToOpen) {
       linksToOpen.forEach(link => {
-        window.open(link, '_blank', 'noopener,noreferrer');
+        // Internal links start with '/', external links should have a protocol
+        if (link.startsWith('/')) {
+            // It's an internal link, let Next.js handle it
+            // This requires changing the button to a Link component, or using router.push
+            // For now, we will just do a standard window navigation
+            window.open(window.location.origin + link, '_blank', 'noopener,noreferrer');
+        } else {
+            window.open(link, '_blank', 'noopener,noreferrer');
+        }
       });
     }
   };
@@ -200,10 +208,17 @@ export function TaskItem({
   }
 
   const handleSaveSubtask = (data: any) => {
+    let links: string[] = [];
+    if (data.linkType === 'manual') {
+        links = data.links?.map((l:any) => l.value).filter(Boolean) || [];
+    } else if (data.linkType === 'internal' && data.internalLink) {
+        links = [data.internalLink];
+    }
+    
     const submissionData = {
       description: data.description,
       linkGroupId: data.linkType === 'group' ? data.linkGroupId : null,
-      links: data.linkType === 'manual' ? data.links?.map((l:any) => l.value).filter(Boolean) : [],
+      links: links,
     };
 
     if (editingSubtask) {
@@ -235,7 +250,11 @@ export function TaskItem({
 
     if (linksToOpen) {
       linksToOpen.forEach(link => {
-        window.open(link, '_blank', 'noopener,noreferrer');
+        if (link.startsWith('/')) {
+            window.open(window.location.origin + link, '_blank', 'noopener,noreferrer');
+        } else {
+            window.open(link, '_blank', 'noopener,noreferrer');
+        }
       });
     }
   };
@@ -299,13 +318,13 @@ export function TaskItem({
             <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                 {isOverdue && !task.completed && (<Badge variant="destructive">Overdue</Badge>)}
                 {hasLinks && (
-                  <Button
+                   <Button
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10"
                     onClick={handleOpenLinks}
                   >
-                    <LinkIcon className="h-4 w-4" />
+                    {task.links && task.links.some(l => l.startsWith('/')) ? <ArrowRight className="h-4 w-4" /> : <LinkIcon className="h-4 w-4" />}
                     <span className="sr-only">Open link(s)</span>
                   </Button>
                 )}
