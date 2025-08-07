@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -51,9 +52,28 @@ const formSchema = z.object({
   dueDate: z.date().optional(),
   linkType: z.enum(['none', 'group', 'manual', 'internal']).default('none'),
   linkGroupId: z.string().optional(),
-  links: z.array(z.object({ value: z.string().min(1, { message: "Link cannot be empty."}) })).optional(),
+  links: z.array(z.object({ value: z.string().url({ message: "Please enter a valid URL." }) })).optional(),
   internalLink: z.string().optional(),
+}).refine(data => {
+    if (data.linkType === 'group') return !!data.linkGroupId;
+    return true;
+}, {
+    message: 'Please select a link group.',
+    path: ['linkGroupId'],
+}).refine(data => {
+    if (data.linkType === 'manual') return data.links && data.links.length > 0 && data.links.every(l => l.value);
+    return true;
+}, {
+    message: 'Please provide at least one manual link.',
+    path: ['links'],
+}).refine(data => {
+    if (data.linkType === 'internal') return !!data.internalLink;
+    return true;
+}, {
+    message: 'Please select an internal page.',
+    path: ['internalLink'],
 });
+
 
 const internalPages = [
     { value: '/', label: 'Home' },
@@ -327,9 +347,9 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
                     <FormLabel>Links</FormLabel>
                     <FormControl>
                         <RadioGroup
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        className="grid grid-cols-2 gap-x-4 gap-y-2"
+                          onValueChange={field.onChange}
+                          value={field.value}
+                          className="grid grid-cols-2 gap-x-4 gap-y-2"
                         >
                             <FormItem className="flex items-center space-x-2 space-y-0">
                                 <FormControl><RadioGroupItem value="none" /></FormControl>

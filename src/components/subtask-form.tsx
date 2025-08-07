@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect } from 'react';
@@ -32,9 +33,28 @@ const formSchema = z.object({
   description: z.string().min(2, 'Description must be at least 2 characters.'),
   linkType: z.enum(['none', 'group', 'manual', 'internal']).default('none'),
   linkGroupId: z.string().optional(),
-  links: z.array(z.object({ value: z.string().min(1, { message: "Link cannot be empty." }) })).optional(),
+  links: z.array(z.object({ value: z.string().url({ message: "Please enter a valid URL." }) })).optional(),
   internalLink: z.string().optional(),
+}).refine(data => {
+    if (data.linkType === 'group') return !!data.linkGroupId;
+    return true;
+}, {
+    message: 'Please select a link group.',
+    path: ['linkGroupId'],
+}).refine(data => {
+    if (data.linkType === 'manual') return data.links && data.links.length > 0 && data.links.every(l => l.value);
+    return true;
+}, {
+    message: 'Please provide at least one manual link.',
+    path: ['links'],
+}).refine(data => {
+    if (data.linkType === 'internal') return !!data.internalLink;
+    return true;
+}, {
+    message: 'Please select an internal page.',
+    path: ['internalLink'],
 });
+
 
 
 const internalPages = [
