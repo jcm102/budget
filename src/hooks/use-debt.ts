@@ -45,7 +45,7 @@ export function useDebt() {
     }
   }, [toast]);
 
-  const updateDebt = useCallback(async (id: string, debtData: Omit<Debt, 'id' | 'order'>) => {
+  const updateDebt = useCallback(async (id: string, debtData: Partial<Omit<Debt, 'id' | 'order'>>) => {
     const originalDebts = debts;
     setDebts((prevDebts) =>
       prevDebts.map((debt) => (debt.id === id ? { ...debt, ...debtData } as Debt : debt))
@@ -102,6 +102,7 @@ export function useDebt() {
         minimumPayment: 0,
         actualPayment: 0,
         dueDate: new Date().toISOString(),
+        paid: false,
       }))
     );
     try {
@@ -117,5 +118,14 @@ export function useDebt() {
     }
   }, [debts, toast]);
 
-  return { debts, addDebt, updateDebt, deleteDebt, resetDebtValues, updateDebtOrder, isLoading };
+  const toggleDebtPaid = useCallback(async (id: string) => {
+    const debtToToggle = debts.find(d => d.id === id);
+    if (!debtToToggle) return;
+    
+    const isPaid = !(debtToToggle.paid ?? false);
+    updateDebt(id, { paid: isPaid });
+
+  }, [debts, updateDebt]);
+
+  return { debts, addDebt, updateDebt, deleteDebt, resetDebtValues, updateDebtOrder, isLoading, toggleDebtPaid };
 }

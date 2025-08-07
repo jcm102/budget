@@ -31,7 +31,7 @@ export async function addDebt(debtData: Omit<Debt, 'id' | 'order'>): Promise<Deb
   const snapshot = await getDocs(query(debtCollectionRef));
   const newOrder = snapshot.size;
 
-  const newDebt: Omit<Debt, 'id'> = { ...debtData, order: newOrder };
+  const newDebt: Omit<Debt, 'id'> = { ...debtData, order: newOrder, paid: false };
   const docRef = doc(collection(db, DEBT_COLLECTION));
   await setDoc(docRef, newDebt);
   return { ...newDebt, id: docRef.id };
@@ -77,6 +77,7 @@ export async function resetDebtValues(): Promise<void> {
         minimumPayment: 0,
         actualPayment: 0,
         dueDate: new Date().toISOString(),
+        paid: false,
     };
     batch.update(debtRef, updatedData);
   });

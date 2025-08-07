@@ -28,6 +28,7 @@ export interface Debt {
   actualPayment: number;
   dueDate: string; // Should be a date string
   order: number;
+  paid?: boolean;
 }
 
 export type BudgetItemType = 'Income' | 'Debt Payments' | 'Transfers' | 'Pre-Authorized Payments';

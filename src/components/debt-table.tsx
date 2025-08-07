@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -46,15 +47,17 @@ import { useDebt } from '@/hooks/use-debt';
 import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
+import { Checkbox } from './ui/checkbox';
 
 type SortableDebtRowProps = {
   debt: Debt;
   onEdit: (debt: Debt) => void;
   onDelete: (id: string) => void;
+  onTogglePaid: (id: string) => void;
   formatCurrency: (amount: number) => string;
 };
 
-function SortableDebtRow({ debt, onEdit, onDelete, formatCurrency }: SortableDebtRowProps) {
+function SortableDebtRow({ debt, onEdit, onDelete, onTogglePaid, formatCurrency }: SortableDebtRowProps) {
   const {
     attributes,
     listeners,
@@ -69,13 +72,21 @@ function SortableDebtRow({ debt, onEdit, onDelete, formatCurrency }: SortableDeb
   };
 
   return (
-    <TableRow ref={setNodeRef} style={style} {...attributes}>
+    <TableRow ref={setNodeRef} style={style} {...attributes} className={cn(debt.paid && "bg-accent/30 text-muted-foreground")}>
         <TableCell className="w-[24px] p-0 pr-2">
             <Button variant="ghost" size="icon" className="h-8 w-8 cursor-grab" {...listeners}>
                 <GripVertical className="h-4 w-4 text-muted-foreground" />
             </Button>
         </TableCell>
-        <TableCell className="font-medium">{debt.name}</TableCell>
+        <TableCell>
+            <Checkbox
+              checked={debt.paid}
+              onCheckedChange={() => onTogglePaid(debt.id)}
+              aria-label={`Mark ${debt.name} as paid`}
+              className="mr-2"
+            />
+        </TableCell>
+        <TableCell className={cn("font-medium", debt.paid && "line-through")}>{debt.name}</TableCell>
         <TableCell className="text-right">{formatCurrency(debt.balance)}</TableCell>
         <TableCell className="text-right">{formatCurrency(debt.minimumPayment)}</TableCell>
         <TableCell className="text-right">{formatCurrency(debt.actualPayment)}</TableCell>
@@ -114,7 +125,7 @@ function SortableDebtRow({ debt, onEdit, onDelete, formatCurrency }: SortableDeb
 
 
 export function DebtTable() {
-  const { debts, addDebt, updateDebt, deleteDebt, resetDebtValues, updateDebtOrder, isLoading } = useDebt();
+  const { debts, addDebt, updateDebt, deleteDebt, resetDebtValues, updateDebtOrder, toggleDebtPaid, isLoading } = useDebt();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
 
@@ -158,7 +169,7 @@ export function DebtTable() {
   const renderLoadingSkeleton = () => (
     Array.from({ length: 3 }).map((_, i) => (
       <TableRow key={`skeleton-${i}`}>
-        <TableCell colSpan={7}><Skeleton className="h-8 w-full" /></TableCell>
+        <TableCell colSpan={8}><Skeleton className="h-8 w-full" /></TableCell>
       </TableRow>
     ))
   );
@@ -213,6 +224,7 @@ export function DebtTable() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[24px] p-0"></TableHead>
+                <TableHead className="w-[50px]">Paid</TableHead>
                 <TableHead>Debt Name</TableHead>
                 <TableHead className="text-right">Balance</TableHead>
                 <TableHead className="text-right">Minimum Payment</TableHead>
@@ -232,12 +244,13 @@ export function DebtTable() {
                           debt={debt} 
                           onEdit={handleEdit} 
                           onDelete={deleteDebt}
+                          onTogglePaid={toggleDebtPaid}
                           formatCurrency={formatCurrency}
                       />
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={7} className="h-24 text-center">
+                      <TableCell colSpan={8} className="h-24 text-center">
                         No debts entered yet. Add one to get started!
                       </TableCell>
                     </TableRow>
@@ -246,7 +259,7 @@ export function DebtTable() {
             </TableBody>
             <TableFooter>
               <TableRow>
-                <TableCell colSpan={2} className="font-semibold">Totals</TableCell>
+                <TableCell colSpan={3} className="font-semibold">Totals</TableCell>
                 <TableCell className="text-right font-semibold">{formatCurrency(totalBalance)}</TableCell>
                 <TableCell className="text-right font-semibold">{formatCurrency(totalMinimumPayment)}</TableCell>
                 <TableCell className="text-right font-semibold">{formatCurrency(totalActualPayment)}</TableCell>
