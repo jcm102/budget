@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, RotateCcw, GripVertical } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, RotateCcw, GripVertical, View } from 'lucide-react';
 import type { Debt } from '@/types';
 import {
   DndContext,
@@ -32,6 +32,14 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -49,15 +57,22 @@ import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
 import { Checkbox } from './ui/checkbox';
 
+
+type ColumnVisibility = {
+    [key in keyof Debt | 'actions']?: boolean;
+};
+
+
 type SortableDebtRowProps = {
   debt: Debt;
   onEdit: (debt: Debt) => void;
   onDelete: (id: string) => void;
   onTogglePaid: (id: string) => void;
   formatCurrency: (amount: number) => string;
+  columnVisibility: ColumnVisibility;
 };
 
-function SortableDebtRow({ debt, onEdit, onDelete, onTogglePaid, formatCurrency }: SortableDebtRowProps) {
+function SortableDebtRow({ debt, onEdit, onDelete, onTogglePaid, formatCurrency, columnVisibility }: SortableDebtRowProps) {
   const {
     attributes,
     listeners,
@@ -78,20 +93,20 @@ function SortableDebtRow({ debt, onEdit, onDelete, onTogglePaid, formatCurrency 
                 <GripVertical className="h-4 w-4 text-muted-foreground" />
             </Button>
         </TableCell>
-        <TableCell>
+        {columnVisibility.paid && <TableCell>
             <Checkbox
               checked={debt.paid}
               onCheckedChange={() => onTogglePaid(debt.id)}
               aria-label={`Mark ${debt.name} as paid`}
               className="mr-2"
             />
-        </TableCell>
-        <TableCell className={cn("font-medium", debt.paid && "line-through")}>{debt.name}</TableCell>
-        <TableCell className="text-right">{formatCurrency(debt.balance)}</TableCell>
-        <TableCell className="text-right">{formatCurrency(debt.minimumPayment)}</TableCell>
-        <TableCell className="text-right">{formatCurrency(debt.actualPayment)}</TableCell>
-        <TableCell>{format(new Date(debt.dueDate), 'PPP')}</TableCell>
-        <TableCell className="text-right">
+        </TableCell>}
+        {columnVisibility.name && <TableCell className={cn("font-medium", debt.paid && "line-through")}>{debt.name}</TableCell>}
+        {columnVisibility.balance && <TableCell className="text-right">{formatCurrency(debt.balance)}</TableCell>}
+        {columnVisibility.minimumPayment && <TableCell className="text-right">{formatCurrency(debt.minimumPayment)}</TableCell>}
+        {columnVisibility.actualPayment && <TableCell className="text-right">{formatCurrency(debt.actualPayment)}</TableCell>}
+        {columnVisibility.dueDate && <TableCell>{format(new Date(debt.dueDate), 'PPP')}</TableCell>}
+        {columnVisibility.actions && <TableCell className="text-right">
         <div className="flex justify-end gap-2">
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(debt)}>
             <Pencil className="h-4 w-4" />
@@ -118,7 +133,7 @@ function SortableDebtRow({ debt, onEdit, onDelete, onTogglePaid, formatCurrency 
             </AlertDialogContent>
             </AlertDialog>
         </div>
-        </TableCell>
+        </TableCell>}
     </TableRow>
   );
 }
@@ -128,6 +143,26 @@ export function DebtTable() {
   const { debts, addDebt, updateDebt, deleteDebt, resetDebtValues, updateDebtOrder, toggleDebtPaid, isLoading } = useDebt();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
+    paid: true,
+    name: true,
+    balance: true,
+    minimumPayment: true,
+    actualPayment: true,
+    dueDate: true,
+    actions: true,
+  });
+
+  const columnConfig = {
+    paid: { label: 'Paid' },
+    name: { label: 'Debt Name' },
+    balance: { label: 'Balance', isNumeric: true },
+    minimumPayment: { label: 'Min. Payment', isNumeric: true },
+    actualPayment: { label: 'Actual Payment', isNumeric: true },
+    dueDate: { label: 'Due Date' },
+    actions: { label: 'Actions', isAction: true },
+  };
+
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -165,11 +200,13 @@ export function DebtTable() {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
+  
+  const visibleColumns = Object.keys(columnConfig).filter(key => columnVisibility[key as keyof ColumnVisibility]);
 
   const renderLoadingSkeleton = () => (
     Array.from({ length: 3 }).map((_, i) => (
       <TableRow key={`skeleton-${i}`}>
-        <TableCell colSpan={8}><Skeleton className="h-8 w-full" /></TableCell>
+        <TableCell colSpan={visibleColumns.length + 1}><Skeleton className="h-8 w-full" /></TableCell>
       </TableRow>
     ))
   );
@@ -212,6 +249,33 @@ export function DebtTable() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+          <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <View className="mr-2 h-4 w-4" />
+                  View
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[180px]">
+                <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {Object.entries(columnConfig).map(([key, { label }]) => (
+                   <DropdownMenuCheckboxItem
+                    key={key}
+                    className="capitalize"
+                    checked={columnVisibility[key as keyof ColumnVisibility]}
+                    onCheckedChange={(value) =>
+                      setColumnVisibility((prev) => ({
+                        ...prev,
+                        [key]: !!value,
+                      }))
+                    }
+                  >
+                    {label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           <Button onClick={() => setIsFormOpen(true)}>
             <PlusCircle className="mr-2 h-5 w-5" />
             Add Debt
@@ -224,13 +288,15 @@ export function DebtTable() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[24px] p-0"></TableHead>
-                <TableHead className="w-[50px]">Paid</TableHead>
-                <TableHead>Debt Name</TableHead>
-                <TableHead className="text-right">Balance</TableHead>
-                <TableHead className="text-right">Minimum Payment</TableHead>
-                <TableHead className="text-right">Actual Payment</TableHead>
-                <TableHead>Due Date</TableHead>
-                <TableHead className="w-[100px] text-right">Actions</TableHead>
+                {Object.entries(columnConfig).map(([key, { label, isNumeric, isAction }]) => (
+                    columnVisibility[key as keyof ColumnVisibility] && (
+                        <TableHead key={key} className={cn(
+                            isNumeric && "text-right",
+                            isAction && "w-[100px] text-right",
+                            key === 'paid' && "w-[50px]"
+                        )}>{label}</TableHead>
+                    )
+                ))}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -246,11 +312,12 @@ export function DebtTable() {
                           onDelete={deleteDebt}
                           onTogglePaid={toggleDebtPaid}
                           formatCurrency={formatCurrency}
+                          columnVisibility={columnVisibility}
                       />
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={8} className="h-24 text-center">
+                      <TableCell colSpan={visibleColumns.length + 1} className="h-24 text-center">
                         No debts entered yet. Add one to get started!
                       </TableCell>
                     </TableRow>
@@ -259,11 +326,11 @@ export function DebtTable() {
             </TableBody>
             <TableFooter>
               <TableRow>
-                <TableCell colSpan={3} className="font-semibold">Totals</TableCell>
-                <TableCell className="text-right font-semibold">{formatCurrency(totalBalance)}</TableCell>
-                <TableCell className="text-right font-semibold">{formatCurrency(totalMinimumPayment)}</TableCell>
-                <TableCell className="text-right font-semibold">{formatCurrency(totalActualPayment)}</TableCell>
-                <TableCell colSpan={2}></TableCell>
+                <TableCell colSpan={visibleColumns.indexOf('balance')}>Totals</TableCell>
+                {columnVisibility.balance && <TableCell className="text-right font-semibold">{formatCurrency(totalBalance)}</TableCell>}
+                {columnVisibility.minimumPayment && <TableCell className="text-right font-semibold">{formatCurrency(totalMinimumPayment)}</TableCell>}
+                {columnVisibility.actualPayment && <TableCell className="text-right font-semibold">{formatCurrency(totalActualPayment)}</TableCell>}
+                <TableCell colSpan={visibleColumns.filter(c => c !== 'balance' && c !== 'minimumPayment' && c !== 'actualPayment' && c !== 'name' && c !== 'paid').length}></TableCell>
               </TableRow>
             </TableFooter>
           </Table>
