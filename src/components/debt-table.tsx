@@ -104,7 +104,7 @@ function SortableDebtRow({ debt, onEdit, onDelete, onTogglePaid, formatCurrency,
         {columnVisibility.name && <TableCell className={cn("font-medium", debt.paid && "line-through")}>{debt.name}</TableCell>}
         {columnVisibility.balance && <TableCell className="text-right">{formatCurrency(debt.balance)}</TableCell>}
         {columnVisibility.minimumPayment && <TableCell className="text-right">{formatCurrency(debt.minimumPayment)}</TableCell>}
-        {columnVisibility.actualPayment && <TableCell className="text-right">{formatCurrency(debt.actualPayment)}</TableCell>}
+        {columnVisibility.actualPayment && <TableCell className="text-right font-bold">{formatCurrency(debt.actualPayment)}</TableCell>}
         {columnVisibility.dueDate && <TableCell>{format(new Date(debt.dueDate), 'PPP')}</TableCell>}
         {columnVisibility.actions && <TableCell className="text-right">
         <div className="flex justify-end gap-2">
@@ -329,7 +329,7 @@ export function DebtTable() {
                 <TableCell colSpan={visibleColumns.indexOf('balance')}>Totals</TableCell>
                 {columnVisibility.balance && <TableCell className="text-right font-semibold">{formatCurrency(totalBalance)}</TableCell>}
                 {columnVisibility.minimumPayment && <TableCell className="text-right font-semibold">{formatCurrency(totalMinimumPayment)}</TableCell>}
-                {columnVisibility.actualPayment && <TableCell className="text-right font-semibold">{formatCurrency(totalActualPayment)}</TableCell>}
+                {columnVisibility.actualPayment && <TableCell className="text-right font-bold">{formatCurrency(totalActualPayment)}</TableCell>}
                 <TableCell colSpan={visibleColumns.filter(c => c !== 'balance' && c !== 'minimumPayment' && c !== 'actualPayment' && c !== 'name' && c !== 'paid').length}></TableCell>
               </TableRow>
             </TableFooter>
