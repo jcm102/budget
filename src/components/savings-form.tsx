@@ -31,11 +31,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { SavingsItem, SavingsPurchaseFrequency } from '@/types';
+import { Switch } from './ui/switch';
 
 const formSchema = z.object({
   expense: z.string().min(2, 'Expense name must be at least 2 characters.'),
   purchaseFrequency: z.enum(['Semi-Annually', 'Annually', 'Every 2 Years', 'Every 3 Years', 'Every 4 Years', 'Every 5 Years']),
   cost: z.coerce.number().min(0, 'Cost must be a positive number.'),
+  isSplit: z.boolean(),
   annualIncrease: z.coerce.number().min(0, 'Annual increase must be a positive number.'),
   renewalDate: z.string().min(1, 'A renewal date is required.'),
   totalBudgeted: z.coerce.number().min(0, 'Total budgeted must be a positive number.'),
@@ -56,6 +58,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
       expense: '',
       purchaseFrequency: 'Annually',
       cost: 0,
+      isSplit: false,
       annualIncrease: 0,
       renewalDate: '',
       totalBudgeted: 0,
@@ -69,6 +72,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
           expense: editingItem.expense,
           purchaseFrequency: editingItem.purchaseFrequency,
           cost: editingItem.cost,
+          isSplit: editingItem.isSplit || false,
           annualIncrease: editingItem.annualIncrease,
           renewalDate: new Date(editingItem.renewalDate).toISOString().split('T')[0],
           totalBudgeted: editingItem.totalBudgeted,
@@ -78,6 +82,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
           expense: '',
           purchaseFrequency: 'Annually',
           cost: 0,
+          isSplit: false,
           annualIncrease: 0,
           renewalDate: new Date().toISOString().split('T')[0],
           totalBudgeted: 0,
@@ -140,14 +145,32 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
                 </FormItem>
               )}
             />
-            <FormField control={form.control} name="cost" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Prior Cost</FormLabel>
-                  <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="flex gap-4">
+                <FormField control={form.control} name="cost" render={({ field }) => (
+                    <FormItem className="flex-grow">
+                    <FormLabel>Prior Cost</FormLabel>
+                    <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                 <FormField
+                    control={form.control}
+                    name="isSplit"
+                    render={({ field }) => (
+                    <FormItem className="flex flex-col items-start justify-center">
+                        <FormLabel>Cost is Split?</FormLabel>
+                        <FormControl>
+                        <Switch
+                            className="mt-2"
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                        />
+                        </FormControl>
+                    </FormItem>
+                    )}
+                />
+            </div>
              <FormField control={form.control} name="annualIncrease" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Annual Increase %</FormLabel>

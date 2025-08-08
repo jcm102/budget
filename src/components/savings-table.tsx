@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { format, addMonths } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, Check, ShoppingCart, View } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, Check, ShoppingCart, View, Users } from 'lucide-react';
 import type { SavingsItem } from '@/types';
 
 import {
@@ -55,28 +55,30 @@ export function SavingsTable() {
     expense: true,
     purchaseFrequency: true,
     cost: true,
+    isSplit: true,
     annualIncrease: true,
     budgetedCost: true,
     monthlyCost: true,
     renewalDate: true,
-    monthsRemaining: true,
-    budgetedThisMonth: true,
+    monthsRemaining: false,
+    budgetedThisMonth: false,
     totalBudgeted: true,
     actions: true,
   });
 
   const columnConfig = {
-    expense: { label: 'Expense', default: true },
-    purchaseFrequency: { label: 'Frequency', default: true },
-    cost: { label: 'Prior Cost', default: true, isNumeric: true },
-    annualIncrease: { label: 'Ann. Increase %', default: false, isNumeric: true },
-    budgetedCost: { label: 'Budgeted Cost', default: true, isNumeric: true },
-    monthlyCost: { label: 'Monthly Cost', default: true, isNumeric: true },
-    renewalDate: { label: 'Renewal Date', default: true },
-    monthsRemaining: { label: 'Months Rem.', default: false },
-    budgetedThisMonth: { label: 'Budgeted This Month', default: false, isNumeric: true },
-    totalBudgeted: { label: 'Total Budgeted', default: true, isNumeric: true },
-    actions: { label: 'Actions', default: true, isAction: true },
+    expense: { label: 'Expense' },
+    purchaseFrequency: { label: 'Frequency' },
+    cost: { label: 'Prior Cost', isNumeric: true },
+    isSplit: { label: 'Split?'},
+    annualIncrease: { label: 'Ann. Increase %', isNumeric: true },
+    budgetedCost: { label: 'Budgeted Cost', isNumeric: true },
+    monthlyCost: { label: 'Monthly Cost', isNumeric: true },
+    renewalDate: { label: 'Renewal Date' },
+    monthsRemaining: { label: 'Months Rem.' },
+    budgetedThisMonth: { label: 'Budgeted This Month', isNumeric: true },
+    totalBudgeted: { label: 'Total Budgeted', isNumeric: true },
+    actions: { label: 'Actions', isAction: true },
   };
 
   const handleEdit = (item: SavingsItem) => {
@@ -99,7 +101,8 @@ export function SavingsTable() {
       const renewalDate = new Date(item.renewalDate);
       const now = new Date(referenceDate);
       
-      let budgetedCost = item.cost;
+      const costBasis = item.isSplit ? item.cost / 2 : item.cost;
+      let budgetedCost = costBasis;
 
       const yearsMap = {
         'Semi-Annually': 0.5, 'Annually': 1, 'Every 2 Years': 2, 'Every 3 Years': 3, 'Every 4 Years': 4, 'Every 5 Years': 5
@@ -260,6 +263,9 @@ export function SavingsTable() {
                                 {columnVisibility.expense && <TableCell className="font-medium">{item.expense}</TableCell>}
                                 {columnVisibility.purchaseFrequency && <TableCell><Badge variant="secondary">{item.purchaseFrequency}</Badge></TableCell>}
                                 {columnVisibility.cost && <TableCell className="text-right">{formatCurrency(item.cost)}</TableCell>}
+                                {columnVisibility.isSplit && <TableCell>
+                                    {item.isSplit && <Badge variant="outline" className="flex items-center gap-1"><Users className="h-3 w-3"/>Split</Badge>}
+                                </TableCell>}
                                 {columnVisibility.annualIncrease && <TableCell className="text-right">{item.annualIncrease.toFixed(2)}%</TableCell>}
                                 {columnVisibility.budgetedCost && <TableCell className="text-right">{formatCurrency(budgetedCost)}</TableCell>}
                                 {columnVisibility.monthlyCost && <TableCell className="text-right">{formatCurrency(monthlyCost)}</TableCell>}

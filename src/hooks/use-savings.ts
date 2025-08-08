@@ -83,7 +83,8 @@ export function useSavings() {
     const updatedItems = savingsItems.map(item => {
       const renewalDate = new Date(item.renewalDate);
       const now = new Date();
-      let budgetedCost = item.cost;
+      const costBasis = item.isSplit ? item.cost / 2 : item.cost;
+      let budgetedCost = costBasis;
       
       const yearsMap = {
         'Semi-Annually': 0.5, 'Annually': 1, 'Every 2 Years': 2, 'Every 3 Years': 3, 'Every 4 Years': 4, 'Every 5 Years': 5

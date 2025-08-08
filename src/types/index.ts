@@ -1,4 +1,5 @@
 
+
 export type TaskFrequency = "daily" | "weekly" | "monthly";
 
 export const internalPages = [
@@ -110,6 +111,7 @@ export interface SavingsItem {
   expense: string;
   purchaseFrequency: SavingsPurchaseFrequency;
   cost: number;
+  isSplit: boolean;
   annualIncrease: number;
   renewalDate: string; // ISO string
   totalBudgeted: number;

@@ -64,7 +64,8 @@ export async function recordPurchase(itemId: string): Promise<void> {
   const now = new Date();
 
   // --- Calculate current budgeted cost ---
-  let budgetedCost = item.cost;
+  const costBasis = item.isSplit ? item.cost / 2 : item.cost;
+  let budgetedCost = costBasis;
   const yearsMap = {
     'Semi-Annually': 0.5, 'Annually': 1, 'Every 2 Years': 2, 'Every 3 Years': 3, 'Every 4 Years': 4, 'Every 5 Years': 5
   };
