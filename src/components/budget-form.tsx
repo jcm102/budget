@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -32,6 +33,8 @@ import {
 import type { BudgetItem, BudgetItemType, BudgetItemFrequency } from '@/types';
 import { useIncomeCategories } from '@/hooks/use-income-categories';
 import { useTransferees } from '@/hooks/use-transferees';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Separator } from './ui/separator';
 
 const formSchema = z.object({
     description: z.string().min(2, 'Description must be at least 2 characters.'),
@@ -63,6 +66,7 @@ type BudgetFormProps = {
 export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem, editingItem }: BudgetFormProps) {
   const { categories: incomeCategories } = useIncomeCategories();
   const { transferees } = useTransferees();
+  const [split, setSplit] = useState({ savings: 0, charity: 0, fun: 0 });
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -79,6 +83,22 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
   });
 
   const itemType = form.watch('type');
+  const category = form.watch('category');
+  const amount = form.watch('amount');
+
+  const showCalculator = itemType === 'Income' && category === 'Misc.';
+
+  useEffect(() => {
+    if (showCalculator) {
+      const splitAmount = amount / 3;
+      setSplit({
+        savings: splitAmount,
+        charity: splitAmount,
+        fun: splitAmount,
+      });
+    }
+  }, [amount, showCalculator]);
+
 
   const toLocalISOString = (date: Date) => {
     const tzOffset = -date.getTimezoneOffset();
@@ -126,7 +146,9 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
     if (itemType !== 'Income') {
         form.setValue('category', 'N/A');
     } else {
-        form.setValue('category', '');
+        if(form.getValues('category') === 'N/A'){
+             form.setValue('category', '');
+        }
     }
      if (itemType !== 'Transfers') {
       form.setValue('transferFrom', undefined);
@@ -154,9 +176,11 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
     onOpenChange(false);
   }
 
+  const formatCurrency = (value: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{editingItem ? 'Edit Item' : 'Add New Item'}</DialogTitle>
           <DialogDescription>
@@ -191,7 +215,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                 </FormItem>
               )}
             />
-             {itemType === 'Income' ? (
+             {itemType === 'Income' && (
                 <FormField control={form.control} name="category" render={({ field }) => (
                     <FormItem>
                     <FormLabel>Category</FormLabel>
@@ -209,9 +233,6 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                     </FormItem>
                 )}
                 />
-             ) : (
-                // Hidden or non-existent for other types
-                <></>
              )}
             <FormField control={form.control} name="amount" render={({ field }) => (
                 <FormItem>
@@ -221,6 +242,32 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                 </FormItem>
               )}
             />
+
+            {showCalculator && (
+                 <Card className="bg-secondary/50">
+                    <CardHeader className="p-4">
+                        <CardTitle className="text-base">Split Calculator</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-0 text-sm">
+                        <div className="space-y-2">
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">Savings/Debt:</span>
+                                <span className="font-medium">{formatCurrency(split.savings)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">Charity:</span>
+                                <span className="font-medium">{formatCurrency(split.charity)}</span>
+                            </div>
+                             <div className="flex justify-between">
+                                <span className="text-muted-foreground">Fun:</span>
+                                <span className="font-medium">{formatCurrency(split.fun)}</span>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
+
             {itemType === 'Transfers' && (
               <>
                 <FormField control={form.control} name="transferFrom" render={({ field }) => (
