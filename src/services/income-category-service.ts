@@ -13,7 +13,8 @@ import {
   addDoc,
   writeBatch,
   getDoc,
-  limit
+  limit,
+  where
 } from 'firebase/firestore';
 
 const CATEGORY_COLLECTION = 'income-categories';
