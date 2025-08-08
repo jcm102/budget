@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -78,15 +79,7 @@ function SubtaskItem({ subtask, linkGroups, onToggle, onDelete, onEdit }: Subtas
 
     if (linksToOpen) {
       linksToOpen.forEach(link => {
-        // Internal links start with '/', external links should have a protocol
-        if (link.startsWith('/')) {
-            // It's an internal link, let Next.js handle it
-            // This requires changing the button to a Link component, or using router.push
-            // For now, we will just do a standard window navigation
-            window.open(window.location.origin + link, '_blank', 'noopener,noreferrer');
-        } else {
-            window.open(link, '_blank', 'noopener,noreferrer');
-        }
+        window.open(link, '_blank', 'noopener,noreferrer');
       });
     }
   };
@@ -211,8 +204,6 @@ export function TaskItem({
     let links: string[] = [];
     if (data.linkType === 'manual') {
         links = data.links?.map((l:any) => l.value).filter(Boolean) || [];
-    } else if (data.linkType === 'internal' && data.internalLink) {
-        links = [data.internalLink];
     }
     
     const submissionData = {
@@ -250,11 +241,7 @@ export function TaskItem({
 
     if (linksToOpen) {
       linksToOpen.forEach(link => {
-        if (link.startsWith('/')) {
-            window.open(window.location.origin + link, '_blank', 'noopener,noreferrer');
-        } else {
-            window.open(link, '_blank', 'noopener,noreferrer');
-        }
+        window.open(link, '_blank', 'noopener,noreferrer');
       });
     }
   };
@@ -324,7 +311,7 @@ export function TaskItem({
                     className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10"
                     onClick={handleOpenLinks}
                   >
-                    {task.links && task.links.some(l => l.startsWith('/')) ? <ArrowRight className="h-4 w-4" /> : <LinkIcon className="h-4 w-4" />}
+                    <LinkIcon className="h-4 w-4" />
                     <span className="sr-only">Open link(s)</span>
                   </Button>
                 )}

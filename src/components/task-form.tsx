@@ -50,10 +50,9 @@ const formSchema = z.object({
     required_error: 'Please select a frequency.',
   }),
   dueDate: z.date().optional(),
-  linkType: z.enum(['none', 'group', 'manual', 'internal']).default('none'),
+  linkType: z.enum(['none', 'group', 'manual']).default('none'),
   linkGroupId: z.string().optional(),
   links: z.array(z.object({ value: z.string().url({ message: "Please enter a valid URL." }) })).optional(),
-  internalLink: z.string().optional(),
 }).superRefine((data, ctx) => {
     if (data.linkType === 'group' && !data.linkGroupId) {
         ctx.addIssue({
@@ -69,24 +68,8 @@ const formSchema = z.object({
             path: ['links'],
         });
     }
-    if (data.linkType === 'internal' && !data.internalLink) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "Please select an internal page.",
-            path: ['internalLink'],
-        });
-    }
 });
 
-
-const internalPages = [
-    { value: '/', label: 'Home' },
-    { value: '/debt', label: 'Debt Payment Worksheet' },
-    { value: '/budget', label: 'Budget Overview' },
-    { value: '/expenses', label: 'Work Expense Tracking' },
-    { value: '/savings', label: 'Future Spending' },
-    { value: '/settings', label: 'Settings' },
-];
 
 type TaskFormProps = {
   open: boolean;
@@ -111,7 +94,6 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
       linkType: 'none',
       linkGroupId: '',
       links: [{ value: '' }],
-      internalLink: '',
     },
   });
 
@@ -125,19 +107,12 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
   useEffect(() => {
     if (open) {
       if (editingTask) {
-        let type: 'group' | 'manual' | 'none' | 'internal' = 'none';
-        let internalLinkValue = '';
+        let type: 'group' | 'manual' | 'none' = 'none';
 
         if (editingTask.linkGroupId) {
           type = 'group';
         } else if (editingTask.links && editingTask.links.length > 0) {
-          const isInternal = internalPages.some(p => p.value === editingTask.links![0]);
-          if (isInternal) {
-              type = 'internal';
-              internalLinkValue = editingTask.links![0];
-          } else {
-              type = 'manual';
-          }
+          type = 'manual';
         }
         form.reset({
           description: editingTask.description,
@@ -147,7 +122,6 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
           linkType: type,
           linkGroupId: editingTask.linkGroupId || '',
           links: editingTask.links && editingTask.links.length > 0 ? editingTask.links.map(l => ({value: l})) : [{ value: '' }],
-          internalLink: internalLinkValue,
         });
       } else {
         form.reset({
@@ -158,7 +132,6 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
           linkType: 'none',
           linkGroupId: '',
           links: [{ value: '' }],
-          internalLink: '',
         });
       }
     }
@@ -201,8 +174,6 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
     let links: string[] = [];
     if (values.linkType === 'manual') {
         links = values.links?.map(l => l.value).filter(Boolean) || [];
-    } else if (values.linkType === 'internal' && values.internalLink) {
-        links = [values.internalLink];
     }
     
     const submissionData = {
@@ -233,7 +204,7 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="description"
@@ -353,7 +324,7 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
                        <RadioGroup
                           onValueChange={field.onChange}
                           value={field.value}
-                          className="grid grid-cols-2 gap-x-4 gap-y-2"
+                          className="grid grid-cols-3 gap-x-4 gap-y-2"
                         >
                             <FormItem className="flex items-center space-x-2 space-y-0">
                                 <FormControl><RadioGroupItem value="none" /></FormControl>
@@ -366,10 +337,6 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
                             <FormItem className="flex items-center space-x-2 space-y-0">
                                 <FormControl><RadioGroupItem value="manual" /></FormControl>
                                 <FormLabel className="font-normal">Manual Links</FormLabel>
-                            </FormItem>
-                             <FormItem className="flex items-center space-x-2 space-y-0">
-                                <FormControl><RadioGroupItem value="internal" /></FormControl>
-                                <FormLabel className="font-normal">Internal Page</FormLabel>
                             </FormItem>
                         </RadioGroup>
                     </FormControl>
@@ -439,33 +406,6 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
                     Add Link
                 </Button>
               </div>
-            )}
-
-            {linkType === 'internal' && (
-                <FormField
-                    control={form.control}
-                    name="internalLink"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Internal Page</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value || ''}>
-                                <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select a page" />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {internalPages.map(page => (
-                                        <SelectItem key={page.value} value={page.value}>
-                                            {page.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
             )}
             <DialogFooter>
                <Button type="submit">{editingTask ? 'Save Changes' : 'Add Task'}</Button>

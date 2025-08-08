@@ -31,10 +31,9 @@ import { PlusCircle, Trash2 } from 'lucide-react';
 
 const formSchema = z.object({
   description: z.string().min(2, 'Description must be at least 2 characters.'),
-  linkType: z.enum(['none', 'group', 'manual', 'internal']).default('none'),
+  linkType: z.enum(['none', 'group', 'manual']).default('none'),
   linkGroupId: z.string().optional(),
   links: z.array(z.object({ value: z.string().url({ message: "Please enter a valid URL." }) })).optional(),
-  internalLink: z.string().optional(),
 }).superRefine((data, ctx) => {
     if (data.linkType === 'group' && !data.linkGroupId) {
         ctx.addIssue({
@@ -50,24 +49,8 @@ const formSchema = z.object({
             path: ['links'],
         });
     }
-    if (data.linkType === 'internal' && !data.internalLink) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "Please select an internal page.",
-            path: ['internalLink'],
-        });
-    }
 });
 
-
-const internalPages = [
-    { value: '/', label: 'Home' },
-    { value: '/debt', label: 'Debt Payment Worksheet' },
-    { value: '/budget', label: 'Budget Overview' },
-    { value: '/expenses', label: 'Work Expense Tracking' },
-    { value: '/savings', label: 'Future Spending' },
-    { value: '/settings', label: 'Settings' },
-];
 
 type SubtaskFormProps = {
   open: boolean;
@@ -86,7 +69,6 @@ export function SubtaskForm({ open, onOpenChange, onSave, editingSubtask }: Subt
       linkType: 'none',
       linkGroupId: '',
       links: [{ value: '' }],
-      internalLink: '',
     },
   });
 
@@ -100,26 +82,18 @@ export function SubtaskForm({ open, onOpenChange, onSave, editingSubtask }: Subt
   useEffect(() => {
     if (open) {
       if (editingSubtask) {
-        let type: 'group' | 'manual' | 'none' | 'internal' = 'none';
-        let internalLinkValue = '';
+        let type: 'group' | 'manual' | 'none' = 'none';
 
         if (editingSubtask.linkGroupId) {
             type = 'group';
         } else if (editingSubtask.links && editingSubtask.links.length > 0) {
-            const isInternal = internalPages.some(p => p.value === editingSubtask.links![0]);
-            if (isInternal) {
-                type = 'internal';
-                internalLinkValue = editingSubtask.links![0];
-            } else {
-                type = 'manual';
-            }
+            type = 'manual';
         }
         form.reset({
           description: editingSubtask.description,
           linkType: type,
           linkGroupId: editingSubtask.linkGroupId || '',
           links: editingSubtask.links && editingSubtask.links.length > 0 ? editingSubtask.links.map(l => ({value: l})) : [{ value: '' }],
-          internalLink: internalLinkValue,
         });
       } else {
         form.reset({
@@ -127,7 +101,6 @@ export function SubtaskForm({ open, onOpenChange, onSave, editingSubtask }: Subt
           linkType: 'none',
           linkGroupId: '',
           links: [{ value: '' }],
-          internalLink: '',
         });
       }
     }
@@ -173,7 +146,7 @@ export function SubtaskForm({ open, onOpenChange, onSave, editingSubtask }: Subt
                       <RadioGroup
                         onValueChange={field.onChange}
                         value={field.value}
-                        className="grid grid-cols-2 gap-x-4 gap-y-2"
+                        className="grid grid-cols-3 gap-x-4 gap-y-2"
                       >
                           <FormItem className="flex items-center space-x-2 space-y-0">
                               <FormControl><RadioGroupItem value="none" /></FormControl>
@@ -186,10 +159,6 @@ export function SubtaskForm({ open, onOpenChange, onSave, editingSubtask }: Subt
                           <FormItem className="flex items-center space-x-2 space-y-0">
                               <FormControl><RadioGroupItem value="manual" /></FormControl>
                               <FormLabel className="font-normal">Manual Links</FormLabel>
-                          </FormItem>
-                          <FormItem className="flex items-center space-x-2 space-y-0">
-                              <FormControl><RadioGroupItem value="internal" /></FormControl>
-                              <FormLabel className="font-normal">Internal Page</FormLabel>
                           </FormItem>
                       </RadioGroup>
                   </FormControl>
@@ -260,34 +229,6 @@ export function SubtaskForm({ open, onOpenChange, onSave, editingSubtask }: Subt
                 </Button>
               </div>
             )}
-
-             {linkType === 'internal' && (
-                <FormField
-                    control={form.control}
-                    name="internalLink"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Internal Page</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value || ''}>
-                                <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select a page" />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {internalPages.map(page => (
-                                        <SelectItem key={page.value} value={page.value}>
-                                            {page.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-            )}
-
             <DialogFooter>
                 <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
                 <Button type="submit">{editingSubtask ? 'Save Changes' : 'Add Subtask'}</Button>
