@@ -21,12 +21,17 @@ const defaultCategories = ['Paycheck', 'Bonus', 'Freelance', 'Misc.', 'Other'];
 
 async function seedDefaultCategories() {
   const categoryCollectionRef = collection(db, CATEGORY_COLLECTION);
-  const q = query(categoryCollectionRef, limit(1));
-  const snapshot = await getDocs(q);
   
-  if (snapshot.empty) {
+  // Check if default categories are already seeded
+  const q = query(collection(db, CATEGORY_COLLECTION), where('name', 'in', defaultCategories));
+  const snapshot = await getDocs(q);
+  const existingNames = snapshot.docs.map(doc => doc.data().name);
+  
+  const missingCategories = defaultCategories.filter(name => !existingNames.includes(name));
+
+  if (missingCategories.length > 0) {
     const batch = writeBatch(db);
-    defaultCategories.forEach(categoryName => {
+    missingCategories.forEach(categoryName => {
       const newDocRef = doc(categoryCollectionRef);
       batch.set(newDocRef, { name: categoryName });
     });
