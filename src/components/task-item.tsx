@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { format, isPast } from 'date-fns';
-import { Trash2, Pencil, Plus, ChevronsUpDown, CheckCircle2, Circle, GripVertical, Link as LinkIcon, ArrowRight } from 'lucide-react';
+import { Trash2, Pencil, Plus, ChevronsUpDown, CheckCircle2, Circle, GripVertical, Link as LinkIcon, ArrowRight, Home } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -70,8 +70,9 @@ function SubtaskItem({ subtask, linkGroups, onToggle, onDelete, onEdit }: Subtas
   };
   
   const associatedLinkGroup = linkGroups.find(lg => lg.id === subtask.linkGroupId);
-  const hasLinks = (associatedLinkGroup && associatedLinkGroup.links.length > 0) || (subtask.links && subtask.links.length > 0);
-  
+  const hasExternalLinks = (associatedLinkGroup && associatedLinkGroup.links.length > 0) || (subtask.links && subtask.links.length > 0);
+  const hasInternalLink = !!subtask.internalLink;
+
   const handleOpenLinks = () => {
     const linksToOpen = subtask.linkGroupId 
       ? associatedLinkGroup?.links 
@@ -103,9 +104,16 @@ function SubtaskItem({ subtask, linkGroups, onToggle, onDelete, onEdit }: Subtas
             {subtask.description}
         </label>
         <div className="flex items-center gap-1 opacity-0 group-hover/subtask:opacity-100 transition-opacity">
-            {hasLinks && (
+            {hasExternalLinks && (
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleOpenLinks}>
                     <LinkIcon className="h-3 w-3" />
+                </Button>
+            )}
+             {hasInternalLink && (
+                 <Button asChild variant="ghost" size="icon" className="h-6 w-6">
+                    <Link href={subtask.internalLink!}>
+                        <Home className="h-3 w-3" />
+                    </Link>
                 </Button>
             )}
             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onEdit}>
@@ -185,7 +193,8 @@ export function TaskItem({
   const sortedSubtasks = (task.subtasks || []).slice().sort((a,b) => a.order - b.order);
 
   const associatedLinkGroup = linkGroups.find(lg => lg.id === task.linkGroupId);
-  const hasLinks = (associatedLinkGroup && associatedLinkGroup.links.length > 0) || (task.links && task.links.length > 0);
+  const hasExternalLinks = (associatedLinkGroup && associatedLinkGroup.links.length > 0) || (task.links && task.links.length > 0);
+  const hasInternalLink = !!task.internalLink;
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -210,6 +219,7 @@ export function TaskItem({
       description: data.description,
       linkGroupId: data.linkType === 'group' ? data.linkGroupId : null,
       links: links,
+      internalLink: data.linkType === 'internal' ? data.internalLink : null,
     };
 
     if (editingSubtask) {
@@ -304,7 +314,7 @@ export function TaskItem({
             </div>
             <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                 {isOverdue && !task.completed && (<Badge variant="destructive">Overdue</Badge>)}
-                {hasLinks && (
+                {hasExternalLinks && (
                    <Button
                     variant="ghost"
                     size="icon"
@@ -313,6 +323,13 @@ export function TaskItem({
                   >
                     <LinkIcon className="h-4 w-4" />
                     <span className="sr-only">Open link(s)</span>
+                  </Button>
+                )}
+                {hasInternalLink && (
+                  <Button asChild variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10">
+                    <Link href={task.internalLink!}>
+                        <Home className="h-4 w-4" />
+                    </Link>
                   </Button>
                 )}
                 <Button

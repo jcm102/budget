@@ -1,3 +1,4 @@
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -83,6 +84,7 @@ export async function addTask(taskData: Omit<Task, 'id' | 'completed' | 'complet
     order,
     linkGroupId: taskData.linkGroupId || null,
     links: taskData.links || [],
+    internalLink: taskData.internalLink || null,
   };
   const docRef = doc(collection(db, TASKS_COLLECTION));
   await setDoc(docRef, newTask);
@@ -128,6 +130,7 @@ export async function addSubtask(taskId: string, data: Omit<Subtask, 'id' | 'com
     order: newOrder,
     links: data.links || [],
     linkGroupId: data.linkGroupId || null,
+    internalLink: data.internalLink || null,
   };
   const updatedSubtasks = [...(task.subtasks || []), newSubtask];
   await updateDoc(taskRef, { subtasks: updatedSubtasks, completed: false, completedAt: null });

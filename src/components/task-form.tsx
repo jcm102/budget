@@ -42,10 +42,11 @@ import type { Task, TaskFrequency } from '@/types';
 import { generateTaskDescription } from '@/ai/flows/generate-task-description';
 import { useLinkGroups } from '@/hooks/use-link-groups';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
+import { internalPages } from '@/types';
+
 
 const linkSchema = z.object({ value: z.string() }).transform(data => {
-    // Treat empty strings as undefined so they can be filtered out
-    return data.value.trim() === '' ? undefined : { value: data.value };
+    return data.value.trim() === '' ? undefined : data;
 }).pipe(z.object({ value: z.string().url({ message: "Please enter a valid URL." }) }).optional());
 
 
@@ -56,9 +57,10 @@ const formSchema = z.object({
     required_error: 'Please select a frequency.',
   }),
   dueDate: z.date().optional(),
-  linkType: z.enum(['none', 'group', 'manual']).default('none'),
+  linkType: z.enum(['none', 'group', 'manual', 'internal']).default('none'),
   linkGroupId: z.string().optional(),
   links: z.array(linkSchema).optional(),
+  internalLink: z.string().optional(),
 }).superRefine((data, ctx) => {
     if (data.linkType === 'group' && !data.linkGroupId) {
         ctx.addIssue({
@@ -76,6 +78,13 @@ const formSchema = z.object({
                 path: ['links'],
             });
         }
+    }
+    if (data.linkType === 'internal' && !data.internalLink) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Please select an internal page.",
+            path: ['internalLink'],
+        });
     }
 });
 
@@ -103,6 +112,7 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
       linkType: 'none',
       linkGroupId: '',
       links: [{ value: '' }],
+      internalLink: '',
     },
   });
 
@@ -116,10 +126,12 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
   useEffect(() => {
     if (open) {
       if (editingTask) {
-        let type: 'group' | 'manual' | 'none' = 'none';
+        let type: 'group' | 'manual' | 'none' | 'internal' = 'none';
 
         if (editingTask.linkGroupId) {
           type = 'group';
+        } else if (editingTask.internalLink) {
+          type = 'internal';
         } else if (editingTask.links && editingTask.links.length > 0) {
           type = 'manual';
         }
@@ -131,6 +143,7 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
           linkType: type,
           linkGroupId: editingTask.linkGroupId || '',
           links: editingTask.links && editingTask.links.length > 0 ? editingTask.links.map(l => ({value: l})) : [{ value: '' }],
+          internalLink: editingTask.internalLink || '',
         });
       } else {
         form.reset({
@@ -141,6 +154,7 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
           linkType: 'none',
           linkGroupId: '',
           links: [{ value: '' }],
+          internalLink: '',
         });
       }
     }
@@ -192,6 +206,7 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
       frequency: values.frequency as TaskFrequency,
       linkGroupId: values.linkType === 'group' ? values.linkGroupId : null,
       links: links,
+      internalLink: values.linkType === 'internal' ? values.internalLink : null,
     };
 
     if (editingTask) {
@@ -333,7 +348,7 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
                        <RadioGroup
                           onValueChange={field.onChange}
                           value={field.value}
-                          className="grid grid-cols-3 gap-x-4 gap-y-2"
+                          className="grid grid-cols-2 gap-x-4 gap-y-2"
                         >
                             <FormItem className="flex items-center space-x-2 space-y-0">
                                 <FormControl><RadioGroupItem value="none" /></FormControl>
@@ -346,6 +361,10 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
                             <FormItem className="flex items-center space-x-2 space-y-0">
                                 <FormControl><RadioGroupItem value="manual" /></FormControl>
                                 <FormLabel className="font-normal">Manual Links</FormLabel>
+                            </FormItem>
+                             <FormItem className="flex items-center space-x-2 space-y-0">
+                                <FormControl><RadioGroupItem value="internal" /></FormControl>
+                                <FormLabel className="font-normal">Internal Page</FormLabel>
                             </FormItem>
                         </RadioGroup>
                     </FormControl>
@@ -415,6 +434,32 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
                     Add Link
                 </Button>
               </div>
+            )}
+            {linkType === 'internal' && (
+              <FormField
+                control={form.control}
+                name="internalLink"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Internal Page</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || ''}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a page to link to" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {internalPages.map(page => (
+                          <SelectItem key={page.path} value={page.path}>
+                            {page.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             )}
             <DialogFooter>
                <Button type="submit">{editingTask ? 'Save Changes' : 'Add Task'}</Button>

@@ -1,6 +1,14 @@
 
 export type TaskFrequency = "daily" | "weekly" | "monthly";
 
+export const internalPages = [
+  { name: 'Debt Worksheet', path: '/debt' },
+  { name: 'Budget Overview', path: '/budget' },
+  { name: 'Work Expenses', path: '/expenses' },
+  { name: 'Future Spending', path: '/savings' },
+  { name: 'Settings', path: '/settings' },
+];
+
 export interface Subtask {
   id: string;
   description: string;
@@ -8,6 +16,7 @@ export interface Subtask {
   order: number;
   links?: string[];
   linkGroupId?: string | null;
+  internalLink?: string | null;
 }
 
 export interface Task {
@@ -22,6 +31,7 @@ export interface Task {
   order: number;
   links?: string[];
   linkGroupId?: string | null;
+  internalLink?: string | null;
 }
 
 export interface Debt {
