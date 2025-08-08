@@ -43,6 +43,12 @@ import { generateTaskDescription } from '@/ai/flows/generate-task-description';
 import { useLinkGroups } from '@/hooks/use-link-groups';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 
+const linkSchema = z.object({ value: z.string() }).transform(data => {
+    // Treat empty strings as undefined so they can be filtered out
+    return data.value.trim() === '' ? undefined : { value: data.value };
+}).pipe(z.object({ value: z.string().url({ message: "Please enter a valid URL." }) }).optional());
+
+
 const formSchema = z.object({
   description: z.string().min(3, 'Description must be at least 3 characters long.'),
   details: z.string().optional(),
@@ -52,7 +58,7 @@ const formSchema = z.object({
   dueDate: z.date().optional(),
   linkType: z.enum(['none', 'group', 'manual']).default('none'),
   linkGroupId: z.string().optional(),
-  links: z.array(z.object({ value: z.string().url({ message: "Please enter a valid URL." }) })).optional(),
+  links: z.array(linkSchema).optional(),
 }).superRefine((data, ctx) => {
     if (data.linkType === 'group' && !data.linkGroupId) {
         ctx.addIssue({
@@ -61,12 +67,15 @@ const formSchema = z.object({
             path: ['linkGroupId'],
         });
     }
-    if (data.linkType === 'manual' && (!data.links || data.links.length === 0 || !data.links.some(l => l.value.trim() !== ''))) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "Please enter at least one valid URL.",
-            path: ['links'],
-        });
+     if (data.linkType === 'manual') {
+        const hasManualLink = data.links?.some(l => l && l.value.trim() !== '');
+        if (!hasManualLink) {
+             ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "Please enter at least one valid URL.",
+                path: ['links'],
+            });
+        }
     }
 });
 
@@ -173,7 +182,7 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
   function onSubmit(values: z.infer<typeof formSchema>) {
     let links: string[] = [];
     if (values.linkType === 'manual') {
-        links = values.links?.map(l => l.value).filter(Boolean) || [];
+        links = values.links?.map(l => l?.value).filter((v): v is string => !!v) || [];
     }
     
     const submissionData = {
@@ -379,12 +388,12 @@ export function TaskForm({ open, onOpenChange, addTask, updateTask, editingTask 
                    <FormField
                         key={field.id}
                         control={form.control}
-                        name={`links.${index}.value`}
-                        render={({ field }) => (
+                        name={`links.${index}`}
+                        render={({ field: fieldProps }) => (
                             <FormItem>
                                 <div className="flex items-center gap-2">
                                     <FormControl>
-                                        <Input {...field} placeholder="https://example.com" />
+                                        <Input {...fieldProps} value={fieldProps.value?.value ?? ''} onChange={(e) => fieldProps.onChange({value: e.target.value})} placeholder="https://example.com" />
                                     </FormControl>
                                     <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length <= 1}>
                                         <Trash2 className="h-4 w-4 text-destructive" />

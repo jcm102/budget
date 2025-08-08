@@ -29,11 +29,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { useLinkGroups } from '@/hooks/use-link-groups';
 import { PlusCircle, Trash2 } from 'lucide-react';
 
+const linkSchema = z.object({ value: z.string() }).transform(data => {
+    // Treat empty strings as undefined so they can be filtered out
+    return data.value.trim() === '' ? undefined : { value: data.value };
+}).pipe(z.object({ value: z.string().url({ message: "Please enter a valid URL." }) }).optional());
+
+
 const formSchema = z.object({
   description: z.string().min(2, 'Description must be at least 2 characters.'),
   linkType: z.enum(['none', 'group', 'manual']).default('none'),
   linkGroupId: z.string().optional(),
-  links: z.array(z.object({ value: z.string().url({ message: "Please enter a valid URL." }) })).optional(),
+  links: z.array(linkSchema).optional(),
 }).superRefine((data, ctx) => {
     if (data.linkType === 'group' && !data.linkGroupId) {
         ctx.addIssue({
@@ -42,12 +48,15 @@ const formSchema = z.object({
             path: ['linkGroupId'],
         });
     }
-    if (data.linkType === 'manual' && (!data.links || data.links.length === 0 || !data.links.some(l => l.value.trim() !== ''))) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "Please enter at least one valid URL.",
-            path: ['links'],
-        });
+    if (data.linkType === 'manual') {
+        const hasManualLink = data.links?.some(l => l && l.value.trim() !== '');
+        if (!hasManualLink) {
+             ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "Please enter at least one valid URL.",
+                path: ['links'],
+            });
+        }
     }
 });
 
@@ -201,12 +210,12 @@ export function SubtaskForm({ open, onOpenChange, onSave, editingSubtask }: Subt
                    <FormField
                         key={field.id}
                         control={form.control}
-                        name={`links.${index}.value`}
-                        render={({ field }) => (
+                        name={`links.${index}`}
+                        render={({ field: fieldProps }) => (
                             <FormItem>
                                 <div className="flex items-center gap-2">
                                     <FormControl>
-                                        <Input {...field} placeholder="https://example.com" />
+                                       <Input {...fieldProps} value={fieldProps.value?.value ?? ''} onChange={(e) => fieldProps.onChange({value: e.target.value})} placeholder="https://example.com" />
                                     </FormControl>
                                     <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length <= 1}>
                                         <Trash2 className="h-4 w-4 text-destructive" />
