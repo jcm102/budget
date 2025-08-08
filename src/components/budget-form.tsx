@@ -86,7 +86,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
   const category = form.watch('category');
   const amount = form.watch('amount');
 
-  const showCalculator = itemType === 'Income' && category === 'Other';
+  const showCalculator = itemType === 'Income' && category === 'Misc. Income';
 
   useEffect(() => {
     if (showCalculator) {
