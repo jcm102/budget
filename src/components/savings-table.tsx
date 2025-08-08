@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { format, addMonths, differenceInYears } from 'date-fns';
+import { format, addMonths, differenceInYears, differenceInMonths } from 'date-fns';
 import { Pencil, Trash2, PlusCircle, Check, ShoppingCart, View, Users } from 'lucide-react';
 import type { SavingsItem } from '@/types';
 
@@ -98,41 +98,38 @@ export function SavingsTable() {
   };
   
   const calculateValues = (item: SavingsItem, referenceDate = new Date()) => {
-      const originalRenewalDate = new Date(item.renewalDate);
       const now = new Date(referenceDate);
+      const renewalDate = new Date(item.renewalDate);
 
+      // Determine the cost basis (full or split)
       const costBasis = item.isSplit ? item.cost / 2 : item.cost;
       
+      // Calculate the next cost by applying the annual increase to the prior cost
+      const budgetedCost = costBasis * (1 + item.annualIncrease / 100);
+
+      // Determine the next renewal date
       const yearsMap = {
         'Semi-Annually': 0.5, 'Annually': 1, 'Every 2 Years': 2, 'Every 3 Years': 3, 'Every 4 Years': 4, 'Every 5 Years': 5
       };
-      const purchaseIntervalYears = yearsMap[item.purchaseFrequency];
-      const purchaseIntervalMonths = purchaseIntervalYears * 12;
+      const purchaseIntervalMonths = yearsMap[item.purchaseFrequency] * 12;
 
-      let nextRenewalDate = new Date(originalRenewalDate);
+      let nextRenewalDate = new Date(renewalDate);
       while (nextRenewalDate < now) {
           nextRenewalDate = addMonths(nextRenewalDate, purchaseIntervalMonths);
       }
       
-      // Calculate how many cycles have passed to apply the increase correctly
-      const yearsSinceFirstRenewal = differenceInYears(nextRenewalDate, originalRenewalDate);
-      const numberOfIncreases = Math.floor(yearsSinceFirstRenewal / purchaseIntervalYears);
+      // Calculate months remaining until the next renewal
+      const monthsRemaining = Math.max(0, differenceInMonths(nextRenewalDate, now));
 
-      let budgetedCost = costBasis;
-      if (item.annualIncrease > 0) {
-        // Use compound interest formula for a more accurate increase over time
-        budgetedCost = costBasis * Math.pow(1 + item.annualIncrease / 100, numberOfIncreases);
-      }
-      
-      const monthDiff = (nextRenewalDate.getFullYear() - now.getFullYear()) * 12 + (nextRenewalDate.getMonth() - now.getMonth());
-      const monthsRemaining = Math.max(0, monthDiff);
-
+      // Calculate the monthly savings required
       const monthlyCost = monthsRemaining > 0 ? (budgetedCost - item.totalBudgeted) / monthsRemaining : 0;
       
+      // For display purposes, what the total budgeted will be after this month's savings
       const budgetedThisMonth = item.totalBudgeted + monthlyCost;
 
       return { budgetedCost, monthlyCost, monthsRemaining, budgetedThisMonth, nextRenewalDate };
   }
+
 
   const calculateProjectedCosts = (items: SavingsItem[]) => {
     const projections = [];
