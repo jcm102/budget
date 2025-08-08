@@ -111,7 +111,7 @@ function SubtaskItem({ subtask, linkGroups, onToggle, onDelete, onEdit }: Subtas
             )}
              {hasInternalLink && (
                  <Button asChild variant="ghost" size="icon" className="h-6 w-6">
-                    <Link href={subtask.internalLink!}>
+                    <Link href={subtask.internalLink!} target="_blank" rel="noopener noreferrer">
                         <Home className="h-3 w-3" />
                     </Link>
                 </Button>
@@ -327,7 +327,7 @@ export function TaskItem({
                 )}
                 {hasInternalLink && (
                   <Button asChild variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10">
-                    <Link href={task.internalLink!}>
+                    <Link href={task.internalLink!} target="_blank" rel="noopener noreferrer">
                         <Home className="h-4 w-4" />
                     </Link>
                   </Button>
