@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { SavingsItem } from '@/types';
 import { useToast } from './use-toast';
 import * as SavingsService from '@/services/savings-service';
-import { addMonths } from 'date-fns';
+import { addMonths, differenceInMonths } from 'date-fns';
 
 export function useSavings() {
   const [savingsItems, setSavingsItems] = useState<SavingsItem[]>([]);
@@ -81,25 +81,30 @@ export function useSavings() {
   
   const processMonthlySavings = useCallback(async () => {
     const updatedItems = savingsItems.map(item => {
-      const renewalDate = new Date(item.renewalDate);
       const now = new Date();
+      now.setHours(0, 0, 0, 0);
+
       const costBasis = item.isSplit ? item.cost / 2 : item.cost;
-      let budgetedCost = costBasis;
       
       const yearsMap = {
         'Semi-Annually': 0.5, 'Annually': 1, 'Every 2 Years': 2, 'Every 3 Years': 3, 'Every 4 Years': 4, 'Every 5 Years': 5
       };
-      const purchaseInterval = yearsMap[item.purchaseFrequency];
-      const purchaseIntervalInMonths = purchaseInterval * 12;
+      const purchaseIntervalYears = yearsMap[item.purchaseFrequency];
+      const purchaseIntervalMonths = purchaseIntervalYears * 12;
 
-      let nextRenewalDate = new Date(renewalDate);
-      while(nextRenewalDate < now) {
-          budgetedCost = budgetedCost * (1 + item.annualIncrease / 100);
-          nextRenewalDate = addMonths(nextRenewalDate, purchaseIntervalInMonths);
-      }
+      let nextRenewalDate = new Date(item.renewalDate);
+      nextRenewalDate.setHours(0,0,0,0);
       
-      const monthDiff = (nextRenewalDate.getFullYear() - now.getFullYear()) * 12 + (nextRenewalDate.getMonth() - now.getMonth());
-      const monthsRemaining = Math.max(0, monthDiff);
+      let cycles = 0;
+      let tempRenewalDate = new Date(nextRenewalDate);
+      
+      while (tempRenewalDate < now) {
+        tempRenewalDate = addMonths(tempRenewalDate, purchaseIntervalMonths);
+        cycles++;
+      }
+
+      const budgetedCost = costBasis * Math.pow(1 + (item.annualIncrease / 100), cycles);
+      const monthsRemaining = differenceInMonths(tempRenewalDate, now);
       const monthlyCost = monthsRemaining > 0 ? (budgetedCost - item.totalBudgeted) / monthsRemaining : 0;
       
       return {

@@ -44,7 +44,7 @@ import { Badge } from './ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 
 type ColumnVisibility = {
-    [key in keyof SavingsItem | 'budgetedCost' | 'monthlyCost' | 'monthsRemaining' | 'budgetedThisMonth' | 'actions']?: boolean;
+    [key in keyof SavingsItem | 'budgetedCost' | 'monthlyCost' | 'monthsRemaining' | 'actions']?: boolean;
 };
 
 export function SavingsTable() {
@@ -61,7 +61,6 @@ export function SavingsTable() {
     monthlyCost: true,
     renewalDate: true,
     monthsRemaining: false,
-    budgetedThisMonth: false,
     totalBudgeted: true,
     actions: true,
   });
@@ -76,7 +75,6 @@ export function SavingsTable() {
     monthlyCost: { label: 'Monthly Cost', isNumeric: true },
     renewalDate: { label: 'Renewal Date' },
     monthsRemaining: { label: 'Months Rem.' },
-    budgetedThisMonth: { label: 'Budgeted This Month', isNumeric: true },
     totalBudgeted: { label: 'Total Budgeted', isNumeric: true },
     actions: { label: 'Actions', isAction: true },
   };
@@ -98,32 +96,34 @@ export function SavingsTable() {
   };
   
   const calculateValues = (item: SavingsItem, referenceDate = new Date()) => {
-      const now = new Date(referenceDate);
-      const renewalDate = new Date(item.renewalDate);
+    const now = new Date(referenceDate);
+    now.setHours(0, 0, 0, 0);
 
-      const costBasis = item.isSplit ? item.cost / 2 : item.cost;
-      
-      const yearsMap = {
-        'Semi-Annually': 0.5, 'Annually': 1, 'Every 2 Years': 2, 'Every 3 Years': 3, 'Every 4 Years': 4, 'Every 5 Years': 5
-      };
-      const purchaseIntervalMonths = yearsMap[item.purchaseFrequency] * 12;
+    const costBasis = item.isSplit ? item.cost / 2 : item.cost;
+    
+    const yearsMap = {
+      'Semi-Annually': 0.5, 'Annually': 1, 'Every 2 Years': 2, 'Every 3 Years': 3, 'Every 4 Years': 4, 'Every 5 Years': 5
+    };
+    const purchaseIntervalYears = yearsMap[item.purchaseFrequency];
+    const purchaseIntervalMonths = purchaseIntervalYears * 12;
 
-      let nextRenewalDate = new Date(renewalDate);
-      let numCycles = 0;
-      while (nextRenewalDate < now) {
-          nextRenewalDate = addMonths(nextRenewalDate, purchaseIntervalMonths);
-          numCycles++;
-      }
-      
-      const budgetedCost = costBasis * Math.pow((1 + item.annualIncrease / 100), numCycles);
-      
-      const monthsRemaining = Math.max(0, differenceInMonths(nextRenewalDate, now));
-      
-      const monthlyCost = monthsRemaining > 0 ? (budgetedCost - item.totalBudgeted) / monthsRemaining : 0;
-      
-      const budgetedThisMonth = item.totalBudgeted + monthlyCost;
+    let nextRenewalDate = new Date(item.renewalDate);
+    nextRenewalDate.setHours(0,0,0,0);
+    
+    let cycles = 0;
+    let tempRenewalDate = new Date(nextRenewalDate);
+    
+    while (tempRenewalDate < now) {
+      tempRenewalDate = addMonths(tempRenewalDate, purchaseIntervalMonths);
+      cycles++;
+    }
 
-      return { budgetedCost, monthlyCost, monthsRemaining, budgetedThisMonth, nextRenewalDate };
+    const budgetedCost = costBasis * Math.pow(1 + (item.annualIncrease / 100), cycles);
+    
+    const monthsRemaining = differenceInMonths(tempRenewalDate, now);
+    const monthlyCost = monthsRemaining > 0 ? (budgetedCost - item.totalBudgeted) / monthsRemaining : 0;
+    
+    return { budgetedCost, monthlyCost, monthsRemaining, nextRenewalDate: tempRenewalDate };
   }
 
 
@@ -131,22 +131,26 @@ export function SavingsTable() {
     const projections = [];
     const baseDate = new Date();
     
-    // Create a deep copy of items to simulate changes without affecting the main state
     let simulatedItems = JSON.parse(JSON.stringify(items));
 
     for (let i = 0; i < 3; i++) {
         const projectionDate = addMonths(baseDate, i);
         let totalMonthCost = 0;
 
-        // Calculate this month's cost for each item and update its simulated budgeted total
         const nextSimulatedItems = [];
         for (const item of simulatedItems) {
-            const { monthlyCost } = calculateValues(item, projectionDate);
+            const { monthlyCost, nextRenewalDate } = calculateValues(item, projectionDate);
             totalMonthCost += monthlyCost;
-            nextSimulatedItems.push({
-                ...item,
-                totalBudgeted: item.totalBudgeted + monthlyCost,
-            });
+
+            const newItem = {...item};
+            newItem.totalBudgeted += monthlyCost;
+            
+            if (differenceInMonths(new Date(nextRenewalDate), projectionDate) <= 0) {
+                 const { budgetedCost } = calculateValues(item, projectionDate);
+                 newItem.totalBudgeted -= budgetedCost; 
+                 newItem.renewalDate = addMonths(new Date(nextRenewalDate), (yearsMap[item.purchaseFrequency] * 12)).toISOString();
+            }
+            nextSimulatedItems.push(newItem);
         }
 
         projections.push({
@@ -154,7 +158,6 @@ export function SavingsTable() {
             cost: totalMonthCost,
         });
 
-        // The state for the next month's projection is the result of this month's simulation
         simulatedItems = nextSimulatedItems;
     }
     return projections;
@@ -258,7 +261,7 @@ export function SavingsTable() {
                     renderLoadingSkeleton()
                 ) : savingsItems.length > 0 ? (
                     savingsItems.map((item) => {
-                        const { budgetedCost, monthlyCost, monthsRemaining, budgetedThisMonth, nextRenewalDate } = calculateValues(item);
+                        const { budgetedCost, monthlyCost, monthsRemaining, nextRenewalDate } = calculateValues(item);
                         return (
                             <TableRow key={item.id}>
                                 {columnVisibility.expense && <TableCell className="font-medium">{item.expense}</TableCell>}
@@ -272,7 +275,6 @@ export function SavingsTable() {
                                 {columnVisibility.monthlyCost && <TableCell className="text-right">{formatCurrency(monthlyCost)}</TableCell>}
                                 {columnVisibility.renewalDate && <TableCell>{format(nextRenewalDate, 'PPP')}</TableCell>}
                                 {columnVisibility.monthsRemaining && <TableCell>{monthsRemaining}</TableCell>}
-                                {columnVisibility.budgetedThisMonth && <TableCell className="text-right">{formatCurrency(budgetedThisMonth)}</TableCell>}
                                 {columnVisibility.totalBudgeted && <TableCell className="text-right">{formatCurrency(item.totalBudgeted)}</TableCell>}
                                 {columnVisibility.actions && <TableCell className="text-right">
                                     <div className="flex justify-end gap-1">
