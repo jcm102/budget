@@ -130,6 +130,15 @@ export interface AutoShipItem {
     estimatedCost: number;
 }
 
+export type SubscriptionBillingFrequency = 'Monthly' | 'Annually';
+
+export interface SubscriptionItem {
+  id: string;
+  serviceName: string;
+  billingFrequency: SubscriptionBillingFrequency;
+  cost: number;
+}
+
 
 export interface LinkGroup {
   id: string;
