@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Trash2, PlusCircle, User, Users } from 'lucide-react';
+import { Trash2, PlusCircle, User, Users, ChevronDown } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -13,11 +13,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+
 import { Separator } from './ui/separator';
 import { Checkbox } from './ui/checkbox';
 import { Label } from './ui/label';
 import { usePeople } from '@/hooks/use-people';
 import { Skeleton } from './ui/skeleton';
+import { Badge } from './ui/badge';
 
 type SplitItem = {
   id: string;
@@ -166,33 +176,45 @@ export function SplitCalculator() {
       <CardContent className="space-y-6">
 
          {/* People Selection Section */}
-        <div className="space-y-4">
-             <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium flex items-center gap-2"><Users className="h-5 w-5"/>Who's Splitting?</h3>
-            </div>
-             {isLoadingPeople ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                    <Skeleton className="h-10 w-full" />
-                    <Skeleton className="h-10 w-full" />
-                </div>
-            ) : (
-                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                    {people.map(p => (
-                        <div key={p.id} className="flex items-center gap-2 p-2 border rounded-md bg-secondary/30">
-                            <Checkbox
-                                id={`select-person-${p.id}`}
+        <div className="space-y-2">
+             <h3 className="text-lg font-medium flex items-center gap-2"><Users className="h-5 w-5"/>Who's Splitting?</h3>
+             <div className="flex items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="flex-shrink-0">
+                      <span>Select People</span>
+                      <ChevronDown className="h-4 w-4 ml-2" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56">
+                    <DropdownMenuLabel>Select People to Include</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                     {isLoadingPeople ? (
+                        <div className="p-2"><Skeleton className="h-8 w-full" /></div>
+                     ) : (
+                        people.map(p => (
+                            <DropdownMenuCheckboxItem
+                                key={p.id}
                                 checked={selectedPersonIds.includes(p.id)}
                                 onCheckedChange={(checked) => handlePersonSelectionChange(p.id, !!checked)}
-                            />
-                            <Input 
-                                defaultValue={p.name}
-                                onBlur={(e) => handleNameChange(p.id, e.target.value)}
-                                className="bg-transparent border-none h-auto p-0 text-sm font-medium"
-                            />
-                        </div>
-                    ))}
+                            >
+                                <Input 
+                                    defaultValue={p.name}
+                                    onBlur={(e) => handleNameChange(p.id, e.target.value)}
+                                    onClick={(e) => e.stopPropagation()} // Prevent dropdown from closing
+                                    className="bg-transparent border-none h-auto p-0 text-sm font-medium focus-visible:ring-0 focus-visible:ring-offset-0"
+                                />
+                            </DropdownMenuCheckboxItem>
+                        ))
+                     )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <div className="flex flex-wrap gap-1">
+                    {selectedPeople.length > 0 ? selectedPeople.map(p => (
+                        <Badge key={p.id} variant="secondary">{p.name}</Badge>
+                    )) : <span className="text-sm text-muted-foreground">No one selected</span>}
                 </div>
-            )}
+            </div>
         </div>
 
         <Separator />
