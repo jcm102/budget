@@ -3,7 +3,7 @@
 
 import { Button } from '@/components/ui/button';
 import { ExpenseTable } from '@/components/expense-table';
-import { ArrowLeft, Download, Archive, CalendarClock, ChevronsUpDown } from 'lucide-react';
+import { ArrowLeft, Download, Archive, CalendarClock, ChevronsUpDown, Printer } from 'lucide-react';
 import Link from 'next/link';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MileageTable } from '@/components/mileage-table';
@@ -235,6 +235,10 @@ export default function ExpensesPage() {
     XLSX.writeFile(wb, `work-expenses-${monthName.replace(' ', '-')}.xlsx`);
   };
 
+  const handlePrint = () => {
+    window.print();
+  }
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
@@ -253,7 +257,7 @@ export default function ExpensesPage() {
 
   return (
     <div className="container mx-auto max-w-6xl p-4 md:p-8">
-      <header className="mb-8 flex justify-between items-center">
+      <header className="mb-8 flex justify-between items-center no-print">
         <Button asChild variant="outline">
           <Link href="/">
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -309,6 +313,10 @@ export default function ExpensesPage() {
                 <Download className="mr-2 h-4 w-4" />
                 Export to XLSX
             </Button>
+            <Button variant="outline" onClick={handlePrint}>
+              <Printer className="mr-2 h-4 w-4" />
+              Print
+            </Button>
         </div>
       </header>
       <main>
@@ -330,7 +338,7 @@ export default function ExpensesPage() {
         </div>
 
         <Tabs defaultValue="monetary" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-secondary/50 mb-6">
+          <TabsList className="grid w-full grid-cols-2 bg-secondary/50 mb-6 no-print">
             <TabsTrigger value="monetary"><Banknote className="mr-2 h-4 w-4" />Monetary Expenses</TabsTrigger>
             <TabsTrigger value="mileage"><Car className="mr-2 h-4 w-4" />Mileage Log</TabsTrigger>
           </TabsList>

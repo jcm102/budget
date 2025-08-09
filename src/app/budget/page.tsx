@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { BudgetTable } from '@/components/budget-table';
-import { ArrowLeft, RefreshCw, Trash2 } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Trash2, Printer } from 'lucide-react';
 import { useBudget } from '@/hooks/use-budget';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
@@ -67,10 +67,14 @@ export default function BudgetPage() {
       setIsClearing(false);
     }
   }
+  
+  const handlePrint = () => {
+    window.print();
+  }
 
   return (
     <div className="container mx-auto max-w-6xl p-4 md:p-8">
-      <header className="mb-8 flex justify-between items-center">
+      <header className="mb-8 flex justify-between items-center no-print">
         <Button asChild variant="outline">
           <Link href="/">
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -103,6 +107,10 @@ export default function BudgetPage() {
             <Button variant="outline" onClick={handleSync} disabled={isSyncing}>
               <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
               {isSyncing ? 'Syncing...' : 'Sync Debts'}
+            </Button>
+            <Button variant="outline" onClick={handlePrint}>
+                <Printer className="mr-2 h-4 w-4" />
+                Print
             </Button>
         </div>
       </header>
