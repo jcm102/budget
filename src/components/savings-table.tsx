@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { format, addMonths, differenceInYears, differenceInMonths } from 'date-fns';
+import { format, addMonths, differenceInMonths } from 'date-fns';
 import { Pencil, Trash2, PlusCircle, Check, ShoppingCart, View, Users } from 'lucide-react';
 import type { SavingsItem } from '@/types';
 
@@ -101,30 +101,26 @@ export function SavingsTable() {
       const now = new Date(referenceDate);
       const renewalDate = new Date(item.renewalDate);
 
-      // Determine the cost basis (full or split)
       const costBasis = item.isSplit ? item.cost / 2 : item.cost;
       
-      // Calculate the next cost by applying the annual increase to the prior cost
-      const budgetedCost = costBasis * (1 + item.annualIncrease / 100);
-
-      // Determine the next renewal date
       const yearsMap = {
         'Semi-Annually': 0.5, 'Annually': 1, 'Every 2 Years': 2, 'Every 3 Years': 3, 'Every 4 Years': 4, 'Every 5 Years': 5
       };
       const purchaseIntervalMonths = yearsMap[item.purchaseFrequency] * 12;
 
       let nextRenewalDate = new Date(renewalDate);
+      let numCycles = 0;
       while (nextRenewalDate < now) {
           nextRenewalDate = addMonths(nextRenewalDate, purchaseIntervalMonths);
+          numCycles++;
       }
       
-      // Calculate months remaining until the next renewal
+      const budgetedCost = costBasis * Math.pow((1 + item.annualIncrease / 100), numCycles);
+      
       const monthsRemaining = Math.max(0, differenceInMonths(nextRenewalDate, now));
-
-      // Calculate the monthly savings required
+      
       const monthlyCost = monthsRemaining > 0 ? (budgetedCost - item.totalBudgeted) / monthsRemaining : 0;
       
-      // For display purposes, what the total budgeted will be after this month's savings
       const budgetedThisMonth = item.totalBudgeted + monthlyCost;
 
       return { budgetedCost, monthlyCost, monthsRemaining, budgetedThisMonth, nextRenewalDate };
@@ -134,32 +130,32 @@ export function SavingsTable() {
   const calculateProjectedCosts = (items: SavingsItem[]) => {
     const projections = [];
     const baseDate = new Date();
+    
+    // Create a deep copy of items to simulate changes without affecting the main state
+    let simulatedItems = JSON.parse(JSON.stringify(items));
 
     for (let i = 0; i < 3; i++) {
         const projectionDate = addMonths(baseDate, i);
-        let totalCost = 0;
-        
-        items.forEach(item => {
-            let runningTotalBudgeted = item.totalBudgeted;
-            for(let j = 0; j < i; j++) {
-                const pastProjectionDate = addMonths(baseDate, j);
-                const { monthlyCost: pastMonthlyCost } = calculateValues(
-                    {...item, totalBudgeted: runningTotalBudgeted}, 
-                    pastProjectionDate
-                );
-                runningTotalBudgeted += pastMonthlyCost;
-            }
-            const { monthlyCost } = calculateValues(
-                {...item, totalBudgeted: runningTotalBudgeted },
-                projectionDate
-            );
-            totalCost += monthlyCost;
-        });
+        let totalMonthCost = 0;
+
+        // Calculate this month's cost for each item and update its simulated budgeted total
+        const nextSimulatedItems = [];
+        for (const item of simulatedItems) {
+            const { monthlyCost } = calculateValues(item, projectionDate);
+            totalMonthCost += monthlyCost;
+            nextSimulatedItems.push({
+                ...item,
+                totalBudgeted: item.totalBudgeted + monthlyCost,
+            });
+        }
 
         projections.push({
             month: format(projectionDate, 'MMMM'),
-            cost: totalCost,
+            cost: totalMonthCost,
         });
+
+        // The state for the next month's projection is the result of this month's simulation
+        simulatedItems = nextSimulatedItems;
     }
     return projections;
   }
