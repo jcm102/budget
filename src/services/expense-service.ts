@@ -24,15 +24,30 @@ export async function getExpenses(status: 'active' | 'archived', archiveKey?: st
   
   let q;
   if (status === 'active') {
-    q = query(expenseCollection, where('type', '==', 'Monetary'), where('status', '==', 'active'));
+    // To handle old data, we fetch docs where status is 'active' OR where the status field doesn't exist yet.
+    const activeQuery = query(expenseCollection, where('type', '==', 'Monetary'), where('status', '==', 'active'));
+    const legacyQuery = query(expenseCollection, where('type', '==', 'Monetary'), where('status', '==', null));
+    
+    const [activeSnapshot, legacySnapshot] = await Promise.all([
+        getDocs(activeQuery),
+        getDocs(legacyQuery)
+    ]);
+    
+    const allItems = [
+        ...activeSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense)),
+        ...legacySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense))
+    ];
+
+    // Deduplicate in case an item somehow matches both (unlikely but safe)
+    const uniqueItems = Array.from(new Map(allItems.map(item => [item.id, item])).values());
+    return uniqueItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
   } else {
     q = query(expenseCollection, where('type', '==', 'Monetary'), where('status', '==', 'archived'), where('archiveKey', '==', archiveKey));
+    const querySnapshot = await getDocs(q);
+    const allItems = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense));
+    return allItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }
-  
-  const querySnapshot = await getDocs(q);
-  const allItems = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense));
-  
-  return allItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
 export async function addExpense(itemData: Omit<Expense, 'id'>): Promise<Expense> {
@@ -87,15 +102,22 @@ export async function getExpensesForMonth(archiveKey: string): Promise<{ expense
 export async function archiveCurrentExpenses(archiveKey: string): Promise<void> {
   const batch = writeBatch(db);
   
-  // Query for all active expenses and mileage logs
-  const q = query(collection(db, EXPENSE_COLLECTION), where('status', '==', 'active'));
-  const snapshot = await getDocs(q);
+  // Query for all active and legacy (status=null) expenses and mileage logs
+  const activeQuery = query(collection(db, EXPENSE_COLLECTION), where('status', '==', 'active'));
+  const legacyQuery = query(collection(db, EXPENSE_COLLECTION), where('status', '==', null));
+
+  const [activeSnapshot, legacySnapshot] = await Promise.all([
+    getDocs(activeQuery),
+    getDocs(legacyQuery)
+  ]);
   
-  if (snapshot.empty) {
+  const allDocsToArchive = [...activeSnapshot.docs, ...legacySnapshot.docs];
+
+  if (allDocsToArchive.length === 0) {
     throw new Error("No active expenses to archive.");
   }
   
-  snapshot.forEach(doc => {
+  allDocsToArchive.forEach(doc => {
     const docRef = doc.ref;
     batch.update(docRef, { status: 'archived', archiveKey: archiveKey });
   });
