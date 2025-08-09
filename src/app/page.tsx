@@ -7,7 +7,7 @@ import { TaskForm } from '@/components/task-form';
 import { TaskList } from '@/components/task-list';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, Sunrise, CalendarDays, CalendarRange, ArrowRight, Lightbulb, Banknote, Settings, CreditCard, PiggyBank } from 'lucide-react';
+import { PlusCircle, Sunrise, CalendarDays, CalendarRange, ArrowRight, Lightbulb, Banknote, Settings, CreditCard, PiggyBank, Users } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { Task, Subtask } from '@/types';
@@ -96,6 +96,11 @@ export default function Home() {
                <Button asChild variant="outline" size="lg">
                 <Link href="/savings">
                   Future Spending <PiggyBank className="ml-2 h-5 w-5" />
+                </Link>
+              </Button>
+               <Button asChild variant="outline" size="lg">
+                <Link href="/split">
+                  Split Calculator <Users className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
               <Button asChild variant="outline" size="lg">
