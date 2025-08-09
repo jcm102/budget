@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { format, addMonths, differenceInMonths } from 'date-fns';
+import { format, addMonths, differenceInMonths, isBefore, getYear, getMonth, differenceInCalendarMonths } from 'date-fns';
 import { Pencil, Trash2, PlusCircle, Check, ShoppingCart, View, Users } from 'lucide-react';
 import type { SavingsItem } from '@/types';
 
@@ -112,20 +112,18 @@ export function SavingsTable() {
     nextRenewalDate.setHours(0,0,0,0);
     
     let cycles = 0;
-    let tempRenewalDate = new Date(nextRenewalDate);
-    
-    // Find the next renewal date after the reference date (now)
-    while (tempRenewalDate < now) {
-      tempRenewalDate = addMonths(tempRenewalDate, purchaseIntervalMonths);
+    while (isBefore(nextRenewalDate, now)) {
+      nextRenewalDate = addMonths(nextRenewalDate, purchaseIntervalMonths);
       cycles++;
     }
-    nextRenewalDate = tempRenewalDate;
 
-    const totalYearsSinceOriginal = (cycles * purchaseIntervalYears);
-    const budgetedCost = costBasis * Math.pow(1 + (item.annualIncrease / 100), totalYearsSinceOriginal);
+    const budgetedCost = costBasis * Math.pow(1 + (item.annualIncrease / 100), (cycles * purchaseIntervalYears));
     
-    const monthsRemaining = differenceInMonths(nextRenewalDate, now);
-    const monthlyCost = monthsRemaining > 0 ? (budgetedCost - item.totalBudgeted) / monthsRemaining : 0;
+    const monthsRemainingRaw = differenceInCalendarMonths(nextRenewalDate, now);
+    const monthsRemaining = monthsRemainingRaw < 1 ? 1 : monthsRemainingRaw;
+
+    const amountToSave = budgetedCost - item.totalBudgeted;
+    const monthlyCost = amountToSave > 0 ? amountToSave / monthsRemaining : 0;
     
     return { budgetedCost, monthlyCost, monthsRemaining, nextRenewalDate };
   }
