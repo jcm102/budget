@@ -31,23 +31,37 @@ const formatCurrency = (amount: number) => {
 };
 
 export function SplitCalculator() {
-  const { people, updatePerson, isLoading } = usePeople();
+  const { people, updatePerson, isLoading: isLoadingPeople } = usePeople();
   const [items, setItems] = useState<SplitItem[]>([]);
   const [isClient, setIsClient] = useState(false);
+  const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>([]);
+  
+  const selectedPeople = useMemo(() => {
+    return people.filter(p => selectedPersonIds.includes(p.id));
+  }, [people, selectedPersonIds]);
+
 
   useEffect(() => {
     setIsClient(true);
-    // Initialize with one item when the component mounts and people are loaded
-    if (people.length > 0) {
-        setItems([
-            { id: crypto.randomUUID(), amount: 0, taxRate: 0, assignedTo: people.map(p => p.id) },
-        ]);
+  }, []);
+
+  useEffect(() => {
+    // Initialize with one item and all people selected when the component mounts and people are loaded
+    if (isClient && people.length > 0) {
+        if (items.length === 0) {
+            setItems([
+                { id: crypto.randomUUID(), amount: 0, taxRate: 0, assignedTo: people.map(p => p.id) },
+            ]);
+        }
+        if (selectedPersonIds.length === 0) {
+            setSelectedPersonIds(people.map(p => p.id));
+        }
     }
-  }, [people]);
+  }, [isClient, people, items.length, selectedPersonIds.length]);
 
 
   const handleAddItem = () => {
-    setItems([...items, { id: crypto.randomUUID(), amount: 0, taxRate: 0, assignedTo: people.map(p => p.id) }]);
+    setItems([...items, { id: crypto.randomUUID(), amount: 0, taxRate: 0, assignedTo: selectedPersonIds }]);
   };
 
   const handleRemoveItem = (id: string) => {
@@ -58,7 +72,7 @@ export function SplitCalculator() {
     setItems(items.map(item => item.id === id ? { ...item, [field]: value } : item));
   };
 
-  const handleAssignmentChange = (itemId: string, personId: string, isChecked: boolean) => {
+  const handleItemAssignmentChange = (itemId: string, personId: string, isChecked: boolean) => {
     setItems(items.map(item => {
         if (item.id === itemId) {
             const newAssignedTo = isChecked
@@ -69,13 +83,32 @@ export function SplitCalculator() {
         return item;
     }));
   };
+  
+  const handlePersonSelectionChange = (personId: string, isChecked: boolean) => {
+    let newSelectedIds;
+    if (isChecked) {
+        newSelectedIds = [...selectedPersonIds, personId];
+    } else {
+        newSelectedIds = selectedPersonIds.filter(id => id !== personId);
+    }
+    setSelectedPersonIds(newSelectedIds);
+
+    // When a person is deselected, remove them from all item assignments
+    if (!isChecked) {
+        setItems(items.map(item => ({
+            ...item,
+            assignedTo: item.assignedTo.filter(id => id !== personId)
+        })));
+    }
+  };
+
 
   const handleNameChange = (personId: string, newName: string) => {
     updatePerson(personId, newName);
   }
 
   const { grandTotal, personTotals } = useMemo(() => {
-    const personTotalsMap = new Map<string, number>(people.map(p => [p.id, 0]));
+    const personTotalsMap = new Map<string, number>(selectedPeople.map(p => [p.id, 0]));
 
     let currentGrandTotal = 0;
 
@@ -88,7 +121,9 @@ export function SplitCalculator() {
       if (numAssigned > 0) {
         const costPerPerson = itemTotal / numAssigned;
         item.assignedTo.forEach(personId => {
-          personTotalsMap.set(personId, (personTotalsMap.get(personId) || 0) + costPerPerson);
+            if(personTotalsMap.has(personId)) {
+                personTotalsMap.set(personId, (personTotalsMap.get(personId) || 0) + costPerPerson);
+            }
         });
       }
     });
@@ -101,7 +136,7 @@ export function SplitCalculator() {
         total,
       })),
     };
-  }, [items, people]);
+  }, [items, selectedPeople, people]);
 
   if (!isClient) {
     return (
@@ -130,24 +165,29 @@ export function SplitCalculator() {
       </CardHeader>
       <CardContent className="space-y-6">
 
-         {/* People Split Section */}
+         {/* People Selection Section */}
         <div className="space-y-4">
              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium flex items-center gap-2"><Users className="h-5 w-5"/>People</h3>
+                <h3 className="text-lg font-medium flex items-center gap-2"><Users className="h-5 w-5"/>Who's Splitting?</h3>
             </div>
-             {isLoading ? (
+             {isLoadingPeople ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                     <Skeleton className="h-10 w-full" />
                     <Skeleton className="h-10 w-full" />
                 </div>
             ) : (
-                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                     {people.map(p => (
-                        <div key={p.id} className="p-2 border rounded-md bg-secondary/30 text-sm font-medium">
+                        <div key={p.id} className="flex items-center gap-2 p-2 border rounded-md bg-secondary/30">
+                            <Checkbox
+                                id={`select-person-${p.id}`}
+                                checked={selectedPersonIds.includes(p.id)}
+                                onCheckedChange={(checked) => handlePersonSelectionChange(p.id, !!checked)}
+                            />
                             <Input 
                                 defaultValue={p.name}
                                 onBlur={(e) => handleNameChange(p.id, e.target.value)}
-                                className="bg-transparent border-none text-center h-auto p-0"
+                                className="bg-transparent border-none h-auto p-0 text-sm font-medium"
                             />
                         </div>
                     ))}
@@ -198,12 +238,12 @@ export function SplitCalculator() {
                     <div>
                         <Label className="text-xs text-muted-foreground mb-2 block">Assigned To:</Label>
                         <div className="flex flex-wrap gap-x-4 gap-y-2">
-                            {people.map(person => (
+                            {selectedPeople.map(person => (
                                 <div key={person.id} className="flex items-center gap-2">
                                     <Checkbox
                                         id={`item-${item.id}-person-${person.id}`}
                                         checked={item.assignedTo.includes(person.id)}
-                                        onCheckedChange={(checked) => handleAssignmentChange(item.id, person.id, !!checked)}
+                                        onCheckedChange={(checked) => handleItemAssignmentChange(item.id, person.id, !!checked)}
                                     />
                                     <Label htmlFor={`item-${item.id}-person-${person.id}`} className="text-sm font-normal">
                                         {person.name}
