@@ -1,4 +1,5 @@
 
+
 export type TaskFrequency = "daily" | "weekly" | "monthly";
 
 export const internalPages = [
@@ -118,6 +119,17 @@ export interface SavingsItem {
   renewalDate: string; // ISO string
   totalBudgeted: number;
 }
+
+export type AutoShipFrequency = 'Monthly' | 'Every 2 Months' | 'Every 3 Months' | 'Every 4 Months' | 'Every 6 Months';
+
+export interface AutoShipItem {
+    id: string;
+    item: string;
+    nextShipmentDate: string; // ISO string
+    frequency: AutoShipFrequency;
+    estimatedCost: number;
+}
+
 
 export interface LinkGroup {
   id: string;

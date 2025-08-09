@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Banknote, CreditCard, Home, Lightbulb, PiggyBank, Settings, Users, Wallet } from 'lucide-react';
+import { Banknote, CreditCard, Home, Lightbulb, PiggyBank, Settings, Users, Wallet, Ship } from 'lucide-react';
 import {
   SidebarContent,
   SidebarMenu,

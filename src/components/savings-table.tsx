@@ -118,13 +118,15 @@ export function SavingsTable() {
       tempRenewalDate = addMonths(tempRenewalDate, purchaseIntervalMonths);
       cycles++;
     }
+    nextRenewalDate = tempRenewalDate;
 
-    const budgetedCost = costBasis * Math.pow(1 + (item.annualIncrease / 100), cycles * purchaseIntervalYears);
+    const totalYears = cycles * purchaseIntervalYears;
+    const budgetedCost = costBasis * Math.pow(1 + (item.annualIncrease / 100), totalYears);
     
-    const monthsRemaining = differenceInMonths(tempRenewalDate, now);
+    const monthsRemaining = differenceInMonths(nextRenewalDate, now);
     const monthlyCost = monthsRemaining > 0 ? (budgetedCost - item.totalBudgeted) / monthsRemaining : 0;
     
-    return { budgetedCost, monthlyCost, monthsRemaining, nextRenewalDate: tempRenewalDate };
+    return { budgetedCost, monthlyCost, monthsRemaining, nextRenewalDate };
   }
 
 
@@ -188,9 +190,7 @@ export function SavingsTable() {
         updateSavingsItem={updateSavingsItem}
         editingItem={editingItem}
       />
-      <div className="flex justify-between items-center mb-6 gap-2">
-        <h2 className="text-3xl font-bold font-headline text-primary">Future Spending Savings</h2>
-        <div className="flex gap-2">
+      <div className="flex justify-end items-center mb-6 gap-2">
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" disabled={savingsItems.length === 0}>
@@ -244,7 +244,6 @@ export function SavingsTable() {
             <PlusCircle className="mr-2 h-5 w-5" />
             Add Savings Item
           </Button>
-        </div>
       </div>
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
           <Table>
