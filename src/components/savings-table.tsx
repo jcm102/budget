@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { format, addMonths, differenceInMonths, isBefore, getYear, getMonth, differenceInCalendarMonths } from 'date-fns';
+import { format, addMonths, differenceInCalendarMonths, isBefore, getYear, getMonth } from 'date-fns';
 import { Pencil, Trash2, PlusCircle, Check, ShoppingCart, View, Users } from 'lucide-react';
 import type { SavingsItem } from '@/types';
 
@@ -117,7 +117,7 @@ export function SavingsTable() {
       cycles++;
     }
 
-    const budgetedCost = costBasis * Math.pow(1 + (item.annualIncrease / 100), (cycles * purchaseIntervalYears));
+    const budgetedCost = costBasis * Math.pow(1 + (item.annualIncrease / 100), cycles * purchaseIntervalYears);
     
     const monthsRemainingRaw = differenceInCalendarMonths(nextRenewalDate, now);
     const monthsRemaining = monthsRemainingRaw < 1 ? 1 : monthsRemainingRaw;
@@ -147,7 +147,7 @@ export function SavingsTable() {
             const newItem = {...item};
             newItem.totalBudgeted += monthlyCost;
             
-            if (differenceInMonths(new Date(nextRenewalDate), projectionDate) <= 0) {
+            if (differenceInCalendarMonths(new Date(nextRenewalDate), projectionDate) <= 0) {
                  const { budgetedCost } = calculateValues(item, projectionDate);
                  newItem.totalBudgeted -= budgetedCost; 
                  newItem.renewalDate = addMonths(new Date(nextRenewalDate), (yearsMap[item.purchaseFrequency] * 12)).toISOString();
@@ -370,3 +370,5 @@ export function SavingsTable() {
     </>
   );
 }
+
+    
