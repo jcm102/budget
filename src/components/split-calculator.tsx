@@ -56,25 +56,38 @@ export function SplitCalculator() {
   }, []);
 
   useEffect(() => {
-    // Initialize with one item and all people selected when the component mounts and people are loaded
     if (isClient && people.length > 0) {
+        const defaultPeople = people.filter(p => p.name === 'Jordan' || p.name === 'Eric');
+        let defaultPersonIds = defaultPeople.map(p => p.id);
+
+        if (defaultPersonIds.length === 0) {
+            // Fallback to all people if Jordan or Eric are not found
+            defaultPersonIds = people.map(p => p.id);
+        }
+
         if (items.length === 0) {
             setItems([
-                { id: crypto.randomUUID(), amount: 0, taxRate: 0, assignedTo: people.map(p => p.id) },
+                { id: crypto.randomUUID(), amount: 0, taxRate: 0, assignedTo: defaultPersonIds },
             ]);
         }
         if (selectedPersonIds.length === 0) {
-            setSelectedPersonIds(people.map(p => p.id));
+            setSelectedPersonIds(defaultPersonIds);
         }
     }
   }, [isClient, people, items.length, selectedPersonIds.length]);
 
   const handleReset = () => {
     if (people.length > 0) {
+        const defaultPeople = people.filter(p => p.name === 'Jordan' || p.name === 'Eric');
+        let defaultPersonIds = defaultPeople.map(p => p.id);
+        if (defaultPersonIds.length === 0) {
+            defaultPersonIds = people.map(p => p.id);
+        }
+        
         setItems([
-            { id: crypto.randomUUID(), amount: 0, taxRate: 0, assignedTo: people.map(p => p.id) },
+            { id: crypto.randomUUID(), amount: 0, taxRate: 0, assignedTo: defaultPersonIds },
         ]);
-        setSelectedPersonIds(people.map(p => p.id));
+        setSelectedPersonIds(defaultPersonIds);
     } else {
         setItems([]);
         setSelectedPersonIds([]);
