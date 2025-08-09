@@ -114,14 +114,15 @@ export function SavingsTable() {
     let cycles = 0;
     let tempRenewalDate = new Date(nextRenewalDate);
     
+    // Find the next renewal date after the reference date (now)
     while (tempRenewalDate < now) {
       tempRenewalDate = addMonths(tempRenewalDate, purchaseIntervalMonths);
       cycles++;
     }
     nextRenewalDate = tempRenewalDate;
 
-    const totalYears = cycles * purchaseIntervalYears;
-    const budgetedCost = costBasis * Math.pow(1 + (item.annualIncrease / 100), totalYears);
+    const totalYearsSinceOriginal = (cycles * purchaseIntervalYears);
+    const budgetedCost = costBasis * Math.pow(1 + (item.annualIncrease / 100), totalYearsSinceOriginal);
     
     const monthsRemaining = differenceInMonths(nextRenewalDate, now);
     const monthlyCost = monthsRemaining > 0 ? (budgetedCost - item.totalBudgeted) / monthsRemaining : 0;
