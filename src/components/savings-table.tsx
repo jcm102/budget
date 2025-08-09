@@ -47,6 +47,10 @@ type ColumnVisibility = {
     [key in keyof SavingsItem | 'budgetedCost' | 'monthlyCost' | 'monthsRemaining' | 'actions']?: boolean;
 };
 
+const yearsMap = {
+  'Semi-Annually': 0.5, 'Annually': 1, 'Every 2 Years': 2, 'Every 3 Years': 3, 'Every 4 Years': 4, 'Every 5 Years': 5
+};
+
 export function SavingsTable() {
   const { savingsItems, addSavingsItem, updateSavingsItem, deleteSavingsItem, processMonthlySavings, recordPurchase, isLoading } = useSavings();
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -101,9 +105,6 @@ export function SavingsTable() {
 
     const costBasis = item.isSplit ? item.cost / 2 : item.cost;
     
-    const yearsMap = {
-      'Semi-Annually': 0.5, 'Annually': 1, 'Every 2 Years': 2, 'Every 3 Years': 3, 'Every 4 Years': 4, 'Every 5 Years': 5
-    };
     const purchaseIntervalYears = yearsMap[item.purchaseFrequency];
     const purchaseIntervalMonths = purchaseIntervalYears * 12;
 
@@ -118,7 +119,7 @@ export function SavingsTable() {
       cycles++;
     }
 
-    const budgetedCost = costBasis * Math.pow(1 + (item.annualIncrease / 100), cycles);
+    const budgetedCost = costBasis * Math.pow(1 + (item.annualIncrease / 100), cycles * purchaseIntervalYears);
     
     const monthsRemaining = differenceInMonths(tempRenewalDate, now);
     const monthlyCost = monthsRemaining > 0 ? (budgetedCost - item.totalBudgeted) / monthsRemaining : 0;
