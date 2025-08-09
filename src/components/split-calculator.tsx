@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,14 +34,22 @@ const formatCurrency = (amount: number) => {
 };
 
 export function SplitCalculator() {
-  const [people, setPeople] = useState<Person[]>([
-    { id: crypto.randomUUID(), name: 'Person 1' },
-    { id: crypto.randomUUID(), name: 'Person 2' },
-  ]);
+  const [people, setPeople] = useState<Person[]>([]);
+  const [items, setItems] = useState<SplitItem[]>([]);
+  const [isClient, setIsClient] = useState(false);
 
-  const [items, setItems] = useState<SplitItem[]>([
-    { id: crypto.randomUUID(), amount: 0, taxRate: 0, assignedTo: people.map(p => p.id) },
-  ]);
+  useEffect(() => {
+    setIsClient(true);
+    const initialPeople = [
+        { id: crypto.randomUUID(), name: 'Person 1' },
+        { id: crypto.randomUUID(), name: 'Person 2' },
+    ];
+    setPeople(initialPeople);
+    setItems([
+        { id: crypto.randomUUID(), amount: 0, taxRate: 0, assignedTo: initialPeople.map(p => p.id) },
+    ]);
+  }, []);
+
 
   const handleAddPerson = () => {
     const newPersonId = crypto.randomUUID();
@@ -114,6 +122,9 @@ export function SplitCalculator() {
     };
   }, [items, people]);
 
+  if (!isClient) {
+    return null; // or a loading skeleton
+  }
 
   return (
     <Card>
