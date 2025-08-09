@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Trash2, PlusCircle, User, Users, ChevronDown } from 'lucide-react';
+import { Trash2, PlusCircle, User, Users, ChevronDown, RotateCcw } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -69,6 +69,17 @@ export function SplitCalculator() {
     }
   }, [isClient, people, items.length, selectedPersonIds.length]);
 
+  const handleReset = () => {
+    if (people.length > 0) {
+        setItems([
+            { id: crypto.randomUUID(), amount: 0, taxRate: 0, assignedTo: people.map(p => p.id) },
+        ]);
+        setSelectedPersonIds(people.map(p => p.id));
+    } else {
+        setItems([]);
+        setSelectedPersonIds([]);
+    }
+  };
 
   const handleAddItem = () => {
     setItems([...items, { id: crypto.randomUUID(), amount: 0, taxRate: 0, assignedTo: selectedPersonIds }]);
@@ -221,7 +232,13 @@ export function SplitCalculator() {
 
         {/* Items Section */}
         <div className="space-y-4">
-            <h3 className="text-lg font-medium">Items</h3>
+            <div className="flex justify-between items-center">
+                <h3 className="text-lg font-medium">Items</h3>
+                 <Button variant="outline" onClick={handleReset} size="sm">
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Reset
+                </Button>
+            </div>
             {items.map((item) => (
                 <div key={item.id} className="p-4 border rounded-lg space-y-4 bg-card">
                      <div className="flex items-start gap-2">
