@@ -123,3 +123,9 @@ export interface LinkGroup {
   name: string;
   links: string[];
 }
+
+export interface Person {
+  id: string;
+  name: string;
+  createdAt: string; // ISO string
+}

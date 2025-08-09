@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Trash2, PlusCircle, Minus, Plus, User, Users } from 'lucide-react';
+import { Trash2, PlusCircle, User, Users } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -16,11 +16,8 @@ import {
 import { Separator } from './ui/separator';
 import { Checkbox } from './ui/checkbox';
 import { Label } from './ui/label';
-
-type Person = {
-  id: string;
-  name: string;
-}
+import { usePeople } from '@/hooks/use-people';
+import { Skeleton } from './ui/skeleton';
 
 type SplitItem = {
   id: string;
@@ -34,40 +31,20 @@ const formatCurrency = (amount: number) => {
 };
 
 export function SplitCalculator() {
-  const [people, setPeople] = useState<Person[]>([]);
+  const { people, updatePerson, isLoading } = usePeople();
   const [items, setItems] = useState<SplitItem[]>([]);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
-    const initialPeople = [
-        { id: crypto.randomUUID(), name: 'Person 1' },
-        { id: crypto.randomUUID(), name: 'Person 2' },
-    ];
-    setPeople(initialPeople);
-    setItems([
-        { id: crypto.randomUUID(), amount: 0, taxRate: 0, assignedTo: initialPeople.map(p => p.id) },
-    ]);
-  }, []);
-
-
-  const handleAddPerson = () => {
-    const newPersonId = crypto.randomUUID();
-    setPeople([...people, { id: newPersonId, name: `Person ${people.length + 1}` }]);
-    // Optional: automatically assign new person to existing items? For now, no.
-  };
-
-  const handleRemovePerson = () => {
-    if (people.length > 1) {
-        const personToRemove = people[people.length - 1];
-        setPeople(people.slice(0, -1));
-        // Remove this person from any item assignments
-        setItems(items.map(item => ({
-            ...item,
-            assignedTo: item.assignedTo.filter(id => id !== personToRemove.id)
-        })));
+    // Initialize with one item when the component mounts and people are loaded
+    if (people.length > 0) {
+        setItems([
+            { id: crypto.randomUUID(), amount: 0, taxRate: 0, assignedTo: people.map(p => p.id) },
+        ]);
     }
-  };
+  }, [people]);
+
 
   const handleAddItem = () => {
     setItems([...items, { id: crypto.randomUUID(), amount: 0, taxRate: 0, assignedTo: people.map(p => p.id) }]);
@@ -92,6 +69,10 @@ export function SplitCalculator() {
         return item;
     }));
   };
+
+  const handleNameChange = (personId: string, newName: string) => {
+    updatePerson(personId, newName);
+  }
 
   const { grandTotal, personTotals } = useMemo(() => {
     const personTotalsMap = new Map<string, number>(people.map(p => [p.id, 0]));
@@ -123,7 +104,20 @@ export function SplitCalculator() {
   }, [items, people]);
 
   if (!isClient) {
-    return null; // or a loading skeleton
+    return (
+        <Card>
+            <CardHeader>
+                <Skeleton className="h-8 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+            </CardHeader>
+            <CardContent>
+                <Skeleton className="h-40 w-full" />
+            </CardContent>
+            <CardFooter>
+                 <Skeleton className="h-20 w-full" />
+            </CardFooter>
+        </Card>
+    );
   }
 
   return (
@@ -131,7 +125,7 @@ export function SplitCalculator() {
       <CardHeader>
         <CardTitle>Split Expense Calculator</CardTitle>
         <CardDescription>
-          Assign items to different people and calculate how much each person owes.
+          Assign items to different people and calculate how much each person owes. Manage the list of people in Settings.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -140,23 +134,25 @@ export function SplitCalculator() {
         <div className="space-y-4">
              <div className="flex items-center justify-between">
                 <h3 className="text-lg font-medium flex items-center gap-2"><Users className="h-5 w-5"/>People</h3>
-                <div className="flex items-center gap-2">
-                    <Button size="icon" variant="outline" onClick={handleRemovePerson} disabled={people.length <= 1}>
-                        <Minus className="h-4 w-4" />
-                    </Button>
-                    <span className="text-xl font-bold w-12 text-center">{people.length}</span>
-                    <Button size="icon" variant="outline" onClick={handleAddPerson}>
-                        <Plus className="h-4 w-4" />
-                    </Button>
+            </div>
+             {isLoading ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
                 </div>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                {people.map(p => (
-                    <div key={p.id} className="p-2 border rounded-md bg-secondary/30 text-center text-sm font-medium">
-                        {p.name}
-                    </div>
-                ))}
-            </div>
+            ) : (
+                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                    {people.map(p => (
+                        <div key={p.id} className="p-2 border rounded-md bg-secondary/30 text-sm font-medium">
+                            <Input 
+                                defaultValue={p.name}
+                                onBlur={(e) => handleNameChange(p.id, e.target.value)}
+                                className="bg-transparent border-none text-center h-auto p-0"
+                            />
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
 
         <Separator />
@@ -183,9 +179,9 @@ export function SplitCalculator() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="0">No Tax</SelectItem>
-                                    <SelectItem value="5">5%</SelectItem>
-                                    <SelectItem value="8">8%</SelectItem>
-                                    <SelectItem value="13">13%</SelectItem>
+                                    <SelectItem value="5">5% (GST)</SelectItem>
+                                    <SelectItem value="8">8% (PST)</SelectItem>
+                                    <SelectItem value="13">13% (HST)</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
