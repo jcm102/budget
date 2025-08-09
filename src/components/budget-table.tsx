@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, ArrowUpDown, Repeat, Info } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, ArrowUpDown, Repeat, Info, ChevronsUpDown } from 'lucide-react';
 import type { BudgetItem, BudgetItemType } from '@/types';
 import {
   Table,
@@ -15,6 +15,11 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -89,9 +94,14 @@ export function BudgetTable() {
     
 
     return (
-      <div className="mb-8">
+      <Collapsible defaultOpen={true} className="mb-4">
         <div className="flex items-center gap-2 mb-4">
-          <h3 className="text-2xl font-bold font-headline text-primary">{title}</h3>
+            <CollapsibleTrigger asChild>
+                <Button variant="ghost" className="flex items-center gap-2 pl-0 hover:bg-transparent">
+                    <ChevronsUpDown className="h-5 w-5 text-muted-foreground" />
+                    <h3 className="text-2xl font-bold font-headline text-primary">{title}</h3>
+                </Button>
+            </CollapsibleTrigger>
           {type === 'Pre-Authorized Payments' && (
              <Popover>
               <PopoverTrigger asChild>
@@ -107,117 +117,119 @@ export function BudgetTable() {
             </Popover>
           )}
         </div>
-        <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {showCompletedCheckbox && <TableHead className="w-[50px]">Paid</TableHead>}
-                <TableHead>Description</TableHead>
-                {type === 'Income' && <TableHead>Category</TableHead>}
-                {type === 'Transfers' && <TableHead>From</TableHead>}
-                {type === 'Transfers' && <TableHead>To</TableHead>}
-                <TableHead>Date</TableHead>
-                <TableHead>Frequency</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead className="w-[100px] text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                renderLoadingSkeleton()
-              ) : items.length > 0 ? (
-                items.map((item) => (
-                  <TableRow key={item.id} data-state={item.completed ? "completed" : "" } className={cn(item.completed && "bg-accent/30 text-muted-foreground")}>
-                    {showCompletedCheckbox && (
-                      <TableCell>
-                        <Checkbox
-                          checked={item.completed}
-                          onCheckedChange={() => toggleBudgetItemCompleted(item.id, item.completed || false)}
-                          aria-label={`Mark ${item.description} as paid`}
-                        />
-                      </TableCell>
-                    )}
-                    <TableCell className={cn("font-medium", item.completed && "line-through")}>{item.description}</TableCell>
-                    {type === 'Income' && <TableCell>{item.category}</TableCell>}
-                    {type === 'Transfers' && <TableCell>{item.transferFrom}</TableCell>}
-                    {type === 'Transfers' && <TableCell>{item.transferTo}</TableCell>}
-                    <TableCell>{format(new Date(item.date), 'PPP')}</TableCell>
-                     <TableCell>
-                      {item.frequency !== 'One-Time' ? (
-                        <Badge variant="secondary" className="gap-1 items-center">
-                          <Repeat className="h-3 w-3" /> {item.frequency}
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline">One-Time</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">{formatCurrency(item.amount)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(item)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This will permanently delete this budget item. For recurring items, this will delete all future occurrences.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => deleteBudgetItem(item.id)} className={cn(buttonVariants({ variant: "destructive" }))}>
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
+        <CollapsibleContent>
+            <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+            <Table>
+                <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={columns} className="h-24 text-center">
-                    No items added yet.
-                  </TableCell>
+                    {showCompletedCheckbox && <TableHead className="w-[50px]">Paid</TableHead>}
+                    <TableHead>Description</TableHead>
+                    {type === 'Income' && <TableHead>Category</TableHead>}
+                    {type === 'Transfers' && <TableHead>From</TableHead>}
+                    {type === 'Transfers' && <TableHead>To</TableHead>}
+                    <TableHead>Date</TableHead>
+                    <TableHead>Frequency</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="w-[100px] text-right">Actions</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-            <TableFooter>
-                {showCompletedCheckbox ? (
-                    <>
-                        <TableRow>
-                            <TableCell colSpan={columns - 3} />
-                            <TableCell className="font-semibold text-right">Remaining</TableCell>
-                            <TableCell className="text-right font-semibold">{formatCurrency(remainingTotal)}</TableCell>
-                            <TableCell />
-                        </TableRow>
-                        <TableRow>
-                            <TableCell colSpan={columns - 3} />
-                            <TableCell className="font-semibold text-right">Total</TableCell>
-                            <TableCell className="text-right font-semibold">{formatCurrency(total)}</TableCell>
-                            <TableCell />
-                        </TableRow>
-                    </>
+                </TableHeader>
+                <TableBody>
+                {isLoading ? (
+                    renderLoadingSkeleton()
+                ) : items.length > 0 ? (
+                    items.map((item) => (
+                    <TableRow key={item.id} data-state={item.completed ? "completed" : "" } className={cn(item.completed && "bg-accent/30 text-muted-foreground")}>
+                        {showCompletedCheckbox && (
+                        <TableCell>
+                            <Checkbox
+                            checked={item.completed}
+                            onCheckedChange={() => toggleBudgetItemCompleted(item.id, item.completed || false)}
+                            aria-label={`Mark ${item.description} as paid`}
+                            />
+                        </TableCell>
+                        )}
+                        <TableCell className={cn("font-medium", item.completed && "line-through")}>{item.description}</TableCell>
+                        {type === 'Income' && <TableCell>{item.category}</TableCell>}
+                        {type === 'Transfers' && <TableCell>{item.transferFrom}</TableCell>}
+                        {type === 'Transfers' && <TableCell>{item.transferTo}</TableCell>}
+                        <TableCell>{format(new Date(item.date), 'PPP')}</TableCell>
+                        <TableCell>
+                        {item.frequency !== 'One-Time' ? (
+                            <Badge variant="secondary" className="gap-1 items-center">
+                            <Repeat className="h-3 w-3" /> {item.frequency}
+                            </Badge>
+                        ) : (
+                            <Badge variant="outline">One-Time</Badge>
+                        )}
+                        </TableCell>
+                        <TableCell className="text-right">{formatCurrency(item.amount)}</TableCell>
+                        <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(item)}>
+                            <Pencil className="h-4 w-4" />
+                            </Button>
+                            <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive">
+                                <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    This will permanently delete this budget item. For recurring items, this will delete all future occurrences.
+                                </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => deleteBudgetItem(item.id)} className={cn(buttonVariants({ variant: "destructive" }))}>
+                                    Delete
+                                </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
+                        </TableCell>
+                    </TableRow>
+                    ))
                 ) : (
                     <TableRow>
-                        <TableCell colSpan={columns - 2}></TableCell>
-                        <TableCell className="font-semibold text-right">Total</TableCell>
-                        <TableCell className="text-right font-semibold">{formatCurrency(total)}</TableCell>
-                        <TableCell></TableCell>
+                    <TableCell colSpan={columns} className="h-24 text-center">
+                        No items added yet.
+                    </TableCell>
                     </TableRow>
                 )}
-            </TableFooter>
-          </Table>
-        </div>
-      </div>
+                </TableBody>
+                <TableFooter>
+                    {showCompletedCheckbox ? (
+                        <>
+                            <TableRow>
+                                <TableCell colSpan={columns - 3} />
+                                <TableCell className="font-semibold text-right">Remaining</TableCell>
+                                <TableCell className="text-right font-semibold">{formatCurrency(remainingTotal)}</TableCell>
+                                <TableCell />
+                            </TableRow>
+                            <TableRow>
+                                <TableCell colSpan={columns - 3} />
+                                <TableCell className="font-semibold text-right">Total</TableCell>
+                                <TableCell className="text-right font-semibold">{formatCurrency(total)}</TableCell>
+                                <TableCell />
+                            </TableRow>
+                        </>
+                    ) : (
+                        <TableRow>
+                            <TableCell colSpan={columns - 2}></TableCell>
+                            <TableCell className="font-semibold text-right">Total</TableCell>
+                            <TableCell className="text-right font-semibold">{formatCurrency(total)}</TableCell>
+                            <TableCell></TableCell>
+                        </TableRow>
+                    )}
+                </TableFooter>
+            </Table>
+            </div>
+        </CollapsibleContent>
+      </Collapsible>
     );
   };
   
