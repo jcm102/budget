@@ -1,0 +1,83 @@
+'use client';
+
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { Banknote, CreditCard, Home, Lightbulb, PiggyBank, Settings, Users, Wallet } from 'lucide-react';
+import {
+  SidebarContent,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+  SidebarFooter,
+  SidebarHeader
+} from '@/components/ui/sidebar';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { Button } from './ui/button';
+
+const navItems = [
+    { href: '/', icon: Home, label: 'Tasks' },
+    { href: '/debt', icon: Wallet, label: 'Debt Worksheet' },
+    { href: '/budget', icon: Banknote, label: 'Budget Overview' },
+    { href: '/expenses', icon: CreditCard, label: 'Work Expenses' },
+    { href: '/savings', icon: PiggyBank, label: 'Future Spending' },
+    { href: '/split', icon: Users, label: 'Split Calculator' },
+];
+
+export function AppNav() {
+  const pathname = usePathname();
+
+  return (
+    <>
+      <SidebarHeader className="p-4">
+        <h2 className="text-2xl font-bold text-sidebar-primary">TaskTrack Budget</h2>
+      </SidebarHeader>
+      <SidebarContent>
+        <SidebarMenu>
+          {navItems.map((item) => (
+            <SidebarMenuItem key={item.href}>
+              <Link href={item.href} legacyBehavior passHref>
+                <SidebarMenuButton isActive={pathname === item.href} tooltip={item.label}>
+                  <item.icon />
+                  <span>{item.label}</span>
+                </SidebarMenuButton>
+              </Link>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
+      </SidebarContent>
+      <SidebarFooter className="flex-col !items-stretch gap-2">
+        <Popover>
+            <PopoverTrigger asChild>
+                <Button variant="ghost" className="justify-start">
+                    <Lightbulb className="mr-2 h-4 w-4" />
+                    Splitwise Tip
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80" side="right" align="start">
+                <h4 className="font-medium leading-none">Entering Splitwise Transactions</h4>
+                <div className="text-sm text-muted-foreground mt-2 space-y-2">
+                <div>
+                    <h5 className="font-semibold">Jordan Paid:</h5>
+                    <p>1. Enter split transaction in Actual</p>
+                    <p>2. First half into appropriate category. Transfer second half to splitwise account.</p>
+                </div>
+                <div>
+                    <h5 className="font-semibold">Eric Paid:</h5>
+                    <p>1. Enter my portion of the transaction into splitwise account. Categorize appropriately.</p>
+                </div>
+                </div>
+            </PopoverContent>
+        </Popover>
+        <Link href="/settings" legacyBehavior passHref>
+          <SidebarMenuButton isActive={pathname === '/settings'} tooltip="Settings">
+            <Settings />
+            <span>Settings</span>
+          </SidebarMenuButton>
+        </Link>
+      </SidebarFooter>
+    </>
+  );
+}

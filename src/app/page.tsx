@@ -1,15 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useTasks } from '@/hooks/use-tasks';
 import { TaskForm } from '@/components/task-form';
 import { TaskList } from '@/components/task-list';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, Sunrise, CalendarDays, CalendarRange, ArrowRight, Lightbulb, Banknote, Settings, CreditCard, PiggyBank, Users } from 'lucide-react';
+import { PlusCircle, Sunrise, CalendarDays, CalendarRange } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { Task, Subtask } from '@/types';
 
 export default function Home() {
@@ -77,60 +75,6 @@ export default function Home() {
           <p className="text-muted-foreground mt-2 text-lg">
             Your personal assistant for daily, weekly, and monthly budgeting tasks.
           </p>
-          <div className="mt-4 flex justify-center items-center gap-4 flex-wrap">
-             <Button asChild variant="outline" size="lg">
-                <Link href="/debt">
-                  Debt Payment Worksheet <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-             </Button>
-             <Button asChild variant="outline" size="lg">
-                <Link href="/budget">
-                  Budget Overview <Banknote className="ml-2 h-5 w-5" />
-                </Link>
-             </Button>
-              <Button asChild variant="outline" size="lg">
-                <Link href="/expenses">
-                  Work Expense Tracking <CreditCard className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
-               <Button asChild variant="outline" size="lg">
-                <Link href="/savings">
-                  Future Spending <PiggyBank className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
-               <Button asChild variant="outline" size="lg">
-                <Link href="/split">
-                  Split Calculator <Users className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
-              <Button asChild variant="outline" size="lg">
-                <Link href="/settings">
-                  Settings <Settings className="ml-2 h-5 w-5" />
-                </Link>
-             </Button>
-             <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="lg">
-                    <Lightbulb className="mr-2 h-5 w-5" />
-                    Splitwise Tip
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-80">
-                  <h4 className="font-medium leading-none">Entering Splitwise Transactions</h4>
-                  <div className="text-sm text-muted-foreground mt-2 space-y-2">
-                    <div>
-                      <h5 className="font-semibold">Jordan Paid:</h5>
-                      <p>1. Enter split transaction in Actual</p>
-                      <p>2. First half into appropriate category. Transfer second half to splitwise account.</p>
-                    </div>
-                    <div>
-                      <h5 className="font-semibold">Eric Paid:</h5>
-                      <p>1. Enter my portion of the transaction into splitwise account. Categorize appropriately.</p>
-                    </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
-          </div>
         </header>
 
         <main>
