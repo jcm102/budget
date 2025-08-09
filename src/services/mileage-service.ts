@@ -18,10 +18,16 @@ import {
 
 const EXPENSE_COLLECTION = 'expenses'; // We store mileage in the same collection
 
-export async function getMileageLogs(): Promise<MileageLog[]> {
+export async function getMileageLogs(status: 'active' | 'archived', archiveKey?: string): Promise<MileageLog[]> {
   const expenseCollection = collection(db, EXPENSE_COLLECTION);
-  // Remove the orderBy clause to avoid needing a composite index
-  const q = query(expenseCollection, where('type', '==', 'Mileage'));
+  let q;
+
+  if (status === 'active') {
+     q = query(expenseCollection, where('type', '==', 'Mileage'), where('status', '==', 'active'));
+  } else {
+     q = query(expenseCollection, where('type', '==', 'Mileage'), where('status', '==', 'archived'), where('archiveKey', '==', archiveKey));
+  }
+  
   const querySnapshot = await getDocs(q);
 
   const mileageLogs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MileageLog));
@@ -31,7 +37,9 @@ export async function getMileageLogs(): Promise<MileageLog[]> {
 }
 
 export async function addMileageLog(itemData: Omit<MileageLog, 'id'>): Promise<MileageLog> {
-  const docRef = await addDoc(collection(db, EXPENSE_COLLECTION), itemData);
+  // New mileage logs are always active
+  const dataWithStatus = { ...itemData, status: 'active' };
+  const docRef = await addDoc(collection(db, EXPENSE_COLLECTION), dataWithStatus);
   const docSnap = await getDoc(docRef);
   return { id: docSnap.id, ...docSnap.data() } as MileageLog;
 }

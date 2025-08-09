@@ -1,5 +1,4 @@
 
-
 export type TaskFrequency = "daily" | "weekly" | "monthly";
 
 export const internalPages = [
@@ -81,6 +80,8 @@ interface BaseExpense {
   type: ExpenseType;
   description: string;
   date: string; // ISO string
+  status: 'active' | 'archived';
+  archiveKey?: string; // e.g., '2024-08'
 }
 
 export interface Expense extends BaseExpense {

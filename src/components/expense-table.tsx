@@ -35,8 +35,14 @@ import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
 import { Checkbox } from './ui/checkbox';
 
-export function ExpenseTable() {
-  const { expenses, addExpense, updateExpense, deleteExpense, toggleExpenseCompleted, isLoading } = useExpenses();
+type ExpenseTableProps = {
+  expenses: Expense[];
+  isLoading: boolean;
+  isArchived: boolean;
+};
+
+export function ExpenseTable({ expenses, isLoading, isArchived }: ExpenseTableProps) {
+  const { addExpense, updateExpense, deleteExpense, toggleExpenseCompleted } = useExpenses();
   const { addMileage, updateMileage } = useMileage();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Expense | MileageLog | null>(null);
@@ -85,10 +91,12 @@ export function ExpenseTable() {
         editingItem={editingItem}
       />
       <div className="flex justify-end items-center mb-6 gap-2">
-        <Button onClick={() => setIsFormOpen(true)}>
-          <PlusCircle className="mr-2 h-5 w-5" />
-          Add Monetary Expense
-        </Button>
+        {!isArchived && (
+          <Button onClick={() => setIsFormOpen(true)}>
+            <PlusCircle className="mr-2 h-5 w-5" />
+            Add Monetary Expense
+          </Button>
+        )}
       </div>
 
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
@@ -103,7 +111,7 @@ export function ExpenseTable() {
               <TableHead>Frequency</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Amount</TableHead>
-              <TableHead className="w-[100px] text-right">Actions</TableHead>
+              {!isArchived && <TableHead className="w-[100px] text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -117,7 +125,7 @@ export function ExpenseTable() {
                           checked={item.completed}
                           onCheckedChange={() => toggleExpenseCompleted(item.id, item.completed || false)}
                           aria-label={`Mark ${item.description} as paid`}
-                          disabled={item.frequency === 'One-Time'}
+                          disabled={isArchived || item.frequency === 'One-Time'}
                         />
                       </TableCell>
                   <TableCell>{format(new Date(item.date), 'PPP')}</TableCell>
@@ -141,51 +149,55 @@ export function ExpenseTable() {
                     )}
                   </TableCell>
                   <TableCell className="text-right">{formatCurrency(item.amount)}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(item)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This will permanently delete this expense item.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => deleteExpense(item.id)} className={cn(buttonVariants({ variant: "destructive" }))}>
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </TableCell>
+                  {!isArchived && (
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(item)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently delete this expense item.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => deleteExpense(item.id)} className={cn(buttonVariants({ variant: "destructive" }))}>
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={9} className="h-24 text-center">
+                <TableCell colSpan={isArchived ? 8 : 9} className="h-24 text-center">
                   No expenses added yet.
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
-          <TableFooter>
-            <TableRow>
-              <TableCell colSpan={7} className="font-semibold text-right">Total Expenses</TableCell>
-              <TableCell className="text-right font-semibold">{formatCurrency(totalExpenses)}</TableCell>
-              <TableCell></TableCell>
-            </TableRow>
-          </TableFooter>
+          {expenses.length > 0 && (
+            <TableFooter>
+                <TableRow>
+                <TableCell colSpan={isArchived ? 7 : 8} className="font-semibold text-right">Total Expenses</TableCell>
+                <TableCell className="text-right font-semibold">{formatCurrency(totalExpenses)}</TableCell>
+                {!isArchived && <TableCell></TableCell>}
+                </TableRow>
+            </TableFooter>
+          )}
         </Table>
       </div>
     </>

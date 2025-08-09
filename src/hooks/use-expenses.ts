@@ -1,19 +1,22 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import type { Expense } from '@/types';
+import type { Expense, MileageLog } from '@/types';
 import { useToast } from './use-toast';
 import * as ExpenseService from '@/services/expense-service';
+import * as MileageService from '@/services/mileage-service';
 
 export function useExpenses() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [mileageLogs, setMileageLogs] = useState<MileageLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
   const fetchExpenses = useCallback(async () => {
     try {
       setIsLoading(true);
-      const fetchedItems = await ExpenseService.getExpenses();
+      const fetchedItems = await ExpenseService.getExpenses('active');
       setExpenses(fetchedItems);
     } catch (error) {
       console.error('Failed to load expenses:', error);
@@ -27,14 +30,31 @@ export function useExpenses() {
     }
   }, [toast]);
 
+  const fetchMileage = useCallback(async () => {
+     try {
+      setIsLoading(true);
+      const fetchedItems = await MileageService.getMileageLogs('active');
+      setMileageLogs(fetchedItems);
+    } catch (error) {
+      console.error('Failed to load mileage logs:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load mileage from the database.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast])
+
   useEffect(() => {
     fetchExpenses();
-  }, [fetchExpenses]);
+    fetchMileage();
+  }, [fetchExpenses, fetchMileage]);
 
   const addExpense = useCallback(async (itemData: Omit<Expense, 'id'>, callback: (success: boolean) => void) => {
     try {
       const newItem = await ExpenseService.addExpense(itemData);
-      setExpenses((prev) => [...prev, newItem].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
       await fetchExpenses(); 
       callback(true);
     } catch (error) {
@@ -49,46 +69,32 @@ export function useExpenses() {
   }, [toast, fetchExpenses]);
 
   const updateExpense = useCallback(async (id: string, itemData: Partial<Omit<Expense, 'id' | 'originalId'>>) => {
-    const originalItems = expenses;
-    const isRecurringInstance = id.includes('-');
-    if (isRecurringInstance) {
-        setExpenses(prev => prev.filter(item => item.id !== id));
-    } else {
-        setExpenses((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, ...itemData } as Expense : item))
-        );
-    }
-    
     try {
       await ExpenseService.updateExpense(id, itemData);
       await fetchExpenses();
     } catch (error) {
       console.error('Failed to update expense:', error);
-      setExpenses(originalItems);
       toast({
         title: 'Error',
         description: 'Failed to update the expense.',
         variant: 'destructive',
       });
     }
-  }, [expenses, toast, fetchExpenses]);
+  }, [toast, fetchExpenses]);
 
   const deleteExpense = useCallback(async (id: string) => {
-    const originalItems = expenses;
-    setExpenses((prev) => prev.filter((item) => item.id !== id));
     try {
       await ExpenseService.deleteExpense(id);
       await fetchExpenses(); // Refetch to ensure recurring items are handled correctly
     } catch (error) {
       console.error('Failed to delete expense:', error);
-      setExpenses(originalItems);
       toast({
         title: 'Error',
         description: 'Failed to delete the expense.',
         variant: 'destructive',
       });
     }
-  }, [expenses, toast, fetchExpenses]);
+  }, [toast, fetchExpenses]);
 
   const toggleExpenseCompleted = useCallback(async (id: string, completed: boolean) => {
     const originalItems = [...expenses];
@@ -110,5 +116,5 @@ export function useExpenses() {
     }
   }, [expenses, toast]);
 
-  return { expenses, addExpense, updateExpense, deleteExpense, toggleExpenseCompleted, isLoading, fetchExpenses };
+  return { expenses, mileageLogs, addExpense, updateExpense, deleteExpense, toggleExpenseCompleted, isLoading, fetchExpenses, fetchMileage };
 }

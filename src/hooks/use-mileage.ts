@@ -14,7 +14,7 @@ export function useMileage() {
   const fetchMileageLogs = useCallback(async () => {
       try {
         setIsLoading(true);
-        const fetchedItems = await MileageService.getMileageLogs();
+        const fetchedItems = await MileageService.getMileageLogs('active');
         setMileageLogs(fetchedItems);
       } catch (error) {
         console.error('Failed to load mileage logs:', error);
@@ -35,7 +35,7 @@ export function useMileage() {
   const addMileage = useCallback(async (itemData: Omit<MileageLog, 'id'>) => {
     try {
       const newItem = await MileageService.addMileageLog(itemData);
-      setMileageLogs((prev) => [...prev, newItem].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      await fetchMileageLogs();
     } catch (error) {
       console.error('Failed to add mileage log:', error);
       toast({
@@ -44,42 +44,35 @@ export function useMileage() {
         variant: 'destructive',
       });
     }
-  }, [toast]);
+  }, [toast, fetchMileageLogs]);
 
   const updateMileage = useCallback(async (id: string, itemData: Omit<MileageLog, 'id'>) => {
-    const originalItems = mileageLogs;
-    setMileageLogs((prev) =>
-      prev.map((item) => (item.id === id ? { id, ...itemData } : item))
-         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    );
     try {
       await MileageService.updateMileageLog(id, itemData);
+       await fetchMileageLogs();
     } catch (error) {
       console.error('Failed to update mileage log:', error);
-      setMileageLogs(originalItems);
       toast({
         title: 'Error',
         description: 'Failed to update the mileage log.',
         variant: 'destructive',
       });
     }
-  }, [mileageLogs, toast]);
+  }, [toast, fetchMileageLogs]);
 
   const deleteMileage = useCallback(async (id: string) => {
-    const originalItems = mileageLogs;
-    setMileageLogs((prev) => prev.filter((item) => item.id !== id));
     try {
       await MileageService.deleteMileageLog(id);
+       await fetchMileageLogs();
     } catch (error) {
       console.error('Failed to delete mileage log:', error);
-      setMileageLogs(originalItems);
       toast({
         title: 'Error',
         description: 'Failed to delete the mileage log.',
         variant: 'destructive',
       });
     }
-  }, [mileageLogs, toast]);
+  }, [toast, fetchMileageLogs]);
 
   return { mileageLogs, addMileage, updateMileage, deleteMileage, isLoading, fetchMileageLogs };
 }
