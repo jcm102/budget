@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, ArrowUpDown, Repeat, Info, ChevronsUpDown } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, Repeat, Info, ChevronsUpDown } from 'lucide-react';
 import type { BudgetItem, BudgetItemType } from '@/types';
 import {
   Table,
