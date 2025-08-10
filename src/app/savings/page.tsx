@@ -8,6 +8,7 @@ import { ArrowLeft, ChevronsUpDown, Printer } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { AutoShipTable } from '@/components/autoship-table';
 import { SubscriptionTable } from '@/components/subscription-table';
+import { GoalTable } from '@/components/goal-table';
 
 export default function SavingsPage() {
   const handlePrint = () => {
@@ -29,6 +30,18 @@ export default function SavingsPage() {
         </Button>
       </header>
       <main className="space-y-8">
+        <Collapsible defaultOpen={true}>
+            <CollapsibleTrigger asChild>
+                <Button variant="ghost" className="flex items-center gap-2 pl-0 hover:bg-transparent text-3xl font-bold font-headline text-primary mb-4 no-print">
+                    <ChevronsUpDown className="h-6 w-6 text-muted-foreground" />
+                    <h2>Goal Savings</h2>
+                </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+                <GoalTable />
+            </CollapsibleContent>
+        </Collapsible>
+        
         <Collapsible defaultOpen={true}>
             <CollapsibleTrigger asChild>
                 <Button variant="ghost" className="flex items-center gap-2 pl-0 hover:bg-transparent text-3xl font-bold font-headline text-primary mb-4 no-print">
