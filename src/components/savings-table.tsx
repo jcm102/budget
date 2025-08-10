@@ -112,16 +112,20 @@ export function SavingsTable() {
       nextRenewalDate = addMonths(nextRenewalDate, purchaseIntervalMonths);
       cycles++;
     }
-
+    
     const budgetedCost = costBasis * Math.pow(1 + (item.annualIncrease / 100), cycles * purchaseIntervalYears);
     
-    const monthsRemainingRaw = differenceInCalendarMonths(nextRenewalDate, now);
-    // If the renewal is this month, there is 1 savings period (this month). 
-    // Otherwise, it's the number of full months between now and then.
-    const monthsRemaining = monthsRemainingRaw <= 0 ? 1 : monthsRemainingRaw;
+    let monthsRemaining;
+    const diff = differenceInCalendarMonths(nextRenewalDate, now);
 
+    if (diff <= 0) {
+        monthsRemaining = 1;
+    } else {
+        monthsRemaining = diff;
+    }
+    
     const amountToSave = budgetedCost - item.totalBudgeted;
-    const monthlyCost = amountToSave > 0 ? amountToSave / monthsRemaining : 0;
+    const monthlyCost = amountToSave > 0 && monthsRemaining > 0 ? amountToSave / monthsRemaining : 0;
     
     return { budgetedCost, monthlyCost, monthsRemaining, nextRenewalDate };
   }
