@@ -23,20 +23,26 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import type { Debt } from '@/types';
+import { Separator } from './ui/separator';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.'),
+  // Current month fields
   balance: z.coerce.number().min(0, 'Balance must be a positive number.'),
   minimumPayment: z.coerce.number().min(0, 'Minimum payment must be a positive number.'),
   actualPayment: z.coerce.number().min(0, 'Actual payment must be a positive number.'),
   dueDate: z.string().min(1, 'A due date is required.'),
+  // Next month fields
+  nextBalance: z.coerce.number().optional(),
+  nextMinimumPayment: z.coerce.number().optional(),
+  nextDueDate: z.string().optional(),
 });
 
 type DebtFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   addDebt: (debt: Omit<Debt, 'id' | 'order'>) => void;
-  updateDebt: (id: string, debt: Omit<Debt, 'id' | 'order'>) => void;
+  updateDebt: (id: string, debt: Partial<Omit<Debt, 'id' | 'order'>>) => void;
   editingDebt: Debt | null;
 };
 
@@ -64,6 +70,9 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
       minimumPayment: 0,
       actualPayment: 0,
       dueDate: '',
+      nextBalance: 0,
+      nextMinimumPayment: 0,
+      nextDueDate: '',
     },
   });
 
@@ -76,14 +85,21 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
           minimumPayment: editingDebt.minimumPayment,
           actualPayment: editingDebt.actualPayment,
           dueDate: new Date(editingDebt.dueDate).toISOString().split('T')[0],
+          nextBalance: editingDebt.nextBalance || 0,
+          nextMinimumPayment: editingDebt.nextMinimumPayment || 0,
+          nextDueDate: editingDebt.nextDueDate ? new Date(editingDebt.nextDueDate).toISOString().split('T')[0] : '',
         });
       } else {
+        const today = new Date().toISOString().split('T')[0];
         form.reset({
           name: '',
           balance: 0,
           minimumPayment: 0,
           actualPayment: 0,
-          dueDate: new Date().toISOString().split('T')[0],
+          dueDate: today,
+          nextBalance: 0,
+          nextMinimumPayment: 0,
+          nextDueDate: today,
         });
       }
     }
@@ -93,18 +109,29 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
     const [year, month, day] = values.dueDate.split('-').map(Number);
     const localDate = new Date(year, month - 1, day);
     
-    const submissionData = { ...values, dueDate: toLocalISOString(localDate) };
+    let nextLocalDate: string | undefined = undefined;
+    if (values.nextDueDate) {
+        const [nextYear, nextMonth, nextDay] = values.nextDueDate.split('-').map(Number);
+        nextLocalDate = toLocalISOString(new Date(nextYear, nextMonth - 1, nextDay));
+    }
+
+    const submissionData = { 
+        ...values, 
+        dueDate: toLocalISOString(localDate),
+        nextDueDate: nextLocalDate,
+    };
+
     if (editingDebt) {
       updateDebt(editingDebt.id, submissionData);
     } else {
-      addDebt(submissionData);
+      addDebt(submissionData as Omit<Debt, 'id' | 'order'>);
     }
     onOpenChange(false);
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{editingDebt ? 'Edit Debt' : 'Add New Debt'}</DialogTitle>
           <DialogDescription>
@@ -123,11 +150,16 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
                 </FormItem>
               )}
             />
+
+            <Separator />
+            <h4 className="text-md font-medium text-center">Current Month</h4>
+            <Separator />
+
             <FormField control={form.control} name="balance" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Balance</FormLabel>
                   <FormControl>
-                    <Input type="number" {...field} />
+                    <Input type="number" step="0.01" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -137,7 +169,7 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
                 <FormItem>
                   <FormLabel>Minimum Payment</FormLabel>
                   <FormControl>
-                    <Input type="number" {...field} />
+                    <Input type="number" step="0.01" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -147,7 +179,7 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
                 <FormItem>
                   <FormLabel>Actual Payment</FormLabel>
                   <FormControl>
-                    <Input type="number" {...field} />
+                    <Input type="number" step="0.01" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -163,6 +195,42 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
                 </FormItem>
               )}
             />
+            
+            <Separator />
+            <h4 className="text-md font-medium text-center">Next Month</h4>
+            <Separator />
+
+             <FormField control={form.control} name="nextBalance" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Next Balance</FormLabel>
+                  <FormControl>
+                    <Input type="number" step="0.01" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField control={form.control} name="nextMinimumPayment" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Next Minimum Payment</FormLabel>
+                  <FormControl>
+                    <Input type="number" step="0.01" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField control={form.control} name="nextDueDate" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Next Due Date</FormLabel>
+                   <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <DialogFooter>
               <Button type="submit">{editingDebt ? 'Save Changes' : 'Add Debt'}</Button>
             </DialogFooter>

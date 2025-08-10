@@ -1,11 +1,60 @@
+
 'use client';
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { DebtTable } from '@/components/debt-table';
-import { ArrowLeft, Printer } from 'lucide-react';
+import { ArrowLeft, Printer, RotateCcw, View, CalendarUp } from 'lucide-react';
+import { useDebt } from '@/hooks/use-debt';
+import { useState } from 'react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { cn } from '@/lib/utils';
+import { buttonVariants } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { ColumnVisibility } from '@/components/debt-table';
 
 export default function DebtPage() {
+  const { debts, addDebt, updateDebt, deleteDebt, resetDebtValues, cycleToNextMonth, updateDebtOrder, toggleDebtPaid, isLoading } = useDebt();
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingDebt, setEditingDebt] = useState(null);
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
+    paid: true,
+    name: true,
+    balance: true,
+    minimumPayment: true,
+    actualPayment: true,
+    dueDate: true,
+    actions: true,
+  });
+
+  const columnConfig = {
+    paid: { label: 'Paid' },
+    name: { label: 'Debt Name' },
+    balance: { label: 'Balance', isNumeric: true },
+    minimumPayment: { label: 'Min. Payment', isNumeric: true },
+    actualPayment: { label: 'Actual Payment', isNumeric: true },
+    dueDate: { label: 'Due Date' },
+    actions: { label: 'Actions', isAction: true },
+  };
+
   const handlePrint = () => {
     window.print();
   }
@@ -18,14 +67,107 @@ export default function DebtPage() {
             Back to Tasks
           </Link>
         </Button>
-         <Button variant="outline" onClick={handlePrint}>
-            <Printer className="mr-2 h-4 w-4" />
-            Print
-          </Button>
+         <div className="flex gap-2">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" disabled={debts.length === 0}>
+                  <CalendarUp className="mr-2 h-5 w-5" />
+                  Cycle to Next Month
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Cycle to Next Month?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will replace all "Current Month" data with the "Next Month" data you've entered. The "Next Month" fields will then be cleared. This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={cycleToNextMonth} className={cn(buttonVariants({ variant: "default" }))}>
+                    Yes, Cycle Month
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" disabled={debts.length === 0}>
+                  <RotateCcw className="mr-2 h-5 w-5" />
+                  Reset All
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action will reset the balance, payments, and due date for ALL debts in BOTH the current and next month tabs. This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={resetDebtValues} className={cn(buttonVariants({ variant: "destructive" }))}>
+                    Yes, Reset All
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <View className="mr-2 h-4 w-4" />
+                  View
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[180px]">
+                <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {Object.entries(columnConfig).map(([key, { label }]) => (
+                   <DropdownMenuCheckboxItem
+                    key={key}
+                    className="capitalize"
+                    checked={columnVisibility[key as keyof ColumnVisibility]}
+                    onCheckedChange={(value) =>
+                      setColumnVisibility((prev) => ({
+                        ...prev,
+                        [key]: !!value,
+                      }))
+                    }
+                  >
+                    {label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button variant="outline" onClick={handlePrint}>
+                <Printer className="mr-2 h-4 w-4" />
+                Print
+            </Button>
+        </div>
       </header>
       <main>
-        <DebtTable />
+         <Tabs defaultValue="current" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 bg-secondary/50 mb-6 no-print">
+            <TabsTrigger value="current">Current Month</TabsTrigger>
+            <TabsTrigger value="next">Next Month</TabsTrigger>
+          </TabsList>
+          <TabsContent value="current">
+            <DebtTable
+                view="current"
+                columnVisibility={columnVisibility}
+                columnConfig={columnConfig}
+            />
+          </TabsContent>
+          <TabsContent value="next">
+             <DebtTable
+                view="next"
+                columnVisibility={columnVisibility}
+                columnConfig={columnConfig}
+            />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
 }
+

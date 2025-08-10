@@ -6,30 +6,33 @@ import type { Debt } from '@/types';
 import { useToast } from './use-toast';
 import * as DebtService from '@/services/debt-service';
 
+type DebtView = 'current' | 'next';
+
 export function useDebt() {
   const [debts, setDebts] = useState<Debt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchDebts = async () => {
-      try {
+  const fetchDebts = useCallback(async () => {
+    try {
         setIsLoading(true);
         const fetchedDebts = await DebtService.getDebts();
         setDebts(fetchedDebts);
-      } catch (error) {
+    } catch (error) {
         console.error('Failed to load debts:', error);
         toast({
-          title: 'Error',
-          description: 'Failed to load debts from the database.',
-          variant: 'destructive',
+            title: 'Error',
+            description: 'Failed to load debts from the database.',
+            variant: 'destructive',
         });
-      } finally {
+    } finally {
         setIsLoading(false);
-      }
-    };
-    fetchDebts();
+    }
   }, [toast]);
+
+  useEffect(() => {
+    fetchDebts();
+  }, [fetchDebts]);
 
   const addDebt = useCallback(async (debtData: Omit<Debt, 'id' | 'order'>) => {
     try {
@@ -95,18 +98,13 @@ export function useDebt() {
   
   const resetDebtValues = useCallback(async () => {
     const originalDebts = [...debts];
-    setDebts(prevDebts =>
-      prevDebts.map(debt => ({
-        ...debt,
-        balance: 0,
-        minimumPayment: 0,
-        actualPayment: 0,
-        dueDate: new Date().toISOString(),
-        paid: false,
-      }))
-    );
     try {
       await DebtService.resetDebtValues();
+      await fetchDebts(); // Refetch after service call
+      toast({
+        title: 'Success!',
+        description: 'All debt values for current and next month have been reset.',
+      });
     } catch (error) {
       console.error('Failed to reset debts:', error);
       setDebts(originalDebts);
@@ -116,16 +114,39 @@ export function useDebt() {
         variant: 'destructive',
       });
     }
-  }, [debts, toast]);
+  }, [debts, toast, fetchDebts]);
 
-  const toggleDebtPaid = useCallback(async (id: string) => {
+  const toggleDebtPaid = useCallback(async (id: string, view: DebtView) => {
     const debtToToggle = debts.find(d => d.id === id);
     if (!debtToToggle) return;
     
-    const isPaid = !(debtToToggle.paid ?? false);
-    updateDebt(id, { paid: isPaid });
+    if (view === 'current') {
+      const isPaid = !(debtToToggle.paid ?? false);
+      updateDebt(id, { paid: isPaid });
+    } else {
+      const isPaid = !(debtToToggle.nextPaid ?? false);
+      updateDebt(id, { nextPaid: isPaid });
+    }
 
   }, [debts, updateDebt]);
 
-  return { debts, addDebt, updateDebt, deleteDebt, resetDebtValues, updateDebtOrder, isLoading, toggleDebtPaid };
+  const cycleToNextMonth = useCallback(async () => {
+    try {
+        await DebtService.cycleToNextMonth();
+        await fetchDebts();
+        toast({
+            title: 'Success!',
+            description: 'Debt worksheet has been cycled to the next month.',
+        });
+    } catch (error) {
+        console.error('Failed to cycle to next month:', error);
+        toast({
+            title: 'Error',
+            description: 'Could not cycle the debt worksheet.',
+            variant: 'destructive',
+        });
+    }
+  }, [fetchDebts, toast]);
+
+  return { debts, addDebt, updateDebt, deleteDebt, resetDebtValues, cycleToNextMonth, updateDebtOrder, isLoading, toggleDebtPaid };
 }

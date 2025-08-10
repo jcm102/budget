@@ -39,12 +39,18 @@ export interface Task {
 export interface Debt {
   id:string;
   name: string;
+  order: number;
+  // Current Month
   balance: number;
   minimumPayment: number;
   actualPayment: number;
   dueDate: string; // Should be a date string
-  order: number;
   paid?: boolean;
+  // Next Month
+  nextBalance?: number;
+  nextMinimumPayment?: number;
+  nextDueDate?: string;
+  nextPaid?: boolean;
 }
 
 export type BudgetItemType = 'Income' | 'Debt Payments' | 'Transfers' | 'Pre-Authorized Payments';
