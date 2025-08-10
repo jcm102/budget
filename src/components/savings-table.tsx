@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { format, addMonths, differenceInCalendarMonths, isBefore, getYear, getMonth } from 'date-fns';
+import { format, addMonths, differenceInCalendarMonths, isBefore, getYear, getMonth, startOfDay } from 'date-fns';
 import { Pencil, Trash2, PlusCircle, Check, ShoppingCart, View, Users } from 'lucide-react';
 import type { SavingsItem } from '@/types';
 
@@ -100,16 +100,12 @@ export function SavingsTable() {
   };
   
   const calculateValues = (item: SavingsItem, referenceDate = new Date()) => {
-    const now = new Date(referenceDate);
-    now.setHours(0, 0, 0, 0);
-
+    const now = startOfDay(new Date(referenceDate));
     const costBasis = item.isSplit ? item.cost / 2 : item.cost;
-    
     const purchaseIntervalYears = yearsMap[item.purchaseFrequency];
     const purchaseIntervalMonths = purchaseIntervalYears * 12;
 
-    let nextRenewalDate = new Date(item.renewalDate);
-    nextRenewalDate.setHours(0,0,0,0);
+    let nextRenewalDate = startOfDay(new Date(item.renewalDate));
     
     let cycles = 0;
     while (isBefore(nextRenewalDate, now)) {
@@ -120,7 +116,9 @@ export function SavingsTable() {
     const budgetedCost = costBasis * Math.pow(1 + (item.annualIncrease / 100), cycles * purchaseIntervalYears);
     
     const monthsRemainingRaw = differenceInCalendarMonths(nextRenewalDate, now);
-    const monthsRemaining = monthsRemainingRaw < 1 ? 1 : monthsRemainingRaw;
+    // If the renewal is this month, there is 1 savings period (this month). 
+    // Otherwise, it's the number of full months between now and then.
+    const monthsRemaining = monthsRemainingRaw <= 0 ? 1 : monthsRemainingRaw;
 
     const amountToSave = budgetedCost - item.totalBudgeted;
     const monthlyCost = amountToSave > 0 ? amountToSave / monthsRemaining : 0;
@@ -189,7 +187,7 @@ export function SavingsTable() {
         updateSavingsItem={updateSavingsItem}
         editingItem={editingItem}
       />
-      <div className="flex justify-end items-center mb-6 gap-2">
+      <div className="flex justify-end items-center mb-6 gap-2 no-print">
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" disabled={savingsItems.length === 0}>
@@ -275,7 +273,7 @@ export function SavingsTable() {
                                 {columnVisibility.renewalDate && <TableCell>{format(nextRenewalDate, 'PPP')}</TableCell>}
                                 {columnVisibility.monthsRemaining && <TableCell>{monthsRemaining}</TableCell>}
                                 {columnVisibility.totalBudgeted && <TableCell className="text-right">{formatCurrency(item.totalBudgeted)}</TableCell>}
-                                {columnVisibility.actions && <TableCell className="text-right">
+                                {columnVisibility.actions && <TableCell className="text-right no-print">
                                     <div className="flex justify-end gap-1">
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
