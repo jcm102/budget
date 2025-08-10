@@ -1,9 +1,9 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, RotateCw } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, RotateCw, ArrowUpDown } from 'lucide-react';
 import type { AutoShipItem } from '@/types';
 
 import {
@@ -35,10 +35,30 @@ import { buttonVariants } from './ui/button';
 import { Badge } from './ui/badge';
 import { useToast } from '@/hooks/use-toast';
 
+type SortConfig = {
+    key: keyof AutoShipItem;
+    direction: 'ascending' | 'descending';
+} | null;
+
+const SortableHeader = ({ column, label, sortConfig, requestSort, className }: { column: keyof AutoShipItem, label: string, sortConfig: SortConfig, requestSort: (key: keyof AutoShipItem) => void, className?: string }) => {
+  const isSorted = sortConfig?.key === column;
+  const direction = isSorted ? sortConfig.direction : 'ascending';
+  return (
+    <TableHead className={className}>
+      <Button variant="ghost" onClick={() => requestSort(column)}>
+        {label}
+        {isSorted && <ArrowUpDown className={`ml-2 h-4 w-4 transform ${direction === 'descending' ? 'rotate-180' : ''}`} />}
+        {!isSorted && <ArrowUpDown className="ml-2 h-4 w-4 opacity-0 group-hover:opacity-50" />}
+      </Button>
+    </TableHead>
+  )
+}
+
 export function AutoShipTable() {
   const { autoShipItems, addAutoShipItem, updateAutoShipItem, deleteAutoShipItem, shipItem, isLoading } = useAutoShip();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<AutoShipItem | null>(null);
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'nextShipmentDate', direction: 'ascending' });
   const { toast } = useToast();
 
   const handleEdit = (item: AutoShipItem) => {
@@ -52,6 +72,35 @@ export function AutoShipTable() {
       setEditingItem(null);
     }
   };
+  
+  const requestSort = (key: keyof AutoShipItem) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+  
+  const sortedItems = useMemo(() => {
+    let sortableItems = [...autoShipItems];
+    if (sortConfig !== null) {
+      sortableItems.sort((a, b) => {
+        let aValue, bValue;
+        if (sortConfig.key === 'nextShipmentDate') {
+            aValue = new Date(a.nextShipmentDate).getTime();
+            bValue = new Date(b.nextShipmentDate).getTime();
+        } else {
+            aValue = a[sortConfig.key];
+            bValue = b[sortConfig.key];
+        }
+
+        if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [autoShipItems, sortConfig]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
@@ -99,19 +148,19 @@ export function AutoShipTable() {
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Item</TableHead>
-                <TableHead>Next Shipment</TableHead>
+              <TableRow className="group">
+                <SortableHeader column="item" label="Item" sortConfig={sortConfig} requestSort={requestSort} />
+                <SortableHeader column="nextShipmentDate" label="Next Shipment" sortConfig={sortConfig} requestSort={requestSort} />
                 <TableHead>Frequency</TableHead>
-                <TableHead className="text-right">Estimated Cost</TableHead>
+                <SortableHeader column="estimatedCost" label="Estimated Cost" sortConfig={sortConfig} requestSort={requestSort} className="text-right" />
                 <TableHead className="w-[140px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
                 {isLoading ? (
                     renderLoadingSkeleton()
-                ) : autoShipItems.length > 0 ? (
-                    autoShipItems.map((item) => (
+                ) : sortedItems.length > 0 ? (
+                    sortedItems.map((item) => (
                         <TableRow key={item.id}>
                             <TableCell className="font-medium">{item.item}</TableCell>
                             <TableCell>{format(new Date(item.nextShipmentDate), 'PPP')}</TableCell>

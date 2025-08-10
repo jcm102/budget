@@ -1,9 +1,9 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, Repeat, Info, ChevronsUpDown } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, Repeat, Info, ChevronsUpDown, ArrowUpDown } from 'lucide-react';
 import type { BudgetItem, BudgetItemType } from '@/types';
 import {
   Table,
@@ -44,10 +44,31 @@ import { buttonVariants } from './ui/button';
 import { Badge } from './ui/badge';
 import { Checkbox } from './ui/checkbox';
 
+type SortConfig = {
+    key: keyof BudgetItem;
+    direction: 'ascending' | 'descending';
+} | null;
+
+
+const SortableHeader = ({ column, label, sortConfig, requestSort, className }: { column: keyof BudgetItem, label: string, sortConfig: SortConfig, requestSort: (key: keyof BudgetItem) => void, className?: string }) => {
+  const isSorted = sortConfig?.key === column;
+  const direction = isSorted ? sortConfig.direction : 'ascending';
+  return (
+    <TableHead className={className}>
+      <Button variant="ghost" onClick={() => requestSort(column)}>
+        {label}
+        {isSorted && <ArrowUpDown className={`ml-2 h-4 w-4 transform ${direction === 'descending' ? 'rotate-180' : ''}`} />}
+        {!isSorted && <ArrowUpDown className="ml-2 h-4 w-4 opacity-0 group-hover:opacity-50" />}
+      </Button>
+    </TableHead>
+  )
+}
+
 export function BudgetTable() {
   const { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, toggleBudgetItemCompleted, isLoading } = useBudget();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<BudgetItem | null>(null);
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'ascending' });
 
   const handleEdit = (item: BudgetItem) => {
     setEditingItem(item);
@@ -65,6 +86,36 @@ export function BudgetTable() {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
 
+  const requestSort = (key: keyof BudgetItem) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedItems = useMemo(() => {
+    let sortableItems = [...budgetItems];
+    if (sortConfig !== null) {
+      sortableItems.sort((a, b) => {
+        let aValue, bValue;
+
+        if (sortConfig.key === 'date') {
+            aValue = new Date(a.date).getTime();
+            bValue = new Date(b.date).getTime();
+        } else {
+            aValue = a[sortConfig.key as keyof BudgetItem];
+            bValue = b[sortConfig.key as keyof BudgetItem];
+        }
+
+        if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [budgetItems, sortConfig]);
+
   const renderLoadingSkeleton = () => (
     Array.from({ length: 3 }).map((_, i) => (
       <TableRow key={`skeleton-${i}`}>
@@ -79,7 +130,7 @@ export function BudgetTable() {
   );
 
   const renderSection = (title: string, type: BudgetItemType) => {
-    const items = budgetItems.filter(item => item.type === type);
+    const items = sortedItems.filter(item => item.type === type);
     const total = items.reduce((acc, item) => acc + item.amount, 0);
     const showCompletedCheckbox = type === 'Pre-Authorized Payments' || type === 'Transfers';
 
@@ -121,15 +172,15 @@ export function BudgetTable() {
             <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
             <Table>
                 <TableHeader>
-                <TableRow>
+                <TableRow className="group">
                     {showCompletedCheckbox && <TableHead className="w-[50px]">Paid</TableHead>}
-                    <TableHead>Description</TableHead>
+                    <SortableHeader column="description" label="Description" sortConfig={sortConfig} requestSort={requestSort} />
                     {type === 'Income' && <TableHead>Category</TableHead>}
                     {type === 'Transfers' && <TableHead>From</TableHead>}
                     {type === 'Transfers' && <TableHead>To</TableHead>}
-                    <TableHead>Date</TableHead>
+                    <SortableHeader column="date" label="Date" sortConfig={sortConfig} requestSort={requestSort} />
                     <TableHead>Frequency</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
+                    <SortableHeader column="amount" label="Amount" sortConfig={sortConfig} requestSort={requestSort} className="text-right" />
                     <TableHead className="w-[100px] text-right">Actions</TableHead>
                 </TableRow>
                 </TableHeader>

@@ -1,9 +1,9 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { format, addMonths, isBefore, getYear, getMonth, startOfDay, differenceInCalendarMonths } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, Check, ShoppingCart, View, Users } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, Check, ShoppingCart, View, Users, ArrowUpDown } from 'lucide-react';
 import type { SavingsItem } from '@/types';
 
 import {
@@ -47,6 +47,11 @@ type ColumnVisibility = {
     [key in keyof SavingsItem | 'budgetedCost' | 'monthlyCost' | 'monthsRemaining' | 'actions']?: boolean;
 };
 
+type SortConfig = {
+    key: keyof SavingsItem | 'budgetedCost' | 'monthlyCost';
+    direction: 'ascending' | 'descending';
+} | null;
+
 const yearsMap = {
   'Semi-Annually': 0.5, 'Annually': 1, 'Every 2 Years': 2, 'Every 3 Years': 3, 'Every 4 Years': 4, 'Every 5 Years': 5
 };
@@ -60,11 +65,26 @@ function calculateNextRenewalDate(renewalDate: Date, frequency: keyof typeof yea
   return nextRenewal;
 }
 
+const SortableHeader = ({ column, label, sortConfig, requestSort, className, isNumeric }: { column: SortConfig['key'], label: string, sortConfig: SortConfig, requestSort: (key: SortConfig['key']) => void, className?: string, isNumeric?: boolean }) => {
+  const isSorted = sortConfig?.key === column;
+  const direction = isSorted ? sortConfig.direction : 'ascending';
+  return (
+    <TableHead className={cn(className, isNumeric && 'text-right')}>
+      <Button variant="ghost" onClick={() => requestSort(column)} className={cn(isNumeric && "w-full justify-end")}>
+        {label}
+        {isSorted && <ArrowUpDown className={`ml-2 h-4 w-4 transform ${direction === 'descending' ? 'rotate-180' : ''}`} />}
+        {!isSorted && <ArrowUpDown className="ml-2 h-4 w-4 opacity-0 group-hover:opacity-50" />}
+      </Button>
+    </TableHead>
+  )
+}
+
 
 export function SavingsTable() {
   const { savingsItems, addSavingsItem, updateSavingsItem, deleteSavingsItem, processMonthlySavings, recordPurchase, isLoading } = useSavings();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<SavingsItem | null>(null);
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'expense', direction: 'ascending' });
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
     expense: true,
     purchaseFrequency: true,
@@ -80,16 +100,16 @@ export function SavingsTable() {
   });
 
   const columnConfig = {
-    expense: { label: 'Expense' },
+    expense: { label: 'Expense', sortable: true },
     purchaseFrequency: { label: 'Frequency' },
     cost: { label: 'Prior Cost', isNumeric: true },
     isSplit: { label: 'Split?'},
     annualIncrease: { label: 'Ann. Increase %', isNumeric: true },
-    budgetedCost: { label: 'Budgeted Cost', isNumeric: true },
-    monthlyCost: { label: 'Monthly Cost', isNumeric: true },
-    renewalDate: { label: 'Renewal Date' },
+    budgetedCost: { label: 'Budgeted Cost', isNumeric: true, sortable: true },
+    monthlyCost: { label: 'Monthly Cost', isNumeric: true, sortable: true },
+    renewalDate: { label: 'Renewal Date', sortable: true },
     monthsRemaining: { label: 'Months Rem.' },
-    totalBudgeted: { label: 'Total Budgeted', isNumeric: true },
+    totalBudgeted: { label: 'Total Budgeted', isNumeric: true, sortable: true },
     actions: { label: 'Actions', isAction: true },
   };
 
@@ -117,15 +137,56 @@ export function SavingsTable() {
     const renewalDate = startOfDay(new Date(item.renewalDate));
     const nextRenewalDate = calculateNextRenewalDate(renewalDate, item.purchaseFrequency, now);
     
-    let monthsRemaining = differenceInCalendarMonths(nextRenewalDate, now);
+    const currentYear = getYear(now);
+    const currentMonth = getMonth(now);
+    const renewalYear = getYear(nextRenewalDate);
+    const renewalMonth = getMonth(nextRenewalDate);
+    
+    let monthsRemaining = (renewalYear - currentYear) * 12 + (renewalMonth - currentMonth);
 
-    const savingsPeriods = monthsRemaining <= 0 ? 1 : monthsRemaining;
+    if (monthsRemaining <= 0) {
+      monthsRemaining = 1;
+    }
     
     const amountToSave = budgetedCost - item.totalBudgeted;
-    const monthlyCost = amountToSave > 0 && savingsPeriods > 0 ? amountToSave / savingsPeriods : 0;
+    const monthlyCost = amountToSave > 0 && monthsRemaining > 0 ? amountToSave / monthsRemaining : 0;
     
-    return { budgetedCost, monthlyCost, monthsRemaining: savingsPeriods, nextRenewalDate };
+    return { budgetedCost, monthlyCost, monthsRemaining, nextRenewalDate };
   }
+
+  const requestSort = (key: SortConfig['key']) => {
+    if (!key) return;
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedItems = useMemo(() => {
+    let sortableItems = [...savingsItems];
+    if (sortConfig !== null) {
+      sortableItems.sort((a, b) => {
+        let aValue, bValue;
+
+        if (sortConfig.key === 'budgetedCost' || sortConfig.key === 'monthlyCost') {
+            aValue = calculateValues(a)[sortConfig.key];
+            bValue = calculateValues(b)[sortConfig.key];
+        } else if (sortConfig.key === 'renewalDate') {
+            aValue = calculateValues(a).nextRenewalDate.getTime();
+            bValue = calculateValues(b).nextRenewalDate.getTime();
+        } else {
+            aValue = a[sortConfig.key as keyof SavingsItem];
+            bValue = b[sortConfig.key as keyof SavingsItem];
+        }
+        
+        if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [savingsItems, sortConfig]);
 
 
   const calculateProjectedCosts = (items: SavingsItem[]) => {
@@ -249,10 +310,14 @@ export function SavingsTable() {
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
           <Table>
             <TableHeader>
-              <TableRow>
-                {Object.entries(columnConfig).map(([key, { label, isNumeric, isAction }]) => (
+              <TableRow className="group">
+                {Object.entries(columnConfig).map(([key, { label, isNumeric, isAction, sortable }]) => (
                   columnVisibility[key as keyof ColumnVisibility] && (
-                     <TableHead key={key} className={cn(isNumeric && "text-right", isAction && "w-[140px] text-right")}>{label}</TableHead>
+                     sortable ? (
+                         <SortableHeader key={key} column={key as SortConfig['key']} label={label} sortConfig={sortConfig} requestSort={requestSort} className={cn(isAction && "w-[140px]")} isNumeric={isNumeric} />
+                     ) : (
+                        <TableHead key={key} className={cn(isNumeric && "text-right", isAction && "w-[140px] text-right")}>{label}</TableHead>
+                     )
                   )
                 ))}
               </TableRow>
@@ -260,8 +325,8 @@ export function SavingsTable() {
             <TableBody>
                 {isLoading ? (
                     renderLoadingSkeleton()
-                ) : savingsItems.length > 0 ? (
-                    savingsItems.map((item) => {
+                ) : sortedItems.length > 0 ? (
+                    sortedItems.map((item) => {
                         const { budgetedCost, monthlyCost, monthsRemaining, nextRenewalDate } = calculateValues(item);
                         return (
                             <TableRow key={item.id}>
@@ -337,7 +402,7 @@ export function SavingsTable() {
                     </TableRow>
                 )}
             </TableBody>
-            {savingsItems.length > 0 && (
+            {sortedItems.length > 0 && (
             <TableFooter>
                 <TableRow>
                     <TableCell colSpan={visibleColumns.indexOf('monthlyCost')} className="font-semibold text-right">Total Monthly Cost</TableCell>
@@ -372,5 +437,3 @@ export function SavingsTable() {
     </>
   );
 }
-
-    

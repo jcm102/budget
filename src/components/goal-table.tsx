@@ -1,9 +1,9 @@
 
 'use client';
 
-import { useState } from 'react';
-import { format, differenceInCalendarMonths, startOfDay } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, DollarSign, Calendar, Target, Repeat } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { format, differenceInCalendarMonths, startOfDay, isBefore } from 'date-fns';
+import { Pencil, Trash2, PlusCircle, DollarSign, Calendar, Target, Repeat, ArrowUpDown } from 'lucide-react';
 import type { Goal } from '@/types';
 
 import {
@@ -36,10 +36,30 @@ import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
 import { Card, CardContent } from './ui/card';
 
+type SortConfig = {
+    key: keyof Goal | 'remainingAmount' | 'monthlyContribution';
+    direction: 'ascending' | 'descending';
+} | null;
+
+const SortableHeader = ({ column, label, sortConfig, requestSort, className }: { column: SortConfig['key'], label: string, sortConfig: SortConfig, requestSort: (key: SortConfig['key']) => void, className?: string }) => {
+  const isSorted = sortConfig?.key === column;
+  const direction = isSorted ? sortConfig.direction : 'ascending';
+  return (
+    <TableHead className={className}>
+      <Button variant="ghost" onClick={() => requestSort(column)}>
+        {label}
+        {isSorted && <ArrowUpDown className={`ml-2 h-4 w-4 transform ${direction === 'descending' ? 'rotate-180' : ''}`} />}
+        {!isSorted && <ArrowUpDown className="ml-2 h-4 w-4 opacity-0 group-hover:opacity-50" />}
+      </Button>
+    </TableHead>
+  )
+}
+
 export function GoalTable() {
   const { goals, addGoal, updateGoal, deleteGoal, isLoading } = useGoals();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Goal | null>(null);
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
 
   const handleEdit = (item: Goal) => {
     setEditingItem(item);
@@ -80,6 +100,40 @@ export function GoalTable() {
 
     return { progress, remainingAmount, monthlyContribution };
   }
+
+  const requestSort = (key: SortConfig['key']) => {
+    if (!key) return;
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+  
+  const sortedItems = useMemo(() => {
+    let sortableItems = [...goals];
+    if (sortConfig !== null) {
+      sortableItems.sort((a, b) => {
+        let aValue: any, bValue: any;
+
+        if (sortConfig.key === 'remainingAmount') {
+          aValue = a.goalType === 'fixed' ? calculateFixedGoalValues(a).remainingAmount : a.currentAmount;
+          bValue = b.goalType === 'fixed' ? calculateFixedGoalValues(b).remainingAmount : b.currentAmount;
+        } else if (sortConfig.key === 'monthlyContribution') {
+          aValue = a.goalType === 'fixed' ? calculateFixedGoalValues(a).monthlyContribution : a.monthlyContribution || 0;
+          bValue = b.goalType === 'fixed' ? calculateFixedGoalValues(b).monthlyContribution : b.monthlyContribution || 0;
+        } else {
+            aValue = a[sortConfig.key as keyof Goal];
+            bValue = b[sortConfig.key as keyof Goal];
+        }
+
+        if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [goals, sortConfig]);
 
   const renderLoadingSkeleton = () => (
     Array.from({ length: 2 }).map((_, i) => (
@@ -151,20 +205,20 @@ export function GoalTable() {
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Goal</TableHead>
+              <TableRow className="group">
+                <SortableHeader column="name" label="Goal" sortConfig={sortConfig} requestSort={requestSort} />
                 <TableHead className="w-[200px]">Progress</TableHead>
                 <TableHead>Target/Frequency</TableHead>
-                <TableHead className="text-right">Monthly Contribution</TableHead>
-                <TableHead className="text-right">Remaining/Saved</TableHead>
+                <SortableHeader column="monthlyContribution" label="Monthly Contribution" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
+                <SortableHeader column="remainingAmount" label="Remaining/Saved" sortConfig={sortConfig} requestSort={requestSort} className="text-right" />
                 <TableHead className="w-[100px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
                 {isLoading ? (
                     renderLoadingSkeleton()
-                ) : goals.length > 0 ? (
-                    goals.map((item) => {
+                ) : sortedItems.length > 0 ? (
+                    sortedItems.map((item) => {
                         if (item.goalType === 'monthly') {
                             return (
                                 <TableRow key={item.id}>
