@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { format, differenceInCalendarMonths, startOfDay } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, DollarSign, Calendar, Target } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, DollarSign, Calendar, Target, Repeat } from 'lucide-react';
 import type { Goal } from '@/types';
 
 import {
@@ -57,7 +57,7 @@ export function GoalTable() {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
   
-  const calculateValues = (goal: Goal) => {
+  const calculateFixedGoalValues = (goal: Goal) => {
     const progress = goal.targetAmount > 0 ? (goal.currentAmount / goal.targetAmount) * 100 : 0;
     const remainingAmount = goal.targetAmount - goal.currentAmount;
     
@@ -65,12 +65,16 @@ export function GoalTable() {
     if (goal.targetDate) {
       const now = startOfDay(new Date());
       const target = startOfDay(new Date(goal.targetDate));
-      const monthsRemaining = differenceInCalendarMonths(target, now);
       
-      if (remainingAmount > 0 && monthsRemaining > 0) {
-        monthlyContribution = remainingAmount / monthsRemaining;
-      } else if (remainingAmount > 0 && monthsRemaining <= 0) {
-        monthlyContribution = remainingAmount; // Target date is now/past, need full amount
+      if (isBefore(now, target)) {
+        const monthsRemaining = differenceInCalendarMonths(target, now);
+        if (remainingAmount > 0 && monthsRemaining > 0) {
+          monthlyContribution = remainingAmount / monthsRemaining;
+        } else if (remainingAmount > 0 && monthsRemaining <= 0) {
+            monthlyContribution = remainingAmount;
+        }
+      } else if (remainingAmount > 0) {
+          monthlyContribution = remainingAmount;
       }
     }
 
@@ -86,8 +90,21 @@ export function GoalTable() {
   );
 
   const totalCurrentAmount = goals.reduce((acc, goal) => acc + goal.currentAmount, 0);
-  const totalTargetAmount = goals.reduce((acc, goal) => acc + goal.targetAmount, 0);
-  const totalMonthlyContribution = goals.reduce((acc, goal) => acc + calculateValues(goal).monthlyContribution, 0);
+  
+  const totalTargetAmount = goals
+    .filter(g => g.goalType === 'fixed')
+    .reduce((acc, goal) => acc + goal.targetAmount, 0);
+    
+  const totalRequiredMonthly = goals.reduce((acc, goal) => {
+    if (goal.goalType === 'fixed') {
+      return acc + calculateFixedGoalValues(goal).monthlyContribution;
+    }
+    if (goal.goalType === 'monthly') {
+      return acc + (goal.monthlyContribution || 0);
+    }
+    return acc;
+  }, 0);
+
 
   return (
     <>
@@ -110,7 +127,7 @@ export function GoalTable() {
             <div className="flex items-center gap-4">
                 <Target className="h-8 w-8 text-primary" />
                 <div>
-                    <p className="text-muted-foreground">Total Goal Amount</p>
+                    <p className="text-muted-foreground">Total Fixed Goal</p>
                     <p className="text-xl font-semibold">{formatCurrency(totalTargetAmount)}</p>
                 </div>
             </div>
@@ -125,7 +142,7 @@ export function GoalTable() {
                 <Calendar className="h-8 w-8 text-blue-500" />
                 <div>
                     <p className="text-muted-foreground">Required Monthly Savings</p>
-                    <p className="text-xl font-semibold">{formatCurrency(totalMonthlyContribution)}</p>
+                    <p className="text-xl font-semibold">{formatCurrency(totalRequiredMonthly)}</p>
                 </div>
             </div>
         </CardContent>
@@ -137,9 +154,9 @@ export function GoalTable() {
               <TableRow>
                 <TableHead>Goal</TableHead>
                 <TableHead className="w-[200px]">Progress</TableHead>
-                <TableHead>Target Date</TableHead>
+                <TableHead>Target/Frequency</TableHead>
                 <TableHead className="text-right">Monthly Contribution</TableHead>
-                <TableHead className="text-right">Remaining</TableHead>
+                <TableHead className="text-right">Remaining/Saved</TableHead>
                 <TableHead className="w-[100px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -148,7 +165,35 @@ export function GoalTable() {
                     renderLoadingSkeleton()
                 ) : goals.length > 0 ? (
                     goals.map((item) => {
-                        const { progress, remainingAmount, monthlyContribution } = calculateValues(item);
+                        if (item.goalType === 'monthly') {
+                            return (
+                                <TableRow key={item.id}>
+                                    <TableCell className="font-medium">{item.name}</TableCell>
+                                    <TableCell></TableCell>
+                                    <TableCell>
+                                        <Badge variant="secondary" className="gap-1 items-center">
+                                            <Repeat className="h-3 w-3" /> Monthly
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right font-semibold">{formatCurrency(item.monthlyContribution || 0)}</TableCell>
+                                    <TableCell className="text-right">{formatCurrency(item.currentAmount)}</TableCell>
+                                    <TableCell className="text-right">
+                                        <div className="flex justify-end gap-1">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(item)}><Pencil className="h-4 w-4" /></Button>
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete this savings goal.</AlertDialogDescription></AlertDialogHeader>
+                                                    <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => deleteGoal(item.id)} className={cn(buttonVariants({ variant: "destructive" }))}>Delete</AlertDialogAction></AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            )
+                        }
+
+                        const { progress, remainingAmount, monthlyContribution } = calculateFixedGoalValues(item);
                         return (
                             <TableRow key={item.id}>
                                 <TableCell className="font-medium">
@@ -162,7 +207,7 @@ export function GoalTable() {
                                     </div>
                                 </TableCell>
                                 <TableCell>
-                                    {item.targetDate ? <Badge variant="outline">{format(new Date(item.targetDate), 'PPP')}</Badge> : '-'}
+                                    {item.targetDate ? <Badge variant="outline">{format(new Date(item.targetDate), 'PPP')}</Badge> : <Badge variant="outline">No Target Date</Badge>}
                                 </TableCell>
                                 <TableCell className="text-right">{item.targetDate ? formatCurrency(monthlyContribution) : '-'}</TableCell>
                                 <TableCell className="text-right font-semibold">{formatCurrency(remainingAmount)}</TableCell>

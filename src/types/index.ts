@@ -152,10 +152,14 @@ export interface Person {
   createdAt: string; // ISO string
 }
 
+export type GoalType = 'fixed' | 'monthly';
+
 export interface Goal {
   id: string;
   name: string;
+  goalType: GoalType;
   targetAmount: number;
   currentAmount: number;
+  monthlyContribution?: number;
   targetDate?: string | null; // ISO string
 }

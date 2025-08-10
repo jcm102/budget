@@ -47,20 +47,18 @@ export function useGoals() {
   }, [toast]);
 
   const updateGoal = useCallback(async (id: string, itemData: Partial<Omit<Goal, 'id'>>) => {
-    const originalItems = goals;
-    setGoals(prev => prev.map(item => (item.id === id ? { ...item, ...itemData } as Goal : item)));
     try {
       await GoalService.updateGoal(id, itemData);
+      await fetchGoals(); // Refetch to ensure data consistency
     } catch (error) {
       console.error('Failed to update goal:', error);
-      setGoals(originalItems);
       toast({
         title: 'Error',
         description: 'Failed to update the goal.',
         variant: 'destructive',
       });
     }
-  }, [goals, toast]);
+  }, [toast, fetchGoals]);
 
   const deleteGoal = useCallback(async (id: string) => {
     const originalItems = goals;

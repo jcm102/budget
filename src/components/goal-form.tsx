@@ -24,19 +24,39 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import type { Goal } from '@/types';
+import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Goal name must be at least 2 characters.'),
-  targetAmount: z.coerce.number().min(0, 'Target amount must be a positive number.'),
+  goalType: z.enum(['fixed', 'monthly']),
+  targetAmount: z.coerce.number().optional(),
   currentAmount: z.coerce.number().min(0, 'Current amount must be a positive number.'),
+  monthlyContribution: z.coerce.number().optional(),
   targetDate: z.string().optional(),
+}).refine(data => {
+  if (data.goalType === 'fixed') {
+    return data.targetAmount !== undefined && data.targetAmount > 0;
+  }
+  return true;
+}, {
+  message: 'Target amount is required for fixed goals.',
+  path: ['targetAmount'],
+}).refine(data => {
+  if (data.goalType === 'monthly') {
+    return data.monthlyContribution !== undefined && data.monthlyContribution > 0;
+  }
+  return true;
+}, {
+  message: 'Monthly contribution is required for monthly goals.',
+  path: ['monthlyContribution'],
 });
+
 
 type GoalFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   addGoal: (item: Omit<Goal, 'id'>) => void;
-  updateGoal: (id: string, item: Omit<Goal, 'id'>) => void;
+  updateGoal: (id: string, item: Partial<Omit<Goal, 'id'>>) => void;
   editingItem: Goal | null;
 };
 
@@ -45,26 +65,34 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
+      goalType: 'fixed',
       targetAmount: 0,
       currentAmount: 0,
+      monthlyContribution: 0,
       targetDate: '',
     },
   });
+
+  const goalType = form.watch('goalType');
 
   useEffect(() => {
     if (open) {
       if (editingItem) {
         form.reset({
           name: editingItem.name,
+          goalType: editingItem.goalType || 'fixed',
           targetAmount: editingItem.targetAmount,
           currentAmount: editingItem.currentAmount,
+          monthlyContribution: editingItem.monthlyContribution || 0,
           targetDate: editingItem.targetDate ? new Date(editingItem.targetDate).toISOString().split('T')[0] : '',
         });
       } else {
         form.reset({
           name: '',
+          goalType: 'fixed',
           targetAmount: 0,
           currentAmount: 0,
+          monthlyContribution: 0,
           targetDate: '',
         });
       }
@@ -80,13 +108,16 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
     }
     
     const submissionData = { 
-        ...values, 
-        targetDate: localDateString
+        ...values,
+        targetAmount: values.goalType === 'monthly' ? 0 : values.targetAmount!,
+        monthlyContribution: values.goalType === 'fixed' ? undefined : values.monthlyContribution,
+        targetDate: values.goalType === 'monthly' ? null : localDateString,
     };
+
     if (editingItem) {
       updateGoal(editingItem.id, submissionData);
     } else {
-      addGoal(submissionData);
+      addGoal(submissionData as Omit<Goal, 'id'>);
     }
     onOpenChange(false);
   }
@@ -102,6 +133,32 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="goalType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Goal Type</FormLabel>
+                  <FormControl>
+                    <RadioGroup
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      className="flex space-x-4"
+                    >
+                      <FormItem className="flex items-center space-x-2 space-y-0">
+                        <FormControl><RadioGroupItem value="fixed" /></FormControl>
+                        <FormLabel className="font-normal">Fixed Target</FormLabel>
+                      </FormItem>
+                      <FormItem className="flex items-center space-x-2 space-y-0">
+                        <FormControl><RadioGroupItem value="monthly" /></FormControl>
+                        <FormLabel className="font-normal">Monthly Savings</FormLabel>
+                      </FormItem>
+                    </RadioGroup>
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
             <FormField control={form.control} name="name" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Goal Name</FormLabel>
@@ -110,14 +167,39 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
                 </FormItem>
               )}
             />
-             <FormField control={form.control} name="targetAmount" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Target Amount</FormLabel>
-                  <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            
+            {goalType === 'fixed' && (
+              <>
+                <FormField control={form.control} name="targetAmount" render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Target Amount</FormLabel>
+                    <FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} /></FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                 <FormField control={form.control} name="targetDate" render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Target Date (Optional)</FormLabel>
+                    <FormControl><Input type="date" {...field} /></FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+              </>
+            )}
+
+            {goalType === 'monthly' && (
+               <FormField control={form.control} name="monthlyContribution" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Monthly Contribution</FormLabel>
+                    <FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''}/></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
             <FormField control={form.control} name="currentAmount" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Current Amount Saved</FormLabel>
@@ -126,14 +208,7 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
                 </FormItem>
               )}
             />
-             <FormField control={form.control} name="targetDate" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Target Date (Optional)</FormLabel>
-                  <FormControl><Input type="date" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+
             <DialogFooter>
               <Button type="submit">{editingItem ? 'Save Changes' : 'Add Goal'}</Button>
             </DialogFooter>
