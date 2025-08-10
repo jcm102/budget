@@ -1,8 +1,8 @@
 
 'use client';
 
-import { useState } from 'react';
-import { Pencil, Trash2, PlusCircle } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Pencil, Trash2, PlusCircle, ArrowUpDown } from 'lucide-react';
 import type { SubscriptionItem } from '@/types';
 
 import {
@@ -33,10 +33,69 @@ import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
 import { Badge } from './ui/badge';
 
+type SortableHeaderProps = {
+  column: keyof SubscriptionItem | 'monthlyCost';
+  label: string;
+  sortConfig: { key: keyof SubscriptionItem | 'monthlyCost'; direction: 'ascending' | 'descending' } | null;
+  requestSort: (key: keyof SubscriptionItem | 'monthlyCost') => void;
+  className?: string;
+}
+
+const SortableHeader = ({ column, label, sortConfig, requestSort, className }: SortableHeaderProps) => {
+  const isSorted = sortConfig?.key === column;
+  const direction = isSorted ? sortConfig.direction : 'ascending';
+  return (
+    <TableHead className={className}>
+      <Button variant="ghost" onClick={() => requestSort(column)}>
+        {label}
+        {isSorted && <ArrowUpDown className={`ml-2 h-4 w-4 transform ${direction === 'descending' ? 'rotate-180' : ''}`} />}
+        {!isSorted && <ArrowUpDown className="ml-2 h-4 w-4 opacity-0 group-hover:opacity-50" />}
+      </Button>
+    </TableHead>
+  )
+}
+
 export function SubscriptionTable() {
   const { subscriptions, addSubscription, updateSubscription, deleteSubscription, isLoading } = useSubscriptions();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<SubscriptionItem | null>(null);
+  const [sortConfig, setSortConfig] = useState<{ key: keyof SubscriptionItem | 'monthlyCost'; direction: 'ascending' | 'descending' }>({ key: 'serviceName', direction: 'ascending' });
+
+
+  const requestSort = (key: keyof SubscriptionItem | 'monthlyCost') => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedItems = useMemo(() => {
+    let sortableItems = [...subscriptions];
+    if (sortConfig !== null) {
+      sortableItems.sort((a, b) => {
+        let aValue, bValue;
+
+        if (sortConfig.key === 'monthlyCost') {
+            aValue = a.billingFrequency === 'Annually' ? a.cost / 12 : a.cost;
+            bValue = b.billingFrequency === 'Annually' ? b.cost / 12 : b.cost;
+        } else {
+            aValue = a[sortConfig.key as keyof SubscriptionItem];
+            bValue = b[sortConfig.key as keyof SubscriptionItem];
+        }
+
+        if (aValue < bValue) {
+          return sortConfig.direction === 'ascending' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'ascending' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [subscriptions, sortConfig]);
+
 
   const handleEdit = (item: SubscriptionItem) => {
     setEditingItem(item);
@@ -90,22 +149,24 @@ export function SubscriptionTable() {
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Service</TableHead>
-                <TableHead>Billing Frequency</TableHead>
-                <TableHead className="text-right">Cost</TableHead>
+              <TableRow className="group">
+                <SortableHeader column="serviceName" label="Service" sortConfig={sortConfig} requestSort={requestSort} />
+                <SortableHeader column="billingFrequency" label="Billing Frequency" sortConfig={sortConfig} requestSort={requestSort} />
+                <SortableHeader column="cost" label="Cost" sortConfig={sortConfig} requestSort={requestSort} className="text-right" />
+                <SortableHeader column="monthlyCost" label="Monthly Cost" sortConfig={sortConfig} requestSort={requestSort} className="text-right" />
                 <TableHead className="w-[100px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
                 {isLoading ? (
                     renderLoadingSkeleton()
-                ) : subscriptions.length > 0 ? (
-                    subscriptions.map((item) => (
+                ) : sortedItems.length > 0 ? (
+                    sortedItems.map((item) => (
                         <TableRow key={item.id}>
                             <TableCell className="font-medium">{item.serviceName}</TableCell>
                             <TableCell><Badge variant="secondary">{item.billingFrequency}</Badge></TableCell>
                             <TableCell className="text-right">{formatCurrency(item.cost)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(item.billingFrequency === 'Annually' ? item.cost / 12 : item.cost)}</TableCell>
                             <TableCell className="text-right">
                                 <div className="flex justify-end gap-1">
                                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(item)}>
@@ -138,7 +199,7 @@ export function SubscriptionTable() {
                     ))
                 ) : (
                     <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">
+                    <TableCell colSpan={5} className="h-24 text-center">
                         No subscriptions entered yet. Add one to get started!
                     </TableCell>
                     </TableRow>
@@ -147,12 +208,12 @@ export function SubscriptionTable() {
             {subscriptions.length > 0 && (
                 <TableFooter>
                     <TableRow>
-                        <TableCell colSpan={2} className="font-semibold text-right">Total Monthly Cost</TableCell>
+                        <TableCell colSpan={3} className="font-semibold text-right">Total Monthly Cost</TableCell>
                         <TableCell className="text-right font-semibold">{formatCurrency(totalMonthlyCost)}</TableCell>
                         <TableCell></TableCell>
                     </TableRow>
                     <TableRow>
-                        <TableCell colSpan={2} className="font-semibold text-right">Total Annual Cost</TableCell>
+                        <TableCell colSpan={3} className="font-semibold text-right">Total Annual Cost</TableCell>
                         <TableCell className="text-right font-semibold">{formatCurrency(totalAnnualCost)}</TableCell>
                         <TableCell></TableCell>
                     </TableRow>
