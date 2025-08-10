@@ -15,9 +15,47 @@ import {
   getDoc,
   writeBatch
 } from 'firebase/firestore';
-import { addMonths, differenceInMonths } from 'date-fns';
+import { addMonths, isBefore, getYear, getMonth, startOfDay } from 'date-fns';
 
 const SAVINGS_COLLECTION = 'savings-items';
+const yearsMap = {
+  'Semi-Annually': 0.5, 'Annually': 1, 'Every 2 Years': 2, 'Every 3 Years': 3, 'Every 4 Years': 4, 'Every 5 Years': 5
+};
+
+// This helper function will contain the calculation logic and can be reused.
+function calculateSavingsValues(item: SavingsItem) {
+    const now = startOfDay(new Date());
+    const costBasis = item.isSplit ? item.cost / 2 : item.cost;
+    const purchaseIntervalYears = yearsMap[item.purchaseFrequency];
+    const purchaseIntervalMonths = purchaseIntervalYears * 12;
+
+    let nextRenewalDate = startOfDay(new Date(item.renewalDate));
+    
+    let cycles = 0;
+    while (isBefore(nextRenewalDate, now)) {
+      nextRenewalDate = addMonths(nextRenewalDate, purchaseIntervalMonths);
+      cycles++;
+    }
+    
+    const budgetedCost = costBasis * Math.pow(1 + (item.annualIncrease / 100), cycles * purchaseIntervalYears);
+    
+    const currentYear = getYear(now);
+    const currentMonth = getMonth(now);
+    const renewalYear = getYear(nextRenewalDate);
+    const renewalMonth = getMonth(nextRenewalDate);
+    
+    let monthsRemaining = (renewalYear - currentYear) * 12 + (renewalMonth - currentMonth);
+    if (monthsRemaining < 0) {
+        monthsRemaining = 0;
+    }
+    
+    const savingsPeriods = monthsRemaining === 0 ? 1 : monthsRemaining;
+    const amountToSave = budgetedCost - item.totalBudgeted;
+    const monthlyCost = amountToSave > 0 && savingsPeriods > 0 ? amountToSave / savingsPeriods : 0;
+    
+    return { budgetedCost, monthlyCost, nextRenewalDate };
+}
+
 
 export async function getSavingsItems(): Promise<SavingsItem[]> {
   const savingsCollection = collection(db, SAVINGS_COLLECTION);
@@ -43,14 +81,20 @@ export async function deleteSavingsItem(id: string): Promise<void> {
   await deleteDoc(itemRef);
 }
 
-export async function updateAllSavingsItems(items: SavingsItem[]): Promise<void> {
+export async function processMonthlySavingsForAllItems(): Promise<void> {
+    const allItems = await getSavingsItems();
     const batch = writeBatch(db);
-    items.forEach(item => {
+
+    allItems.forEach(item => {
+        const { monthlyCost } = calculateSavingsValues(item);
+        const newTotalBudgeted = item.totalBudgeted + monthlyCost;
         const itemRef = doc(db, SAVINGS_COLLECTION, item.id);
-        batch.update(itemRef, { totalBudgeted: item.totalBudgeted });
+        batch.update(itemRef, { totalBudgeted: newTotalBudgeted });
     });
+
     await batch.commit();
 }
+
 
 export async function recordPurchase(itemId: string): Promise<void> {
   const itemRef = doc(db, SAVINGS_COLLECTION, itemId);
@@ -61,35 +105,15 @@ export async function recordPurchase(itemId: string): Promise<void> {
   }
 
   const item = docSnap.data() as SavingsItem;
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-
-  const costBasis = item.isSplit ? item.cost / 2 : item.cost;
+  const { budgetedCost, nextRenewalDate } = calculateSavingsValues(item);
   
-  const yearsMap = {
-    'Semi-Annually': 0.5, 'Annually': 1, 'Every 2 Years': 2, 'Every 3 Years': 3, 'Every 4 Years': 4, 'Every 5 Years': 5
-  };
-  const purchaseIntervalYears = yearsMap[item.purchaseFrequency];
-  const purchaseIntervalMonths = purchaseIntervalYears * 12;
-
-  let nextRenewalDate = new Date(item.renewalDate);
-  nextRenewalDate.setHours(0,0,0,0);
-
-  let cycles = 0;
-  let tempRenewalDate = new Date(nextRenewalDate);
-  
-  while (tempRenewalDate < now) {
-    tempRenewalDate = addMonths(tempRenewalDate, purchaseIntervalMonths);
-    cycles++;
-  }
-
-  const budgetedCost = costBasis * Math.pow(1 + (item.annualIncrease / 100), cycles);
+  const purchaseIntervalMonths = yearsMap[item.purchaseFrequency] * 12;
 
   const newTotalBudgeted = item.totalBudgeted - budgetedCost;
-  const newRenewalDate = addMonths(tempRenewalDate, purchaseIntervalMonths);
+  const newRenewalDate = addMonths(nextRenewalDate, purchaseIntervalMonths);
 
   await updateDoc(itemRef, {
-    totalBudgeted: newTotalBudgeted,
+    totalBudgeted: newTotalBudgeted > 0 ? newTotalBudgeted : 0,
     renewalDate: newRenewalDate.toISOString(),
   });
 }

@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { SavingsItem } from '@/types';
 import { useToast } from './use-toast';
 import * as SavingsService from '@/services/savings-service';
-import { addMonths, differenceInMonths } from 'date-fns';
+import { addMonths, isBefore, getYear, getMonth, startOfDay } from 'date-fns';
 
 export function useSavings() {
   const [savingsItems, setSavingsItems] = useState<SavingsItem[]>([]);
@@ -80,41 +80,8 @@ export function useSavings() {
   }, [savingsItems, toast]);
   
   const processMonthlySavings = useCallback(async () => {
-    const updatedItems = savingsItems.map(item => {
-      const now = new Date();
-      now.setHours(0, 0, 0, 0);
-
-      const costBasis = item.isSplit ? item.cost / 2 : item.cost;
-      
-      const yearsMap = {
-        'Semi-Annually': 0.5, 'Annually': 1, 'Every 2 Years': 2, 'Every 3 Years': 3, 'Every 4 Years': 4, 'Every 5 Years': 5
-      };
-      const purchaseIntervalYears = yearsMap[item.purchaseFrequency];
-      const purchaseIntervalMonths = purchaseIntervalYears * 12;
-
-      let nextRenewalDate = new Date(item.renewalDate);
-      nextRenewalDate.setHours(0,0,0,0);
-      
-      let cycles = 0;
-      let tempRenewalDate = new Date(nextRenewalDate);
-      
-      while (tempRenewalDate < now) {
-        tempRenewalDate = addMonths(tempRenewalDate, purchaseIntervalMonths);
-        cycles++;
-      }
-
-      const budgetedCost = costBasis * Math.pow(1 + (item.annualIncrease / 100), cycles);
-      const monthsRemaining = differenceInMonths(tempRenewalDate, now);
-      const monthlyCost = monthsRemaining > 0 ? (budgetedCost - item.totalBudgeted) / monthsRemaining : 0;
-      
-      return {
-        ...item,
-        totalBudgeted: item.totalBudgeted + monthlyCost,
-      };
-    });
-
     try {
-        await SavingsService.updateAllSavingsItems(updatedItems);
+        await SavingsService.processMonthlySavingsForAllItems();
         await fetchSavingsItems(); // refetch to get the latest state
         toast({
             title: 'Success!',
@@ -129,7 +96,7 @@ export function useSavings() {
         });
     }
 
-  }, [savingsItems, toast, fetchSavingsItems]);
+  }, [toast, fetchSavingsItems]);
 
   const recordPurchase = useCallback(async (itemId: string) => {
     try {
