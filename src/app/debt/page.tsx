@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { DebtTable } from '@/components/debt-table';
-import { ArrowLeft, Printer, RotateCcw, View, CalendarUp } from 'lucide-react';
+import { ArrowLeft, Printer, RotateCcw, View, CalendarClock } from 'lucide-react';
 import { useDebt } from '@/hooks/use-debt';
 import { useState } from 'react';
 import {
@@ -71,7 +71,7 @@ export default function DebtPage() {
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" disabled={debts.length === 0}>
-                  <CalendarUp className="mr-2 h-5 w-5" />
+                  <CalendarClock className="mr-2 h-5 w-5" />
                   Cycle to Next Month
                 </Button>
               </AlertDialogTrigger>
