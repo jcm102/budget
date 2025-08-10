@@ -70,6 +70,18 @@ export function SubscriptionTable() {
     setSortConfig({ key, direction });
   };
 
+  const getMonthlyCost = (item: SubscriptionItem) => {
+    switch (item.billingFrequency) {
+        case 'Annually':
+            return item.cost / 12;
+        case 'Quarterly':
+            return item.cost / 3;
+        case 'Monthly':
+        default:
+            return item.cost;
+    }
+  }
+
   const sortedItems = useMemo(() => {
     let sortableItems = [...subscriptions];
     if (sortConfig !== null) {
@@ -77,8 +89,8 @@ export function SubscriptionTable() {
         let aValue, bValue;
 
         if (sortConfig.key === 'monthlyCost') {
-            aValue = a.billingFrequency === 'Annually' ? a.cost / 12 : a.cost;
-            bValue = b.billingFrequency === 'Annually' ? b.cost / 12 : b.cost;
+            aValue = getMonthlyCost(a);
+            bValue = getMonthlyCost(b);
         } else {
             aValue = a[sortConfig.key as keyof SubscriptionItem];
             bValue = b[sortConfig.key as keyof SubscriptionItem];
@@ -122,13 +134,12 @@ export function SubscriptionTable() {
   );
 
   const totalMonthlyCost = subscriptions.reduce((acc, item) => {
-    const monthlyCost = item.billingFrequency === 'Annually' ? item.cost / 12 : item.cost;
-    return acc + monthlyCost;
+    return acc + getMonthlyCost(item);
   }, 0);
   
   const totalAnnualCost = subscriptions.reduce((acc, item) => {
-    const annualCost = item.billingFrequency === 'Monthly' ? item.cost * 12 : item.cost;
-    return acc + annualCost;
+    const monthlyCost = getMonthlyCost(item);
+    return acc + (monthlyCost * 12);
   }, 0);
 
   return (
@@ -166,7 +177,7 @@ export function SubscriptionTable() {
                             <TableCell className="font-medium">{item.serviceName}</TableCell>
                             <TableCell><Badge variant="secondary">{item.billingFrequency}</Badge></TableCell>
                             <TableCell className="text-right">{formatCurrency(item.cost)}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(item.billingFrequency === 'Annually' ? item.cost / 12 : item.cost)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(getMonthlyCost(item))}</TableCell>
                             <TableCell className="text-right">
                                 <div className="flex justify-end gap-1">
                                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(item)}>

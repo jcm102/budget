@@ -130,7 +130,7 @@ export interface AutoShipItem {
     estimatedCost: number;
 }
 
-export type SubscriptionBillingFrequency = 'Monthly' | 'Annually';
+export type SubscriptionBillingFrequency = 'Monthly' | 'Quarterly' | 'Annually';
 
 export interface SubscriptionItem {
   id: string;

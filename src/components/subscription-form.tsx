@@ -34,7 +34,7 @@ import type { SubscriptionItem, SubscriptionBillingFrequency } from '@/types';
 
 const formSchema = z.object({
   serviceName: z.string().min(2, 'Service name must be at least 2 characters.'),
-  billingFrequency: z.enum(['Monthly', 'Annually']),
+  billingFrequency: z.enum(['Monthly', 'Quarterly', 'Annually']),
   cost: z.coerce.number().min(0, 'Cost must be a positive number.'),
 });
 
@@ -113,6 +113,7 @@ export function SubscriptionForm({ open, onOpenChange, addSubscription, updateSu
                     <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                     <SelectContent>
                         <SelectItem value="Monthly">Monthly</SelectItem>
+                        <SelectItem value="Quarterly">Quarterly</SelectItem>
                         <SelectItem value="Annually">Annually</SelectItem>
                     </SelectContent>
                   </Select>
