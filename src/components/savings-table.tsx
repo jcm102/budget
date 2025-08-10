@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { format, addMonths, isBefore, getYear, getMonth, startOfDay } from 'date-fns';
+import { format, addMonths, isBefore, getYear, getMonth, startOfDay, differenceInCalendarMonths } from 'date-fns';
 import { Pencil, Trash2, PlusCircle, Check, ShoppingCart, View, Users } from 'lucide-react';
 import type { SavingsItem } from '@/types';
 
@@ -50,6 +50,16 @@ type ColumnVisibility = {
 const yearsMap = {
   'Semi-Annually': 0.5, 'Annually': 1, 'Every 2 Years': 2, 'Every 3 Years': 3, 'Every 4 Years': 4, 'Every 5 Years': 5
 };
+
+function calculateNextRenewalDate(renewalDate: Date, frequency: keyof typeof yearsMap, now: Date): Date {
+  const purchaseIntervalMonths = yearsMap[frequency] * 12;
+  let nextRenewal = new Date(renewalDate);
+  while (isBefore(nextRenewal, now)) {
+      nextRenewal = addMonths(nextRenewal, purchaseIntervalMonths);
+  }
+  return nextRenewal;
+}
+
 
 export function SavingsTable() {
   const { savingsItems, addSavingsItem, updateSavingsItem, deleteSavingsItem, processMonthlySavings, recordPurchase, isLoading } = useSavings();
@@ -100,34 +110,16 @@ export function SavingsTable() {
   };
   
   const calculateValues = (item: SavingsItem, referenceDate = new Date()) => {
-    const now = startOfDay(new Date(referenceDate));
     const costBasis = item.isSplit ? item.cost / 2 : item.cost;
-    const purchaseIntervalYears = yearsMap[item.purchaseFrequency];
-    const purchaseIntervalMonths = purchaseIntervalYears * 12;
+    const budgetedCost = costBasis * (1 + item.annualIncrease / 100);
 
-    let nextRenewalDate = startOfDay(new Date(item.renewalDate));
+    const now = startOfDay(referenceDate);
+    const renewalDate = startOfDay(new Date(item.renewalDate));
+    const nextRenewalDate = calculateNextRenewalDate(renewalDate, item.purchaseFrequency, now);
     
-    let cycles = 0;
-    while (isBefore(nextRenewalDate, now)) {
-      nextRenewalDate = addMonths(nextRenewalDate, purchaseIntervalMonths);
-      cycles++;
-    }
-    
-    const budgetedCost = costBasis * Math.pow(1 + (item.annualIncrease / 100), cycles * purchaseIntervalYears);
-    
-    // --- Manual Calculation for Months Remaining ---
-    const currentYear = getYear(now);
-    const currentMonth = getMonth(now); // 0-11
-    const renewalYear = getYear(nextRenewalDate);
-    const renewalMonth = getMonth(nextRenewalDate); // 0-11
-    
-    let monthsRemaining = (renewalYear - currentYear) * 12 + (renewalMonth - currentMonth);
+    let monthsRemaining = differenceInCalendarMonths(nextRenewalDate, now);
 
-    if (monthsRemaining < 0) {
-        monthsRemaining = 0;
-    }
-    
-    const savingsPeriods = monthsRemaining === 0 ? 1 : monthsRemaining;
+    const savingsPeriods = monthsRemaining <= 0 ? 1 : monthsRemaining;
     
     const amountToSave = budgetedCost - item.totalBudgeted;
     const monthlyCost = amountToSave > 0 && savingsPeriods > 0 ? amountToSave / savingsPeriods : 0;
@@ -380,3 +372,5 @@ export function SavingsTable() {
     </>
   );
 }
+
+    

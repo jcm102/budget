@@ -15,41 +15,35 @@ import {
   getDoc,
   writeBatch
 } from 'firebase/firestore';
-import { addMonths, isBefore, getYear, getMonth, startOfDay } from 'date-fns';
+import { addMonths, isBefore, getYear, getMonth, startOfDay, differenceInCalendarMonths } from 'date-fns';
 
 const SAVINGS_COLLECTION = 'savings-items';
 const yearsMap = {
   'Semi-Annually': 0.5, 'Annually': 1, 'Every 2 Years': 2, 'Every 3 Years': 3, 'Every 4 Years': 4, 'Every 5 Years': 5
 };
 
+function calculateNextRenewalDate(renewalDate: Date, frequency: keyof typeof yearsMap, now: Date): Date {
+  const purchaseIntervalMonths = yearsMap[frequency] * 12;
+  let nextRenewal = new Date(renewalDate);
+  while (isBefore(nextRenewal, now)) {
+      nextRenewal = addMonths(nextRenewal, purchaseIntervalMonths);
+  }
+  return nextRenewal;
+}
+
 // This helper function will contain the calculation logic and can be reused.
 function calculateSavingsValues(item: SavingsItem) {
-    const now = startOfDay(new Date());
     const costBasis = item.isSplit ? item.cost / 2 : item.cost;
-    const purchaseIntervalYears = yearsMap[item.purchaseFrequency];
-    const purchaseIntervalMonths = purchaseIntervalYears * 12;
+    const budgetedCost = costBasis * (1 + item.annualIncrease / 100);
 
-    let nextRenewalDate = startOfDay(new Date(item.renewalDate));
+    const now = startOfDay(new Date());
+    const renewalDate = startOfDay(new Date(item.renewalDate));
+    const nextRenewalDate = calculateNextRenewalDate(renewalDate, item.purchaseFrequency, now);
     
-    let cycles = 0;
-    while (isBefore(nextRenewalDate, now)) {
-      nextRenewalDate = addMonths(nextRenewalDate, purchaseIntervalMonths);
-      cycles++;
-    }
+    let monthsRemaining = differenceInCalendarMonths(nextRenewalDate, now);
+
+    const savingsPeriods = monthsRemaining <= 0 ? 1 : monthsRemaining;
     
-    const budgetedCost = costBasis * Math.pow(1 + (item.annualIncrease / 100), cycles * purchaseIntervalYears);
-    
-    const currentYear = getYear(now);
-    const currentMonth = getMonth(now);
-    const renewalYear = getYear(nextRenewalDate);
-    const renewalMonth = getMonth(nextRenewalDate);
-    
-    let monthsRemaining = (renewalYear - currentYear) * 12 + (renewalMonth - currentMonth);
-    if (monthsRemaining < 0) {
-        monthsRemaining = 0;
-    }
-    
-    const savingsPeriods = monthsRemaining === 0 ? 1 : monthsRemaining;
     const amountToSave = budgetedCost - item.totalBudgeted;
     const monthlyCost = amountToSave > 0 && savingsPeriods > 0 ? amountToSave / savingsPeriods : 0;
     
@@ -115,5 +109,8 @@ export async function recordPurchase(itemId: string): Promise<void> {
   await updateDoc(itemRef, {
     totalBudgeted: newTotalBudgeted > 0 ? newTotalBudgeted : 0,
     renewalDate: newRenewalDate.toISOString(),
+    cost: budgetedCost, // Update the cost to the budgeted cost for the next cycle
   });
 }
+
+    
