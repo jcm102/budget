@@ -115,19 +115,25 @@ export function SavingsTable() {
     
     const budgetedCost = costBasis * Math.pow(1 + (item.annualIncrease / 100), cycles * purchaseIntervalYears);
     
-    let monthsRemaining;
-    const diff = differenceInCalendarMonths(nextRenewalDate, now);
+    // --- Manual Calculation for Months Remaining ---
+    const currentYear = getYear(now);
+    const currentMonth = getMonth(now); // 0-11
+    const renewalYear = getYear(nextRenewalDate);
+    const renewalMonth = getMonth(nextRenewalDate); // 0-11
+    
+    let monthsRemaining = (renewalYear - currentYear) * 12 + (renewalMonth - currentMonth);
 
-    if (diff <= 0) {
-        monthsRemaining = 1;
-    } else {
-        monthsRemaining = diff;
+    if (monthsRemaining < 0) {
+        monthsRemaining = 0;
     }
     
-    const amountToSave = budgetedCost - item.totalBudgeted;
-    const monthlyCost = amountToSave > 0 && monthsRemaining > 0 ? amountToSave / monthsRemaining : 0;
+    // This is the number of save periods. If due this month, it's 1 period.
+    const savingsPeriods = monthsRemaining === 0 ? 1 : monthsRemaining;
     
-    return { budgetedCost, monthlyCost, monthsRemaining, nextRenewalDate };
+    const amountToSave = budgetedCost - item.totalBudgeted;
+    const monthlyCost = amountToSave > 0 && savingsPeriods > 0 ? amountToSave / savingsPeriods : 0;
+    
+    return { budgetedCost, monthlyCost, monthsRemaining: savingsPeriods, nextRenewalDate };
   }
 
 
@@ -372,5 +378,3 @@ export function SavingsTable() {
     </>
   );
 }
-
-    
