@@ -188,6 +188,8 @@ export function DebtTable({ view, columnVisibility, columnConfig }: DebtTablePro
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
   
+  const isCurrentView = view === 'current';
+
   const visibleColumns = Object.keys(columnConfig).filter(key => {
     if (!isCurrentView && key === 'actualPayment') return false;
     return columnVisibility[key as keyof ColumnVisibility];
@@ -200,8 +202,6 @@ export function DebtTable({ view, columnVisibility, columnConfig }: DebtTablePro
       </TableRow>
     ))
   );
-
-  const isCurrentView = view === 'current';
 
   const totalBalance = debts.reduce((acc, debt) => acc + (isCurrentView ? debt.balance : debt.nextBalance || 0), 0);
   const totalMinimumPayment = debts.reduce((acc, debt) => acc + (isCurrentView ? debt.minimumPayment : debt.nextMinimumPayment || 0), 0);
@@ -218,6 +218,10 @@ export function DebtTable({ view, columnVisibility, columnConfig }: DebtTablePro
       let span = 0;
       if (columnVisibility.dueDate) span++;
       if (columnVisibility.actions) span++;
+      // If it's not the current view, we have one less column (actualPayment)
+      if (!isCurrentView) {
+        if (columnVisibility.actualPayment) span--; // this check is a bit redundant but safe
+      }
       return span;
   }
 
@@ -296,3 +300,5 @@ export function DebtTable({ view, columnVisibility, columnConfig }: DebtTablePro
     </>
   );
 }
+
+    
