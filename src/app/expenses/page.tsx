@@ -133,8 +133,7 @@ export default function ExpensesPage() {
         }
     }
     
-    // 2. Prepare Data for XLSX
-    const mainHeader = [`${monthName} Expenses`];
+    // 1. Prepare Data for XLSX
     
     // Section 1: Mileage
     const mileageHeader = ['Date', 'Description', 'Distance (km)', 'Rate', 'Total'];
@@ -168,9 +167,9 @@ export default function ExpensesPage() {
       item.amount
     ]);
 
-    // 3. Combine all data into a single array for the worksheet
+    // 2. Combine all data into a single array for the worksheet
     const data = [
-      [], // Leave first row empty for styled main header
+      [`${monthName} Expenses`], // Main header in A1
       [], // Spacer row
       ['Mileage'],
       mileageHeader,
@@ -185,30 +184,30 @@ export default function ExpensesPage() {
       ...otherReimbursableRows
     ];
     
-    // 4. Create Worksheet and Workbook
+    // 3. Create Worksheet and Workbook
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet(data);
+    const ws = XLSX.utils.aoa_to_sheet(data, {
+        cellStyles: true,
+    });
 
-    // 5. Apply Styling and Merges
+    // 4. Apply Styling and Merges
     
-    // Create the A1 cell object with value and style, then set it.
-    ws['A1'] = { 
-        v: `${monthName} Expenses`, 
-        t: 's',
-        s: { 
+    // Style and merge the main header in A1
+    if (ws['A1']) {
+        ws['A1'].s = {
             font: { sz: 20, bold: true },
             alignment: { horizontal: 'center', vertical: 'center' }
-        }
-    };
-    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }]; 
+        };
+    }
+    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
 
     const boldStyle = { font: { bold: true } };
     
     // Style section headers
     const sectionHeaderRefs = [
         'A3', // Mileage
-        `A${5 + mileageRows.length + 1}`, // Credit Card
-        `A${8 + mileageRows.length + creditCardRows.length + 1}` // Other Reimbursable
+        `A${5 + mileageRows.length}`, // Credit Card
+        `A${8 + mileageRows.length + creditCardRows.length}` // Other Reimbursable
     ];
     sectionHeaderRefs.forEach(cellRef => {
         if(ws[cellRef]) ws[cellRef].s = boldStyle;
@@ -221,13 +220,13 @@ export default function ExpensesPage() {
         if (ws[cellRef]) ws[cellRef].s = boldStyle;
     });
     
-    const creditCardHeaderRow = 5 + mileageRows.length + 1;
+    const creditCardHeaderRow = 5 + mileageRows.length;
     creditCardHeader.forEach((_, colIndex) => {
         const cellRef = XLSX.utils.encode_cell({c: colIndex, r: creditCardHeaderRow});
         if (ws[cellRef]) ws[cellRef].s = boldStyle;
     });
 
-    const otherReimbursableHeaderRow = 8 + mileageRows.length + creditCardRows.length + 1;
+    const otherReimbursableHeaderRow = 8 + mileageRows.length + creditCardRows.length;
     otherReimbursableHeader.forEach((_, colIndex) => {
         const cellRef = XLSX.utils.encode_cell({c: colIndex, r: otherReimbursableHeaderRow});
         if (ws[cellRef]) ws[cellRef].s = boldStyle;
@@ -244,7 +243,7 @@ export default function ExpensesPage() {
     ];
     ws['!cols'] = colWidths;
     
-    // 6. Append worksheet to workbook and download
+    // 5. Append worksheet to workbook and download
     XLSX.utils.book_append_sheet(wb, ws, 'Work Expenses');
     XLSX.writeFile(wb, `work-expenses-${monthName.replace(' ', '-')}.xlsx`);
   };
