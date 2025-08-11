@@ -190,12 +190,12 @@ export default function ExpensesPage() {
     ws['!cols'] = [ { wch: 15 }, { wch: 40 }, { wch: 15 }, { wch: 15 }, { wch: 15 } ];
 
     // Merge main header
-    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, 4 } }];
+    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
 
     // Apply styles by directly modifying the cell objects
     if (ws['A1']) ws['A1'].s = mainHeaderStyle;
 
-    const applyHeaderStyles = (headerRowIndex: number, headerArray: any[]) => {
+    function applyHeaderStyles(headerRowIndex: number, headerArray: any[]) {
       headerArray.forEach((_, colIndex) => {
         const cellRef = XLSX.utils.encode_cell({c: colIndex, r: headerRowIndex});
         if (ws[cellRef]) ws[cellRef].s = columnHeaderStyle;
