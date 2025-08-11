@@ -190,11 +190,11 @@ export default function ExpensesPage() {
     const ws = XLSX.utils.aoa_to_sheet(data);
 
     // 5. Apply Styling and Merges
-
-    // Main Header Style
+    
+    // Create the A1 cell object with value and style, then set it.
     ws['A1'] = { 
-        t: 's', 
         v: `${monthName} Expenses`, 
+        t: 's',
         s: { 
             font: { sz: 20, bold: true },
             alignment: { horizontal: 'center', vertical: 'center' }
