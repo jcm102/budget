@@ -105,7 +105,7 @@ function SortableDebtRow({ debt, view, onEdit, onDelete, onTogglePaid, formatCur
         {columnVisibility.name && <TableCell className={cn("font-medium", isPaid && "line-through")}>{debt.name}</TableCell>}
         {columnVisibility.balance && <TableCell className="text-right">{formatCurrency(balance || 0)}</TableCell>}
         {columnVisibility.minimumPayment && <TableCell className="text-right">{formatCurrency(minPayment || 0)}</TableCell>}
-        {columnVisibility.actualPayment && <TableCell className="text-right font-bold">{isCurrentView ? formatCurrency(actualPayment || 0) : '-'}</TableCell>}
+        {columnVisibility.actualPayment && isCurrentView && <TableCell className="text-right font-bold">{formatCurrency(actualPayment || 0)}</TableCell>}
         {columnVisibility.dueDate && <TableCell>{dueDate ? format(new Date(dueDate), 'PPP') : '-'}</TableCell>}
         {columnVisibility.actions && <TableCell className="text-right">
         <div className="flex justify-end gap-2">
@@ -188,7 +188,10 @@ export function DebtTable({ view, columnVisibility, columnConfig }: DebtTablePro
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
   
-  const visibleColumns = Object.keys(columnConfig).filter(key => columnVisibility[key as keyof ColumnVisibility]);
+  const visibleColumns = Object.keys(columnConfig).filter(key => {
+    if (!isCurrentView && key === 'actualPayment') return false;
+    return columnVisibility[key as keyof ColumnVisibility];
+  });
 
   const renderLoadingSkeleton = () => (
     Array.from({ length: 3 }).map((_, i) => (
@@ -203,6 +206,20 @@ export function DebtTable({ view, columnVisibility, columnConfig }: DebtTablePro
   const totalBalance = debts.reduce((acc, debt) => acc + (isCurrentView ? debt.balance : debt.nextBalance || 0), 0);
   const totalMinimumPayment = debts.reduce((acc, debt) => acc + (isCurrentView ? debt.minimumPayment : debt.nextMinimumPayment || 0), 0);
   const totalActualPayment = isCurrentView ? debts.reduce((acc, debt) => acc + debt.actualPayment, 0) : 0;
+  
+  const getColSpanForTotals = () => {
+    let span = 0;
+    if (columnVisibility.paid) span++;
+    if (columnVisibility.name) span++;
+    return span + 1; // +1 for the drag handle column
+  }
+
+  const getColSpanForSpacer = () => {
+      let span = 0;
+      if (columnVisibility.dueDate) span++;
+      if (columnVisibility.actions) span++;
+      return span;
+  }
 
   return (
     <>
@@ -266,11 +283,11 @@ export function DebtTable({ view, columnVisibility, columnConfig }: DebtTablePro
             </TableBody>
             <TableFooter>
               <TableRow>
-                <TableCell colSpan={visibleColumns.indexOf('balance')}>Totals</TableCell>
+                <TableCell colSpan={getColSpanForTotals()} className="font-semibold">Totals</TableCell>
                 {columnVisibility.balance && <TableCell className="text-right font-semibold">{formatCurrency(totalBalance)}</TableCell>}
                 {columnVisibility.minimumPayment && <TableCell className="text-right font-semibold">{formatCurrency(totalMinimumPayment)}</TableCell>}
                 {columnVisibility.actualPayment && isCurrentView && <TableCell className="text-right font-bold">{formatCurrency(totalActualPayment)}</TableCell>}
-                <TableCell colSpan={visibleColumns.filter(c => c !== 'balance' && c !== 'minimumPayment' && c !== 'actualPayment' && c !== 'name' && c !== 'paid').length - (isCurrentView ? 0 : 1) }></TableCell>
+                <TableCell colSpan={getColSpanForSpacer()}></TableCell>
               </TableRow>
             </TableFooter>
           </Table>
