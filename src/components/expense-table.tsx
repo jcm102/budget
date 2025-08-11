@@ -28,8 +28,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { ExpenseForm } from './expense-form';
-import { useExpenses } from '@/hooks/use-expenses';
-import { useMileage } from '@/hooks/use-mileage';
 import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
@@ -37,13 +35,27 @@ import { Checkbox } from './ui/checkbox';
 
 type ExpenseTableProps = {
   expenses: Expense[];
+  addExpense: (item: Omit<Expense, 'id'>, callback: (success: boolean) => void) => void;
+  updateExpense: (id: string, item: Partial<Omit<Expense, 'id'>>) => void;
+  deleteExpense: (id: string) => void;
+  toggleExpenseCompleted: (id: string, completed: boolean) => void;
+  addMileage: (item: Omit<MileageLog, 'id'>) => void;
+  updateMileage: (id: string, item: Omit<MileageLog, 'id'>) => void;
   isLoading: boolean;
   isArchived: boolean;
 };
 
-export function ExpenseTable({ expenses, isLoading, isArchived }: ExpenseTableProps) {
-  const { addExpense, updateExpense, deleteExpense, toggleExpenseCompleted } = useExpenses();
-  const { addMileage, updateMileage } = useMileage();
+export function ExpenseTable({ 
+  expenses, 
+  addExpense,
+  updateExpense,
+  deleteExpense,
+  toggleExpenseCompleted,
+  addMileage,
+  updateMileage,
+  isLoading, 
+  isArchived 
+}: ExpenseTableProps) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Expense | MileageLog | null>(null);
 

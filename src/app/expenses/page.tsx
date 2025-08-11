@@ -9,7 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MileageTable } from '@/components/mileage-table';
 import { Banknote, Car } from 'lucide-react';
 import { useExpenses } from '@/hooks/use-expenses';
-import { useMileage } from '@/hooks/use-mileage';
 import { format, parse } from 'date-fns';
 import * as XLSX from 'xlsx';
 import * as ExpenseService from '@/services/expense-service';
@@ -45,7 +44,19 @@ type DisplayData = {
 };
 
 export default function ExpensesPage() {
-  const { expenses: activeExpenses, mileageLogs: activeMileageLogs, fetchExpenses, fetchMileage, isLoading: dataLoading } = useExpenses();
+  const { 
+    expenses: activeExpenses, 
+    mileageLogs: activeMileageLogs, 
+    fetchData,
+    addExpense,
+    updateExpense,
+    deleteExpense,
+    toggleExpenseCompleted,
+    addMileage,
+    updateMileage,
+    deleteMileage,
+    isLoading: dataLoading 
+  } = useExpenses();
   const { toast } = useToast();
   
   const [archivedMonths, setArchivedMonths] = useState<string[]>([]);
@@ -80,8 +91,7 @@ export default function ExpensesPage() {
     try {
       const monthToArchive = format(new Date(), 'yyyy-MM');
       await ExpenseService.archiveCurrentExpenses(monthToArchive);
-      await fetchExpenses(); // Refreshes active expenses
-      await fetchMileage(); // Refreshes active mileage
+      await fetchData(); // Refreshes active expenses and mileage
       const months = await ExpenseService.getArchivedMonths();
       setArchivedMonths(months);
       setSelectedMonth('active');
@@ -345,6 +355,12 @@ export default function ExpensesPage() {
           <TabsContent value="monetary">
             <ExpenseTable 
               expenses={displayData.expenses} 
+              addExpense={addExpense}
+              updateExpense={updateExpense}
+              deleteExpense={deleteExpense}
+              toggleExpenseCompleted={toggleExpenseCompleted}
+              addMileage={addMileage}
+              updateMileage={updateMileage}
               isLoading={dataLoading} 
               isArchived={isViewingArchive}
             />
@@ -352,6 +368,11 @@ export default function ExpensesPage() {
           <TabsContent value="mileage">
             <MileageTable 
               mileageLogs={displayData.mileageLogs} 
+              addExpense={addExpense}
+              updateExpense={updateExpense}
+              addMileage={addMileage}
+              updateMileage={updateMileage}
+              deleteMileage={deleteMileage}
               isLoading={dataLoading} 
               isArchived={isViewingArchive}
             />

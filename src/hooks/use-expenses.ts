@@ -13,16 +13,20 @@ export function useExpenses() {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchExpenses = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const fetchedItems = await ExpenseService.getExpenses('active');
-      setExpenses(fetchedItems);
+      const [fetchedExpenses, fetchedMileage] = await Promise.all([
+        ExpenseService.getExpenses('active'),
+        MileageService.getMileageLogs('active'),
+      ]);
+      setExpenses(fetchedExpenses);
+      setMileageLogs(fetchedMileage);
     } catch (error) {
-      console.error('Failed to load expenses:', error);
+      console.error('Failed to load expense data:', error);
       toast({
         title: 'Error',
-        description: 'Failed to load expenses from the database.',
+        description: 'Failed to load expense data from the database.',
         variant: 'destructive',
       });
     } finally {
@@ -30,32 +34,14 @@ export function useExpenses() {
     }
   }, [toast]);
 
-  const fetchMileage = useCallback(async () => {
-     try {
-      setIsLoading(true);
-      const fetchedItems = await MileageService.getMileageLogs('active');
-      setMileageLogs(fetchedItems);
-    } catch (error) {
-      console.error('Failed to load mileage logs:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load mileage from the database.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [toast])
-
   useEffect(() => {
-    fetchExpenses();
-    fetchMileage();
-  }, [fetchExpenses, fetchMileage]);
+    fetchData();
+  }, [fetchData]);
 
   const addExpense = useCallback(async (itemData: Omit<Expense, 'id'>, callback: (success: boolean) => void) => {
     try {
-      const newItem = await ExpenseService.addExpense(itemData);
-      await fetchExpenses(); 
+      await ExpenseService.addExpense(itemData);
+      await fetchData(); 
       callback(true);
     } catch (error) {
       console.error('Failed to add expense:', error);
@@ -66,12 +52,12 @@ export function useExpenses() {
       });
       callback(false);
     }
-  }, [toast, fetchExpenses]);
+  }, [toast, fetchData]);
 
   const updateExpense = useCallback(async (id: string, itemData: Partial<Omit<Expense, 'id' | 'originalId'>>) => {
     try {
       await ExpenseService.updateExpense(id, itemData);
-      await fetchExpenses();
+      await fetchData();
     } catch (error) {
       console.error('Failed to update expense:', error);
       toast({
@@ -80,12 +66,12 @@ export function useExpenses() {
         variant: 'destructive',
       });
     }
-  }, [toast, fetchExpenses]);
+  }, [toast, fetchData]);
 
   const deleteExpense = useCallback(async (id: string) => {
     try {
       await ExpenseService.deleteExpense(id);
-      await fetchExpenses(); // Refetch to ensure recurring items are handled correctly
+      await fetchData();
     } catch (error) {
       console.error('Failed to delete expense:', error);
       toast({
@@ -94,7 +80,7 @@ export function useExpenses() {
         variant: 'destructive',
       });
     }
-  }, [toast, fetchExpenses]);
+  }, [toast, fetchData]);
 
   const toggleExpenseCompleted = useCallback(async (id: string, completed: boolean) => {
     const originalItems = [...expenses];
@@ -116,5 +102,60 @@ export function useExpenses() {
     }
   }, [expenses, toast]);
 
-  return { expenses, mileageLogs, addExpense, updateExpense, deleteExpense, toggleExpenseCompleted, isLoading, fetchExpenses, fetchMileage };
+  // Mileage functions
+  const addMileage = useCallback(async (itemData: Omit<MileageLog, 'id'>) => {
+    try {
+      await MileageService.addMileageLog(itemData);
+      await fetchData();
+    } catch (error) {
+      console.error('Failed to add mileage log:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to add the new mileage log.',
+        variant: 'destructive',
+      });
+    }
+  }, [toast, fetchData]);
+
+  const updateMileage = useCallback(async (id: string, itemData: Omit<MileageLog, 'id'>) => {
+    try {
+      await MileageService.updateMileageLog(id, itemData);
+       await fetchData();
+    } catch (error) {
+      console.error('Failed to update mileage log:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update the mileage log.',
+        variant: 'destructive',
+      });
+    }
+  }, [toast, fetchData]);
+
+  const deleteMileage = useCallback(async (id: string) => {
+    try {
+      await MileageService.deleteMileageLog(id);
+       await fetchData();
+    } catch (error) {
+      console.error('Failed to delete mileage log:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete the mileage log.',
+        variant: 'destructive',
+      });
+    }
+  }, [toast, fetchData]);
+
+  return { 
+    expenses, 
+    mileageLogs, 
+    addExpense, 
+    updateExpense, 
+    deleteExpense, 
+    toggleExpenseCompleted, 
+    addMileage,
+    updateMileage,
+    deleteMileage,
+    isLoading, 
+    fetchData,
+  };
 }

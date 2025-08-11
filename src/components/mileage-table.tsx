@@ -27,8 +27,6 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { ExpenseForm } from './expense-form';
-import { useMileage } from '@/hooks/use-mileage';
-import { useExpenses } from '@/hooks/use-expenses';
 import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
@@ -37,13 +35,25 @@ import { Badge } from './ui/badge';
 
 type MileageTableProps = {
   mileageLogs: MileageLog[];
+  addExpense: (item: Omit<Expense, 'id'>, callback: (success: boolean) => void) => void;
+  updateExpense: (id: string, item: Partial<Omit<Expense, 'id'>>) => void;
+  addMileage: (item: Omit<MileageLog, 'id'>) => void;
+  updateMileage: (id: string, item: Omit<MileageLog, 'id'>) => void;
+  deleteMileage: (id: string) => void;
   isLoading: boolean;
   isArchived: boolean;
 };
 
-export function MileageTable({ mileageLogs, isLoading, isArchived }: MileageTableProps) {
-  const { addMileage, updateMileage, deleteMileage } = useMileage();
-  const { addExpense, updateExpense } = useExpenses(); // We need this for the form
+export function MileageTable({ 
+  mileageLogs, 
+  addExpense,
+  updateExpense,
+  addMileage,
+  updateMileage,
+  deleteMileage,
+  isLoading, 
+  isArchived 
+}: MileageTableProps) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MileageLog | Expense | null>(null);
 
