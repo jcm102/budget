@@ -182,48 +182,47 @@ export default function ExpensesPage() {
     const ws = XLSX.utils.aoa_to_sheet(data);
 
     // --- Styling ---
+    const headerStyle = { font: { sz: 20, bold: true }, alignment: { horizontal: 'center', vertical: 'center' } };
+    const sectionHeaderStyle = { font: { bold: true } };
+    const columnHeaderStyle = { font: { bold: true } };
 
-    // Style the main header (A1)
+    // Create or get the main header cell and apply styles
     if (ws['A1']) {
-        ws['A1'].s = {
-            font: { sz: 20, bold: true },
-            alignment: { horizontal: 'center', vertical: 'center' }
-        };
-    } else { // Create it if it doesn't exist (e.g., if data was empty)
-        XLSX.utils.sheet_add_aoa(ws, [[`${monthName} Expenses`]], {origin: 'A1'});
-        ws['A1'].s = {
-            font: { sz: 20, bold: true },
-            alignment: { horizontal: 'center', vertical: 'center' }
-        };
+        ws['A1'].s = headerStyle;
+    } else {
+        XLSX.utils.sheet_add_aoa(ws, [[{ v: `${monthName} Expenses`, t: 's', s: headerStyle }]], { origin: 'A1' });
     }
     
     // Merge the main header cells
     ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
 
     // Style the section headers
-    const boldStyle = { font: { bold: true } };
-    
     const sectionHeaderRefs = [
-      'A3', // Mileage
-      `A${5 + mileageRows.length + 1}`, // Credit Card (+1 for the spacer)
-      `A${8 + mileageRows.length + creditCardRows.length + 1}` // Other Reimbursable (+1 for spacer)
+      { ref: 'A3', name: 'Mileage' },
+      { ref: `A${5 + mileageRows.length + 1}`, name: 'Credit Card Expenses (Work Visa)' },
+      { ref: `A${8 + mileageRows.length + creditCardRows.length + 1}`, name: 'Other Reimbursable Expenses' }
     ];
 
-    sectionHeaderRefs.forEach(cellRef => {
-      if(ws[cellRef]) ws[cellRef].s = boldStyle;
+    sectionHeaderRefs.forEach(({ref, name}) => {
+      if(ws[ref]) {
+          ws[ref].s = sectionHeaderStyle;
+      } else {
+          XLSX.utils.sheet_add_aoa(ws, [[{ v: name, t: 's', s: sectionHeaderStyle }]], { origin: ref });
+      }
     });
 
     // Style the column headers
-    const applyHeaderStyles = (headerRow: any, headerArray: any) => {
-       headerArray.forEach((_: any, colIndex: any) => {
-        const cellRef = XLSX.utils.encode_cell({c: colIndex, r: headerRow});
-        if (ws[cellRef]) ws[cellRef].s = boldStyle;
+    const applyHeaderStyles = (headerRowIndex: number, headerArray: any[]) => {
+       headerArray.forEach((_, colIndex) => {
+        const cellRef = XLSX.utils.encode_cell({c: colIndex, r: headerRowIndex});
+        if (ws[cellRef]) ws[cellRef].s = columnHeaderStyle;
       });
     };
+    
+    applyHeaderStyles(3, mileageHeader); // Mileage headers are on row 4 (index 3)
+    applyHeaderStyles(5 + mileageRows.length + 1, creditCardHeader); // Credit Card headers
+    applyHeaderStyles(8 + mileageRows.length + creditCardRows.length + 1, otherReimbursableHeader); // Other headers
 
-    applyHeaderStyles(3, mileageHeader);
-    applyHeaderStyles(5 + mileageRows.length + 1, creditCardHeader);
-    applyHeaderStyles(8 + mileageRows.length + creditCardRows.length + 1, otherReimbursableHeader);
 
     const colWidths = [
       { wch: 15 }, // Date
