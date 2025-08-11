@@ -194,7 +194,7 @@ export default function ExpensesPage() {
 
     if (!ws['A1']) ws['A1'] = {t:'s', v: mainHeader[0]};
     ws['A1'].s = {
-      font: { sz: 16, bold: true },
+      font: { sz: 20, bold: true },
       alignment: { horizontal: 'center', vertical: 'center' }
     };
 
