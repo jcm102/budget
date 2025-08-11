@@ -168,4 +168,5 @@ export interface Goal {
   currentAmount: number;
   monthlyContribution?: number;
   targetDate?: string | null; // ISO string
+  url?: string | null;
 }

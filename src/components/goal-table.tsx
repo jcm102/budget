@@ -2,8 +2,9 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import Link from 'next/link';
 import { format, differenceInCalendarMonths, startOfDay, isBefore } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, DollarSign, Calendar, Target, Repeat, ArrowUpDown } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, DollarSign, Calendar, Target, Repeat, ArrowUpDown, Link as LinkIcon } from 'lucide-react';
 import type { Goal } from '@/types';
 
 import {
@@ -222,7 +223,16 @@ export function GoalTable() {
                         if (item.goalType === 'monthly') {
                             return (
                                 <TableRow key={item.id}>
-                                    <TableCell className="font-medium">{item.name}</TableCell>
+                                    <TableCell className="font-medium flex items-center gap-2">
+                                        {item.name}
+                                        {item.url && (
+                                            <Button asChild variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
+                                                <Link href={item.url} target="_blank" rel="noopener noreferrer">
+                                                    <LinkIcon className="h-4 w-4" />
+                                                </Link>
+                                            </Button>
+                                        )}
+                                    </TableCell>
                                     <TableCell></TableCell>
                                     <TableCell>
                                         <Badge variant="secondary" className="gap-1 items-center">
@@ -251,7 +261,16 @@ export function GoalTable() {
                         return (
                             <TableRow key={item.id}>
                                 <TableCell className="font-medium">
-                                    <div>{item.name}</div>
+                                    <div className="flex items-center gap-2">
+                                        {item.name}
+                                        {item.url && (
+                                            <Button asChild variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
+                                                <Link href={item.url} target="_blank" rel="noopener noreferrer">
+                                                    <LinkIcon className="h-4 w-4" />
+                                                </Link>
+                                            </Button>
+                                        )}
+                                    </div>
                                     <div className="text-xs text-muted-foreground">{formatCurrency(item.currentAmount)} / {formatCurrency(item.targetAmount)}</div>
                                 </TableCell>
                                 <TableCell>

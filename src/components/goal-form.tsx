@@ -33,6 +33,7 @@ const formSchema = z.object({
   currentAmount: z.coerce.number().min(0, 'Current amount must be a positive number.'),
   monthlyContribution: z.coerce.number().optional(),
   targetDate: z.string().optional(),
+  url: z.string().url().optional().or(z.literal('')),
 }).refine(data => {
   if (data.goalType === 'fixed') {
     return data.targetAmount !== undefined && data.targetAmount > 0;
@@ -70,6 +71,7 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
       currentAmount: 0,
       monthlyContribution: 0,
       targetDate: '',
+      url: '',
     },
   });
 
@@ -85,6 +87,7 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
           currentAmount: editingItem.currentAmount,
           monthlyContribution: editingItem.monthlyContribution || 0,
           targetDate: editingItem.targetDate ? new Date(editingItem.targetDate).toISOString().split('T')[0] : '',
+          url: editingItem.url || '',
         });
       } else {
         form.reset({
@@ -94,6 +97,7 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
           currentAmount: 0,
           monthlyContribution: 0,
           targetDate: '',
+          url: '',
         });
       }
     }
@@ -112,6 +116,7 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
         targetAmount: values.goalType === 'monthly' ? 0 : values.targetAmount!,
         monthlyContribution: values.goalType === 'fixed' ? undefined : values.monthlyContribution,
         targetDate: values.goalType === 'monthly' ? null : localDateString,
+        url: values.url || null,
     };
 
     if (editingItem) {
@@ -204,6 +209,15 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
                 <FormItem>
                   <FormLabel>Current Amount Saved</FormLabel>
                   <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField control={form.control} name="url" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>URL (Optional)</FormLabel>
+                  <FormControl><Input type="url" placeholder="https://example.com" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
