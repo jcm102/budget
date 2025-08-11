@@ -197,7 +197,7 @@ export default function ExpensesPage() {
       font: { sz: 20, bold: true },
       alignment: { horizontal: 'center', vertical: 'center' }
     };
-
+    
     const boldStyle = { font: { bold: true } };
     
     // Style section headers
