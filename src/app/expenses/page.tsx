@@ -182,56 +182,41 @@ export default function ExpensesPage() {
     const ws = XLSX.utils.aoa_to_sheet(data);
 
     // --- Styling ---
-    const headerStyle = { font: { sz: 20, bold: true }, alignment: { horizontal: 'center', vertical: 'center' } };
+    const mainHeaderStyle = { font: { sz: 20, bold: true }, alignment: { horizontal: 'center', vertical: 'center' } };
     const sectionHeaderStyle = { font: { bold: true } };
     const columnHeaderStyle = { font: { bold: true } };
 
-    // Create or get the main header cell and apply styles
-    if (ws['A1']) {
-        ws['A1'].s = headerStyle;
-    } else {
-        XLSX.utils.sheet_add_aoa(ws, [[{ v: `${monthName} Expenses`, t: 's', s: headerStyle }]], { origin: 'A1' });
-    }
-    
-    // Merge the main header cells
-    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
+    // Set column widths
+    ws['!cols'] = [ { wch: 15 }, { wch: 40 }, { wch: 15 }, { wch: 15 }, { wch: 15 } ];
 
-    // Style the section headers
-    const sectionHeaderRefs = [
-      { ref: 'A3', name: 'Mileage' },
-      { ref: `A${5 + mileageRows.length + 1}`, name: 'Credit Card Expenses (Work Visa)' },
-      { ref: `A${8 + mileageRows.length + creditCardRows.length + 1}`, name: 'Other Reimbursable Expenses' }
-    ];
+    // Merge main header
+    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, 4 } }];
 
-    sectionHeaderRefs.forEach(({ref, name}) => {
-      if(ws[ref]) {
-          ws[ref].s = sectionHeaderStyle;
-      } else {
-          XLSX.utils.sheet_add_aoa(ws, [[{ v: name, t: 's', s: sectionHeaderStyle }]], { origin: ref });
-      }
-    });
+    // Apply styles by directly modifying the cell objects
+    if (ws['A1']) ws['A1'].s = mainHeaderStyle;
 
-    // Style the column headers
     const applyHeaderStyles = (headerRowIndex: number, headerArray: any[]) => {
-       headerArray.forEach((_, colIndex) => {
+      headerArray.forEach((_, colIndex) => {
         const cellRef = XLSX.utils.encode_cell({c: colIndex, r: headerRowIndex});
         if (ws[cellRef]) ws[cellRef].s = columnHeaderStyle;
       });
     };
-    
-    applyHeaderStyles(3, mileageHeader); // Mileage headers are on row 4 (index 3)
-    applyHeaderStyles(5 + mileageRows.length + 1, creditCardHeader); // Credit Card headers
-    applyHeaderStyles(8 + mileageRows.length + creditCardRows.length + 1, otherReimbursableHeader); // Other headers
 
+    // Style Mileage section
+    if (ws['A3']) ws['A3'].s = sectionHeaderStyle;
+    applyHeaderStyles(3, mileageHeader); // Row 4 (index 3)
 
-    const colWidths = [
-      { wch: 15 }, // Date
-      { wch: 40 }, // Description
-      { wch: 15 }, // Category / Distance
-      { wch: 15 }, // Amount / Rate
-      { wch: 15 }  // Reimbursable / Total
-    ];
-    ws['!cols'] = colWidths;
+    // Style Credit Card section
+    const creditCardSectionRowIndex = 5 + mileageRows.length;
+    const creditCardHeaderRowIndex = creditCardSectionRowIndex + 1;
+    if (ws[`A${creditCardSectionRowIndex + 1}`]) ws[`A${creditCardSectionRowIndex + 1}`].s = sectionHeaderStyle;
+    applyHeaderStyles(creditCardHeaderRowIndex, creditCardHeader);
+
+    // Style Other Reimbursable section
+    const otherSectionRowIndex = creditCardHeaderRowIndex + creditCardRows.length + 2;
+    const otherHeaderRowIndex = otherSectionRowIndex + 1;
+     if (ws[`A${otherSectionRowIndex + 1}`]) ws[`A${otherSectionRowIndex + 1}`].s = sectionHeaderStyle;
+    applyHeaderStyles(otherHeaderRowIndex, otherReimbursableHeader);
     
     XLSX.utils.book_append_sheet(wb, ws, 'Work Expenses');
     XLSX.writeFile(wb, `work-expenses-${monthName.replace(/\s+/g, '-')}.xlsx`);
