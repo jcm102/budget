@@ -138,7 +138,6 @@ export interface SubscriptionItem {
   cost: number;
 }
 
-
 export interface LinkGroup {
   id: string;
   name: string;

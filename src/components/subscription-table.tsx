@@ -128,7 +128,7 @@ export function SubscriptionTable() {
   const renderLoadingSkeleton = () => (
     Array.from({ length: 3 }).map((_, i) => (
       <TableRow key={`skeleton-subscription-${i}`}>
-        <TableCell colSpan={4}><Skeleton className="h-8 w-full" /></TableCell>
+        <TableCell colSpan={5}><Skeleton className="h-8 w-full" /></TableCell>
       </TableRow>
     ))
   );
