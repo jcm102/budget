@@ -100,7 +100,7 @@ export function GoalTable() {
 
   const renderLoadingSkeleton = () => (
     Array.from({ length: 2 }).map((_, i) => (
-      <TableRow key={'skeleton-goal-${i}'}>
+      <TableRow key={`skeleton-goal-${i}`}>
         <TableCell colSpan={3}><Skeleton className="h-10 w-full" /></TableCell>
       </TableRow>
     ))
