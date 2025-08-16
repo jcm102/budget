@@ -181,7 +181,7 @@ export function SavingsTable() {
 
   const renderLoadingSkeleton = () => (
     Array.from({ length: 2 }).map((_, i) => (
-      <TableRow key={'skeleton-savings-${i}'}>
+      <TableRow key={`skeleton-savings-${i}`}>
         <TableCell colSpan={3}><Skeleton className="h-10 w-full" /></TableCell>
       </TableRow>
     ))
