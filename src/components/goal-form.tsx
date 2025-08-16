@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -24,24 +24,31 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import type { Goal } from '@/types';
+import { Checkbox } from './ui/checkbox';
+import { useSavings } from '@/hooks/use-savings';
+import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Goal name must be at least 2 characters.'),
   amount: z.coerce.number().min(0, 'Amount must be a positive number.'),
   cost: z.coerce.number().min(0, 'Cost must be a positive number.'),
   link: z.string().url('Please enter a valid URL.').or(z.literal('')).optional(),
+  createSinkingFund: z.boolean().default(false),
 });
 
 
 type GoalFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  addGoal: (item: Omit<Goal, 'id'>) => void;
+  addGoal: (item: Omit<Goal, 'id'>, createSinkingFund: boolean) => void;
   updateGoal: (id: string, item: Partial<Omit<Goal, 'id'>>) => void;
   editingItem: Goal | null;
 };
 
 export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem }: GoalFormProps) {
+  const { savingsItems, addSavingsItem } = useSavings();
+  const { toast } = useToast();
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -49,6 +56,7 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
       amount: 0,
       cost: 0,
       link: '',
+      createSinkingFund: false,
     },
   });
 
@@ -60,6 +68,7 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
           amount: editingItem.amount,
           cost: editingItem.cost || 0,
           link: editingItem.link || '',
+          createSinkingFund: false,
         });
       } else {
         form.reset({
@@ -67,6 +76,7 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
           amount: 0,
           cost: 0,
           link: '',
+          createSinkingFund: false,
         });
       }
     }
@@ -82,8 +92,18 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
 
     if (editingItem) {
       updateGoal(editingItem.id, submissionData);
+       if (values.createSinkingFund) {
+        // Check if a sinking fund with the same name already exists
+        const fundExists = savingsItems.some(item => item.name.toLowerCase() === values.name.toLowerCase());
+        if (!fundExists) {
+            addSavingsItem({ name: values.name, amount: 0 });
+            toast({ title: 'Sinking Fund Created', description: `A sinking fund for "${values.name}" has been created.` });
+        } else {
+            toast({ title: 'Sinking Fund Exists', description: `A sinking fund for "${values.name}" already exists.`, variant: 'destructive' });
+        }
+      }
     } else {
-      addGoal(submissionData as Omit<Goal, 'id'>);
+      addGoal(submissionData as Omit<Goal, 'id'>, values.createSinkingFund);
     }
     onOpenChange(false);
   }
@@ -134,6 +154,28 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
                 </FormItem>
               )}
             />
+            
+            <FormField
+              control={form.control}
+              name="createSinkingFund"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>
+                      Create a Sinking Fund for this goal
+                    </FormLabel>
+                    <FormMessage />
+                  </div>
+                </FormItem>
+              )}
+            />
+
 
             <DialogFooter>
               <Button type="submit">{editingItem ? 'Save Changes' : 'Add Goal'}</Button>

@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Pencil, Trash2, PlusCircle, ArrowUpDown } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, ArrowUpDown, PiggyBank } from 'lucide-react';
 import type { SubscriptionItem } from '@/types';
 
 import {
@@ -32,6 +32,8 @@ import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
 import { Badge } from './ui/badge';
+import { useSavings } from '@/hooks/use-savings';
+import { useToast } from '@/hooks/use-toast';
 
 type SortableHeaderProps = {
   column: keyof SubscriptionItem | 'monthlyCost';
@@ -57,9 +59,11 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: S
 
 export function SubscriptionTable() {
   const { subscriptions, addSubscription, updateSubscription, deleteSubscription, isLoading } = useSubscriptions();
+  const { addSavingsItem, savingsItems } = useSavings();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<SubscriptionItem | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: keyof SubscriptionItem | 'monthlyCost'; direction: 'ascending' | 'descending' }>({ key: 'serviceName', direction: 'ascending' });
+  const { toast } = useToast();
 
 
   const requestSort = (key: keyof SubscriptionItem | 'monthlyCost') => {
@@ -121,6 +125,16 @@ export function SubscriptionTable() {
     }
   };
 
+  const handleCreateSinkingFund = (item: SubscriptionItem) => {
+    const fundExists = savingsItems.some(fund => fund.name.toLowerCase() === item.serviceName.toLowerCase());
+    if (fundExists) {
+      toast({ title: 'Fund Exists', description: `A sinking fund for "${item.serviceName}" already exists.`, variant: 'destructive' });
+    } else {
+      addSavingsItem({ name: item.serviceName, amount: 0 });
+      toast({ title: 'Sinking Fund Created', description: `A new sinking fund for "${item.serviceName}" has been added.` });
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
@@ -165,7 +179,7 @@ export function SubscriptionTable() {
                 <SortableHeader column="billingFrequency" label="Billing Frequency" sortConfig={sortConfig} requestSort={requestSort} />
                 <SortableHeader column="cost" label="Cost" sortConfig={sortConfig} requestSort={requestSort} className="text-right" />
                 <SortableHeader column="monthlyCost" label="Monthly Cost" sortConfig={sortConfig} requestSort={requestSort} className="text-right" />
-                <TableHead className="w-[100px] text-right">Actions</TableHead>
+                <TableHead className="w-[140px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -180,12 +194,15 @@ export function SubscriptionTable() {
                             <TableCell className="text-right">{formatCurrency(getMonthlyCost(item))}</TableCell>
                             <TableCell className="text-right">
                                 <div className="flex justify-end gap-1">
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(item)}>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" title="Create Sinking Fund" onClick={() => handleCreateSinkingFund(item)}>
+                                        <PiggyBank className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit Item" onClick={() => handleEdit(item)}>
                                         <Pencil className="h-4 w-4" />
                                     </Button>
                                     <AlertDialog>
                                     <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" title="Delete Item">
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
                                     </AlertDialogTrigger>

@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, RotateCw, ArrowUpDown } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, RotateCw, ArrowUpDown, PiggyBank } from 'lucide-react';
 import type { AutoShipItem } from '@/types';
 
 import {
@@ -34,6 +34,7 @@ import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
 import { Badge } from './ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { useSavings } from '@/hooks/use-savings';
 
 type SortConfig = {
     key: keyof AutoShipItem;
@@ -56,6 +57,7 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
 
 export function AutoShipTable() {
   const { autoShipItems, addAutoShipItem, updateAutoShipItem, deleteAutoShipItem, shipItem, isLoading } = useAutoShip();
+  const { addSavingsItem, savingsItems } = useSavings();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<AutoShipItem | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'nextShipmentDate', direction: 'ascending' });
@@ -106,6 +108,16 @@ export function AutoShipTable() {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
 
+  const handleCreateSinkingFund = (item: AutoShipItem) => {
+    const fundExists = savingsItems.some(fund => fund.name.toLowerCase() === item.item.toLowerCase());
+    if (fundExists) {
+      toast({ title: 'Fund Exists', description: `A sinking fund for "${item.item}" already exists.`, variant: 'destructive' });
+    } else {
+      addSavingsItem({ name: item.item, amount: 0 });
+      toast({ title: 'Sinking Fund Created', description: `A new sinking fund for "${item.item}" has been added.` });
+    }
+  };
+
   const handleShipItem = async (item: AutoShipItem) => {
     try {
         await shipItem(item.id);
@@ -153,7 +165,7 @@ export function AutoShipTable() {
                 <SortableHeader column="nextShipmentDate" label="Next Shipment" sortConfig={sortConfig} requestSort={requestSort} />
                 <TableHead>Frequency</TableHead>
                 <SortableHeader column="estimatedCost" label="Estimated Cost" sortConfig={sortConfig} requestSort={requestSort} className="text-right" />
-                <TableHead className="w-[140px] text-right">Actions</TableHead>
+                <TableHead className="w-[180px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -168,15 +180,18 @@ export function AutoShipTable() {
                             <TableCell className="text-right">{formatCurrency(item.estimatedCost)}</TableCell>
                             <TableCell className="text-right">
                                 <div className="flex justify-end gap-1">
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleShipItem(item)}>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" title="Create Sinking Fund" onClick={() => handleCreateSinkingFund(item)}>
+                                        <PiggyBank className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" title="Ship Item" onClick={() => handleShipItem(item)}>
                                         <RotateCw className="h-4 w-4" />
                                     </Button>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(item)}>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit Item" onClick={() => handleEdit(item)}>
                                         <Pencil className="h-4 w-4" />
                                     </Button>
                                     <AlertDialog>
                                     <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" title="Delete Item">
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
                                     </AlertDialogTrigger>

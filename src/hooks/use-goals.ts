@@ -5,6 +5,8 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Goal } from '@/types';
 import { useToast } from './use-toast';
 import * as GoalService from '@/services/goal-service';
+import * as SavingsService from '@/services/savings-service';
+
 
 export function useGoals() {
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -32,10 +34,22 @@ export function useGoals() {
     fetchGoals();
   }, [fetchGoals]);
 
-  const addGoal = useCallback(async (itemData: Omit<Goal, 'id'>) => {
+  const addGoal = useCallback(async (itemData: Omit<Goal, 'id'>, createSinkingFund: boolean) => {
     try {
       const newItem = await GoalService.addGoal(itemData);
       setGoals(prev => [...prev, newItem].sort((a, b) => a.name.localeCompare(b.name)));
+       if (createSinkingFund) {
+        // Check if a sinking fund with the same name already exists
+        const existingFunds = await SavingsService.getSavingsItems();
+        const fundExists = existingFunds.some(fund => fund.name.toLowerCase() === itemData.name.toLowerCase());
+        
+        if (!fundExists) {
+            await SavingsService.addSavingsItem({ name: itemData.name, amount: 0 });
+             toast({ title: 'Sinking Fund Created', description: `A sinking fund for "${itemData.name}" has been created.` });
+        } else {
+            toast({ title: 'Sinking Fund Exists', description: `A sinking fund for "${itemData.name}" already exists.`, variant: 'destructive' });
+        }
+      }
     } catch (error) {
       console.error('Failed to add goal:', error);
       toast({
