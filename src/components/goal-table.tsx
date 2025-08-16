@@ -44,7 +44,7 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
     <TableHead className={className}>
       <Button variant="ghost" onClick={() => requestSort(column)}>
         {label}
-        {isSorted && <ArrowUpDown className={`ml-2 h-4 w-4 transform ${direction === 'descending' ? 'rotate-180' : ''}`} />}
+        {isSorted && <ArrowUpDown className={'ml-2 h-4 w-4 transform ${direction === \'descending\' ? \'rotate-180\' : \'\'}'} />}
         {!isSorted && <ArrowUpDown className="ml-2 h-4 w-4 opacity-0 group-hover:opacity-50" />}
       </Button>
     </TableHead>
@@ -100,7 +100,7 @@ export function GoalTable() {
 
   const renderLoadingSkeleton = () => (
     Array.from({ length: 2 }).map((_, i) => (
-      <TableRow key={`skeleton-goal-${i}`}>
+      <TableRow key={'skeleton-goal-${i}'}>
         <TableCell colSpan={3}><Skeleton className="h-10 w-full" /></TableCell>
       </TableRow>
     ))

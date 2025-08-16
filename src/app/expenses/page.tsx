@@ -163,7 +163,7 @@ export default function ExpensesPage() {
     ]);
     
     const data = [
-      [`${monthName} Expenses`],
+      ['${monthName} Expenses'],
       [], // Spacer row
       ['Mileage'],
       mileageHeader,
@@ -209,17 +209,17 @@ export default function ExpensesPage() {
     // Style Credit Card section
     const creditCardSectionRowIndex = 5 + mileageRows.length;
     const creditCardHeaderRowIndex = creditCardSectionRowIndex + 1;
-    if (ws[`A${creditCardSectionRowIndex + 1}`]) ws[`A${creditCardSectionRowIndex + 1}`].s = sectionHeaderStyle;
+    if (ws['A${creditCardSectionRowIndex + 1}']) ws['A${creditCardSectionRowIndex + 1}'].s = sectionHeaderStyle;
     applyHeaderStyles(creditCardHeaderRowIndex, creditCardHeader);
 
     // Style Other Reimbursable section
     const otherSectionRowIndex = creditCardHeaderRowIndex + creditCardRows.length + 2;
     const otherHeaderRowIndex = otherSectionRowIndex + 1;
-     if (ws[`A${otherSectionRowIndex + 1}`]) ws[`A${otherSectionRowIndex + 1}`].s = sectionHeaderStyle;
+     if (ws['A${otherSectionRowIndex + 1}']) ws['A${otherSectionRowIndex + 1}'].s = sectionHeaderStyle;
     applyHeaderStyles(otherHeaderRowIndex, otherReimbursableHeader);
     
     XLSX.utils.book_append_sheet(wb, ws, 'Work Expenses');
-    XLSX.writeFile(wb, `work-expenses-${monthName.replace(/\s+/g, '-')}.xlsx`);
+    XLSX.writeFile(wb, 'work-expenses-${monthName.replace(/\s+/g, \'-\')}.xlsx');
   };
 
   const handlePrint = () => {
@@ -309,7 +309,7 @@ export default function ExpensesPage() {
       <main>
         <div className="flex justify-between items-center mb-6 gap-2">
             <h2 className="text-3xl font-bold font-headline text-primary">
-              {isViewingArchive ? `Work Expenses: ${format(parse(selectedMonth, 'yyyy-MM', new Date()), 'MMMM yyyy')}` : 'Active Work Expenses'}
+              {isViewingArchive ? 'Work Expenses: ${format(parse(selectedMonth, \'yyyy-MM\', new Date()), \'MMMM yyyy\')}' : 'Active Work Expenses'}
             </h2>
         </div>
 

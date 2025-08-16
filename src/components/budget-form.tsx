@@ -115,7 +115,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
   const toLocalISOString = (date: Date) => {
     const tzOffset = -date.getTimezoneOffset();
     const diff = tzOffset >= 0 ? '+' : '-';
-    const pad = (n: number) => `${Math.floor(Math.abs(n))}`.padStart(2, '0');
+    const pad = (n: number) => '${Math.floor(Math.abs(n))}'.padStart(2, '0');
     return date.getFullYear() +
       '-' + pad(date.getMonth() + 1) +
       '-' + pad(date.getDate()) +
@@ -193,7 +193,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                 await GoalService.updateGoal(goalId, { amount: newAmount });
                 toast({
                     title: 'Goal Updated!',
-                    description: `${formatCurrency(allocationAmount)} was added to "${goalToUpdate.name}".`
+                    description: '${formatCurrency(allocationAmount)} was added to "${goalToUpdate.name}".'
                 });
                 await fetchGoals();
             }
