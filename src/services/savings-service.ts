@@ -15,7 +15,7 @@ import {
   orderBy,
 } from 'firebase/firestore';
 
-const SAVINGS_COLLECTION = 'sinking-funds';
+const SAVINGS_COLLECTION = 'goals';
 
 export async function getSavingsItems(): Promise<SavingsItem[]> {
   const savingsCollection = collection(db, SAVINGS_COLLECTION);
