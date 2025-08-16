@@ -155,5 +155,4 @@ export interface Goal {
   id: string;
   name: string;
   amount: number;
-  url: string | null;
 }

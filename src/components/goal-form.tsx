@@ -28,7 +28,6 @@ import type { Goal } from '@/types';
 const formSchema = z.object({
   name: z.string().min(2, 'Goal name must be at least 2 characters.'),
   amount: z.coerce.number().min(0, 'Amount must be a positive number.'),
-  url: z.string().url().optional().or(z.literal('')),
 });
 
 
@@ -46,7 +45,6 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
     defaultValues: {
       name: '',
       amount: 0,
-      url: '',
     },
   });
 
@@ -56,13 +54,11 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
         form.reset({
           name: editingItem.name,
           amount: editingItem.amount,
-          url: editingItem.url || '',
         });
       } else {
         form.reset({
           name: '',
           amount: 0,
-          url: '',
         });
       }
     }
@@ -72,7 +68,6 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
     const submissionData = { 
         name: values.name,
         amount: values.amount,
-        url: values.url || null,
     };
 
     if (editingItem) {
@@ -87,16 +82,16 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>{editingItem ? 'Edit Pot' : 'Add New Pot'}</DialogTitle>
+          <DialogTitle>{editingItem ? 'Edit Goal' : 'Add New Goal'}</DialogTitle>
           <DialogDescription>
-            {editingItem ? 'Update the details for this allocation.' : 'Designate a portion of your future spending money.'}
+            {editingItem ? 'Update the details for this savings goal.' : 'Designate a portion of your future spending money for a specific goal.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField control={form.control} name="name" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Name</FormLabel>
+                  <FormLabel>Goal Name</FormLabel>
                   <FormControl><Input placeholder="e.g., New Car" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -105,24 +100,15 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
             
             <FormField control={form.control} name="amount" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Amount Allocated</FormLabel>
+                  <FormLabel>Amount Saved</FormLabel>
                   <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField control={form.control} name="url" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>URL (Optional)</FormLabel>
-                  <FormControl><Input type="url" placeholder="https://example.com" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
             <DialogFooter>
-              <Button type="submit">{editingItem ? 'Save Changes' : 'Add Pot'}</Button>
+              <Button type="submit">{editingItem ? 'Save Changes' : 'Add Goal'}</Button>
             </DialogFooter>
           </form>
         </Form>

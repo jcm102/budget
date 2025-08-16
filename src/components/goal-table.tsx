@@ -2,8 +2,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import Link from 'next/link';
-import { Pencil, Trash2, PlusCircle, ArrowUpDown, Link as LinkIcon } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, ArrowUpDown } from 'lucide-react';
 import type { Goal } from '@/types';
 
 import {
@@ -121,7 +120,7 @@ export function GoalTable() {
       <div className="flex justify-end items-center mb-6 gap-2">
           <Button onClick={() => setIsFormOpen(true)}>
             <PlusCircle className="mr-2 h-5 w-5" />
-            Add Pot
+            Add Goal
           </Button>
       </div>
 
@@ -129,7 +128,7 @@ export function GoalTable() {
           <Table>
             <TableHeader>
               <TableRow className="group">
-                <SortableHeader column="name" label="Pot Name" sortConfig={sortConfig} requestSort={requestSort} />
+                <SortableHeader column="name" label="Goal Name" sortConfig={sortConfig} requestSort={requestSort} />
                 <SortableHeader column="amount" label="Amount" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
                 <TableHead className="w-[120px] text-right">Actions</TableHead>
               </TableRow>
@@ -140,16 +139,7 @@ export function GoalTable() {
                 ) : sortedItems.length > 0 ? (
                     sortedItems.map((item) => (
                         <TableRow key={item.id}>
-                            <TableCell className="font-medium flex items-center gap-2">
-                                {item.name}
-                                {item.url && (
-                                    <Button asChild variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground">
-                                        <Link href={item.url} target="_blank" rel="noopener noreferrer">
-                                            <LinkIcon className="h-4 w-4" />
-                                        </Link>
-                                    </Button>
-                                )}
-                            </TableCell>
+                            <TableCell className="font-medium">{item.name}</TableCell>
                             <TableCell className="text-right">{formatCurrency(item.amount)}</TableCell>
                             <TableCell className="text-right">
                                 <div className="flex justify-end gap-1">
@@ -157,7 +147,7 @@ export function GoalTable() {
                                     <AlertDialog>
                                         <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
                                         <AlertDialogContent>
-                                            <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete this savings pot.</AlertDialogDescription></AlertDialogHeader>
+                                            <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete this savings goal.</AlertDialogDescription></AlertDialogHeader>
                                             <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => deleteGoal(item.id)} className={cn(buttonVariants({ variant: "destructive" }))}>Delete</AlertDialogAction></AlertDialogFooter>
                                         </AlertDialogContent>
                                     </AlertDialog>
@@ -168,7 +158,7 @@ export function GoalTable() {
                 ) : (
                     <TableRow>
                     <TableCell colSpan={3} className="h-24 text-center">
-                        No pots created yet. Add one to get started!
+                        No goals created yet. Add one to get started!
                     </TableCell>
                     </TableRow>
                 )}
