@@ -31,7 +31,7 @@ export default function SavingsPage() {
         </Button>
       </header>
       <main className="space-y-8">
-        <Collapsible defaultOpen={true}>
+        <Collapsible defaultOpen={true} id="goal-savings">
             <CollapsibleTrigger asChild>
                 <Button variant="ghost" className="flex items-center gap-2 pl-0 hover:bg-transparent text-3xl font-bold font-headline text-primary mb-4 no-print">
                     <ChevronsUpDown className="h-6 w-6 text-muted-foreground" />
@@ -43,7 +43,7 @@ export default function SavingsPage() {
             </CollapsibleContent>
         </Collapsible>
         
-        <Collapsible defaultOpen={true}>
+        <Collapsible defaultOpen={true} id="sinking-funds">
             <CollapsibleTrigger asChild>
                 <Button variant="ghost" className="flex items-center gap-2 pl-0 hover:bg-transparent text-3xl font-bold font-headline text-primary mb-4 no-print">
                     <ChevronsUpDown className="h-6 w-6 text-muted-foreground" />
@@ -55,7 +55,7 @@ export default function SavingsPage() {
             </CollapsibleContent>
         </Collapsible>
 
-        <Collapsible defaultOpen={true}>
+        <Collapsible defaultOpen={true} id="account-ledger">
             <CollapsibleTrigger asChild>
                 <Button variant="ghost" className="flex items-center gap-2 pl-0 hover:bg-transparent text-3xl font-bold font-headline text-primary mb-4 no-print">
                     <ChevronsUpDown className="h-6 w-6 text-muted-foreground" />
@@ -67,7 +67,7 @@ export default function SavingsPage() {
             </CollapsibleContent>
         </Collapsible>
 
-        <Collapsible defaultOpen={true}>
+        <Collapsible defaultOpen={true} id="autoship-table">
             <CollapsibleTrigger asChild>
                 <Button variant="ghost" className="flex items-center gap-2 pl-0 hover:bg-transparent text-3xl font-bold font-headline text-primary mb-4 no-print">
                     <ChevronsUpDown className="h-6 w-6 text-muted-foreground" />
@@ -79,7 +79,7 @@ export default function SavingsPage() {
             </CollapsibleContent>
         </Collapsible>
 
-         <Collapsible defaultOpen={true}>
+         <Collapsible defaultOpen={true} id="subscription-table">
             <CollapsibleTrigger asChild>
                 <Button variant="ghost" className="flex items-center gap-2 pl-0 hover:bg-transparent text-3xl font-bold font-headline text-primary mb-4 no-print">
                     <ChevronsUpDown className="h-6 w-6 text-muted-foreground" />
@@ -94,4 +94,3 @@ export default function SavingsPage() {
     </div>
   );
 }
-
