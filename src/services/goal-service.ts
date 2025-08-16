@@ -26,7 +26,13 @@ export async function getGoals(): Promise<Goal[]> {
 }
 
 export async function addGoal(itemData: Omit<Goal, 'id'>): Promise<Goal> {
-  const docRef = await addDoc(collection(db, GOAL_COLLECTION), itemData);
+  const dataWithDefaults = {
+    ...itemData,
+    cost: itemData.cost || 0,
+    amount: itemData.amount || 0,
+    link: itemData.link || null,
+  };
+  const docRef = await addDoc(collection(db, GOAL_COLLECTION), dataWithDefaults);
   const docSnap = await getDoc(docRef);
   return { id: docSnap.id, ...(docSnap.data() as Omit<Goal, 'id'>) };
 }

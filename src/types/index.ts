@@ -160,4 +160,6 @@ export interface Goal {
   id: string;
   name: string;
   amount: number;
+  cost: number;
+  link?: string | null;
 }

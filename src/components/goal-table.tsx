@@ -2,7 +2,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Pencil, Trash2, PlusCircle, ArrowUpDown } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, ArrowUpDown, Link as LinkIcon } from 'lucide-react';
+import Link from 'next/link';
 import type { Goal } from '@/types';
 
 import {
@@ -31,9 +32,10 @@ import { useGoals } from '@/hooks/use-goals';
 import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
+import { Progress } from './ui/progress';
 
 type SortConfig = {
-    key: keyof Goal;
+    key: keyof Goal | 'progress';
     direction: 'ascending' | 'descending';
 } | null;
 
@@ -87,8 +89,15 @@ export function GoalTable() {
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
         let aValue: any, bValue: any;
-        aValue = a[sortConfig.key as keyof Goal];
-        bValue = b[sortConfig.key as keyof Goal];
+
+        if(sortConfig.key === 'progress') {
+            aValue = a.cost > 0 ? (a.amount / a.cost) * 100 : 0;
+            bValue = b.cost > 0 ? (b.amount / b.cost) * 100 : 0;
+        } else {
+            aValue = a[sortConfig.key as keyof Goal];
+            bValue = b[sortConfig.key as keyof Goal];
+        }
+
 
         if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
         if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
@@ -100,13 +109,14 @@ export function GoalTable() {
 
   const renderLoadingSkeleton = () => (
     Array.from({ length: 2 }).map((_, i) => (
-      <TableRow key={`skeleton-goal-${i}`}>
-        <TableCell colSpan={3}><Skeleton className="h-10 w-full" /></TableCell>
+      <TableRow key={`skeleton-goal-table-${i}`}>
+        <TableCell colSpan={5}><Skeleton className="h-10 w-full" /></TableCell>
       </TableRow>
     ))
   );
 
   const totalAllocated = goals.reduce((acc, goal) => acc + goal.amount, 0);
+  const totalCost = goals.reduce((acc, goal) => acc + goal.cost, 0);
 
   return (
     <>
@@ -129,7 +139,9 @@ export function GoalTable() {
             <TableHeader>
               <TableRow className="group">
                 <SortableHeader column="name" label="Goal Name" sortConfig={sortConfig} requestSort={requestSort} />
-                <SortableHeader column="amount" label="Amount" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
+                <SortableHeader column="cost" label="Total Cost" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
+                <SortableHeader column="amount" label="Amount Saved" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
+                <SortableHeader column="progress" label="Progress" sortConfig={sortConfig} requestSort={requestSort}/>
                 <TableHead className="w-[120px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -137,12 +149,26 @@ export function GoalTable() {
                 {isLoading ? (
                     renderLoadingSkeleton()
                 ) : sortedItems.length > 0 ? (
-                    sortedItems.map((item) => (
+                    sortedItems.map((item) => {
+                        const progress = item.cost > 0 ? (item.amount / item.cost) * 100 : 0;
+                        return (
                         <TableRow key={item.id}>
                             <TableCell className="font-medium">{item.name}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(item.cost)}</TableCell>
                             <TableCell className="text-right">{formatCurrency(item.amount)}</TableCell>
+                            <TableCell>
+                                <div className="flex items-center gap-2">
+                                    <Progress value={progress} className="w-[60%]" />
+                                    <span className="text-xs text-muted-foreground">{Math.round(progress)}%</span>
+                                </div>
+                            </TableCell>
                             <TableCell className="text-right">
                                 <div className="flex justify-end gap-1">
+                                    {item.link && (
+                                      <Button asChild variant="ghost" size="icon" className="h-8 w-8">
+                                        <Link href={item.link} target="_blank" rel="noopener noreferrer"><LinkIcon className="h-4 w-4"/></Link>
+                                      </Button>
+                                    )}
                                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(item)}><Pencil className="h-4 w-4" /></Button>
                                     <AlertDialog>
                                         <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
@@ -154,10 +180,11 @@ export function GoalTable() {
                                 </div>
                             </TableCell>
                         </TableRow>
-                    ))
+                        )
+                    })
                 ) : (
                     <TableRow>
-                    <TableCell colSpan={3} className="h-24 text-center">
+                    <TableCell colSpan={5} className="h-24 text-center">
                         No goals created yet. Add one to get started!
                     </TableCell>
                     </TableRow>
@@ -165,9 +192,10 @@ export function GoalTable() {
             </TableBody>
             <TableFooter>
               <TableRow>
-                <TableCell className="font-semibold text-right">Total</TableCell>
+                <TableCell className="font-semibold text-right">Totals</TableCell>
+                <TableCell className="text-right font-semibold">{formatCurrency(totalCost)}</TableCell>
                 <TableCell className="text-right font-semibold">{formatCurrency(totalAllocated)}</TableCell>
-                <TableCell></TableCell>
+                <TableCell colSpan={2}></TableCell>
               </TableRow>
             </TableFooter>
           </Table>

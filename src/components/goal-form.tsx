@@ -28,6 +28,8 @@ import type { Goal } from '@/types';
 const formSchema = z.object({
   name: z.string().min(2, 'Goal name must be at least 2 characters.'),
   amount: z.coerce.number().min(0, 'Amount must be a positive number.'),
+  cost: z.coerce.number().min(0, 'Cost must be a positive number.'),
+  link: z.string().url('Please enter a valid URL.').or(z.literal('')).optional(),
 });
 
 
@@ -45,6 +47,8 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
     defaultValues: {
       name: '',
       amount: 0,
+      cost: 0,
+      link: '',
     },
   });
 
@@ -54,11 +58,15 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
         form.reset({
           name: editingItem.name,
           amount: editingItem.amount,
+          cost: editingItem.cost || 0,
+          link: editingItem.link || '',
         });
       } else {
         form.reset({
           name: '',
           amount: 0,
+          cost: 0,
+          link: '',
         });
       }
     }
@@ -68,6 +76,8 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
     const submissionData = { 
         name: values.name,
         amount: values.amount,
+        cost: values.cost,
+        link: values.link || null,
     };
 
     if (editingItem) {
@@ -98,10 +108,28 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
               )}
             />
             
+            <FormField control={form.control} name="cost" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Total Cost</FormLabel>
+                  <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField control={form.control} name="amount" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Amount Saved</FormLabel>
                   <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField control={form.control} name="link" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Link (Optional)</FormLabel>
+                  <FormControl><Input placeholder="https://example.com" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
