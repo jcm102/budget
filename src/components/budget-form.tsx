@@ -34,7 +34,10 @@ import type { BudgetItem, BudgetItemType, BudgetItemFrequency } from '@/types';
 import { useIncomeCategories } from '@/hooks/use-income-categories';
 import { useTransferees } from '@/hooks/use-transferees';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Separator } from './ui/separator';
+import { useGoals } from '@/hooks/use-goals';
+import * as GoalService from '@/services/goal-service';
+import { useToast } from './use-toast';
+import { Loader2 } from 'lucide-react';
 
 const formSchema = z.object({
     description: z.string().min(2, 'Description must be at least 2 characters.'),
@@ -45,6 +48,10 @@ const formSchema = z.object({
     frequency: z.enum(['One-Time', 'Weekly', 'Bi-Weekly', 'Monthly']),
     transferTo: z.string().optional(),
     transferFrom: z.string().optional(),
+    goalAllocation: z.object({
+        goalId: z.string(),
+        amount: z.coerce.number(),
+    }).optional(),
   }).refine(data => {
     if (data.type === 'Transfers') {
       return !!data.transferTo && !!data.transferFrom;
@@ -52,7 +59,7 @@ const formSchema = z.object({
     return true;
   }, {
     message: 'Both "Source" and "Destination" accounts are required for transfers.',
-    path: ['transferTo'], // You can associate the error with a specific field
+    path: ['transferTo'],
   });
 
 type BudgetFormProps = {
@@ -66,7 +73,10 @@ type BudgetFormProps = {
 export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem, editingItem }: BudgetFormProps) {
   const { categories: incomeCategories } = useIncomeCategories();
   const { transferees } = useTransferees();
+  const { goals, fetchGoals } = useGoals();
   const [split, setSplit] = useState({ savings: 0, charity: 0, fun: 0 });
+  const [isSubmittingGoal, setIsSubmittingGoal] = useState(false);
+  const { toast } = useToast();
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -79,6 +89,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
       frequency: 'One-Time',
       transferFrom: '',
       transferTo: '',
+      goalAllocation: undefined,
     },
   });
 
@@ -126,6 +137,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
           frequency: editingItem.frequency || 'One-Time',
           transferFrom: editingItem.transferFrom || '',
           transferTo: editingItem.transferTo || '',
+          goalAllocation: undefined,
         });
       } else {
         form.reset({
@@ -137,6 +149,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
           frequency: 'One-Time',
           transferFrom: '',
           transferTo: '',
+          goalAllocation: undefined,
         });
       }
     }
@@ -157,17 +170,45 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
   }, [itemType, form]);
 
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    // This logic ensures the date is treated in the user's local timezone, not UTC.
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     const [year, month, day] = values.date.split('-').map(Number);
     const localDate = new Date(year, month - 1, day);
 
     const submissionData = {
       ...values,
-      date: toLocalISOString(localDate), // Store as ISO string with timezone offset
+      date: toLocalISOString(localDate),
       type: values.type as BudgetItemType,
       frequency: values.frequency as BudgetItemFrequency,
     };
+    
+    // Handle goal allocation
+    if (showCalculator && values.goalAllocation && values.goalAllocation.goalId && values.goalAllocation.amount > 0) {
+        setIsSubmittingGoal(true);
+        try {
+            const { goalId, amount: allocationAmount } = values.goalAllocation;
+            const goalToUpdate = goals.find(g => g.id === goalId);
+            if (goalToUpdate) {
+                const newAmount = goalToUpdate.amount + allocationAmount;
+                await GoalService.updateGoal(goalId, { amount: newAmount });
+                toast({
+                    title: 'Goal Updated!',
+                    description: `${formatCurrency(allocationAmount)} was added to "${goalToUpdate.name}".`
+                });
+                await fetchGoals();
+            }
+        } catch (error) {
+             console.error("Failed to update goal:", error);
+             toast({
+                title: 'Error',
+                description: 'Could not update the savings goal.',
+                variant: 'destructive',
+            });
+        } finally {
+            setIsSubmittingGoal(false);
+        }
+    }
+
+
     if (editingItem) {
       updateBudgetItem(editingItem.id, submissionData);
     } else {
@@ -246,14 +287,10 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
             {showCalculator && (
                  <Card className="bg-secondary/50">
                     <CardHeader className="p-4">
-                        <CardTitle className="text-base">Split Calculator</CardTitle>
+                        <CardTitle className="text-base">Split & Allocate</CardTitle>
                     </CardHeader>
-                    <CardContent className="p-4 pt-0 text-sm">
+                    <CardContent className="p-4 pt-0 text-sm space-y-4">
                         <div className="space-y-2">
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Savings/Debt:</span>
-                                <span className="font-medium">{formatCurrency(split.savings)}</span>
-                            </div>
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">Charity:</span>
                                 <span className="font-medium">{formatCurrency(split.charity)}</span>
@@ -262,6 +299,52 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                                 <span className="text-muted-foreground">Fun:</span>
                                 <span className="font-medium">{formatCurrency(split.fun)}</span>
                             </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Allocate Savings/Debt Portion</Label>
+                            <div className="flex gap-2">
+                                <FormField
+                                    control={form.control}
+                                    name="goalAllocation.goalId"
+                                    render={({ field }) => (
+                                        <FormItem className="flex-grow">
+                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select Goal" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    {goals.map(goal => (
+                                                        <SelectItem key={goal.id} value={goal.id}>{goal.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </FormItem>
+                                    )}
+                                />
+                                 <FormField
+                                    control={form.control}
+                                    name="goalAllocation.amount"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormControl>
+                                                <Input 
+                                                    type="number" 
+                                                    step="0.01" 
+                                                    {...field} 
+                                                    className="w-28" 
+                                                    placeholder="Amount"
+                                                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                                />
+                                            </FormControl>
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+                            <Button type="button" size="sm" variant="ghost" className="w-full" onClick={() => form.setValue('goalAllocation.amount', split.savings)}>
+                                Allocate Full Amount ({formatCurrency(split.savings)})
+                            </Button>
                         </div>
                     </CardContent>
                 </Card>
@@ -333,7 +416,10 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
               )}
             />
             <DialogFooter>
-              <Button type="submit">{editingItem ? 'Save Changes' : 'Add Item'}</Button>
+              <Button type="submit" disabled={isSubmittingGoal}>
+                {isSubmittingGoal && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {editingItem ? 'Save Changes' : 'Add Item'}
+              </Button>
             </DialogFooter>
           </form>
         </Form>
