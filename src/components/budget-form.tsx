@@ -36,7 +36,7 @@ import { useTransferees } from '@/hooks/use-transferees';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { useGoals } from '@/hooks/use-goals';
 import * as GoalService from '@/services/goal-service';
-import { useToast } from './use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Label } from './ui/label';
 
@@ -115,7 +115,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
   const toLocalISOString = (date: Date) => {
     const tzOffset = -date.getTimezoneOffset();
     const diff = tzOffset >= 0 ? '+' : '-';
-    const pad = (n: number) => '${Math.floor(Math.abs(n))}'.padStart(2, '0');
+    const pad = (n: number) => `${Math.floor(Math.abs(n))}`.padStart(2, '0');
     return date.getFullYear() +
       '-' + pad(date.getMonth() + 1) +
       '-' + pad(date.getDate()) +
@@ -193,7 +193,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                 await GoalService.updateGoal(goalId, { amount: newAmount });
                 toast({
                     title: 'Goal Updated!',
-                    description: '${formatCurrency(allocationAmount)} was added to "${goalToUpdate.name}".'
+                    description: `${formatCurrency(allocationAmount)} was added to "${goalToUpdate.name}".`
                 });
                 await fetchGoals();
             }
