@@ -38,6 +38,7 @@ import { useGoals } from '@/hooks/use-goals';
 import * as GoalService from '@/services/goal-service';
 import { useToast } from './use-toast';
 import { Loader2 } from 'lucide-react';
+import { Label } from './ui/label';
 
 const formSchema = z.object({
     description: z.string().min(2, 'Description must be at least 2 characters.'),
