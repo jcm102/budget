@@ -48,10 +48,12 @@ import {
 } from '@/components/ui/alert-dialog';
 import { AccountLedgerForm } from './account-ledger-form';
 import { useAccountLedger } from '@/hooks/use-account-ledger';
+import { useSavings } from '@/hooks/use-savings';
 import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
-import { Pencil, Trash2, PlusCircle, ArrowUpDown, DollarSign, MinusCircle } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, ArrowUpDown, DollarSign, MinusCircle, Info } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 
 
 const transactionSchema = z.object({
@@ -127,10 +129,13 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
 }
 
 export function AccountLedgerTable() {
-  const { ledgerItems, addItem, updateItem, deleteItem, isLoading } = useAccountLedger();
+  const { ledgerItems, addItem, updateItem, deleteItem, isLoading: isLoadingLedger } = useAccountLedger();
+  const { savingsItems, isLoading: isLoadingSavings } = useSavings();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<AccountLedgerItem | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
+
+  const isLoading = isLoadingLedger || isLoadingSavings;
 
   const handleEdit = (item: AccountLedgerItem) => {
     setEditingItem(item);
@@ -180,14 +185,16 @@ export function AccountLedgerTable() {
   };
 
   const renderLoadingSkeleton = () => (
-    Array.from({ length: 2 }).map((_, i) => (
+    Array.from({ length: 3 }).map((_, i) => (
       <TableRow key={`skeleton-ledger-${i}`}>
         <TableCell colSpan={3}><Skeleton className="h-10 w-full" /></TableCell>
       </TableRow>
     ))
   );
 
-  const totalAmount = ledgerItems.reduce((acc, item) => acc + item.amount, 0);
+  const ledgerTotal = ledgerItems.reduce((acc, item) => acc + item.amount, 0);
+  const sinkingFundsTotal = savingsItems.reduce((acc, item) => acc + item.amount, 0);
+  const totalAmount = ledgerTotal + sinkingFundsTotal;
 
   return (
     <>
@@ -217,38 +224,58 @@ export function AccountLedgerTable() {
             <TableBody>
                 {isLoading ? (
                     renderLoadingSkeleton()
-                ) : sortedItems.length > 0 ? (
-                    sortedItems.map((item) => (
-                        <TableRow key={item.id}>
-                            <TableCell className="font-medium">{item.name}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(item.amount)}</TableCell>
-                            <TableCell className="text-right">
-                                <div className="flex justify-end gap-1">
-                                     <TransactionDialog item={item} transactionType='deposit' onSave={(amount) => handleTransaction(item, amount, 'deposit')}>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700"><DollarSign className="h-4 w-4" /></Button>
-                                    </TransactionDialog>
-                                    <TransactionDialog item={item} transactionType='withdraw' onSave={(amount) => handleTransaction(item, amount, 'withdraw')}>
-                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700"><MinusCircle className="h-4 w-4" /></Button>
-                                    </TransactionDialog>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(item)}><Pencil className="h-4 w-4" /></Button>
-                                    <AlertDialog>
-                                        <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete this ledger category.</AlertDialogDescription></AlertDialogHeader>
-                                            <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => deleteItem(item.id)} className={cn(buttonVariants({ variant: "destructive" }))}>Delete</AlertDialogAction></AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                </div>
-                            </TableCell>
-                        </TableRow>
-                    ))
                 ) : (
-                    <TableRow>
-                    <TableCell colSpan={3} className="h-24 text-center">
-                        No categories created yet. Add one to get started!
-                    </TableCell>
-                    </TableRow>
+                    <>
+                        {sortedItems.map((item) => (
+                            <TableRow key={item.id}>
+                                <TableCell className="font-medium">{item.name}</TableCell>
+                                <TableCell className="text-right">{formatCurrency(item.amount)}</TableCell>
+                                <TableCell className="text-right">
+                                    <div className="flex justify-end gap-1">
+                                        <TransactionDialog item={item} transactionType='deposit' onSave={(amount) => handleTransaction(item, amount, 'deposit')}>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700"><DollarSign className="h-4 w-4" /></Button>
+                                        </TransactionDialog>
+                                        <TransactionDialog item={item} transactionType='withdraw' onSave={(amount) => handleTransaction(item, amount, 'withdraw')}>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700"><MinusCircle className="h-4 w-4" /></Button>
+                                        </TransactionDialog>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(item)}><Pencil className="h-4 w-4" /></Button>
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete this ledger category.</AlertDialogDescription></AlertDialogHeader>
+                                                <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => deleteItem(item.id)} className={cn(buttonVariants({ variant: "destructive" }))}>Delete</AlertDialogAction></AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                        <TableRow className="bg-secondary/50 hover:bg-secondary/70">
+                            <TableCell className="font-medium flex items-center gap-2">
+                                Sinking Funds Balance
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:bg-transparent hover:text-foreground p-0">
+                                            <Info className="h-4 w-4" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-60 text-sm">
+                                        This is the total from your Sinking Funds table and is read-only.
+                                    </PopoverContent>
+                                </Popover>
+                            </TableCell>
+                            <TableCell className="text-right">{formatCurrency(sinkingFundsTotal)}</TableCell>
+                            <TableCell></TableCell>
+                        </TableRow>
+                    </>
                 )}
+                 {(!isLoading && sortedItems.length === 0) && (
+                     <TableRow>
+                        <TableCell colSpan={3} className="h-24 text-center">
+                            No ledger categories created yet. Add one to get started!
+                        </TableCell>
+                    </TableRow>
+                 )}
             </TableBody>
             <TableFooter>
               <TableRow>
