@@ -130,7 +130,7 @@ export function SubscriptionTable() {
     if (fundExists) {
       toast({ title: 'Fund Exists', description: `A sinking fund for "${item.serviceName}" already exists.`, variant: 'destructive' });
     } else {
-      addSavingsItem({ name: item.serviceName, amount: 0 });
+      addSavingsItem({ name: item.serviceName, amount: 0, goal: getMonthlyCost(item) });
       toast({ title: 'Sinking Fund Created', description: `A new sinking fund for "${item.serviceName}" has been added.` });
     }
   };

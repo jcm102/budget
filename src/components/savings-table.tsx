@@ -52,6 +52,7 @@ import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
 import { Pencil, Trash2, PlusCircle, ArrowUpDown, DollarSign, MinusCircle } from 'lucide-react';
+import { Progress } from './ui/progress';
 
 
 const transactionSchema = z.object({
@@ -108,7 +109,7 @@ function TransactionDialog({ item, transactionType, onSave, children }: { item: 
 }
 
 type SortConfig = {
-    key: keyof SavingsItem;
+    key: keyof SavingsItem | 'progress';
     direction: 'ascending' | 'descending';
 } | null;
 
@@ -162,8 +163,13 @@ export function SavingsTable() {
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
         let aValue: any, bValue: any;
-        aValue = a[sortConfig.key as keyof SavingsItem];
-        bValue = b[sortConfig.key as keyof SavingsItem];
+        if (sortConfig.key === 'progress') {
+            aValue = a.goal && a.goal > 0 ? (a.amount / a.goal) * 100 : 0;
+            bValue = b.goal && b.goal > 0 ? (b.amount / b.goal) * 100 : 0;
+        } else {
+             aValue = a[sortConfig.key as keyof SavingsItem];
+             bValue = b[sortConfig.key as keyof SavingsItem];
+        }
 
         if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
         if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
@@ -182,7 +188,7 @@ export function SavingsTable() {
   const renderLoadingSkeleton = () => (
     Array.from({ length: 2 }).map((_, i) => (
       <TableRow key={`skeleton-savings-${i}`}>
-        <TableCell colSpan={3}><Skeleton className="h-10 w-full" /></TableCell>
+        <TableCell colSpan={4}><Skeleton className="h-10 w-full" /></TableCell>
       </TableRow>
     ))
   );
@@ -211,6 +217,7 @@ export function SavingsTable() {
               <TableRow className="group">
                 <SortableHeader column="name" label="Fund Name" sortConfig={sortConfig} requestSort={requestSort} />
                 <SortableHeader column="amount" label="Amount" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
+                <SortableHeader column="progress" label="Monthly Goal Progress" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
                 <TableHead className="w-[180px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -218,10 +225,24 @@ export function SavingsTable() {
                 {isLoading ? (
                     renderLoadingSkeleton()
                 ) : sortedItems.length > 0 ? (
-                    sortedItems.map((item) => (
+                    sortedItems.map((item) => {
+                        const progress = item.goal && item.goal > 0 ? (item.amount / item.goal) * 100 : 0;
+                        return (
                         <TableRow key={item.id}>
                             <TableCell className="font-medium">{item.name}</TableCell>
                             <TableCell className="text-right">{formatCurrency(item.amount)}</TableCell>
+                            <TableCell className="text-right">
+                                {item.goal && item.goal > 0 ? (
+                                    <div className="flex flex-col items-end gap-1">
+                                        <Progress value={progress} className="w-[80%]" />
+                                        <span className="text-xs text-muted-foreground">
+                                            {formatCurrency(item.amount)} / {formatCurrency(item.goal)}
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <span className="text-xs text-muted-foreground">-</span>
+                                )}
+                            </TableCell>
                             <TableCell className="text-right">
                                 <div className="flex justify-end gap-1">
                                      <TransactionDialog item={item} transactionType='deposit' onSave={(amount) => handleTransaction(item, amount, 'deposit')}>
@@ -241,10 +262,11 @@ export function SavingsTable() {
                                 </div>
                             </TableCell>
                         </TableRow>
-                    ))
+                        )
+                    })
                 ) : (
                     <TableRow>
-                    <TableCell colSpan={3} className="h-24 text-center">
+                    <TableCell colSpan={4} className="h-24 text-center">
                         No funds created yet. Add one to get started!
                     </TableCell>
                     </TableRow>
@@ -254,7 +276,7 @@ export function SavingsTable() {
               <TableRow>
                 <TableCell className="font-semibold text-right">Total Balance</TableCell>
                 <TableCell className="text-right font-semibold">{formatCurrency(totalAmount)}</TableCell>
-                <TableCell></TableCell>
+                <TableCell colSpan={2}></TableCell>
               </TableRow>
             </TableFooter>
           </Table>

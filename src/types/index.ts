@@ -117,6 +117,7 @@ export interface SavingsItem {
   id: string;
   name: string;
   amount: number;
+  goal?: number;
 }
 
 export interface AccountLedgerItem {
@@ -159,7 +160,7 @@ export interface Person {
 export interface Goal {
   id: string;
   name: string;
-  amount: number;
   cost: number;
   link?: string | null;
+  amount?: number; // This is now populated at runtime
 }

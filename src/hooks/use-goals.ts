@@ -34,17 +34,16 @@ export function useGoals() {
     fetchGoals();
   }, [fetchGoals]);
 
-  const addGoal = useCallback(async (itemData: Omit<Goal, 'id'>, createSinkingFund: boolean) => {
+  const addGoal = useCallback(async (itemData: Omit<Goal, 'id' | 'amount'>, createSinkingFund: boolean) => {
     try {
       const newItem = await GoalService.addGoal(itemData);
       setGoals(prev => [...prev, newItem].sort((a, b) => a.name.localeCompare(b.name)));
        if (createSinkingFund) {
-        // Check if a sinking fund with the same name already exists
         const existingFunds = await SavingsService.getSavingsItems();
         const fundExists = existingFunds.some(fund => fund.name.toLowerCase() === itemData.name.toLowerCase());
         
         if (!fundExists) {
-            await SavingsService.addSavingsItem({ name: itemData.name, amount: 0 });
+            await SavingsService.addSavingsItem({ name: itemData.name, amount: 0, goal: itemData.cost });
              toast({ title: 'Sinking Fund Created', description: `A sinking fund for "${itemData.name}" has been created.` });
         } else {
             toast({ title: 'Sinking Fund Exists', description: `A sinking fund for "${itemData.name}" already exists.`, variant: 'destructive' });
@@ -60,7 +59,7 @@ export function useGoals() {
     }
   }, [toast]);
 
-  const updateGoal = useCallback(async (id: string, itemData: Partial<Omit<Goal, 'id'>>) => {
+  const updateGoal = useCallback(async (id: string, itemData: Partial<Omit<Goal, 'id' | 'amount'>>) => {
     const originalItems = goals;
     setGoals(prev => prev.map(item => (item.id === id ? { ...item, ...itemData } as Goal : item)));
     try {

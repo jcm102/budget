@@ -28,6 +28,7 @@ import type { SavingsItem } from '@/types';
 const formSchema = z.object({
   name: z.string().min(2, 'Fund name must be at least 2 characters.'),
   amount: z.coerce.number().min(0, 'Amount must be a positive number.'),
+  goal: z.coerce.number().optional(),
 });
 
 type SavingsFormProps = {
@@ -44,6 +45,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
     defaultValues: {
       name: '',
       amount: 0,
+      goal: 0,
     },
   });
 
@@ -53,11 +55,13 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
         form.reset({
           name: editingItem.name,
           amount: editingItem.amount,
+          goal: editingItem.goal || 0,
         });
       } else {
         form.reset({
           name: '',
           amount: 0,
+          goal: 0,
         });
       }
     }
@@ -94,6 +98,14 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
             <FormField control={form.control} name="amount" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Current Amount</FormLabel>
+                  <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField control={form.control} name="goal" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Monthly Goal (Optional)</FormLabel>
                   <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>

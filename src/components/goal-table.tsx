@@ -29,13 +29,14 @@ import {
 } from '@/components/ui/alert-dialog';
 import { GoalForm } from './goal-form';
 import { useGoals } from '@/hooks/use-goals';
+import { useSavings } from '@/hooks/use-savings';
 import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
 import { Progress } from './ui/progress';
 
 type SortConfig = {
-    key: keyof Goal | 'progress';
+    key: keyof Goal | 'progress' | 'amount';
     direction: 'ascending' | 'descending';
 } | null;
 
@@ -54,10 +55,13 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
 }
 
 export function GoalTable() {
-  const { goals, addGoal, updateGoal, deleteGoal, isLoading } = useGoals();
+  const { goals, addGoal, updateGoal, deleteGoal, isLoading: isLoadingGoals } = useGoals();
+  const { savingsItems, isLoading: isLoadingSavings } = useSavings();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Goal | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
+
+  const isLoading = isLoadingGoals || isLoadingSavings;
 
   const handleEdit = (item: Goal) => {
     setEditingItem(item);
@@ -84,8 +88,18 @@ export function GoalTable() {
     setSortConfig({ key, direction });
   };
   
+  const enhancedGoals = useMemo(() => {
+    return goals.map(goal => {
+        const sinkingFund = savingsItems.find(sf => sf.name.toLowerCase() === goal.name.toLowerCase());
+        return {
+            ...goal,
+            amount: sinkingFund?.amount || 0,
+        };
+    });
+  }, [goals, savingsItems]);
+  
   const sortedItems = useMemo(() => {
-    let sortableItems = [...goals];
+    let sortableItems = [...enhancedGoals];
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
         let aValue: any, bValue: any;
@@ -94,8 +108,8 @@ export function GoalTable() {
             aValue = a.cost > 0 ? (a.amount / a.cost) * 100 : 0;
             bValue = b.cost > 0 ? (b.amount / b.cost) * 100 : 0;
         } else {
-            aValue = a[sortConfig.key as keyof Goal];
-            bValue = b[sortConfig.key as keyof Goal];
+            aValue = a[sortConfig.key as keyof typeof a];
+            bValue = b[sortConfig.key as keyof typeof b];
         }
 
 
@@ -105,17 +119,17 @@ export function GoalTable() {
       });
     }
     return sortableItems;
-  }, [goals, sortConfig]);
+  }, [enhancedGoals, sortConfig]);
 
   const renderLoadingSkeleton = () => (
     Array.from({ length: 2 }).map((_, i) => (
-      <TableRow key={`skeleton-goal-table-${i}`}>
+      <TableRow key={`skeleton-goal-${i}`}>
         <TableCell colSpan={5}><Skeleton className="h-10 w-full" /></TableCell>
       </TableRow>
     ))
   );
 
-  const totalAllocated = goals.reduce((acc, goal) => acc + goal.amount, 0);
+  const totalAllocated = enhancedGoals.reduce((acc, goal) => acc + goal.amount, 0);
   const totalCost = goals.reduce((acc, goal) => acc + goal.cost, 0);
 
   return (

@@ -37,11 +37,23 @@ import { useToast } from '@/hooks/use-toast';
 import { useSavings } from '@/hooks/use-savings';
 
 type SortConfig = {
-    key: keyof AutoShipItem;
+    key: keyof AutoShipItem | 'monthlyCost';
     direction: 'ascending' | 'descending';
 } | null;
 
-const SortableHeader = ({ column, label, sortConfig, requestSort, className }: { column: keyof AutoShipItem, label: string, sortConfig: SortConfig, requestSort: (key: keyof AutoShipItem) => void, className?: string }) => {
+const getMonthlyCost = (item: AutoShipItem) => {
+    const frequencyMap = {
+        'Monthly': 1,
+        'Every 2 Months': 2,
+        'Every 3 Months': 3,
+        'Every 4 Months': 4,
+        'Every 6 Months': 6,
+    };
+    const months = frequencyMap[item.frequency];
+    return item.estimatedCost / months;
+};
+
+const SortableHeader = ({ column, label, sortConfig, requestSort, className }: { column: keyof AutoShipItem | 'monthlyCost', label: string, sortConfig: SortConfig, requestSort: (key: keyof AutoShipItem | 'monthlyCost') => void, className?: string }) => {
   const isSorted = sortConfig?.key === column;
   const direction = isSorted ? sortConfig.direction : 'ascending';
   return (
@@ -75,7 +87,7 @@ export function AutoShipTable() {
     }
   };
   
-  const requestSort = (key: keyof AutoShipItem) => {
+  const requestSort = (key: keyof AutoShipItem | 'monthlyCost') => {
     let direction: 'ascending' | 'descending' = 'ascending';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
       direction = 'descending';
@@ -91,9 +103,12 @@ export function AutoShipTable() {
         if (sortConfig.key === 'nextShipmentDate') {
             aValue = new Date(a.nextShipmentDate).getTime();
             bValue = new Date(b.nextShipmentDate).getTime();
+        } else if (sortConfig.key === 'monthlyCost') {
+            aValue = getMonthlyCost(a);
+            bValue = getMonthlyCost(b);
         } else {
-            aValue = a[sortConfig.key];
-            bValue = b[sortConfig.key];
+            aValue = a[sortConfig.key as keyof AutoShipItem];
+            bValue = b[sortConfig.key as keyof AutoShipItem];
         }
 
         if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
@@ -113,7 +128,7 @@ export function AutoShipTable() {
     if (fundExists) {
       toast({ title: 'Fund Exists', description: `A sinking fund for "${item.item}" already exists.`, variant: 'destructive' });
     } else {
-      addSavingsItem({ name: item.item, amount: 0 });
+      addSavingsItem({ name: item.item, amount: 0, goal: getMonthlyCost(item) });
       toast({ title: 'Sinking Fund Created', description: `A new sinking fund for "${item.item}" has been added.` });
     }
   };
@@ -137,7 +152,7 @@ export function AutoShipTable() {
   const renderLoadingSkeleton = () => (
     Array.from({ length: 3 }).map((_, i) => (
       <TableRow key={`skeleton-autoship-${i}`}>
-        <TableCell colSpan={5}><Skeleton className="h-8 w-full" /></TableCell>
+        <TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell>
       </TableRow>
     ))
   );
@@ -165,6 +180,7 @@ export function AutoShipTable() {
                 <SortableHeader column="nextShipmentDate" label="Next Shipment" sortConfig={sortConfig} requestSort={requestSort} />
                 <TableHead>Frequency</TableHead>
                 <SortableHeader column="estimatedCost" label="Estimated Cost" sortConfig={sortConfig} requestSort={requestSort} className="text-right" />
+                <SortableHeader column="monthlyCost" label="Monthly Cost" sortConfig={sortConfig} requestSort={requestSort} className="text-right" />
                 <TableHead className="w-[180px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -178,6 +194,7 @@ export function AutoShipTable() {
                             <TableCell>{format(new Date(item.nextShipmentDate), 'PPP')}</TableCell>
                             <TableCell><Badge variant="secondary">{item.frequency}</Badge></TableCell>
                             <TableCell className="text-right">{formatCurrency(item.estimatedCost)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(getMonthlyCost(item))}</TableCell>
                             <TableCell className="text-right">
                                 <div className="flex justify-end gap-1">
                                     <Button variant="ghost" size="icon" className="h-8 w-8" title="Create Sinking Fund" onClick={() => handleCreateSinkingFund(item)}>
@@ -216,7 +233,7 @@ export function AutoShipTable() {
                     ))
                 ) : (
                     <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
+                    <TableCell colSpan={6} className="h-24 text-center">
                         No auto-ship items entered yet. Add one to get started!
                     </TableCell>
                     </TableRow>

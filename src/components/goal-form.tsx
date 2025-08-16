@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -30,8 +30,7 @@ import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Goal name must be at least 2 characters.'),
-  amount: z.coerce.number().min(0, 'Amount must be a positive number.'),
-  cost: z.coerce.number().min(0, 'Cost must be a positive number.'),
+  cost: z.coerce.number().min(0.01, 'Cost must be a positive number.'),
   link: z.string().url('Please enter a valid URL.').or(z.literal('')).optional(),
   createSinkingFund: z.boolean().default(false),
 });
@@ -53,7 +52,6 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
-      amount: 0,
       cost: 0,
       link: '',
       createSinkingFund: false,
@@ -65,7 +63,6 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
       if (editingItem) {
         form.reset({
           name: editingItem.name,
-          amount: editingItem.amount,
           cost: editingItem.cost || 0,
           link: editingItem.link || '',
           createSinkingFund: false,
@@ -73,7 +70,6 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
       } else {
         form.reset({
           name: '',
-          amount: 0,
           cost: 0,
           link: '',
           createSinkingFund: false,
@@ -85,18 +81,17 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const submissionData = { 
         name: values.name,
-        amount: values.amount,
         cost: values.cost,
         link: values.link || null,
+        // Amount is no longer part of the goal itself
     };
 
     if (editingItem) {
       updateGoal(editingItem.id, submissionData);
        if (values.createSinkingFund) {
-        // Check if a sinking fund with the same name already exists
         const fundExists = savingsItems.some(item => item.name.toLowerCase() === values.name.toLowerCase());
         if (!fundExists) {
-            addSavingsItem({ name: values.name, amount: 0 });
+            addSavingsItem({ name: values.name, amount: 0, goal: values.cost });
             toast({ title: 'Sinking Fund Created', description: `A sinking fund for "${values.name}" has been created.` });
         } else {
             toast({ title: 'Sinking Fund Exists', description: `A sinking fund for "${values.name}" already exists.`, variant: 'destructive' });
@@ -131,15 +126,6 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
             <FormField control={form.control} name="cost" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Total Cost</FormLabel>
-                  <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField control={form.control} name="amount" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Amount Saved</FormLabel>
                   <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
