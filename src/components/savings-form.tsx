@@ -28,7 +28,9 @@ import type { SavingsItem } from '@/types';
 const formSchema = z.object({
   name: z.string().min(2, 'Fund name must be at least 2 characters.'),
   amount: z.coerce.number().min(0, 'Amount must be a positive number.'),
-  goal: z.coerce.number().optional(),
+  goal: z.coerce.number().optional(), // Monthly contribution goal
+  totalCost: z.coerce.number().optional(),
+  dueDate: z.string().optional(),
 });
 
 type SavingsFormProps = {
@@ -46,6 +48,8 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
       name: '',
       amount: 0,
       goal: 0,
+      totalCost: 0,
+      dueDate: '',
     },
   });
 
@@ -56,22 +60,30 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
           name: editingItem.name,
           amount: editingItem.amount,
           goal: editingItem.goal || 0,
+          totalCost: editingItem.totalCost || 0,
+          dueDate: editingItem.dueDate ? new Date(editingItem.dueDate).toISOString().split('T')[0] : '',
         });
       } else {
         form.reset({
           name: '',
           amount: 0,
           goal: 0,
+          totalCost: 0,
+          dueDate: '',
         });
       }
     }
   }, [editingItem, open, form]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
+     const submissionData = {
+      ...values,
+      dueDate: values.dueDate ? new Date(values.dueDate).toISOString() : undefined,
+    };
     if (editingItem) {
-      updateSavingsItem(editingItem.id, values);
+      updateSavingsItem(editingItem.id, submissionData);
     } else {
-      addSavingsItem(values);
+      addSavingsItem(submissionData);
     }
     onOpenChange(false);
   }
@@ -103,11 +115,27 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
                 </FormItem>
               )}
             />
+             <FormField control={form.control} name="totalCost" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Total Cost (Optional)</FormLabel>
+                  <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField control={form.control} name="dueDate" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Due Date (Optional)</FormLabel>
+                  <FormControl><Input type="date" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField control={form.control} name="goal" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Monthly Contribution Goal (Optional)</FormLabel>
                   <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
-                  <FormMessage />
+                   <FormMessage />
                 </FormItem>
               )}
             />

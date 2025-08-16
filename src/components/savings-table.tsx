@@ -215,7 +215,16 @@ export function SavingsTable() {
             };
         }
 
-        return item; // It's a generic fund
+        // Handle generic fund with optional totalCost and dueDate
+        if (item.totalCost && item.dueDate) {
+            const dueDate = new Date(item.dueDate);
+            return {
+                ...item,
+                monthlyAmount: calculateMonthlyAmount(item.totalCost, item.amount, dueDate),
+            };
+        }
+
+        return item; // It's a generic fund with no totals/dates
     });
   }, [savingsItems, goals, subscriptions, autoShipItems]);
 
@@ -369,4 +378,3 @@ export function SavingsTable() {
     </>
   );
 }
-

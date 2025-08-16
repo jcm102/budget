@@ -118,13 +118,13 @@ export interface SavingsItem {
   name: string;
   amount: number;
   goal?: number; // Monthly contribution goal
-  // New fields for linking
-  linkedEntityType?: 'Goal' | 'Subscription' | 'AutoShip' | null;
-  linkedEntityId?: string | null;
-  // Denormalized/calculated data for display
-  dueDate?: string | null;
-  totalCost?: number | null;
+  totalCost?: number | null; // Optional total cost for the fund
+  dueDate?: string | null; // Optional due date for the fund
+  
+  // These fields are calculated at runtime for display
+  monthlyAmount?: number;
 }
+
 
 export interface AccountLedgerItem {
   id: string;
@@ -168,5 +168,5 @@ export interface Goal {
   name: string;
   cost: number;
   link?: string | null;
-  amount?: number; // This is now populated at runtime
+  amount?: number; // This is populated at runtime
 }
