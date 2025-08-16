@@ -119,6 +119,12 @@ export interface SavingsItem {
   amount: number;
 }
 
+export interface AccountLedgerItem {
+  id: string;
+  name: string;
+  amount: number;
+}
+
 export type AutoShipFrequency = 'Monthly' | 'Every 2 Months' | 'Every 3 Months' | 'Every 4 Months' | 'Every 6 Months';
 
 export interface AutoShipItem {

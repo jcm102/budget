@@ -3,13 +3,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Banknote, CreditCard, Home, Lightbulb, PiggyBank, Settings, Users, Wallet, Ship } from 'lucide-react';
+import { Banknote, CreditCard, Home, Lightbulb, PiggyBank, Settings, Users, Wallet, Ship, Library } from 'lucide-react';
 import {
   SidebarContent,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarMenuSub,
+  SidebarMenuSubContent,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
   SidebarFooter,
@@ -47,6 +48,19 @@ export function AppNav() {
               </Link>
             </SidebarMenuItem>
           ))}
+           <SidebarMenuSub>
+                <SidebarMenuButton>
+                    <Library />
+                    <span>Reference</span>
+                </SidebarMenuButton>
+                <SidebarMenuSubContent>
+                    <SidebarMenuSubItem>
+                        <Link href="/savings#account-ledger">
+                            <SidebarMenuSubButton>Account Ledger</SidebarMenuSubButton>
+                        </Link>
+                    </SidebarMenuSubItem>
+                </SidebarMenuSubContent>
+           </SidebarMenuSub>
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter className="flex-col !items-stretch gap-2">

@@ -685,22 +685,50 @@ const SidebarMenuSkeleton = React.forwardRef<
 })
 SidebarMenuSkeleton.displayName = "SidebarMenuSkeleton"
 
+const SidebarMenuSubContext = React.createContext<{
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+} | null>(null);
+
+
 const SidebarMenuSub = React.forwardRef<
+  HTMLLIElement,
+  React.ComponentProps<"li">
+>(({ children, ...props }, ref) => {
+  const [open, onOpenChange] = React.useState(false);
+  return (
+    <SidebarMenuSubContext.Provider value={{ open, onOpenChange }}>
+      <li ref={ref} data-sidebar="menu-sub" data-state={open ? "open" : "closed"} {...props}>
+        {children}
+      </li>
+    </SidebarMenuSubContext.Provider>
+  )
+})
+SidebarMenuSub.displayName = "SidebarMenuSub";
+
+
+const SidebarMenuSubContent = React.forwardRef<
   HTMLUListElement,
   React.ComponentProps<"ul">
->(({ className, ...props }, ref) => (
-  <ul
-    ref={ref}
-    data-sidebar="menu-sub"
-    className={cn(
-      "mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l border-sidebar-border px-2.5 py-0.5",
-      "group-data-[collapsible=icon]:hidden",
-      className
-    )}
-    {...props}
-  />
-))
-SidebarMenuSub.displayName = "SidebarMenuSub"
+>(({ className, ...props }, ref) => {
+  const context = React.useContext(SidebarMenuSubContext);
+  if (!context) {
+    return null;
+  }
+  return context.open ? (
+    <ul
+      ref={ref}
+      className={cn(
+        "mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l border-sidebar-border px-2.5 py-0.5",
+        "group-data-[collapsible=icon]:hidden",
+        className
+      )}
+      {...props}
+    />
+  ) : null
+})
+SidebarMenuSubContent.displayName = "SidebarMenuSubContent";
+
 
 const SidebarMenuSubItem = React.forwardRef<
   HTMLLIElement,
@@ -758,6 +786,7 @@ export {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  SidebarMenuSubContent,
   SidebarProvider,
   SidebarRail,
   SidebarSeparator,

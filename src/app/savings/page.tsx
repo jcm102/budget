@@ -9,6 +9,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { GoalTable } from '@/components/goal-table';
 import { AutoShipTable } from '@/components/autoship-table';
 import { SubscriptionTable } from '@/components/subscription-table';
+import { AccountLedgerTable } from '@/components/account-ledger-table';
 
 export default function SavingsPage() {
   const handlePrint = () => {
@@ -51,6 +52,18 @@ export default function SavingsPage() {
             </CollapsibleTrigger>
             <CollapsibleContent>
                 <SavingsTable />
+            </CollapsibleContent>
+        </Collapsible>
+
+        <Collapsible defaultOpen={true}>
+            <CollapsibleTrigger asChild>
+                <Button variant="ghost" className="flex items-center gap-2 pl-0 hover:bg-transparent text-3xl font-bold font-headline text-primary mb-4 no-print">
+                    <ChevronsUpDown className="h-6 w-6 text-muted-foreground" />
+                    <h2>Account Ledger</h2>
+                </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+                <AccountLedgerTable />
             </CollapsibleContent>
         </Collapsible>
 
