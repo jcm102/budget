@@ -2,25 +2,44 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import type { SavingsItem } from '@/types';
+import type { SavingsItem, Goal, SubscriptionItem, AutoShipItem } from '@/types';
 import { useToast } from './use-toast';
 import * as SavingsService from '@/services/savings-service';
+import * as GoalService from '@/services/goal-service';
+import * as SubscriptionService from '@/services/subscription-service';
+import * as AutoShipService from '@/services/autoship-service';
 
 export function useSavings() {
   const [savingsItems, setSavingsItems] = useState<SavingsItem[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [subscriptions, setSubscriptions] = useState<SubscriptionItem[]>([]);
+  const [autoShipItems, setAutoShipItems] = useState<AutoShipItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchSavingsItems = useCallback(async () => {
+  const fetchAllData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const fetchedItems = await SavingsService.getSavingsItems();
+      const [
+        fetchedItems, 
+        fetchedGoals, 
+        fetchedSubscriptions, 
+        fetchedAutoShips
+      ] = await Promise.all([
+        SavingsService.getSavingsItems(),
+        GoalService.getGoals(),
+        SubscriptionService.getSubscriptions(),
+        AutoShipService.getAutoShipItems(),
+      ]);
       setSavingsItems(fetchedItems);
+      setGoals(fetchedGoals);
+      setSubscriptions(fetchedSubscriptions);
+      setAutoShipItems(fetchedAutoShips);
     } catch (error) {
-      console.error('Failed to load savings items:', error);
+      console.error('Failed to load savings-related data:', error);
       toast({
         title: 'Error',
-        description: 'Failed to load sinking funds from the database.',
+        description: 'Failed to load savings data from the database.',
         variant: 'destructive',
       });
     } finally {
@@ -29,8 +48,8 @@ export function useSavings() {
   }, [toast]);
 
   useEffect(() => {
-    fetchSavingsItems();
-  }, [fetchSavingsItems]);
+    fetchAllData();
+  }, [fetchAllData]);
 
   const addSavingsItem = useCallback(async (itemData: Omit<SavingsItem, 'id'>) => {
     try {
@@ -51,7 +70,7 @@ export function useSavings() {
     setSavingsItems(prev => prev.map(item => (item.id === id ? { ...item, ...itemData } as SavingsItem : item)));
     try {
       await SavingsService.updateSavingsItem(id, itemData);
-      await fetchSavingsItems(); // refetch to be safe
+      await fetchAllData(); // refetch to be safe
     } catch (error) {
       console.error('Failed to update savings item:', error);
       setSavingsItems(originalItems);
@@ -61,7 +80,7 @@ export function useSavings() {
         variant: 'destructive',
       });
     }
-  }, [savingsItems, toast, fetchSavingsItems]);
+  }, [savingsItems, toast, fetchAllData]);
 
   const deleteSavingsItem = useCallback(async (id: string) => {
     const originalItems = savingsItems;
@@ -79,5 +98,15 @@ export function useSavings() {
     }
   }, [savingsItems, toast]);
 
-  return { savingsItems, isLoading, addSavingsItem, updateSavingsItem, deleteSavingsItem, fetchSavingsItems };
+  return { 
+    savingsItems, 
+    goals,
+    subscriptions,
+    autoShipItems,
+    isLoading, 
+    addSavingsItem, 
+    updateSavingsItem, 
+    deleteSavingsItem, 
+    fetchSavingsItems: fetchAllData 
+  };
 }

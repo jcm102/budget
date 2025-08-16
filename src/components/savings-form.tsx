@@ -82,7 +82,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
         <DialogHeader>
           <DialogTitle>{editingItem ? 'Edit Sinking Fund' : 'Add New Sinking Fund'}</DialogTitle>
           <DialogDescription>
-            {editingItem ? 'Update the details for your fund.' : 'Create a new fund category for your account.'}
+            {editingItem ? 'Update the details for your fund.' : 'Create a new fund category for your account. To link to a Goal, Subscription, or Auto-Shipment, ensure the name is an exact match.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -97,7 +97,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
             />
             <FormField control={form.control} name="amount" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Current Amount</FormLabel>
+                  <FormLabel>Current Amount Saved</FormLabel>
                   <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -105,7 +105,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
             />
             <FormField control={form.control} name="goal" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Monthly Goal (Optional)</FormLabel>
+                  <FormLabel>Monthly Contribution Goal (Optional)</FormLabel>
                   <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>

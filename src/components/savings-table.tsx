@@ -2,10 +2,11 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import type { SavingsItem } from '@/types';
+import type { SavingsItem, Goal, SubscriptionItem, AutoShipItem } from '@/types';
 import * as z from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { format, differenceInMonths, addMonths } from 'date-fns';
 
 import {
   Table,
@@ -51,9 +52,9 @@ import { useSavings } from '@/hooks/use-savings';
 import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
-import { Pencil, Trash2, PlusCircle, ArrowUpDown, DollarSign, MinusCircle } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, ArrowUpDown, DollarSign, MinusCircle, Info } from 'lucide-react';
 import { Progress } from './ui/progress';
-
+import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
 
 const transactionSchema = z.object({
   amount: z.coerce.number().min(0.01, 'Amount must be greater than zero.'),
@@ -109,7 +110,7 @@ function TransactionDialog({ item, transactionType, onSave, children }: { item: 
 }
 
 type SortConfig = {
-    key: keyof SavingsItem | 'progress';
+    key: keyof SavingsItem | 'monthlyAmount';
     direction: 'ascending' | 'descending';
 } | null;
 
@@ -127,8 +128,30 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
   )
 }
 
+const getNextBillingDate = (item: SubscriptionItem | AutoShipItem): Date => {
+    if ('nextShipmentDate' in item) { // It's an AutoShipItem
+        return new Date(item.nextShipmentDate);
+    }
+    // It's a SubscriptionItem
+    const today = new Date();
+    const monthsToAdd = { 'Monthly': 1, 'Quarterly': 3, 'Annually': 12 };
+    // This is a simplification; for a real app, you'd store the initial subscription date.
+    // For now, we'll just project from today.
+    return addMonths(today, monthsToAdd[item.billingFrequency]);
+}
+
 export function SavingsTable() {
-  const { savingsItems, addSavingsItem, updateSavingsItem, deleteSavingsItem, isLoading } = useSavings();
+  const { 
+    savingsItems, 
+    goals,
+    subscriptions,
+    autoShipItems,
+    addSavingsItem, 
+    updateSavingsItem, 
+    deleteSavingsItem, 
+    isLoading 
+  } = useSavings();
+
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<SavingsItem | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
@@ -148,6 +171,53 @@ export function SavingsTable() {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
+  
+  const calculateMonthlyAmount = (totalCost: number, amountSaved: number, dueDate: Date): number => {
+      const today = new Date();
+      const monthsRemaining = differenceInMonths(dueDate, today);
+      
+      // Fully funded by the month before it's due.
+      const planningMonths = monthsRemaining > 0 ? monthsRemaining : 1; 
+      const remainingAmount = totalCost - amountSaved;
+      
+      return remainingAmount > 0 ? remainingAmount / planningMonths : 0;
+  };
+
+  const enhancedSavingsItems = useMemo(() => {
+    return savingsItems.map(item => {
+        const goal = goals.find(g => g.name.toLowerCase() === item.name.toLowerCase());
+        if (goal) {
+            return {
+                ...item,
+                totalCost: goal.cost,
+            };
+        }
+        
+        const subscription = subscriptions.find(s => s.serviceName.toLowerCase() === item.name.toLowerCase());
+        if (subscription) {
+            const dueDate = getNextBillingDate(subscription);
+            return {
+                ...item,
+                totalCost: subscription.cost,
+                dueDate: dueDate.toISOString(),
+                monthlyAmount: calculateMonthlyAmount(subscription.cost, item.amount, dueDate),
+            };
+        }
+        
+        const autoShip = autoShipItems.find(a => a.item.toLowerCase() === item.name.toLowerCase());
+        if (autoShip) {
+            const dueDate = getNextBillingDate(autoShip);
+            return {
+                ...item,
+                totalCost: autoShip.estimatedCost,
+                dueDate: dueDate.toISOString(),
+                monthlyAmount: calculateMonthlyAmount(autoShip.estimatedCost, item.amount, dueDate),
+            };
+        }
+
+        return item; // It's a generic fund
+    });
+  }, [savingsItems, goals, subscriptions, autoShipItems]);
 
   const requestSort = (key: SortConfig['key']) => {
     if (!key) return;
@@ -159,17 +229,14 @@ export function SavingsTable() {
   };
   
   const sortedItems = useMemo(() => {
-    let sortableItems = [...savingsItems];
+    let sortableItems = [...enhancedSavingsItems];
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
-        let aValue: any, bValue: any;
-        if (sortConfig.key === 'progress') {
-            aValue = a.goal && a.goal > 0 ? (a.amount / a.goal) * 100 : 0;
-            bValue = b.goal && b.goal > 0 ? (b.amount / b.goal) * 100 : 0;
-        } else {
-             aValue = a[sortConfig.key as keyof SavingsItem];
-             bValue = b[sortConfig.key as keyof SavingsItem];
-        }
+        let aValue: any = a[sortConfig.key as keyof SavingsItem];
+        let bValue: any = b[sortConfig.key as keyof SavingsItem];
+        
+        if (aValue === undefined || aValue === null) aValue = sortConfig.direction === 'ascending' ? Infinity : -Infinity;
+        if (bValue === undefined || bValue === null) bValue = sortConfig.direction === 'ascending' ? Infinity : -Infinity;
 
         if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
         if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
@@ -177,7 +244,7 @@ export function SavingsTable() {
       });
     }
     return sortableItems;
-  }, [savingsItems, sortConfig]);
+  }, [enhancedSavingsItems, sortConfig]);
 
   const handleTransaction = (item: SavingsItem, amount: number, type: 'deposit' | 'withdraw') => {
     const currentAmount = item.amount;
@@ -186,14 +253,15 @@ export function SavingsTable() {
   };
 
   const renderLoadingSkeleton = () => (
-    Array.from({ length: 2 }).map((_, i) => (
+    Array.from({ length: 4 }).map((_, i) => (
       <TableRow key={`skeleton-savings-${i}`}>
-        <TableCell colSpan={4}><Skeleton className="h-10 w-full" /></TableCell>
+        <TableCell colSpan={6}><Skeleton className="h-10 w-full" /></TableCell>
       </TableRow>
     ))
   );
 
   const totalAmount = savingsItems.reduce((acc, item) => acc + item.amount, 0);
+  const totalMonthlyContribution = sortedItems.reduce((acc, item) => acc + (item.monthlyAmount || item.goal || 0), 0);
 
   return (
     <>
@@ -216,8 +284,10 @@ export function SavingsTable() {
             <TableHeader>
               <TableRow className="group">
                 <SortableHeader column="name" label="Fund Name" sortConfig={sortConfig} requestSort={requestSort} />
-                <SortableHeader column="amount" label="Amount" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
-                <SortableHeader column="progress" label="Monthly Goal Progress" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
+                <SortableHeader column="amount" label="Amount Saved" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
+                <SortableHeader column="totalCost" label="Total Cost" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
+                <SortableHeader column="dueDate" label="Due Date" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
+                <SortableHeader column="monthlyAmount" label="Monthly Amount" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
                 <TableHead className="w-[180px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -226,22 +296,35 @@ export function SavingsTable() {
                     renderLoadingSkeleton()
                 ) : sortedItems.length > 0 ? (
                     sortedItems.map((item) => {
-                        const progress = item.goal && item.goal > 0 ? (item.amount / item.goal) * 100 : 0;
+                        const progress = item.totalCost && item.totalCost > 0 ? (item.amount / item.totalCost) * 100 : 0;
                         return (
                         <TableRow key={item.id}>
                             <TableCell className="font-medium">{item.name}</TableCell>
                             <TableCell className="text-right">{formatCurrency(item.amount)}</TableCell>
                             <TableCell className="text-right">
-                                {item.goal && item.goal > 0 ? (
-                                    <div className="flex flex-col items-end gap-1">
-                                        <Progress value={progress} className="w-[80%]" />
-                                        <span className="text-xs text-muted-foreground">
-                                            {formatCurrency(item.amount)} / {formatCurrency(item.goal)}
-                                        </span>
+                                {item.totalCost ? formatCurrency(item.totalCost) : '-'}
+                                {item.totalCost && item.totalCost > 0 && (
+                                    <div className="flex items-center justify-end gap-2 mt-1">
+                                         <Progress value={progress} className="w-[60%]" aria-label={`${Math.round(progress)}% funded`} />
+                                         <span className="text-xs text-muted-foreground">{Math.round(progress)}%</span>
                                     </div>
-                                ) : (
-                                    <span className="text-xs text-muted-foreground">-</span>
                                 )}
+                            </TableCell>
+                             <TableCell className="text-right">{item.dueDate ? format(new Date(item.dueDate), 'PPP') : '-'}</TableCell>
+                            <TableCell className="text-right">
+                                <div className='flex items-center justify-end gap-1'>
+                                {item.monthlyAmount ? formatCurrency(item.monthlyAmount) : (item.goal ? formatCurrency(item.goal) : '-')}
+                                {item.monthlyAmount && (
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground"><Info className="h-3 w-3" /></Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-60 text-xs">
+                                            This is the calculated amount needed each month to be fully funded one month before the due date.
+                                        </PopoverContent>
+                                    </Popover>
+                                )}
+                                </div>
                             </TableCell>
                             <TableCell className="text-right">
                                 <div className="flex justify-end gap-1">
@@ -266,7 +349,7 @@ export function SavingsTable() {
                     })
                 ) : (
                     <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">
+                    <TableCell colSpan={6} className="h-24 text-center">
                         No funds created yet. Add one to get started!
                     </TableCell>
                     </TableRow>
@@ -274,9 +357,11 @@ export function SavingsTable() {
             </TableBody>
             <TableFooter>
               <TableRow>
-                <TableCell className="font-semibold text-right">Total Balance</TableCell>
+                <TableCell className="font-semibold text-right">Total Saved</TableCell>
                 <TableCell className="text-right font-semibold">{formatCurrency(totalAmount)}</TableCell>
-                <TableCell colSpan={2}></TableCell>
+                <TableCell colSpan={2} className="font-semibold text-right">Total Monthly Contribution</TableCell>
+                <TableCell className="text-right font-semibold">{formatCurrency(totalMonthlyContribution)}</TableCell>
+                <TableCell></TableCell>
               </TableRow>
             </TableFooter>
           </Table>
@@ -284,3 +369,4 @@ export function SavingsTable() {
     </>
   );
 }
+

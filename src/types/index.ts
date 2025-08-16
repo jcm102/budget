@@ -117,7 +117,13 @@ export interface SavingsItem {
   id: string;
   name: string;
   amount: number;
-  goal?: number;
+  goal?: number; // Monthly contribution goal
+  // New fields for linking
+  linkedEntityType?: 'Goal' | 'Subscription' | 'AutoShip' | null;
+  linkedEntityId?: string | null;
+  // Denormalized/calculated data for display
+  dueDate?: string | null;
+  totalCost?: number | null;
 }
 
 export interface AccountLedgerItem {
