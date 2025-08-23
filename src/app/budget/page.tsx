@@ -22,7 +22,7 @@ import {
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { SplitCalculator } from '@/components/split-calculator';
+import { ReconciliationCalculator } from '@/components/reconciliation-calculator';
 
 export default function BudgetPage() {
   const { syncDebtPayments, clearDebtPayments } = useBudget();
@@ -126,8 +126,8 @@ export default function BudgetPage() {
                 </Button>
             </CollapsibleTrigger>
             <CollapsibleContent>
-              <div className="max-w-2xl mx-auto">
-                <SplitCalculator />
+              <div className="max-w-4xl mx-auto">
+                <ReconciliationCalculator />
               </div>
             </CollapsibleContent>
         </Collapsible>
