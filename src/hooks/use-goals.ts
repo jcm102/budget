@@ -5,8 +5,6 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Goal } from '@/types';
 import { useToast } from './use-toast';
 import * as GoalService from '@/services/goal-service';
-import * as SavingsService from '@/services/savings-service';
-
 
 export function useGoals() {
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -34,21 +32,10 @@ export function useGoals() {
     fetchGoals();
   }, [fetchGoals]);
 
-  const addGoal = useCallback(async (itemData: Omit<Goal, 'id' | 'amount'>, createSinkingFund: boolean) => {
+  const addGoal = useCallback(async (itemData: Omit<Goal, 'id'>) => {
     try {
       const newItem = await GoalService.addGoal(itemData);
       setGoals(prev => [...prev, newItem].sort((a, b) => a.name.localeCompare(b.name)));
-       if (createSinkingFund) {
-        const existingFunds = await SavingsService.getSavingsItems();
-        const fundExists = existingFunds.some(fund => fund.name.toLowerCase() === itemData.name.toLowerCase());
-        
-        if (!fundExists) {
-            await SavingsService.addSavingsItem({ name: itemData.name, amount: 0, goal: itemData.cost });
-             toast({ title: 'Sinking Fund Created', description: `A sinking fund for "${itemData.name}" has been created.` });
-        } else {
-            toast({ title: 'Sinking Fund Exists', description: `A sinking fund for "${itemData.name}" already exists.`, variant: 'destructive' });
-        }
-      }
     } catch (error) {
       console.error('Failed to add goal:', error);
       toast({
@@ -59,12 +46,12 @@ export function useGoals() {
     }
   }, [toast]);
 
-  const updateGoal = useCallback(async (id: string, itemData: Partial<Omit<Goal, 'id' | 'amount'>>) => {
+  const updateGoal = useCallback(async (id: string, itemData: Partial<Omit<Goal, 'id'>>) => {
     const originalItems = goals;
     setGoals(prev => prev.map(item => (item.id === id ? { ...item, ...itemData } as Goal : item)));
     try {
       await GoalService.updateGoal(id, itemData);
-      await fetchGoals(); // Refetch to ensure data consistency
+      // No full refetch needed for optimistic updates unless there's a server-side change we need
     } catch (error) {
       console.error('Failed to update goal:', error);
       setGoals(originalItems);
@@ -74,7 +61,7 @@ export function useGoals() {
         variant: 'destructive',
       });
     }
-  }, [goals, toast, fetchGoals]);
+  }, [goals, toast]);
 
   const deleteGoal = useCallback(async (id: string) => {
     const originalItems = goals;

@@ -2,16 +2,14 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import type { SavingsItem, Goal, SubscriptionItem, AutoShipItem } from '@/types';
+import type { SavingsItem, SubscriptionItem, AutoShipItem } from '@/types';
 import { useToast } from './use-toast';
 import * as SavingsService from '@/services/savings-service';
-import * as GoalService from '@/services/goal-service';
 import * as SubscriptionService from '@/services/subscription-service';
 import * as AutoShipService from '@/services/autoship-service';
 
 export function useSavings() {
   const [savingsItems, setSavingsItems] = useState<SavingsItem[]>([]);
-  const [goals, setGoals] = useState<Goal[]>([]);
   const [subscriptions, setSubscriptions] = useState<SubscriptionItem[]>([]);
   const [autoShipItems, setAutoShipItems] = useState<AutoShipItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -22,17 +20,14 @@ export function useSavings() {
       setIsLoading(true);
       const [
         fetchedItems, 
-        fetchedGoals, 
         fetchedSubscriptions, 
         fetchedAutoShips
       ] = await Promise.all([
         SavingsService.getSavingsItems(),
-        GoalService.getGoals(),
         SubscriptionService.getSubscriptions(),
         AutoShipService.getAutoShipItems(),
       ]);
       setSavingsItems(fetchedItems);
-      setGoals(fetchedGoals);
       setSubscriptions(fetchedSubscriptions);
       setAutoShipItems(fetchedAutoShips);
     } catch (error) {
@@ -100,7 +95,6 @@ export function useSavings() {
 
   return { 
     savingsItems, 
-    goals,
     subscriptions,
     autoShipItems,
     isLoading, 

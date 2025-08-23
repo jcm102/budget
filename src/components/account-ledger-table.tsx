@@ -49,6 +49,7 @@ import {
 import { AccountLedgerForm } from './account-ledger-form';
 import { useAccountLedger } from '@/hooks/use-account-ledger';
 import { useSavings } from '@/hooks/use-savings';
+import { useGoals } from '@/hooks/use-goals';
 import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
@@ -131,11 +132,12 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
 export function AccountLedgerTable() {
   const { ledgerItems, addItem, updateItem, deleteItem, isLoading: isLoadingLedger } = useAccountLedger();
   const { savingsItems, isLoading: isLoadingSavings } = useSavings();
+  const { goals, isLoading: isLoadingGoals } = useGoals();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<AccountLedgerItem | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
 
-  const isLoading = isLoadingLedger || isLoadingSavings;
+  const isLoading = isLoadingLedger || isLoadingSavings || isLoadingGoals;
 
   const handleEdit = (item: AccountLedgerItem) => {
     setEditingItem(item);
@@ -194,7 +196,8 @@ export function AccountLedgerTable() {
 
   const ledgerTotal = ledgerItems.reduce((acc, item) => acc + item.amount, 0);
   const sinkingFundsTotal = savingsItems.reduce((acc, item) => acc + item.amount, 0);
-  const totalAmount = ledgerTotal + sinkingFundsTotal;
+  const goalSavingsTotal = goals.reduce((acc, goal) => acc + goal.amount, 0);
+  const totalAmount = ledgerTotal + sinkingFundsTotal + goalSavingsTotal;
 
   return (
     <>
@@ -250,6 +253,23 @@ export function AccountLedgerTable() {
                                 </TableCell>
                             </TableRow>
                         ))}
+                         <TableRow className="bg-secondary/50 hover:bg-secondary/70">
+                            <TableCell className="font-medium flex items-center gap-2">
+                                Goal Savings Balance
+                                 <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:bg-transparent hover:text-foreground p-0">
+                                            <Info className="h-4 w-4" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-60 text-sm">
+                                        This is the total from your Goal Savings and is read-only.
+                                    </PopoverContent>
+                                </Popover>
+                            </TableCell>
+                            <TableCell className="text-right">{formatCurrency(goalSavingsTotal)}</TableCell>
+                            <TableCell></TableCell>
+                        </TableRow>
                         <TableRow className="bg-secondary/50 hover:bg-secondary/70">
                             <TableCell className="font-medium flex items-center gap-2">
                                 Sinking Funds Balance

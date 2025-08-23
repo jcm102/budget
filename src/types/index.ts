@@ -167,6 +167,6 @@ export interface Goal {
   id: string;
   name: string;
   cost: number;
+  amount: number; // Amount saved towards the goal
   link?: string | null;
-  amount?: number; // This is populated at runtime
 }

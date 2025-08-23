@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import type { SavingsItem, Goal, SubscriptionItem, AutoShipItem } from '@/types';
+import type { SavingsItem, SubscriptionItem, AutoShipItem } from '@/types';
 import * as z from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -143,7 +143,6 @@ const getNextBillingDate = (item: SubscriptionItem | AutoShipItem): Date => {
 export function SavingsTable() {
   const { 
     savingsItems, 
-    goals,
     subscriptions,
     autoShipItems,
     addSavingsItem, 
@@ -185,14 +184,6 @@ export function SavingsTable() {
 
   const enhancedSavingsItems = useMemo(() => {
     return savingsItems.map(item => {
-        const goal = goals.find(g => g.name.toLowerCase() === item.name.toLowerCase());
-        if (goal) {
-            return {
-                ...item,
-                totalCost: goal.cost,
-            };
-        }
-        
         const subscription = subscriptions.find(s => s.serviceName.toLowerCase() === item.name.toLowerCase());
         if (subscription) {
             const dueDate = getNextBillingDate(subscription);
@@ -226,7 +217,7 @@ export function SavingsTable() {
 
         return item; // It's a generic fund with no totals/dates
     });
-  }, [savingsItems, goals, subscriptions, autoShipItems]);
+  }, [savingsItems, subscriptions, autoShipItems]);
 
   const requestSort = (key: SortConfig['key']) => {
     if (!key) return;
