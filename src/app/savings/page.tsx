@@ -4,12 +4,13 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { SavingsTable } from '@/components/savings-table';
-import { ArrowLeft, ChevronsUpDown, Printer } from 'lucide-react';
+import { ArrowLeft, ChevronsUpDown, Printer, Info } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { GoalTable } from '@/components/goal-table';
 import { AutoShipTable } from '@/components/autoship-table';
 import { SubscriptionTable } from '@/components/subscription-table';
 import { AccountLedgerTable } from '@/components/account-ledger-table';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 export default function SavingsPage() {
   const handlePrint = () => {
@@ -56,12 +57,24 @@ export default function SavingsPage() {
         </Collapsible>
 
         <Collapsible defaultOpen={true} id="account-ledger">
-            <CollapsibleTrigger asChild>
-                <Button variant="ghost" className="flex items-center gap-2 pl-0 hover:bg-transparent text-3xl font-bold font-headline text-primary mb-4 no-print">
-                    <ChevronsUpDown className="h-6 w-6 text-muted-foreground" />
-                    <h2>Account Ledger</h2>
-                </Button>
-            </CollapsibleTrigger>
+             <div className="flex items-center gap-2 mb-4">
+                <CollapsibleTrigger asChild>
+                    <Button variant="ghost" className="flex items-center gap-2 pl-0 hover:bg-transparent text-3xl font-bold font-headline text-primary no-print">
+                        <ChevronsUpDown className="h-6 w-6 text-muted-foreground" />
+                        <h2>Account Ledger</h2>
+                    </Button>
+                </CollapsibleTrigger>
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground -translate-y-1">
+                            <Info className="h-5 w-5" />
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto">
+                        <p>EQ Future Expenses Account</p>
+                    </PopoverContent>
+                </Popover>
+            </div>
             <CollapsibleContent>
                 <AccountLedgerTable />
             </CollapsibleContent>
