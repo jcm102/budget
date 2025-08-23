@@ -148,5 +148,5 @@ export function useDebt() {
     }
   }, [fetchDebts, toast]);
 
-  return { debts, addDebt, updateDebt, deleteDebt, resetDebtValues, cycleToNextMonth, updateDebtOrder, isLoading, toggleDebtPaid };
+  return { debts, addDebt, updateDebt, deleteDebt, resetDebtValues, cycleToNextMonth, updateDebtOrder, isLoading, toggleDebtPaid, fetchDebts };
 }

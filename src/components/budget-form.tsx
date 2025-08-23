@@ -35,10 +35,13 @@ import { useIncomeCategories } from '@/hooks/use-income-categories';
 import { useTransferees } from '@/hooks/use-transferees';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { useGoals } from '@/hooks/use-goals';
+import { useDebt } from '@/hooks/use-debt';
 import * as GoalService from '@/services/goal-service';
+import * as DebtService from '@/services/debt-service';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Label } from './ui/label';
+import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 
 const formSchema = z.object({
     description: z.string().min(2, 'Description must be at least 2 characters.'),
@@ -49,10 +52,10 @@ const formSchema = z.object({
     frequency: z.enum(['One-Time', 'Weekly', 'Bi-Weekly', 'Monthly']),
     transferTo: z.string().optional(),
     transferFrom: z.string().optional(),
-    goalAllocation: z.object({
-        goalId: z.string(),
-        amount: z.coerce.number(),
-    }).optional(),
+    // New fields for allocation
+    allocationType: z.enum(['none', 'goal', 'debt']).default('none'),
+    allocationTargetId: z.string().optional(),
+    allocationAmount: z.coerce.number().optional(),
   }).refine(data => {
     if (data.type === 'Transfers') {
       return !!data.transferTo && !!data.transferFrom;
@@ -75,8 +78,9 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
   const { categories: incomeCategories } = useIncomeCategories();
   const { transferees } = useTransferees();
   const { goals, fetchGoals } = useGoals();
+  const { debts, fetchDebts } = useDebt();
   const [split, setSplit] = useState({ savings: 0, charity: 0, fun: 0 });
-  const [isSubmittingGoal, setIsSubmittingGoal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   
   const form = useForm<z.infer<typeof formSchema>>({
@@ -90,26 +94,36 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
       frequency: 'One-Time',
       transferFrom: '',
       transferTo: '',
-      goalAllocation: undefined,
+      allocationType: 'none',
+      allocationTargetId: '',
+      allocationAmount: 0,
     },
   });
 
   const itemType = form.watch('type');
   const category = form.watch('category');
   const amount = form.watch('amount');
+  const allocationType = form.watch('allocationType');
 
   const showCalculator = itemType === 'Income' && category === 'Misc. Income';
 
   useEffect(() => {
     if (showCalculator) {
-      const splitAmount = amount / 3;
+      const splitAmount = parseFloat((amount / 3).toFixed(2));
       setSplit({
         savings: splitAmount,
         charity: splitAmount,
         fun: splitAmount,
       });
+      // Automatically set the allocation amount to the full savings portion
+      form.setValue('allocationAmount', splitAmount);
+    } else {
+        // Reset allocation when calculator is not shown
+        form.setValue('allocationType', 'none');
+        form.setValue('allocationTargetId', '');
+        form.setValue('allocationAmount', 0);
     }
-  }, [amount, showCalculator]);
+  }, [amount, showCalculator, form.setValue]);
 
 
   const toLocalISOString = (date: Date) => {
@@ -138,7 +152,9 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
           frequency: editingItem.frequency || 'One-Time',
           transferFrom: editingItem.transferFrom || '',
           transferTo: editingItem.transferTo || '',
-          goalAllocation: undefined,
+          allocationType: 'none',
+          allocationTargetId: '',
+          allocationAmount: 0,
         });
       } else {
         form.reset({
@@ -150,7 +166,9 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
           frequency: 'One-Time',
           transferFrom: '',
           transferTo: '',
-          goalAllocation: undefined,
+          allocationType: 'none',
+          allocationTargetId: '',
+          allocationAmount: 0,
         });
       }
     }
@@ -172,6 +190,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsSubmitting(true);
     const [year, month, day] = values.date.split('-').map(Number);
     const localDate = new Date(year, month - 1, day);
 
@@ -182,30 +201,38 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
       frequency: values.frequency as BudgetItemFrequency,
     };
     
-    // Handle goal allocation
-    if (showCalculator && values.goalAllocation && values.goalAllocation.goalId && values.goalAllocation.amount > 0) {
-        setIsSubmittingGoal(true);
+    // Handle allocation logic
+    if (showCalculator && values.allocationType !== 'none' && values.allocationTargetId && values.allocationAmount && values.allocationAmount > 0) {
         try {
-            const { goalId, amount: allocationAmount } = values.goalAllocation;
-            const goalToUpdate = goals.find(g => g.id === goalId);
-            if (goalToUpdate) {
-                const newAmount = goalToUpdate.amount + allocationAmount;
-                await GoalService.updateGoal(goalId, { amount: newAmount });
-                toast({
-                    title: 'Goal Updated!',
-                    description: `${formatCurrency(allocationAmount)} was added to "${goalToUpdate.name}".`
-                });
-                await fetchGoals();
+            const { allocationType, allocationTargetId, allocationAmount } = values;
+            if (allocationType === 'goal') {
+                const goalToUpdate = goals.find(g => g.id === allocationTargetId);
+                if (goalToUpdate) {
+                    await GoalService.addToGoal(allocationTargetId, allocationAmount);
+                    toast({
+                        title: 'Goal Updated!',
+                        description: `${formatCurrency(allocationAmount)} was added to "${goalToUpdate.name}".`
+                    });
+                    await fetchGoals();
+                }
+            } else if (allocationType === 'debt') {
+                const debtToUpdate = debts.find(d => d.id === allocationTargetId);
+                 if (debtToUpdate) {
+                    await DebtService.addExtraPayment(allocationTargetId, allocationAmount);
+                    toast({
+                        title: 'Debt Updated!',
+                        description: `An extra payment of ${formatCurrency(allocationAmount)} was made to "${debtToUpdate.name}".`
+                    });
+                    await fetchDebts();
+                 }
             }
         } catch (error) {
-             console.error("Failed to update goal:", error);
+             console.error("Failed to allocate funds:", error);
              toast({
-                title: 'Error',
-                description: 'Could not update the savings goal.',
+                title: 'Allocation Error',
+                description: 'Could not allocate the funds as requested.',
                 variant: 'destructive',
             });
-        } finally {
-            setIsSubmittingGoal(false);
         }
     }
 
@@ -215,6 +242,8 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
     } else {
       addBudgetItem(submissionData);
     }
+    
+    setIsSubmitting(false);
     onOpenChange(false);
   }
 
@@ -288,7 +317,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
             {showCalculator && (
                  <Card className="bg-secondary/50">
                     <CardHeader className="p-4">
-                        <CardTitle className="text-base">Split & Allocate</CardTitle>
+                        <CardTitle className="text-base">Found Money: Split & Allocate</CardTitle>
                     </CardHeader>
                     <CardContent className="p-4 pt-0 text-sm space-y-4">
                         <div className="space-y-2">
@@ -301,51 +330,78 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                                 <span className="font-medium">{formatCurrency(split.fun)}</span>
                             </div>
                         </div>
-                        <div className="space-y-2">
-                            <Label>Allocate Savings/Debt Portion</Label>
-                            <div className="flex gap-2">
-                                <FormField
-                                    control={form.control}
-                                    name="goalAllocation.goalId"
-                                    render={({ field }) => (
-                                        <FormItem className="flex-grow">
-                                            <Select onValueChange={field.onChange} value={field.value}>
+                        <div className="space-y-3">
+                             <Label>Allocate Savings/Debt Portion ({formatCurrency(split.savings)})</Label>
+                             <FormField
+                                control={form.control}
+                                name="allocationType"
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormControl>
+                                        <RadioGroup
+                                        onValueChange={field.onChange}
+                                        value={field.value}
+                                        className="flex gap-4"
+                                        >
+                                            <FormItem className="flex items-center space-x-2 space-y-0">
+                                                <FormControl><RadioGroupItem value="goal" /></FormControl>
+                                                <FormLabel className="font-normal">Goal</FormLabel>
+                                            </FormItem>
+                                            <FormItem className="flex items-center space-x-2 space-y-0">
+                                                <FormControl><RadioGroupItem value="debt" /></FormControl>
+                                                <FormLabel className="font-normal">Debt</FormLabel>
+                                            </FormItem>
+                                        </RadioGroup>
+                                    </FormControl>
+                                    </FormItem>
+                                )}
+                             />
+
+                             {allocationType !== 'none' && (
+                                <div className="flex gap-2">
+                                     <FormField
+                                        control={form.control}
+                                        name="allocationTargetId"
+                                        render={({ field }) => (
+                                            <FormItem className="flex-grow">
+                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                    <FormControl>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder={`Select ${allocationType}`} />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {allocationType === 'goal' && goals.map(goal => (
+                                                            <SelectItem key={goal.id} value={goal.id}>{goal.name}</SelectItem>
+                                                        ))}
+                                                         {allocationType === 'debt' && debts.map(debt => (
+                                                            <SelectItem key={debt.id} value={debt.id}>{debt.name}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </FormItem>
+                                        )}
+                                    />
+                                     <FormField
+                                        control={form.control}
+                                        name="allocationAmount"
+                                        render={({ field }) => (
+                                            <FormItem>
                                                 <FormControl>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Select Goal" />
-                                                    </SelectTrigger>
+                                                    <Input 
+                                                        type="number" 
+                                                        step="0.01" 
+                                                        {...field} 
+                                                        className="w-28" 
+                                                        placeholder="Amount"
+                                                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                                    />
                                                 </FormControl>
-                                                <SelectContent>
-                                                    {goals.map(goal => (
-                                                        <SelectItem key={goal.id} value={goal.id}>{goal.name}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </FormItem>
-                                    )}
-                                />
-                                 <FormField
-                                    control={form.control}
-                                    name="goalAllocation.amount"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormControl>
-                                                <Input 
-                                                    type="number" 
-                                                    step="0.01" 
-                                                    {...field} 
-                                                    className="w-28" 
-                                                    placeholder="Amount"
-                                                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                                                />
-                                            </FormControl>
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
-                            <Button type="button" size="sm" variant="ghost" className="w-full" onClick={() => form.setValue('goalAllocation.amount', split.savings)}>
-                                Allocate Full Amount ({formatCurrency(split.savings)})
-                            </Button>
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                             )}
                         </div>
                     </CardContent>
                 </Card>
@@ -417,8 +473,8 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
               )}
             />
             <DialogFooter>
-              <Button type="submit" disabled={isSubmittingGoal}>
-                {isSubmittingGoal && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {editingItem ? 'Save Changes' : 'Add Item'}
               </Button>
             </DialogFooter>

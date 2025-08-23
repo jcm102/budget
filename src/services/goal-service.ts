@@ -13,6 +13,7 @@ import {
   addDoc,
   getDoc,
   orderBy,
+  runTransaction
 } from 'firebase/firestore';
 
 const GOAL_COLLECTION = 'goals';
@@ -40,6 +41,19 @@ export async function addGoal(itemData: Omit<Goal, 'id'>): Promise<Goal> {
 export async function updateGoal(id: string, itemData: Partial<Omit<Goal, 'id'>>): Promise<void> {
   const itemRef = doc(db, GOAL_COLLECTION, id);
   await updateDoc(itemRef, itemData);
+}
+
+export async function addToGoal(id: string, amount: number): Promise<void> {
+  const goalRef = doc(db, GOAL_COLLECTION, id);
+  await runTransaction(db, async (transaction) => {
+    const goalDoc = await transaction.get(goalRef);
+    if (!goalDoc.exists()) {
+      throw "Goal document does not exist!";
+    }
+    const currentAmount = goalDoc.data().amount || 0;
+    const newAmount = currentAmount + amount;
+    transaction.update(goalRef, { amount: newAmount });
+  });
 }
 
 export async function deleteGoal(id: string): Promise<void> {

@@ -13,7 +13,8 @@ import {
   writeBatch,
   getDoc,
   orderBy,
-  updateDoc
+  updateDoc,
+  runTransaction
 } from 'firebase/firestore';
 
 const DEBT_COLLECTION = 'debts';
@@ -57,6 +58,19 @@ export async function updateDebt(id: string, debtData: Partial<Omit<Debt, 'id' |
     // Optionally, you could throw an error here, but for now we'll just log it
     // to prevent the app from crashing.
   }
+}
+
+export async function addExtraPayment(id: string, amount: number): Promise<void> {
+  const debtRef = doc(db, DEBT_COLLECTION, id);
+  await runTransaction(db, async (transaction) => {
+    const debtDoc = await transaction.get(debtRef);
+    if (!debtDoc.exists()) {
+      throw "Debt document does not exist!";
+    }
+    const currentPayment = debtDoc.data().actualPayment || 0;
+    const newActualPayment = currentPayment + amount;
+    transaction.update(debtRef, { actualPayment: newActualPayment });
+  });
 }
 
 export async function updateDebtOrder(debts: Debt[]): Promise<void> {
