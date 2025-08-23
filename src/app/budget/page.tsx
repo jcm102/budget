@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { BudgetTable } from '@/components/budget-table';
-import { ArrowLeft, RefreshCw, Trash2, Printer } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Trash2, Printer, ChevronsUpDown } from 'lucide-react';
 import { useBudget } from '@/hooks/use-budget';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
@@ -21,6 +21,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { SplitCalculator } from '@/components/split-calculator';
 
 export default function BudgetPage() {
   const { syncDebtPayments, clearDebtPayments } = useBudget();
@@ -114,8 +116,21 @@ export default function BudgetPage() {
             </Button>
         </div>
       </header>
-      <main>
+      <main className="space-y-8">
         <BudgetTable />
+        <Collapsible>
+            <CollapsibleTrigger asChild>
+                <Button variant="ghost" className="flex items-center gap-2 pl-0 hover:bg-transparent text-3xl font-bold font-headline text-primary mb-4 no-print">
+                    <ChevronsUpDown className="h-6 w-6 text-muted-foreground" />
+                    <h2>Reconciliation Calculator</h2>
+                </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="max-w-2xl mx-auto">
+                <SplitCalculator />
+              </div>
+            </CollapsibleContent>
+        </Collapsible>
       </main>
     </div>
   );
