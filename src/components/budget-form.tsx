@@ -123,7 +123,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
         form.setValue('allocationTargetId', '');
         form.setValue('allocationAmount', 0);
     }
-  }, [amount, showCalculator, form.setValue]);
+  }, [amount, showCalculator, form]);
 
 
   const toLocalISOString = (date: Date) => {
