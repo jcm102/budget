@@ -3,24 +3,17 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Banknote, CreditCard, Home, Lightbulb, PiggyBank, Settings, Users, Wallet, Ship, Library, ChevronDown } from 'lucide-react';
+import { Banknote, CreditCard, Home, Lightbulb, PiggyBank, Settings, Users, Wallet } from 'lucide-react';
 import {
   SidebarContent,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarMenuSub,
-  SidebarMenuSubContent,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarFooter,
   SidebarHeader
 } from '@/components/ui/sidebar';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Button } from './ui/button';
-import { useSidebar } from '@/components/ui/sidebar';
-import { cn } from '@/lib/utils';
-import React from 'react';
 
 const navItems = [
     { href: '/', icon: Home, label: 'Tasks' },
@@ -31,55 +24,6 @@ const navItems = [
     { href: '/split', icon: Users, label: 'Split Calculator' },
 ];
 
-function ReferenceMenu() {
-    const { open: sidebarOpen } = useSidebar();
-    const [open, setOpen] = React.useState(false);
-
-    React.useEffect(() => {
-        if (!sidebarOpen) {
-            setOpen(false);
-        }
-    }, [sidebarOpen]);
-
-    return (
-        <SidebarMenuSub>
-            <SidebarMenuButton onClick={() => setOpen(!open)} className="font-medium">
-                <Library />
-                <span>Reference</span>
-                <ChevronDown
-                    className={cn(
-                    "ml-auto h-4 w-4 shrink-0 transition-transform duration-200",
-                    open && "rotate-180"
-                    )}
-                />
-            </SidebarMenuButton>
-            {open && (
-            <SidebarMenuSubContent>
-                <SidebarMenuSubItem>
-                    <Link href="/savings#account-ledger">
-                        <SidebarMenuSubButton>Account Ledger</SidebarMenuSubButton>
-                    </Link>
-                </SidebarMenuSubItem>
-                 <SidebarMenuSubItem>
-                    <Link href="/savings#sinking-funds">
-                        <SidebarMenuSubButton>Sinking Funds</SidebarMenuSubButton>
-                    </Link>
-                </SidebarMenuSubItem>
-                <SidebarMenuSubItem>
-                    <Link href="/savings#autoship-table">
-                        <SidebarMenuSubButton>Auto-Shipments</SidebarMenuSubButton>
-                    </Link>
-                </SidebarMenuSubItem>
-                <SidebarMenuSubItem>
-                    <Link href="/savings#subscription-table">
-                        <SidebarMenuSubButton>Subscriptions</SidebarMenuSubButton>
-                    </Link>
-                </SidebarMenuSubItem>
-            </SidebarMenuSubContent>
-            )}
-       </SidebarMenuSub>
-    )
-}
 
 export function AppNav() {
   const pathname = usePathname();
@@ -101,7 +45,6 @@ export function AppNav() {
               </Link>
             </SidebarMenuItem>
           ))}
-           <ReferenceMenu />
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter className="flex-col !items-stretch gap-2">
