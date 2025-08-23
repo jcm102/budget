@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
+import { differenceInMonths } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -52,6 +53,31 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
       dueDate: '',
     },
   });
+  
+  const totalCost = form.watch('totalCost');
+  const dueDate = form.watch('dueDate');
+  const amountSaved = form.watch('amount');
+
+  useEffect(() => {
+    if (totalCost && totalCost > 0 && dueDate) {
+      const today = new Date();
+      const due = new Date(dueDate);
+      // Ensure we only calculate for future dates
+      if (due > today) {
+        const monthsRemaining = differenceInMonths(due, today);
+        // We want it funded the month before it's due.
+        const planningMonths = monthsRemaining > 0 ? monthsRemaining : 1;
+        const remainingAmount = totalCost - amountSaved;
+        
+        if (remainingAmount > 0) {
+          const monthlyGoal = remainingAmount / planningMonths;
+          form.setValue('goal', parseFloat(monthlyGoal.toFixed(2)));
+        } else {
+          form.setValue('goal', 0);
+        }
+      }
+    }
+  }, [totalCost, dueDate, amountSaved, form]);
 
   useEffect(() => {
     if (open) {
