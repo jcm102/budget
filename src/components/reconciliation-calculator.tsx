@@ -1,26 +1,21 @@
 
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Trash2, PlusCircle, RotateCcw } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { useDebt } from '@/hooks/use-debt';
-import { Skeleton } from './ui/skeleton';
 
-type ReconciliationItem = {
+type Column = {
   id: string;
-  payeeId: string;
-  source1Amount: number;
-  source2Amount: number;
+  name: string;
+};
+
+type Row = {
+  id: string;
+  description: string;
+  values: Record<string, number>; // Record<columnId, amount>
 };
 
 const formatCurrency = (amount: number) => {
@@ -28,62 +23,83 @@ const formatCurrency = (amount: number) => {
 };
 
 export function ReconciliationCalculator() {
-  const { debts, isLoading: isLoadingDebts } = useDebt();
-  const [items, setItems] = useState<ReconciliationItem[]>([]);
-  const [source1Name, setSource1Name] = useState('Source 1');
-  const [source2Name, setSource2Name] = useState('Source 2');
+  const [columns, setColumns] = useState<Column[]>([
+    { id: crypto.randomUUID(), name: 'Payee 1' },
+    { id: crypto.randomUUID(), name: 'Payee 2' },
+  ]);
+  const [rows, setRows] = useState<Row[]>([
+    { id: crypto.randomUUID(), description: '', values: {} },
+  ]);
 
-  // Effect to add a default item when the component loads and debts are available
-  useEffect(() => {
-    if (items.length === 0 && !isLoadingDebts && debts.length > 0) {
-      handleAddItem();
-    }
-  }, [items.length, isLoadingDebts, debts.length]);
-
-
-  const handleAddItem = () => {
-    const defaultPayeeId = debts.length > 0 ? debts[0].id : '';
-    setItems([...items, { id: crypto.randomUUID(), payeeId: defaultPayeeId, source1Amount: 0, source2Amount: 0 }]);
+  const handleAddColumn = () => {
+    setColumns([...columns, { id: crypto.randomUUID(), name: `Payee ${columns.length + 1}` }]);
   };
 
-  const handleRemoveItem = (id: string) => {
-    setItems(items.filter(item => item.id !== id));
+  const handleRemoveColumn = (id: string) => {
+    if (columns.length <= 1) return;
+    setColumns(columns.filter(col => col.id !== id));
+    // Also remove values associated with this column from all rows
+    setRows(rows.map(row => {
+        const newValues = { ...row.values };
+        delete newValues[id];
+        return { ...row, values: newValues };
+    }));
   };
 
-  const handleItemChange = (id: string, field: 'payeeId' | 'source1Amount' | 'source2Amount', value: string | number) => {
-    setItems(items.map(item => item.id === id ? { ...item, [field]: value } : item));
+  const handleColumnNameChange = (id: string, name: string) => {
+    setColumns(columns.map(col => col.id === id ? { ...col, name } : col));
+  };
+
+  const handleAddRow = () => {
+    setRows([...rows, { id: crypto.randomUUID(), description: '', values: {} }]);
+  };
+
+  const handleRemoveRow = (id: string) => {
+    if (rows.length <= 1) return;
+    setRows(rows.filter(row => row.id !== id));
   };
   
+  const handleRowChange = (rowId: string, field: 'description' | 'value', value: string | number, columnId?: string) => {
+    setRows(rows.map(row => {
+        if (row.id === rowId) {
+            if (field === 'description') {
+                return { ...row, description: String(value) };
+            }
+            if (field === 'value' && columnId) {
+                const newValues = { ...row.values, [columnId]: Number(value) || 0 };
+                return { ...row, values: newValues };
+            }
+        }
+        return row;
+    }));
+  };
+
   const handleClear = () => {
-    setItems([]);
-    handleAddItem(); // Add one blank item back
-  }
+    setColumns([
+        { id: crypto.randomUUID(), name: 'Payee 1' },
+        { id: crypto.randomUUID(), name: 'Payee 2' },
+    ]);
+    setRows([
+        { id: crypto.randomUUID(), description: '', values: {} },
+    ]);
+  };
 
-  const { totalSource1, totalSource2, grandTotal } = useMemo(() => {
-    const totals = items.reduce((acc, item) => {
-      acc.totalSource1 += Number(item.source1Amount) || 0;
-      acc.totalSource2 += Number(item.source2Amount) || 0;
-      return acc;
-    }, { totalSource1: 0, totalSource2: 0 });
+  const { columnTotals, grandTotal } = useMemo(() => {
+    const totals: Record<string, number> = {};
+    columns.forEach(col => totals[col.id] = 0);
 
-    return {
-      ...totals,
-      grandTotal: totals.totalSource1 + totals.totalSource2
-    };
-  }, [items]);
+    rows.forEach(row => {
+        for (const colId in row.values) {
+            if (totals.hasOwnProperty(colId)) {
+                totals[colId] += row.values[colId];
+            }
+        }
+    });
+    
+    const total = Object.values(totals).reduce((acc, val) => acc + val, 0);
 
-  if (isLoadingDebts) {
-    return (
-        <Card>
-            <CardHeader>
-                <Skeleton className="h-8 w-3/4" />
-            </CardHeader>
-            <CardContent>
-                <Skeleton className="h-20 w-full" />
-            </CardContent>
-        </Card>
-    );
-  }
+    return { columnTotals: totals, grandTotal: total };
+  }, [rows, columns]);
 
   return (
     <Card>
@@ -93,104 +109,79 @@ export function ReconciliationCalculator() {
           A temporary tool to calculate payments for reconciliation. Data is not saved.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Column Headers */}
-        <div className="grid grid-cols-12 gap-2 items-center">
-            <div className="col-span-4 font-medium">Payee (From Debt List)</div>
-            <div className="col-span-3">
-                <Input 
-                    value={source1Name} 
-                    onChange={(e) => setSource1Name(e.target.value)} 
-                    className="font-medium"
-                    placeholder="Source 1 Name"
-                />
+      <CardContent className="space-y-4 overflow-x-auto">
+        <div className="min-w-max">
+            {/* Column Headers */}
+            <div className="grid grid-cols-12 gap-2 items-center pb-2 border-b">
+                <div className="col-span-3 font-medium">Description</div>
+                {columns.map(col => (
+                    <div key={col.id} className="col-span-2 flex items-center gap-1">
+                         <Input
+                            value={col.name}
+                            onChange={(e) => handleColumnNameChange(col.id, e.target.value)}
+                            className="font-medium h-9"
+                            placeholder="Payee Name"
+                        />
+                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => handleRemoveColumn(col.id)} disabled={columns.length <= 1}>
+                           <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                    </div>
+                ))}
+                 <div className="col-span-1">
+                    <Button variant="outline" size="sm" onClick={handleAddColumn} className="w-full">
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Column
+                    </Button>
+                </div>
             </div>
-            <div className="col-span-3">
-                 <Input 
-                    value={source2Name} 
-                    onChange={(e) => setSource2Name(e.target.value)} 
-                    className="font-medium"
-                    placeholder="Source 2 Name"
-                />
-            </div>
-            <div className="col-span-2 font-medium text-right">Row Total</div>
-        </div>
-        {/* Items Section */}
-        <div className="space-y-2">
-            {items.map((item) => {
-                const rowTotal = (Number(item.source1Amount) || 0) + (Number(item.source2Amount) || 0);
-                return (
-                    <div key={item.id} className="grid grid-cols-12 gap-2 items-center">
-                        <div className="col-span-4">
-                            <Select
-                                onValueChange={(value) => handleItemChange(item.id, 'payeeId', value)}
-                                defaultValue={item.payeeId}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select Payee" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {debts.map(debt => (
-                                        <SelectItem key={debt.id} value={debt.id}>{debt.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+            {/* Rows Section */}
+            <div className="space-y-2 mt-2">
+                {rows.map((row, rowIndex) => (
+                    <div key={row.id} className="grid grid-cols-12 gap-2 items-center">
                         <div className="col-span-3">
-                             <Input
-                                type="number"
-                                placeholder="Amount"
-                                value={item.source1Amount || ''}
-                                onChange={(e) => handleItemChange(item.id, 'source1Amount', parseFloat(e.target.value))}
+                            <Input 
+                                placeholder={`Item ${rowIndex + 1}`}
+                                value={row.description}
+                                onChange={(e) => handleRowChange(row.id, 'description', e.target.value)}
                             />
                         </div>
-                        <div className="col-span-3">
-                             <Input
-                                type="number"
-                                placeholder="Amount"
-                                value={item.source2Amount || ''}
-                                onChange={(e) => handleItemChange(item.id, 'source2Amount', parseFloat(e.target.value))}
-                            />
-                        </div>
-                         <div className="col-span-1 font-medium text-right">
-                            {formatCurrency(rowTotal)}
-                        </div>
-                        <div className="col-span-1 text-right">
-                             <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-9 w-9 text-destructive"
-                                onClick={() => handleRemoveItem(item.id)}
-                                disabled={items.length <= 1}
-                            >
-                                <Trash2 className="h-4 w-4" />
+                         {columns.map(col => (
+                            <div key={col.id} className="col-span-2">
+                                <Input
+                                    type="number"
+                                    placeholder="Amount"
+                                    value={row.values[col.id] || ''}
+                                    onChange={(e) => handleRowChange(row.id, 'value', e.target.value, col.id)}
+                                />
+                            </div>
+                        ))}
+                         <div className="col-span-1 flex justify-end">
+                            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handleRemoveRow(row.id)} disabled={rows.length <= 1}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
                         </div>
                     </div>
-                )
-            })}
+                ))}
+            </div>
         </div>
-        <div className="flex gap-2">
-            <Button variant="outline" onClick={handleAddItem}>
+         <div className="flex gap-2 pt-4 border-t">
+            <Button variant="outline" onClick={handleAddRow}>
                 <PlusCircle className="mr-2 h-4 w-4" />
-                Add Payment
+                Add Row
             </Button>
              <Button variant="destructive" onClick={handleClear}>
                 <RotateCcw className="mr-2 h-4 w-4" />
                 Clear All
             </Button>
         </div>
-
       </CardContent>
       <CardFooter className="flex flex-col items-stretch space-y-2 bg-secondary/50 p-6 rounded-b-lg">
-          <div className="flex justify-between text-md font-medium">
-            <span>{source1Name} Total</span>
-            <span>{formatCurrency(totalSource1)}</span>
-          </div>
-           <div className="flex justify-between text-md font-medium">
-            <span>{source2Name} Total</span>
-            <span>{formatCurrency(totalSource2)}</span>
-          </div>
+          {columns.map(col => (
+            <div key={col.id} className="flex justify-between text-md font-medium">
+                <span>{col.name} Total</span>
+                <span>{formatCurrency(columnTotals[col.id] || 0)}</span>
+            </div>
+          ))}
           <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
             <span>Grand Total</span>
             <span>{formatCurrency(grandTotal)}</span>
