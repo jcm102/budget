@@ -4,13 +4,12 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { SavingsTable } from '@/components/savings-table';
-import { ArrowLeft, ChevronsUpDown, Printer, Info } from 'lucide-react';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ArrowLeft, Printer, PiggyBank, Landmark, Truck, Repeat, Star } from 'lucide-react';
 import { GoalTable } from '@/components/goal-table';
 import { AutoShipTable } from '@/components/autoship-table';
 import { SubscriptionTable } from '@/components/subscription-table';
 import { AccountLedgerTable } from '@/components/account-ledger-table';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function SavingsPage() {
   const handlePrint = () => {
@@ -26,83 +25,67 @@ export default function SavingsPage() {
             Back to Home
           </Link>
         </Button>
-        <Button variant="outline" onClick={handlePrint}>
-            <Printer className="mr-2 h-4 w-4" />
-            Print
-        </Button>
+        <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-bold font-headline text-primary hidden md:block">
+                Future Spending
+            </h1>
+            <Button variant="outline" onClick={handlePrint}>
+                <Printer className="mr-2 h-4 w-4" />
+                Print
+            </Button>
+        </div>
       </header>
-      <main className="space-y-8">
-        <Collapsible defaultOpen={true} id="goal-savings">
-            <CollapsibleTrigger asChild>
-                <Button variant="ghost" className="flex items-center gap-2 pl-0 hover:bg-transparent text-3xl font-bold font-headline text-primary mb-4 no-print">
-                    <ChevronsUpDown className="h-6 w-6 text-muted-foreground" />
-                    <h2>Goal Savings</h2>
-                </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-                <GoalTable />
-            </CollapsibleContent>
-        </Collapsible>
-        
-        <Collapsible defaultOpen={true} id="sinking-funds">
-            <CollapsibleTrigger asChild>
-                <Button variant="ghost" className="flex items-center gap-2 pl-0 hover:bg-transparent text-3xl font-bold font-headline text-primary mb-4 no-print">
-                    <ChevronsUpDown className="h-6 w-6 text-muted-foreground" />
-                    <h2>Sinking Funds</h2>
-                </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-                <SavingsTable />
-            </CollapsibleContent>
-        </Collapsible>
+      <main>
+        <Tabs defaultValue="ledger" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 bg-secondary/50 mb-6 no-print h-auto">
+            <TabsTrigger value="ledger" className="py-2"><Landmark className="mr-2 h-4 w-4"/>Account Ledger</TabsTrigger>
+            <TabsTrigger value="goals" className="py-2"><Star className="mr-2 h-4 w-4"/>Goal Savings</TabsTrigger>
+            <TabsTrigger value="funds" className="py-2"><PiggyBank className="mr-2 h-4 w-4"/>Sinking Funds</TabsTrigger>
+            <TabsTrigger value="autoship" className="py-2"><Truck className="mr-2 h-4 w-4"/>Auto-Shipments</TabsTrigger>
+            <TabsTrigger value="subscriptions" className="py-2"><Repeat className="mr-2 h-4 w-4"/>Subscriptions</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="ledger">
+            <h2 className="text-2xl font-bold font-headline text-primary mb-4">Account Ledger</h2>
+            <p className="text-muted-foreground mb-6 max-w-2xl">
+              This is the master ledger for your future spending account (e.g., EQ Bank). It includes balances from your sinking funds and goals.
+            </p>
+            <AccountLedgerTable />
+          </TabsContent>
 
-        <Collapsible defaultOpen={true} id="account-ledger">
-             <div className="flex items-center gap-2 mb-4">
-                <CollapsibleTrigger asChild>
-                    <Button variant="ghost" className="flex items-center gap-2 pl-0 hover:bg-transparent text-3xl font-bold font-headline text-primary no-print">
-                        <ChevronsUpDown className="h-6 w-6 text-muted-foreground" />
-                        <h2>Account Ledger</h2>
-                    </Button>
-                </CollapsibleTrigger>
-                <Popover>
-                    <PopoverTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground -translate-y-1">
-                            <Info className="h-5 w-5" />
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto">
-                        <p>EQ Future Expenses Account</p>
-                    </PopoverContent>
-                </Popover>
-            </div>
-            <CollapsibleContent>
-                <AccountLedgerTable />
-            </CollapsibleContent>
-        </Collapsible>
+          <TabsContent value="goals">
+             <h2 className="text-2xl font-bold font-headline text-primary mb-4">Goal Savings</h2>
+              <p className="text-muted-foreground mb-6 max-w-2xl">
+                Track savings for specific, tangible goals. The money saved here is kept separate from your sinking funds for needs.
+              </p>
+            <GoalTable />
+          </TabsContent>
 
-        <Collapsible defaultOpen={true} id="autoship-table">
-            <CollapsibleTrigger asChild>
-                <Button variant="ghost" className="flex items-center gap-2 pl-0 hover:bg-transparent text-3xl font-bold font-headline text-primary mb-4 no-print">
-                    <ChevronsUpDown className="h-6 w-6 text-muted-foreground" />
-                    <h2>Auto-Shipments</h2>
-                </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-                <AutoShipTable />
-            </CollapsibleContent>
-        </Collapsible>
+          <TabsContent value="funds">
+            <h2 className="text-2xl font-bold font-headline text-primary mb-4">Sinking Funds</h2>
+            <p className="text-muted-foreground mb-6 max-w-2xl">
+                Set aside money for anticipated future expenses. Link subscriptions and auto-shipments to automatically calculate what you need to save each month.
+            </p>
+            <SavingsTable />
+          </TabsContent>
 
-         <Collapsible defaultOpen={true} id="subscription-table">
-            <CollapsibleTrigger asChild>
-                <Button variant="ghost" className="flex items-center gap-2 pl-0 hover:bg-transparent text-3xl font-bold font-headline text-primary mb-4 no-print">
-                    <ChevronsUpDown className="h-6 w-6 text-muted-foreground" />
-                    <h2>Subscriptions</h2>
-                </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-                <SubscriptionTable />
-            </CollapsibleContent>
-        </Collapsible>
+          <TabsContent value="autoship">
+             <h2 className="text-2xl font-bold font-headline text-primary mb-4">Auto-Shipments</h2>
+              <p className="text-muted-foreground mb-6 max-w-2xl">
+                Keep track of items that are on auto-shipment, their next shipment date, and their cost.
+              </p>
+            <AutoShipTable />
+          </TabsContent>
+
+          <TabsContent value="subscriptions">
+             <h2 className="text-2xl font-bold font-headline text-primary mb-4">Subscriptions</h2>
+              <p className="text-muted-foreground mb-6 max-w-2xl">
+                Manage all your recurring subscriptions and see their true monthly and annual costs.
+              </p>
+            <SubscriptionTable />
+          </TabsContent>
+
+        </Tabs>
       </main>
     </div>
   );
