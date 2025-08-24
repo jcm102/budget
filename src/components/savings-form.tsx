@@ -31,6 +31,7 @@ const formSchema = z.object({
   amount: z.coerce.number().min(0, 'Amount must be a positive number.'),
   goal: z.coerce.number().optional(), // Monthly contribution goal
   totalCost: z.coerce.number().optional(),
+  savingsTarget: z.coerce.number().optional(),
   dueDate: z.string().optional(),
 });
 
@@ -50,24 +51,27 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
       amount: 0,
       goal: 0,
       totalCost: 0,
+      savingsTarget: 0,
       dueDate: '',
     },
   });
   
   const totalCost = form.watch('totalCost');
+  const savingsTarget = form.watch('savingsTarget');
   const dueDate = form.watch('dueDate');
   const amountSaved = form.watch('amount');
 
   useEffect(() => {
-    if (totalCost && totalCost > 0 && dueDate) {
+    const costToUse = (savingsTarget && savingsTarget > 0) ? savingsTarget : (totalCost || 0);
+
+    if (costToUse > 0 && dueDate) {
       const today = new Date();
       const due = new Date(dueDate);
-      // Ensure we only calculate for future dates
+      
       if (due > today) {
         const monthsRemaining = differenceInMonths(due, today);
-        // We want it funded the month before it's due.
         const planningMonths = monthsRemaining > 0 ? monthsRemaining : 1;
-        const remainingAmount = totalCost - amountSaved;
+        const remainingAmount = costToUse - amountSaved;
         
         if (remainingAmount > 0) {
           const monthlyGoal = remainingAmount / planningMonths;
@@ -77,7 +81,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
         }
       }
     }
-  }, [totalCost, dueDate, amountSaved, form]);
+  }, [totalCost, savingsTarget, dueDate, amountSaved, form]);
 
   useEffect(() => {
     if (open) {
@@ -87,6 +91,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
           amount: editingItem.amount,
           goal: editingItem.goal || 0,
           totalCost: editingItem.totalCost || 0,
+          savingsTarget: editingItem.savingsTarget || 0,
           dueDate: editingItem.dueDate ? new Date(editingItem.dueDate).toISOString().split('T')[0] : '',
         });
       } else {
@@ -95,6 +100,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
           amount: 0,
           goal: 0,
           totalCost: 0,
+          savingsTarget: 0,
           dueDate: '',
         });
       }
@@ -144,6 +150,14 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
              <FormField control={form.control} name="totalCost" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Total Cost (Optional)</FormLabel>
+                  <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField control={form.control} name="savingsTarget" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>My Savings Target (Optional)</FormLabel>
                   <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>

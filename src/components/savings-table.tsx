@@ -203,9 +203,10 @@ export function SavingsTable() {
         }
 
         // Calculate monthly amount if possible
-        if (enhancedItem.totalCost && enhancedItem.dueDate) {
+        const costToUse = (enhancedItem.savingsTarget && enhancedItem.savingsTarget > 0) ? enhancedItem.savingsTarget : enhancedItem.totalCost;
+        if (costToUse && enhancedItem.dueDate) {
             const dueDate = new Date(enhancedItem.dueDate);
-            enhancedItem.monthlyAmount = calculateMonthlyAmount(enhancedItem.totalCost, enhancedItem.amount, dueDate);
+            enhancedItem.monthlyAmount = calculateMonthlyAmount(costToUse, enhancedItem.amount, dueDate);
         }
 
         return enhancedItem;
@@ -248,7 +249,7 @@ export function SavingsTable() {
   const renderLoadingSkeleton = () => (
     Array.from({ length: 4 }).map((_, i) => (
       <TableRow key={`skeleton-savings-${i}`}>
-        <TableCell colSpan={6}><Skeleton className="h-10 w-full" /></TableCell>
+        <TableCell colSpan={7}><Skeleton className="h-10 w-full" /></TableCell>
       </TableRow>
     ))
   );
@@ -279,6 +280,7 @@ export function SavingsTable() {
                 <SortableHeader column="name" label="Fund Name" sortConfig={sortConfig} requestSort={requestSort} />
                 <SortableHeader column="amount" label="Amount Saved" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
                 <SortableHeader column="totalCost" label="Total Cost" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
+                <SortableHeader column="savingsTarget" label="My Target" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
                 <SortableHeader column="dueDate" label="Due Date" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
                 <SortableHeader column="monthlyAmount" label="Monthly Amount" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
                 <TableHead className="w-[180px] text-right">Actions</TableHead>
@@ -289,14 +291,18 @@ export function SavingsTable() {
                     renderLoadingSkeleton()
                 ) : sortedItems.length > 0 ? (
                     sortedItems.map((item) => {
-                        const progress = item.totalCost && item.totalCost > 0 ? (item.amount / item.totalCost) * 100 : 0;
+                        const costToUse = (item.savingsTarget && item.savingsTarget > 0) ? item.savingsTarget : item.totalCost;
+                        const progress = costToUse && costToUse > 0 ? (item.amount / costToUse) * 100 : 0;
                         return (
                         <TableRow key={item.id}>
                             <TableCell className="font-medium">{item.name}</TableCell>
                             <TableCell className="text-right">{formatCurrency(item.amount)}</TableCell>
                             <TableCell className="text-right">
                                 {item.totalCost ? formatCurrency(item.totalCost) : '-'}
-                                {item.totalCost && item.totalCost > 0 && (
+                            </TableCell>
+                            <TableCell className="text-right">
+                                {item.savingsTarget ? formatCurrency(item.savingsTarget) : '-'}
+                                {costToUse && costToUse > 0 && (
                                     <div className="flex items-center justify-end gap-2 mt-1">
                                          <Progress value={progress} className="w-[60%]" aria-label={`${Math.round(progress)}% funded`} />
                                          <span className="text-xs text-muted-foreground">{Math.round(progress)}%</span>
@@ -342,7 +348,7 @@ export function SavingsTable() {
                     })
                 ) : (
                     <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
+                    <TableCell colSpan={7} className="h-24 text-center">
                         No funds created yet. Add one to get started!
                     </TableCell>
                     </TableRow>
@@ -350,10 +356,13 @@ export function SavingsTable() {
             </TableBody>
             <TableFooter>
               <TableRow>
-                <TableCell className="font-semibold text-right">Total Saved</TableCell>
-                <TableCell className="text-right font-semibold">{formatCurrency(totalAmount)}</TableCell>
-                <TableCell colSpan={2} className="font-semibold text-right">Total Monthly Contribution</TableCell>
+                <TableCell colSpan={5} className="font-semibold text-right">Total Monthly Contribution</TableCell>
                 <TableCell className="text-right font-semibold">{formatCurrency(totalMonthlyContribution)}</TableCell>
+                <TableCell></TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell colSpan={5} className="font-semibold text-right">Total Saved</TableCell>
+                <TableCell className="text-right font-semibold">{formatCurrency(totalAmount)}</TableCell>
                 <TableCell></TableCell>
               </TableRow>
             </TableFooter>

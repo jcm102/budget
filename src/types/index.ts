@@ -68,6 +68,9 @@ export interface BudgetItem {
   transferFrom?: string;
   originalId?: string; // To track edited recurring instances
   completed?: boolean;
+  allocationType?: 'none' | 'goal' | 'debt';
+  allocationTargetId?: string;
+  allocationAmount?: number;
 }
 
 export interface Category {
@@ -119,6 +122,7 @@ export interface SavingsItem {
   amount: number;
   goal?: number; // Monthly contribution goal
   totalCost?: number | null; // Optional total cost for the fund
+  savingsTarget?: number | null; // Optional personal savings goal if different from totalCost
   dueDate?: string | null; // Optional due date for the fund
   
   // These fields are calculated at runtime for display

@@ -33,7 +33,9 @@ export async function addSavingsItem(itemData: Omit<SavingsItem, 'id'>): Promise
 
 export async function updateSavingsItem(id: string, itemData: Partial<Omit<SavingsItem, 'id'>>): Promise<void> {
   const itemRef = doc(db, SAVINGS_COLLECTION, id);
-  await updateDoc(itemRef, itemData);
+  // Firestore does not allow undefined values. We need to clean the object.
+  const cleanItemData = Object.fromEntries(Object.entries(itemData).filter(([_, v]) => v !== undefined));
+  await updateDoc(itemRef, cleanItemData);
 }
 
 export async function deleteSavingsItem(id: string): Promise<void> {
