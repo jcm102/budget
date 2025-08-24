@@ -120,6 +120,13 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
     onOpenChange(false);
   }
 
+  const setSavingsTargetPercentage = (percentage: number) => {
+    if (totalCost && totalCost > 0) {
+      const target = (totalCost * percentage) / 100;
+      form.setValue('savingsTarget', parseFloat(target.toFixed(2)), { shouldValidate: true });
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
@@ -163,6 +170,21 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
                 </FormItem>
               )}
             />
+             <div className="flex gap-2 -mt-2">
+                {[25, 50, 75, 100].map(p => (
+                  <Button 
+                    key={p} 
+                    type="button" 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setSavingsTargetPercentage(p)}
+                    disabled={!totalCost || totalCost <= 0}
+                    className="flex-1"
+                  >
+                    {p}%
+                  </Button>
+                ))}
+            </div>
              <FormField control={form.control} name="dueDate" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Due Date (Optional)</FormLabel>
