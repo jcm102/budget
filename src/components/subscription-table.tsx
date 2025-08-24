@@ -97,8 +97,8 @@ export function SubscriptionTable() {
             aValue = getMonthlyCost(a);
             bValue = getMonthlyCost(b);
         } else if (sortConfig.key === 'nextRenewalDate') {
-            aValue = new Date(a.nextRenewalDate).getTime();
-            bValue = new Date(b.nextRenewalDate).getTime();
+            aValue = a.nextRenewalDate ? new Date(a.nextRenewalDate).getTime() : 0;
+            bValue = b.nextRenewalDate ? new Date(b.nextRenewalDate).getTime() : 0;
         }
         else {
             aValue = a[sortConfig.key as keyof SubscriptionItem];
