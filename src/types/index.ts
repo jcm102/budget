@@ -116,6 +116,8 @@ export interface MileageLog extends BaseExpense {
   tripType?: TripType;
 }
 
+export type SavingsRecurrence = 'None' | 'Quarterly' | 'Semi-Annually' | 'Annually' | 'Bi-Annually';
+
 export interface SavingsItem {
   id: string;
   name: string;
@@ -124,6 +126,7 @@ export interface SavingsItem {
   totalCost?: number | null; // Optional total cost for the fund
   savingsTarget?: number | null; // Optional personal savings goal if different from totalCost
   dueDate?: string | null; // Optional due date for the fund
+  recurrence?: SavingsRecurrence | null;
   
   // These fields are calculated at runtime for display
   monthlyAmount?: number;

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -52,9 +53,10 @@ import { useSavings } from '@/hooks/use-savings';
 import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
-import { Pencil, Trash2, PlusCircle, ArrowUpDown, DollarSign, MinusCircle, Info } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, ArrowUpDown, DollarSign, MinusCircle, Info, Repeat } from 'lucide-react';
 import { Progress } from './ui/progress';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
+import { Badge } from './ui/badge';
 
 const transactionSchema = z.object({
   amount: z.coerce.number().min(0.01, 'Amount must be greater than zero.'),
@@ -188,18 +190,22 @@ export function SavingsTable() {
 
         // Link to Subscription if not already fully defined
         const subscription = subscriptions.find(s => s.serviceName.toLowerCase() === item.name.toLowerCase());
-        if (subscription && (!item.dueDate || !item.totalCost)) {
+        if (subscription && !item.dueDate) {
             const dueDate = getNextBillingDate(subscription);
+            enhancedItem.dueDate = dueDate.toISOString();
+        }
+        if (subscription && !item.totalCost) {
             enhancedItem.totalCost = item.totalCost ?? subscription.cost;
-            enhancedItem.dueDate = item.dueDate ?? dueDate.toISOString();
         }
         
         // Link to Auto-Ship if not already fully defined
         const autoShip = autoShipItems.find(a => a.item.toLowerCase() === item.name.toLowerCase());
-        if (autoShip && (!item.dueDate || !item.totalCost)) {
+        if (autoShip && !item.dueDate) {
             const dueDate = getNextBillingDate(autoShip);
+            enhancedItem.dueDate = dueDate.toISOString();
+        }
+        if (autoShip && !item.totalCost) {
             enhancedItem.totalCost = item.totalCost ?? autoShip.estimatedCost;
-            enhancedItem.dueDate = item.dueDate ?? dueDate.toISOString();
         }
 
         // Calculate monthly amount if possible
@@ -249,7 +255,7 @@ export function SavingsTable() {
   const renderLoadingSkeleton = () => (
     Array.from({ length: 4 }).map((_, i) => (
       <TableRow key={`skeleton-savings-${i}`}>
-        <TableCell colSpan={7}><Skeleton className="h-10 w-full" /></TableCell>
+        <TableCell colSpan={8}><Skeleton className="h-10 w-full" /></TableCell>
       </TableRow>
     ))
   );
@@ -282,6 +288,7 @@ export function SavingsTable() {
                 <SortableHeader column="totalCost" label="Total Cost" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
                 <SortableHeader column="savingsTarget" label="My Target" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
                 <SortableHeader column="dueDate" label="Due Date" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
+                <SortableHeader column="recurrence" label="Recurrence" sortConfig={sortConfig} requestSort={requestSort} />
                 <SortableHeader column="monthlyAmount" label="Monthly Amount" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
                 <TableHead className="w-[180px] text-right">Actions</TableHead>
               </TableRow>
@@ -310,6 +317,15 @@ export function SavingsTable() {
                                 )}
                             </TableCell>
                              <TableCell className="text-right">{item.dueDate ? format(new Date(item.dueDate), 'PPP') : '-'}</TableCell>
+                             <TableCell>
+                                {item.recurrence && item.recurrence !== 'None' ? (
+                                    <Badge variant="secondary" className="gap-1 items-center">
+                                        <Repeat className="h-3 w-3" /> {item.recurrence}
+                                    </Badge>
+                                ) : (
+                                    <span className="text-muted-foreground">-</span>
+                                )}
+                            </TableCell>
                             <TableCell className="text-right">
                                 <div className='flex items-center justify-end gap-1'>
                                 {item.monthlyAmount ? formatCurrency(item.monthlyAmount) : (item.goal ? formatCurrency(item.goal) : '-')}
@@ -348,7 +364,7 @@ export function SavingsTable() {
                     })
                 ) : (
                     <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
+                    <TableCell colSpan={8} className="h-24 text-center">
                         No funds created yet. Add one to get started!
                     </TableCell>
                     </TableRow>
@@ -356,12 +372,12 @@ export function SavingsTable() {
             </TableBody>
             <TableFooter>
               <TableRow>
-                <TableCell colSpan={5} className="font-semibold text-right">Total Monthly Contribution</TableCell>
+                <TableCell colSpan={6} className="font-semibold text-right">Total Monthly Contribution</TableCell>
                 <TableCell className="text-right font-semibold">{formatCurrency(totalMonthlyContribution)}</TableCell>
                 <TableCell></TableCell>
               </TableRow>
               <TableRow>
-                <TableCell colSpan={5} className="font-semibold text-right">Total Saved</TableCell>
+                <TableCell colSpan={6} className="font-semibold text-right">Total Saved</TableCell>
                 <TableCell className="text-right font-semibold">{formatCurrency(totalAmount)}</TableCell>
                 <TableCell></TableCell>
               </TableRow>

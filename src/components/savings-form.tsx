@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect } from 'react';
@@ -24,7 +25,8 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import type { SavingsItem } from '@/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { SavingsItem, SavingsRecurrence } from '@/types';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Fund name must be at least 2 characters.'),
@@ -33,6 +35,7 @@ const formSchema = z.object({
   totalCost: z.coerce.number().optional(),
   savingsTarget: z.coerce.number().optional(),
   dueDate: z.string().optional(),
+  recurrence: z.enum(['None', 'Quarterly', 'Semi-Annually', 'Annually', 'Bi-Annually']).optional(),
 });
 
 type SavingsFormProps = {
@@ -53,6 +56,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
       totalCost: 0,
       savingsTarget: 0,
       dueDate: '',
+      recurrence: 'None',
     },
   });
   
@@ -93,6 +97,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
           totalCost: editingItem.totalCost || 0,
           savingsTarget: editingItem.savingsTarget || 0,
           dueDate: editingItem.dueDate ? new Date(editingItem.dueDate).toISOString().split('T')[0] : '',
+          recurrence: editingItem.recurrence || 'None',
         });
       } else {
         form.reset({
@@ -102,6 +107,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
           totalCost: 0,
           savingsTarget: 0,
           dueDate: '',
+          recurrence: 'None',
         });
       }
     }
@@ -111,6 +117,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
      const submissionData = {
       ...values,
       dueDate: values.dueDate ? new Date(values.dueDate).toISOString() : undefined,
+      recurrence: values.recurrence as SavingsRecurrence,
     };
     if (editingItem) {
       updateSavingsItem(editingItem.id, submissionData);
@@ -189,6 +196,23 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
                 <FormItem>
                   <FormLabel>Due Date (Optional)</FormLabel>
                   <FormControl><Input type="date" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField control={form.control} name="recurrence" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Recurrence</FormLabel>
+                   <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                    <SelectContent>
+                        <SelectItem value="None">None (One-Time)</SelectItem>
+                        <SelectItem value="Quarterly">Quarterly</SelectItem>
+                        <SelectItem value="Semi-Annually">Semi-Annually</SelectItem>
+                        <SelectItem value="Annually">Annually</SelectItem>
+                        <SelectItem value="Bi-Annually">Bi-Annually</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
