@@ -65,7 +65,7 @@ export function SubscriptionForm({ open, onOpenChange, addSubscription, updateSu
           serviceName: editingItem.serviceName,
           billingFrequency: editingItem.billingFrequency,
           cost: editingItem.cost,
-          nextRenewalDate: new Date(editingItem.nextRenewalDate).toISOString().split('T')[0],
+          nextRenewalDate: editingItem.nextRenewalDate ? new Date(editingItem.nextRenewalDate).toISOString().split('T')[0] : '',
         });
       } else {
         form.reset({
