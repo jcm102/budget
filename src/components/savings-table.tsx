@@ -284,13 +284,13 @@ export function SavingsTable() {
             <TableHeader>
               <TableRow className="group">
                 <SortableHeader column="name" label="Fund Name" sortConfig={sortConfig} requestSort={requestSort} />
-                <SortableHeader column="amount" label="Amount Saved" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
-                <SortableHeader column="totalCost" label="Total Cost" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
-                <SortableHeader column="savingsTarget" label="My Target" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
-                <SortableHeader column="dueDate" label="Due Date" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
-                <SortableHeader column="recurrence" label="Recurrence" sortConfig={sortConfig} requestSort={requestSort} />
-                <SortableHeader column="monthlyAmount" label="Monthly Amount" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
-                <TableHead className="w-[180px] text-right">Actions</TableHead>
+                <SortableHeader column="amount" label="Amount Saved" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[150px]"/>
+                <SortableHeader column="totalCost" label="Total Cost" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[150px]"/>
+                <SortableHeader column="savingsTarget" label="My Target" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[150px]"/>
+                <SortableHeader column="dueDate" label="Due Date" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[150px]"/>
+                <SortableHeader column="recurrence" label="Recurrence" sortConfig={sortConfig} requestSort={requestSort} className="w-[150px]"/>
+                <SortableHeader column="monthlyAmount" label="Monthly Amount" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[160px]"/>
+                <TableHead className="w-[150px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
