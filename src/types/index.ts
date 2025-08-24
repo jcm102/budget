@@ -149,6 +149,7 @@ export interface SubscriptionItem {
   serviceName: string;
   billingFrequency: SubscriptionBillingFrequency;
   cost: number;
+  nextRenewalDate: string; // ISO string
 }
 
 export interface LinkGroup {

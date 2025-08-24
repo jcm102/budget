@@ -3,6 +3,7 @@
 
 import { useState, useMemo } from 'react';
 import { Pencil, Trash2, PlusCircle, ArrowUpDown, PiggyBank } from 'lucide-react';
+import { format } from 'date-fns';
 import type { SubscriptionItem } from '@/types';
 
 import {
@@ -66,7 +67,7 @@ export function SubscriptionTable() {
   const { toast } = useToast();
 
 
-  const requestSort = (key: keyof SubscriptionItem | 'monthlyCost') => {
+  const requestSort = (key: keyof SubscriptionItem | 'monthlyCost' | 'nextRenewalDate') => {
     let direction: 'ascending' | 'descending' = 'ascending';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
       direction = 'descending';
@@ -90,12 +91,16 @@ export function SubscriptionTable() {
     let sortableItems = [...subscriptions];
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
-        let aValue, bValue;
+        let aValue: any, bValue: any;
 
         if (sortConfig.key === 'monthlyCost') {
             aValue = getMonthlyCost(a);
             bValue = getMonthlyCost(b);
-        } else {
+        } else if (sortConfig.key === 'nextRenewalDate') {
+            aValue = new Date(a.nextRenewalDate).getTime();
+            bValue = new Date(b.nextRenewalDate).getTime();
+        }
+        else {
             aValue = a[sortConfig.key as keyof SubscriptionItem];
             bValue = b[sortConfig.key as keyof SubscriptionItem];
         }
@@ -130,7 +135,13 @@ export function SubscriptionTable() {
     if (fundExists) {
       toast({ title: 'Fund Exists', description: `A sinking fund for "${item.serviceName}" already exists.`, variant: 'destructive' });
     } else {
-      addSavingsItem({ name: item.serviceName, amount: 0, goal: getMonthlyCost(item) });
+      addSavingsItem({ 
+          name: item.serviceName, 
+          amount: 0, 
+          goal: getMonthlyCost(item),
+          totalCost: item.cost,
+          dueDate: item.nextRenewalDate,
+        });
       toast({ title: 'Sinking Fund Created', description: `A new sinking fund for "${item.serviceName}" has been added.` });
     }
   };
@@ -142,7 +153,7 @@ export function SubscriptionTable() {
   const renderLoadingSkeleton = () => (
     Array.from({ length: 3 }).map((_, i) => (
       <TableRow key={`skeleton-subscription-${i}`}>
-        <TableCell colSpan={5}><Skeleton className="h-8 w-full" /></TableCell>
+        <TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell>
       </TableRow>
     ))
   );
@@ -177,6 +188,7 @@ export function SubscriptionTable() {
               <TableRow className="group">
                 <SortableHeader column="serviceName" label="Service" sortConfig={sortConfig} requestSort={requestSort} />
                 <SortableHeader column="billingFrequency" label="Billing Frequency" sortConfig={sortConfig} requestSort={requestSort} />
+                <SortableHeader column="nextRenewalDate" label="Next Renewal" sortConfig={sortConfig} requestSort={requestSort} />
                 <SortableHeader column="cost" label="Cost" sortConfig={sortConfig} requestSort={requestSort} className="text-right" />
                 <SortableHeader column="monthlyCost" label="Monthly Cost" sortConfig={sortConfig} requestSort={requestSort} className="text-right" />
                 <TableHead className="w-[140px] text-right">Actions</TableHead>
@@ -190,6 +202,7 @@ export function SubscriptionTable() {
                         <TableRow key={item.id}>
                             <TableCell className="font-medium">{item.serviceName}</TableCell>
                             <TableCell><Badge variant="secondary">{item.billingFrequency}</Badge></TableCell>
+                            <TableCell>{format(new Date(item.nextRenewalDate), 'PPP')}</TableCell>
                             <TableCell className="text-right">{formatCurrency(item.cost)}</TableCell>
                             <TableCell className="text-right">{formatCurrency(getMonthlyCost(item))}</TableCell>
                             <TableCell className="text-right">
@@ -227,7 +240,7 @@ export function SubscriptionTable() {
                     ))
                 ) : (
                     <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
+                    <TableCell colSpan={6} className="h-24 text-center">
                         No subscriptions entered yet. Add one to get started!
                     </TableCell>
                     </TableRow>
@@ -236,12 +249,12 @@ export function SubscriptionTable() {
             {subscriptions.length > 0 && (
                 <TableFooter>
                     <TableRow>
-                        <TableCell colSpan={3} className="font-semibold text-right">Total Monthly Cost</TableCell>
+                        <TableCell colSpan={4} className="font-semibold text-right">Total Monthly Cost</TableCell>
                         <TableCell className="text-right font-semibold">{formatCurrency(totalMonthlyCost)}</TableCell>
                         <TableCell></TableCell>
                     </TableRow>
                     <TableRow>
-                        <TableCell colSpan={3} className="font-semibold text-right">Total Annual Cost</TableCell>
+                        <TableCell colSpan={4} className="font-semibold text-right">Total Annual Cost</TableCell>
                         <TableCell className="text-right font-semibold">{formatCurrency(totalAnnualCost)}</TableCell>
                         <TableCell></TableCell>
                     </TableRow>
