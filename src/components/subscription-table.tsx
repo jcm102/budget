@@ -202,7 +202,7 @@ export function SubscriptionTable() {
                         <TableRow key={item.id}>
                             <TableCell className="font-medium">{item.serviceName}</TableCell>
                             <TableCell><Badge variant="secondary">{item.billingFrequency}</Badge></TableCell>
-                            <TableCell>{format(new Date(item.nextRenewalDate), 'PPP')}</TableCell>
+                            <TableCell>{item.nextRenewalDate ? format(new Date(item.nextRenewalDate), 'PPP') : '-'}</TableCell>
                             <TableCell className="text-right">{formatCurrency(item.cost)}</TableCell>
                             <TableCell className="text-right">{formatCurrency(getMonthlyCost(item))}</TableCell>
                             <TableCell className="text-right">
