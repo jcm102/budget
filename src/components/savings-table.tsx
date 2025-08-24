@@ -184,38 +184,31 @@ export function SavingsTable() {
 
   const enhancedSavingsItems = useMemo(() => {
     return savingsItems.map(item => {
+        const enhancedItem = { ...item };
+
+        // Link to Subscription if not already fully defined
         const subscription = subscriptions.find(s => s.serviceName.toLowerCase() === item.name.toLowerCase());
-        if (subscription) {
+        if (subscription && (!item.dueDate || !item.totalCost)) {
             const dueDate = getNextBillingDate(subscription);
-            return {
-                ...item,
-                totalCost: subscription.cost,
-                dueDate: dueDate.toISOString(),
-                monthlyAmount: calculateMonthlyAmount(subscription.cost, item.amount, dueDate),
-            };
+            enhancedItem.totalCost = item.totalCost ?? subscription.cost;
+            enhancedItem.dueDate = item.dueDate ?? dueDate.toISOString();
         }
         
+        // Link to Auto-Ship if not already fully defined
         const autoShip = autoShipItems.find(a => a.item.toLowerCase() === item.name.toLowerCase());
-        if (autoShip) {
+        if (autoShip && (!item.dueDate || !item.totalCost)) {
             const dueDate = getNextBillingDate(autoShip);
-            return {
-                ...item,
-                totalCost: autoShip.estimatedCost,
-                dueDate: dueDate.toISOString(),
-                monthlyAmount: calculateMonthlyAmount(autoShip.estimatedCost, item.amount, dueDate),
-            };
+            enhancedItem.totalCost = item.totalCost ?? autoShip.estimatedCost;
+            enhancedItem.dueDate = item.dueDate ?? dueDate.toISOString();
         }
 
-        // Handle generic fund with optional totalCost and dueDate
-        if (item.totalCost && item.dueDate) {
-            const dueDate = new Date(item.dueDate);
-            return {
-                ...item,
-                monthlyAmount: calculateMonthlyAmount(item.totalCost, item.amount, dueDate),
-            };
+        // Calculate monthly amount if possible
+        if (enhancedItem.totalCost && enhancedItem.dueDate) {
+            const dueDate = new Date(enhancedItem.dueDate);
+            enhancedItem.monthlyAmount = calculateMonthlyAmount(enhancedItem.totalCost, enhancedItem.amount, dueDate);
         }
 
-        return item; // It's a generic fund with no totals/dates
+        return enhancedItem;
     });
   }, [savingsItems, subscriptions, autoShipItems]);
 
