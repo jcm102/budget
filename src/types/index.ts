@@ -178,3 +178,14 @@ export interface Goal {
   amount: number; // Amount saved towards the goal
   link?: string | null;
 }
+
+export interface CalendarColumn {
+  id: string;
+  payeeId: string;
+}
+
+export interface CalendarRow {
+  id: string;
+  description: string;
+  values: Record<string, number>; // Record<columnId, amount>
+}

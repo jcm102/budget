@@ -9,97 +9,61 @@ import { Trash2, PlusCircle, RotateCcw } from 'lucide-react';
 import { useDebt } from '@/hooks/use-debt';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Skeleton } from './ui/skeleton';
-
-
-type Column = {
-  id: string;
-  payeeId: string; // Now stores the Debt ID
-};
-
-type Row = {
-  id: string;
-  description: string;
-  values: Record<string, number>; // Record<columnId, amount>
-};
+import { usePaymentCalendar } from '@/hooks/use-payment-calendar';
+import type { CalendarColumn, CalendarRow } from '@/types';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { cn } from '@/lib/utils';
+import { buttonVariants } from './ui/button';
 
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 };
 
-export function ReconciliationCalculator() {
+export function PaymentCalendar() {
   const { debts, isLoading: isLoadingDebts } = useDebt();
-  const [columns, setColumns] = useState<Column[]>([]);
-  const [rows, setRows] = useState<Row[]>([
-    { id: crypto.randomUUID(), description: '', values: {} },
-  ]);
-
-  useEffect(() => {
-    // Initialize columns when debts are loaded
-    if (debts.length > 0 && columns.length === 0) {
-      setColumns([
-        { id: crypto.randomUUID(), payeeId: debts[0]?.id || '' },
-        { id: crypto.randomUUID(), payeeId: debts[1]?.id || '' },
-      ].filter(c => c.payeeId)); // Filter out if there's less than 2 debts
-    }
-  }, [debts, columns.length]);
-
-  const handleAddColumn = () => {
-    setColumns([...columns, { id: crypto.randomUUID(), payeeId: '' }]);
-  };
-
-  const handleRemoveColumn = (id: string) => {
-    if (columns.length <= 1) return;
-    setColumns(columns.filter(col => col.id !== id));
-    // Also remove values associated with this column from all rows
-    setRows(rows.map(row => {
-        const newValues = { ...row.values };
-        delete newValues[id];
-        return { ...row, values: newValues };
-    }));
-  };
+  const {
+    columns,
+    rows,
+    isLoading: isLoadingCalendar,
+    updateColumn,
+    addColumn,
+    removeColumn,
+    updateRow,
+    addRow,
+    removeRow,
+    clearAll
+  } = usePaymentCalendar();
 
   const handlePayeeChange = (columnId: string, payeeId: string) => {
-    setColumns(columns.map(col => col.id === columnId ? { ...col, payeeId } : col));
+    const column = columns.find(c => c.id === columnId);
+    if (column) {
+      updateColumn(columnId, { ...column, payeeId });
+    }
   };
 
-
-  const handleAddRow = () => {
-    setRows([...rows, { id: crypto.randomUUID(), description: '', values: {} }]);
-  };
-
-  const handleRemoveRow = (id: string) => {
-    if (rows.length <= 1) return;
-    setRows(rows.filter(row => row.id !== id));
-  };
-  
   const handleRowChange = (rowId: string, field: 'description' | 'value', value: string | number, columnId?: string) => {
-    setRows(rows.map(row => {
-        if (row.id === rowId) {
-            if (field === 'description') {
-                return { ...row, description: String(value) };
-            }
-            if (field === 'value' && columnId) {
-                const newValues = { ...row.values, [columnId]: Number(value) || 0 };
-                return { ...row, values: newValues };
-            }
-        }
-        return row;
-    }));
+    const row = rows.find(r => r.id === rowId);
+    if (!row) return;
+
+    if (field === 'description') {
+        updateRow(rowId, { ...row, description: String(value) });
+    }
+    if (field === 'value' && columnId) {
+        const newValues = { ...row.values, [columnId]: Number(value) || 0 };
+        updateRow(rowId, { ...row, values: newValues });
+    }
   };
 
-  const handleClear = () => {
-     if (debts.length > 0) {
-        setColumns([
-            { id: crypto.randomUUID(), payeeId: debts[0]?.id || '' },
-            { id: crypto.randomUUID(), payeeId: debts[1]?.id || '' },
-        ].filter(c => c.payeeId));
-     } else {
-        setColumns([]);
-     }
-    setRows([
-        { id: crypto.randomUUID(), description: '', values: {} },
-    ]);
-  };
 
   const { columnTotals, grandTotal } = useMemo(() => {
     const totals: Record<string, number> = {};
@@ -124,17 +88,19 @@ export function ReconciliationCalculator() {
     const debt = debts.find(d => d.id === column.payeeId);
     return debt ? debt.name : "Unassigned";
   }
+  
+  const isLoading = isLoadingDebts || isLoadingCalendar;
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Reconciliation Calculator</CardTitle>
+        <CardTitle>Payment Calendar</CardTitle>
         <CardDescription>
-          A temporary tool to calculate payments for reconciliation. Data is not saved.
+          Track credit card transactions here to know what to pay at the end of the week. Data is saved automatically.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4 overflow-x-auto">
-        {isLoadingDebts ? (
+        {isLoading ? (
             <Skeleton className="h-40 w-full" />
         ) : (
             <div className="min-w-max">
@@ -153,13 +119,13 @@ export function ReconciliationCalculator() {
                                     ))}
                                 </SelectContent>
                             </Select>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => handleRemoveColumn(col.id)} disabled={columns.length <= 1}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removeColumn(col.id)} disabled={columns.length <= 1}>
                                <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
                         </div>
                     ))}
                      <div className="col-span-1">
-                        <Button variant="outline" size="sm" onClick={handleAddColumn} className="w-full">
+                        <Button variant="outline" size="sm" onClick={() => addColumn()} className="w-full">
                             <PlusCircle className="mr-2 h-4 w-4" />
                             Column
                         </Button>
@@ -172,8 +138,8 @@ export function ReconciliationCalculator() {
                             <div className="col-span-3">
                                 <Input 
                                     placeholder={`Item ${rowIndex + 1}`}
-                                    value={row.description}
-                                    onChange={(e) => handleRowChange(row.id, 'description', e.target.value)}
+                                    defaultValue={row.description}
+                                    onBlur={(e) => handleRowChange(row.id, 'description', e.target.value)}
                                 />
                             </div>
                              {columns.map(col => (
@@ -181,13 +147,13 @@ export function ReconciliationCalculator() {
                                     <Input
                                         type="number"
                                         placeholder="Amount"
-                                        value={row.values[col.id] || ''}
-                                        onChange={(e) => handleRowChange(row.id, 'value', e.target.value, col.id)}
+                                        defaultValue={row.values[col.id] || ''}
+                                        onBlur={(e) => handleRowChange(row.id, 'value', e.target.value, col.id)}
                                     />
                                 </div>
                             ))}
                              <div className="col-span-1 flex justify-end">
-                                <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handleRemoveRow(row.id)} disabled={rows.length <= 1}>
+                                <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => removeRow(row.id)} disabled={rows.length <= 1}>
                                     <Trash2 className="h-4 w-4 text-destructive" />
                                 </Button>
                             </div>
@@ -197,14 +163,32 @@ export function ReconciliationCalculator() {
             </div>
         )}
          <div className="flex gap-2 pt-4 border-t">
-            <Button variant="outline" onClick={handleAddRow}>
+            <Button variant="outline" onClick={() => addRow()}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Add Row
             </Button>
-             <Button variant="destructive" onClick={handleClear}>
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Clear All
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive">
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Clear All
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete all entries from the payment calendar.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={clearAll} className={cn(buttonVariants({ variant: "destructive" }))}>
+                    Yes, Clear All
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
         </div>
       </CardContent>
       <CardFooter className="flex flex-col items-stretch space-y-2 bg-secondary/50 p-6 rounded-b-lg">
@@ -222,4 +206,3 @@ export function ReconciliationCalculator() {
     </Card>
   );
 }
-
