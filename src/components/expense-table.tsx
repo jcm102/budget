@@ -35,7 +35,7 @@ import { Checkbox } from './ui/checkbox';
 
 type ExpenseTableProps = {
   expenses: Expense[];
-  addExpense: (item: Omit<Expense, 'id'>, callback: (success: boolean) => void) => void;
+  addExpense: (item: Omit<Expense, 'id'>, ledgerAccountId: string | undefined, callback: (success: boolean) => void) => void;
   updateExpense: (id: string, item: Partial<Omit<Expense, 'id'>>) => void;
   deleteExpense: (id: string) => void;
   toggleExpenseCompleted: (id: string, completed: boolean) => void;

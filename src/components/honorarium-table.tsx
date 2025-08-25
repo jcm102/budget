@@ -33,7 +33,7 @@ import { buttonVariants } from './ui/button';
 
 type HonorariumTableProps = {
   honorariums: Honorarium[];
-  addExpense: (item: Omit<Expense, 'id'>, callback: (success: boolean) => void) => void;
+  addExpense: (item: Omit<Expense, 'id'>, ledgerAccountId: string | undefined, callback: (success: boolean) => void) => void;
   updateExpense: (id: string, item: Partial<Omit<Expense, 'id'>>) => void;
   addMileage: (item: Omit<MileageLog, 'id'>) => void;
   updateMileage: (id: string, item: Omit<MileageLog, 'id'>) => void;

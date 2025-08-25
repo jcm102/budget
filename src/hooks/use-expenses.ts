@@ -6,6 +6,7 @@ import type { Expense, MileageLog, Honorarium } from '@/types';
 import { useToast } from './use-toast';
 import * as ExpenseService from '@/services/expense-service';
 import * as MileageService from '@/services/mileage-service';
+import { useAccountLedger } from './use-account-ledger';
 
 export function useExpenses() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -13,6 +14,8 @@ export function useExpenses() {
   const [honorariums, setHonorariums] = useState<Honorarium[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const { fetchItems: fetchLedgerItems } = useAccountLedger();
+
 
   const fetchData = useCallback(async () => {
     try {
@@ -41,21 +44,24 @@ export function useExpenses() {
     fetchData();
   }, [fetchData]);
 
-  const addExpense = useCallback(async (itemData: Omit<Expense, 'id'>, callback: (success: boolean) => void) => {
+  const addExpense = useCallback(async (itemData: Omit<Expense, 'id'>, ledgerAccountId: string | undefined, callback: (success: boolean) => void) => {
     try {
-      await ExpenseService.addExpense(itemData);
+      await ExpenseService.addExpense(itemData, ledgerAccountId);
       await fetchData(); 
+      if(ledgerAccountId) {
+        await fetchLedgerItems(); // refetch ledger if it was updated
+      }
       callback(true);
     } catch (error) {
       console.error('Failed to add expense:', error);
       toast({
         title: 'Error',
-        description: 'Failed to add the new expense.',
+        description: 'Failed to add the new expense and update the fund.',
         variant: 'destructive',
       });
       callback(false);
     }
-  }, [toast, fetchData]);
+  }, [toast, fetchData, fetchLedgerItems]);
 
   const updateExpense = useCallback(async (id: string, itemData: Partial<Omit<Expense, 'id' | 'originalId'>>) => {
     try {

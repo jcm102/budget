@@ -40,6 +40,7 @@ import { calculateDistance } from '@/ai/flows/calculate-distance';
 import { Loader2, Route } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AddressAutocompleteInput } from './address-autocomplete-input';
+import { useAccountLedger } from '@/hooks/use-account-ledger';
 
 const formSchema = z.object({
   expenseType: z.enum(['Monetary', 'Mileage', 'Honorarium']),
@@ -57,6 +58,8 @@ const formSchema = z.object({
   distance: z.coerce.number().optional(),
   rate: z.coerce.number().optional(),
   tripType: z.enum(['One-Way', 'Return']).optional(),
+  // New ledger field
+  ledgerAccountId: z.string().optional(),
 }).refine(data => {
     if (data.expenseType === 'Monetary') {
         return !!data.amount && data.amount > 0 && !!data.category && !!data.transferee && data.reimbursable !== undefined && !!data.frequency;
@@ -87,7 +90,7 @@ const formSchema = z.object({
 type ExpenseFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  addExpense: (item: Omit<Expense, 'id'>, callback: (success: boolean) => void) => void;
+  addExpense: (item: Omit<Expense, 'id'>, ledgerAccountId: string | undefined, callback: (success: boolean) => void) => void;
   updateExpense: (id: string, item: Partial<Omit<Expense, 'id'>>) => void;
   addMileage: (item: Omit<MileageLog, 'id'>) => void;
   updateMileage: (id: string, item: Omit<MileageLog, 'id'>) => void;
@@ -109,6 +112,7 @@ export function ExpenseForm({
 }: ExpenseFormProps) {
   const { categories: workCategories } = useWorkCategories();
   const { transferees } = useTransferees();
+  const { ledgerItems: accountLedgerItems } = useAccountLedger();
   const { mileageRate, isLoading: isRateLoading } = useMileageRate();
   const [isCalculating, setIsCalculating] = useState(false);
   const { toast } = useToast();
@@ -130,12 +134,14 @@ export function ExpenseForm({
       distance: 0,
       rate: 0.50,
       tripType: 'One-Way',
+      ledgerAccountId: '',
     },
   });
 
   const expenseType = form.watch('expenseType');
   const tripType = form.watch('tripType');
   const category = form.watch('category');
+  const isReimbursable = form.watch('reimbursable');
   
   // Set reimbursable to false if category is Church Expense
   useEffect(() => {
@@ -173,6 +179,7 @@ export function ExpenseForm({
           distance: 'distance' in editingItem ? editingItem.distance : 0,
           rate: 'rate' in editingItem ? editingItem.rate : defaultRate,
           tripType: 'tripType' in editingItem ? editingItem.tripType : 'One-Way',
+          ledgerAccountId: '', // Do not support editing ledger withdrawal for now
         });
         if ('distance' in editingItem && editingItem.tripType === 'Return') {
             oneWayDistanceRef.current = editingItem.distance / 2;
@@ -195,6 +202,7 @@ export function ExpenseForm({
           distance: 0,
           rate: defaultRate,
           tripType: 'One-Way',
+          ledgerAccountId: '',
         });
         oneWayDistanceRef.current = null;
       }
@@ -269,7 +277,7 @@ export function ExpenseForm({
             updateExpense(editingItem.id, submissionData);
             onOpenChange(false);
         } else {
-             addExpense(submissionData, (success) => {
+             addExpense(submissionData, values.ledgerAccountId, (success) => {
               if (success) {
                 onOpenChange(false);
               }
@@ -543,6 +551,32 @@ export function ExpenseForm({
                 )}
               />
             )}
+
+            {expenseType === 'Monetary' && isReimbursable && !editingItem && (
+               <FormField
+                  control={form.control}
+                  name="ledgerAccountId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Withdraw from Fund (Optional)</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                          <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a fund to withdraw from" />
+                              </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                              {accountLedgerItems.map(item => (
+                              <SelectItem key={item.id} value={item.id}>{item.name} ({new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(item.amount)})</SelectItem>
+                              ))}
+                          </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+               />
+            )}
+
             <DialogFooter>
               <Button type="submit">{editingItem ? 'Save Changes' : 'Add Expense'}</Button>
             </DialogFooter>

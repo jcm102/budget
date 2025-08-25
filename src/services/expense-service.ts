@@ -2,7 +2,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import type { Expense, MileageLog, Honorarium } from '@/types';
+import type { Expense, MileageLog, Honorarium, AccountLedgerItem } from '@/types';
 import {
   collection,
   getDocs,
@@ -15,9 +15,12 @@ import {
   where,
   writeBatch,
   orderBy,
+  runTransaction,
 } from 'firebase/firestore';
 
 const EXPENSE_COLLECTION = 'expenses';
+const LEDGER_COLLECTION = 'account-ledger-items';
+
 
 export async function getExpenses(status: 'active' | 'archived', archiveKey?: string): Promise<Expense[]> {
   const expenseCollection = collection(db, EXPENSE_COLLECTION);
@@ -54,12 +57,35 @@ export async function getHonorariums(status: 'active' | 'archived', archiveKey?:
 }
 
 
-export async function addExpense(itemData: Omit<Expense, 'id'>): Promise<Expense> {
+export async function addExpense(itemData: Omit<Expense, 'id'>, ledgerAccountId?: string): Promise<Expense> {
   const dataWithStatus = { ...itemData, status: 'active' };
-  const docRef = await addDoc(collection(db, EXPENSE_COLLECTION), dataWithStatus);
-  const docSnap = await getDoc(docRef);
-  return { id: docSnap.id, ...docSnap.data() } as Expense;
+  
+  return runTransaction(db, async (transaction) => {
+    // 1. Create the new expense document
+    const newExpenseRef = doc(collection(db, EXPENSE_COLLECTION));
+    transaction.set(newExpenseRef, dataWithStatus);
+
+    // 2. If a ledger account is specified, update its balance
+    if (ledgerAccountId && itemData.amount > 0) {
+      const ledgerItemRef = doc(db, LEDGER_COLLECTION, ledgerAccountId);
+      const ledgerItemSnap = await transaction.get(ledgerItemRef);
+
+      if (!ledgerItemSnap.exists()) {
+        throw new Error(`Ledger item with id ${ledgerAccountId} not found.`);
+      }
+
+      const ledgerItemData = ledgerItemSnap.data() as AccountLedgerItem;
+      const newBalance = ledgerItemData.amount - itemData.amount;
+      
+      transaction.update(ledgerItemRef, { amount: newBalance });
+    }
+
+    // 3. Return the newly created expense object
+    const docSnap = await transaction.get(newExpenseRef);
+    return { id: docSnap.id, ...docSnap.data() } as Expense;
+  });
 }
+
 
 export async function addHonorarium(itemData: Omit<Honorarium, 'id'>): Promise<Honorarium> {
   const dataWithStatus = { ...itemData, status: 'active' };
