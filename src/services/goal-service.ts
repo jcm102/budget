@@ -19,13 +19,12 @@ import {
 
 const GOAL_COLLECTION = 'goals';
 
-export async function getGoals(accountId: string): Promise<Goal[]> {
+export async function getGoals(): Promise<Goal[]> {
   const goalCollection = collection(db, GOAL_COLLECTION);
-  const q = query(goalCollection, where('accountId', '==', accountId));
+  const q = query(goalCollection, orderBy('name'));
   const querySnapshot = await getDocs(q);
   const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Goal));
-  // Sort items by name client-side to avoid needing a composite index
-  return items.sort((a, b) => a.name.localeCompare(b.name));
+  return items;
 }
 
 export async function addGoal(itemData: Omit<Goal, 'id'>): Promise<Goal> {
@@ -40,7 +39,7 @@ export async function addGoal(itemData: Omit<Goal, 'id'>): Promise<Goal> {
   return { id: docSnap.id, ...(docSnap.data() as Omit<Goal, 'id'>) };
 }
 
-export async function updateGoal(id: string, itemData: Partial<Omit<Goal, 'id' | 'accountId'>>): Promise<void> {
+export async function updateGoal(id: string, itemData: Partial<Omit<Goal, 'id'>>): Promise<void> {
   const itemRef = doc(db, GOAL_COLLECTION, id);
   await updateDoc(itemRef, itemData);
 }

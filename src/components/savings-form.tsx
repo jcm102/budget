@@ -30,6 +30,7 @@ import type { SavingsItem, SavingsRecurrence } from '@/types';
 const formSchema = z.object({
   name: z.string().min(2, 'Fund name must be at least 2 characters.'),
   amount: z.coerce.number().min(0, 'Amount must be a positive number.'),
+  currency: z.enum(['CAD', 'USD']),
   goal: z.coerce.number().optional(), // Monthly contribution goal
   totalCost: z.coerce.number().optional(),
   savingsTarget: z.coerce.number().optional(),
@@ -40,8 +41,8 @@ const formSchema = z.object({
 type SavingsFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  addSavingsItem: (item: Omit<SavingsItem, 'id' | 'accountId'>) => void;
-  updateSavingsItem: (id: string, item: Partial<Omit<SavingsItem, 'id' | 'accountId'>>) => void;
+  addSavingsItem: (item: Omit<SavingsItem, 'id'>) => void;
+  updateSavingsItem: (id: string, item: Partial<Omit<SavingsItem, 'id'>>) => void;
   editingItem: SavingsItem | null;
 };
 
@@ -51,6 +52,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
     defaultValues: {
       name: '',
       amount: 0,
+      currency: 'CAD',
       goal: 0,
       totalCost: 0,
       savingsTarget: 0,
@@ -92,6 +94,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
         form.reset({
           name: editingItem.name,
           amount: editingItem.amount,
+          currency: editingItem.currency || 'CAD',
           goal: editingItem.goal || 0,
           totalCost: editingItem.totalCost || 0,
           savingsTarget: editingItem.savingsTarget || 0,
@@ -102,6 +105,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
         form.reset({
           name: '',
           amount: 0,
+          currency: 'CAD',
           goal: 0,
           totalCost: 0,
           savingsTarget: 0,
@@ -148,6 +152,20 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
                 <FormItem>
                   <FormLabel>Fund Name</FormLabel>
                   <FormControl><Input placeholder="e.g., Car Maintenance" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField control={form.control} name="currency" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Currency</FormLabel>
+                   <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                    <SelectContent>
+                        <SelectItem value="CAD">CAD</SelectItem>
+                        <SelectItem value="USD">USD</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

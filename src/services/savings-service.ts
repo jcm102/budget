@@ -28,12 +28,12 @@ const recurrenceIntervalMap: Record<SavingsRecurrence, number> = {
 };
 
 
-export async function getSavingsItems(accountId: string): Promise<SavingsItem[]> {
+export async function getSavingsItems(): Promise<SavingsItem[]> {
   const savingsCollection = collection(db, SAVINGS_COLLECTION);
-  const q = query(savingsCollection, where('accountId', '==', accountId));
+  const q = query(savingsCollection, orderBy('name'));
   const querySnapshot = await getDocs(q);
   const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SavingsItem));
-  return items.sort((a, b) => a.name.localeCompare(b.name));
+  return items;
 }
 
 export async function addSavingsItem(itemData: Omit<SavingsItem, 'id'>): Promise<SavingsItem> {
@@ -42,7 +42,7 @@ export async function addSavingsItem(itemData: Omit<SavingsItem, 'id'>): Promise
   return { id: docSnap.id, ...(docSnap.data() as Omit<SavingsItem, 'id'>) };
 }
 
-export async function updateSavingsItem(id: string, itemData: Partial<Omit<SavingsItem, 'id' | 'accountId'>>): Promise<void> {
+export async function updateSavingsItem(id: string, itemData: Partial<Omit<SavingsItem, 'id'>>): Promise<void> {
   const itemRef = doc(db, SAVINGS_COLLECTION, id);
   const docSnap = await getDoc(itemRef);
 

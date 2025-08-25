@@ -151,8 +151,8 @@ export function AccountLedgerTable() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+  const formatCurrency = (amount: number, currency: 'CAD' | 'USD' = 'CAD') => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
   };
 
   const requestSort = (key: SortConfig['key']) => {
@@ -195,9 +195,12 @@ export function AccountLedgerTable() {
   );
 
   const ledgerTotal = ledgerItems.reduce((acc, item) => acc + item.amount, 0);
-  const sinkingFundsTotal = savingsItems.reduce((acc, item) => acc + item.amount, 0);
+  const sinkingFundsCadTotal = savingsItems.filter(i => i.currency === 'CAD').reduce((acc, item) => acc + item.amount, 0);
+  const sinkingFundsUsdTotal = savingsItems.filter(i => i.currency === 'USD').reduce((acc, item) => acc + item.amount, 0);
   const goalSavingsTotal = goals.reduce((acc, goal) => acc + goal.amount, 0);
-  const totalAmount = ledgerTotal + sinkingFundsTotal + goalSavingsTotal;
+  
+  const totalCad = ledgerTotal + sinkingFundsCadTotal + goalSavingsTotal;
+
 
   return (
     <>
@@ -272,7 +275,7 @@ export function AccountLedgerTable() {
                         </TableRow>
                         <TableRow className="bg-secondary/50 hover:bg-secondary/70">
                             <TableCell className="font-medium flex items-center gap-2">
-                                Sinking Funds Balance
+                                Sinking Funds Balance (CAD)
                                 <Popover>
                                     <PopoverTrigger asChild>
                                         <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:bg-transparent hover:text-foreground p-0">
@@ -284,7 +287,24 @@ export function AccountLedgerTable() {
                                     </PopoverContent>
                                 </Popover>
                             </TableCell>
-                            <TableCell className="text-right">{formatCurrency(sinkingFundsTotal)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(sinkingFundsCadTotal, 'CAD')}</TableCell>
+                            <TableCell></TableCell>
+                        </TableRow>
+                        <TableRow className="bg-secondary/50 hover:bg-secondary/70">
+                            <TableCell className="font-medium flex items-center gap-2">
+                                Sinking Funds Balance (USD)
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:bg-transparent hover:text-foreground p-0">
+                                            <Info className="h-4 w-4" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-60 text-sm">
+                                        This is the total from your Sinking Funds table and is read-only.
+                                    </PopoverContent>
+                                </Popover>
+                            </TableCell>
+                            <TableCell className="text-right">{formatCurrency(sinkingFundsUsdTotal, 'USD')}</TableCell>
                             <TableCell></TableCell>
                         </TableRow>
                     </>
@@ -299,8 +319,13 @@ export function AccountLedgerTable() {
             </TableBody>
             <TableFooter>
               <TableRow>
-                <TableCell className="font-semibold text-right">Total Balance</TableCell>
-                <TableCell className="text-right font-semibold">{formatCurrency(totalAmount)}</TableCell>
+                <TableCell className="font-semibold text-right">Total CAD Balance</TableCell>
+                <TableCell className="text-right font-semibold">{formatCurrency(totalCad, 'CAD')}</TableCell>
+                <TableCell></TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-semibold text-right">Total USD Balance</TableCell>
+                <TableCell className="text-right font-semibold">{formatCurrency(sinkingFundsUsdTotal, 'USD')}</TableCell>
                 <TableCell></TableCell>
               </TableRow>
             </TableFooter>

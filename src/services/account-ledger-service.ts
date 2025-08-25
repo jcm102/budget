@@ -18,12 +18,12 @@ import {
 
 const LEDGER_COLLECTION = 'account-ledger-items';
 
-export async function getLedgerItems(accountId: string): Promise<AccountLedgerItem[]> {
+export async function getLedgerItems(): Promise<AccountLedgerItem[]> {
   const ledgerCollection = collection(db, LEDGER_COLLECTION);
-  const q = query(ledgerCollection, where('accountId', '==', accountId));
+  const q = query(ledgerCollection, orderBy('name'));
   const querySnapshot = await getDocs(q);
   const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccountLedgerItem));
-  return items.sort((a, b) => a.name.localeCompare(b.name));
+  return items;
 }
 
 export async function addLedgerItem(itemData: Omit<AccountLedgerItem, 'id'>): Promise<AccountLedgerItem> {
@@ -32,7 +32,7 @@ export async function addLedgerItem(itemData: Omit<AccountLedgerItem, 'id'>): Pr
   return { id: docSnap.id, ...(docSnap.data() as Omit<AccountLedgerItem, 'id'>) };
 }
 
-export async function updateLedgerItem(id: string, itemData: Partial<Omit<AccountLedgerItem, 'id' | 'accountId'>>): Promise<void> {
+export async function updateLedgerItem(id: string, itemData: Partial<Omit<AccountLedgerItem, 'id'>>): Promise<void> {
   const itemRef = doc(db, LEDGER_COLLECTION, id);
   await updateDoc(itemRef, itemData);
 }

@@ -33,8 +33,8 @@ const formSchema = z.object({
 type AccountLedgerFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  addItem: (item: Omit<AccountLedgerItem, 'id' | 'accountId'>) => void;
-  updateItem: (id: string, item: Partial<Omit<AccountLedgerItem, 'id' | 'accountId'>>) => void;
+  addItem: (item: Omit<AccountLedgerItem, 'id'>) => void;
+  updateItem: (id: string, item: Partial<Omit<AccountLedgerItem, 'id'>>) => void;
   editingItem: AccountLedgerItem | null;
 };
 

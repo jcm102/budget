@@ -36,8 +36,8 @@ const formSchema = z.object({
 type GoalFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  addGoal: (item: Omit<Goal, 'id' | 'accountId'>) => void;
-  updateGoal: (id: string, item: Partial<Omit<Goal, 'id' | 'accountId'>>) => void;
+  addGoal: (item: Omit<Goal, 'id'>) => void;
+  updateGoal: (id: string, item: Partial<Omit<Goal, 'id'>>) => void;
   editingItem: Goal | null;
 };
 
@@ -83,7 +83,7 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
     if (editingItem) {
       updateGoal(editingItem.id, submissionData);
     } else {
-      addGoal(submissionData as Omit<Goal, 'id' | 'accountId'>);
+      addGoal(submissionData as Omit<Goal, 'id'>);
     }
     onOpenChange(false);
   }
