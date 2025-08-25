@@ -222,7 +222,7 @@ export default function ExpensesPage() {
     const otherSectionRowIndex = creditCardHeaderRowIndex + creditCardRows.length + 2;
     const otherHeaderRowIndex = otherSectionRowIndex + 1;
      if (ws[`A${otherSectionRowIndex + 1}`]) ws[`A${otherSectionRowIndex + 1}`].s = sectionHeaderStyle;
-    applyHeaderStyles(otherHeaderRowIndex, otherHeaderReimbursableHeader);
+    applyHeaderStyles(otherHeaderRowIndex, otherReimbursableHeader);
     
     XLSX.utils.book_append_sheet(wb, ws, 'Work Expenses');
     XLSX.writeFile(wb, `work-expenses-${monthName.replace(/\s+/g, '-')}.xlsx`);
