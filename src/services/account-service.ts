@@ -32,14 +32,17 @@ async function seedDefaultAccount() {
 
 async function migrateOrphanedItems(defaultAccountId: string) {
     const batch = writeBatch(db);
-
     const collectionsToMigrate = [SINKING_FUNDS_COLLECTION, GOALS_COLLECTION, LEDGER_ITEMS_COLLECTION];
 
     for (const coll of collectionsToMigrate) {
-        const q = query(collection(db, coll), where('accountId', '==', null));
-        const snapshot = await getDocs(q);
-        snapshot.forEach(docSnap => {
-            batch.update(docSnap.ref, { accountId: defaultAccountId });
+        // Fetch all documents in the collection and filter client-side
+        const allDocsSnapshot = await getDocs(collection(db, coll));
+        allDocsSnapshot.forEach(docSnap => {
+            const data = docSnap.data();
+            // If accountId field does not exist, it's an orphan
+            if (!data.accountId) {
+                batch.update(docSnap.ref, { accountId: defaultAccountId });
+            }
         });
     }
     await batch.commit();
