@@ -91,6 +91,8 @@ export function PaymentCalendar() {
   
   const isLoading = isLoadingDebts || isLoadingCalendar;
 
+  const gridTemplateColumns = `minmax(0, 3fr) repeat(${columns.length}, minmax(0, 2fr)) minmax(0, 1fr)`;
+
   return (
     <Card>
       <CardHeader>
@@ -99,16 +101,15 @@ export function PaymentCalendar() {
           Track credit card transactions here to know what to pay at the end of the week. Data is saved automatically.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4 overflow-x-auto">
+      <CardContent className="space-y-4">
         {isLoading ? (
             <Skeleton className="h-40 w-full" />
         ) : (
-            <div className="min-w-max">
-                {/* Column Headers */}
-                <div className="grid grid-cols-12 gap-2 items-center pb-2 border-b">
-                    <div className="col-span-3 font-medium">Description</div>
+            <div className="overflow-x-auto">
+                <div style={{ display: 'grid', gridTemplateColumns: gridTemplateColumns, minWidth: '700px' }} className="gap-2 items-center pb-2 border-b">
+                    <div className="font-medium">Description</div>
                     {columns.map(col => (
-                        <div key={col.id} className="col-span-2 flex items-center gap-1">
+                        <div key={col.id} className="flex items-center gap-1">
                              <Select onValueChange={(payeeId) => handlePayeeChange(col.id, payeeId)} value={col.payeeId}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select Payee" />
@@ -124,7 +125,7 @@ export function PaymentCalendar() {
                             </Button>
                         </div>
                     ))}
-                     <div className="col-span-1">
+                     <div>
                         <Button variant="outline" size="sm" onClick={() => addColumn()} className="w-full">
                             <PlusCircle className="mr-2 h-4 w-4" />
                             Column
@@ -132,10 +133,10 @@ export function PaymentCalendar() {
                     </div>
                 </div>
                 {/* Rows Section */}
-                <div className="space-y-2 mt-2">
+                <div className="space-y-2 mt-2" style={{ minWidth: '700px' }}>
                     {rows.map((row, rowIndex) => (
-                        <div key={row.id} className="grid grid-cols-12 gap-2 items-center">
-                            <div className="col-span-3">
+                        <div key={row.id} style={{ display: 'grid', gridTemplateColumns: gridTemplateColumns }} className="gap-2 items-center">
+                            <div>
                                 <Input 
                                     placeholder={`Item ${rowIndex + 1}`}
                                     defaultValue={row.description}
@@ -143,7 +144,7 @@ export function PaymentCalendar() {
                                 />
                             </div>
                              {columns.map(col => (
-                                <div key={col.id} className="col-span-2">
+                                <div key={col.id}>
                                     <Input
                                         type="number"
                                         placeholder="Amount"
@@ -152,7 +153,7 @@ export function PaymentCalendar() {
                                     />
                                 </div>
                             ))}
-                             <div className="col-span-1 flex justify-end">
+                             <div className="flex justify-end">
                                 <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => removeRow(row.id)} disabled={rows.length <= 1}>
                                     <Trash2 className="h-4 w-4 text-destructive" />
                                 </Button>
