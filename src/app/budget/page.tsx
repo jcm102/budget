@@ -3,8 +3,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { BudgetTable } from '@/components/budget-table';
-import { ArrowLeft, RefreshCw, Trash2, Printer, ChevronsUpDown } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Trash2, Printer, ChevronsUpDown, Banknote, Wallet, Clock, ArrowRightLeft } from 'lucide-react';
 import { useBudget } from '@/hooks/use-budget';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
@@ -24,10 +23,16 @@ import { buttonVariants } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { PaymentCalendar } from '@/components/payment-calendar';
 import { useDebt } from '@/hooks/use-debt';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { IncomeTable } from '@/components/income-table';
+import { DebtPaymentsTable } from '@/components/debt-payments-table';
+import { PaPaymentsTable } from '@/components/pa-payments-table';
+import { TransfersTable } from '@/components/transfers-table';
+import { Skeleton } from '@/components/ui/skeleton';
+
 
 export default function BudgetPage() {
-  const { syncDebtPayments, clearDebtPayments } = useBudget();
-  const { debts } = useDebt(); // Fetch debts
+  const { budgetItems, syncDebtPayments, clearDebtPayments, isLoading } = useBudget();
   const { toast } = useToast();
   const [isSyncing, setIsSyncing] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
@@ -76,6 +81,25 @@ export default function BudgetPage() {
     window.print();
   }
 
+  const totalIncome = budgetItems.filter(i => i.type === 'Income').reduce((acc, i) => acc + i.amount, 0);
+  const totalDebtPayments = budgetItems.filter(i => i.type === 'Debt Payments').reduce((acc, i) => acc + i.amount, 0);
+  const remainingPAPayments = budgetItems
+    .filter(i => i.type === 'Pre-Authorized Payments' && !i.completed)
+    .reduce((acc, i) => acc + i.amount, 0);
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+  };
+
+  const renderSummarySkeleton = () => (
+    Array.from({ length: 3 }).map((_, i) => (
+      <div key={i} className="p-4 border rounded-lg bg-card">
+        <Skeleton className="h-5 w-24 mb-2" />
+        <Skeleton className="h-7 w-32" />
+      </div>
+    ))
+  );
+
   return (
     <div className="container mx-auto max-w-6xl p-4 md:p-8">
       <header className="mb-8 flex justify-between items-center no-print">
@@ -119,7 +143,49 @@ export default function BudgetPage() {
         </div>
       </header>
       <main className="space-y-8">
-        <BudgetTable />
+        <div>
+            <h2 className="text-3xl font-bold font-headline text-primary mb-6">Budget Overview</h2>
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                {isLoading ? renderSummarySkeleton() : (
+                    <>
+                        <div className="p-4 border rounded-lg bg-card">
+                            <h4 className="text-muted-foreground">Total Income</h4>
+                            <p className="text-2xl font-semibold">{formatCurrency(totalIncome)}</p>
+                        </div>
+                        <div className="p-4 border rounded-lg bg-card">
+                            <h4 className="text-muted-foreground">Total Debt Payments</h4>
+                            <p className="text-2xl font-semibold">{formatCurrency(totalDebtPayments)}</p>
+                        </div>
+                        <div className="p-4 border rounded-lg bg-card">
+                            <h4 className="text-muted-foreground">Remaining PA Payments</h4>
+                            <p className="text-2xl font-semibold">{formatCurrency(remainingPAPayments)}</p>
+                        </div>
+                    </>
+                )}
+            </div>
+
+             <Tabs defaultValue="income" className="w-full">
+                <TabsList className="grid w-full grid-cols-4 bg-secondary/50 mb-6 no-print h-auto">
+                    <TabsTrigger value="income" className="py-2"><Banknote className="mr-2 h-4 w-4"/>Income</TabsTrigger>
+                    <TabsTrigger value="debt" className="py-2"><Wallet className="mr-2 h-4 w-4"/>Debt Payments</TabsTrigger>
+                    <TabsTrigger value="pa" className="py-2"><Clock className="mr-2 h-4 w-4"/>PA Payments</TabsTrigger>
+                    <TabsTrigger value="transfers" className="py-2"><ArrowRightLeft className="mr-2 h-4 w-4"/>Transfers</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="income">
+                    <IncomeTable />
+                </TabsContent>
+                <TabsContent value="debt">
+                    <DebtPaymentsTable />
+                </TabsContent>
+                <TabsContent value="pa">
+                    <PaPaymentsTable />
+                </TabsContent>
+                <TabsContent value="transfers">
+                    <TransfersTable />
+                </TabsContent>
+            </Tabs>
+        </div>
         <Collapsible>
             <CollapsibleTrigger asChild>
                 <Button variant="ghost" className="flex items-center gap-2 pl-0 hover:bg-transparent text-2xl font-bold font-headline text-primary mb-4 no-print">
