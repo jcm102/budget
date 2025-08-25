@@ -51,7 +51,7 @@ export function useAccountLedger() {
     setLedgerItems(prev => prev.map(item => (item.id === id ? { ...item, ...itemData } as AccountLedgerItem : item)));
     try {
       await AccountLedgerService.updateLedgerItem(id, itemData);
-      await fetchItems(); // refetch to be safe
+      // No full refetch needed for optimistic updates unless there's a server-side change we need
     } catch (error) {
       console.error('Failed to update ledger item:', error);
       setLedgerItems(originalItems);
@@ -61,7 +61,7 @@ export function useAccountLedger() {
         variant: 'destructive',
       });
     }
-  }, [ledgerItems, toast, fetchItems]);
+  }, [ledgerItems, toast]);
 
   const deleteItem = useCallback(async (id: string) => {
     const originalItems = ledgerItems;

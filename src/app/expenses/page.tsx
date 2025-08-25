@@ -333,7 +333,7 @@ export default function ExpensesPage() {
                 <p className="text-2xl font-semibold">{formatCurrency(honorariumTotal)}</p>
             </div>
              <div className="p-4 border rounded-lg bg-card">
-                <h4 className="text-muted-foreground">Reimbursable Fund Balance</h4>
+                <h4 className="text-muted-foreground">Honorarium Fund Balance</h4>
                 <p className="text-2xl font-semibold">{formatCurrency(honorariumFundBalance)}</p>
             </div>
             <div className="p-4 border rounded-lg bg-card">
