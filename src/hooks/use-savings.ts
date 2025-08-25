@@ -7,6 +7,7 @@ import { useToast } from './use-toast';
 import * as SavingsService from '@/services/savings-service';
 import * as SubscriptionService from '@/services/subscription-service';
 import * as AutoShipService from '@/services/autoship-service';
+import { useSelectedAccount } from './use-selected-account';
 
 export function useSavings() {
   const [savingsItems, setSavingsItems] = useState<SavingsItem[]>([]);
@@ -14,8 +15,21 @@ export function useSavings() {
   const [autoShipItems, setAutoShipItems] = useState<AutoShipItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const { selectedAccountId } = useSelectedAccount();
 
   const fetchAllData = useCallback(async () => {
+    if (!selectedAccountId) {
+      setIsLoading(false);
+      setSavingsItems([]);
+      // we still need subscriptions and autoships for linking
+      const [fetchedSubscriptions, fetchedAutoShips] = await Promise.all([
+        SubscriptionService.getSubscriptions(),
+        AutoShipService.getAutoShipItems(),
+      ]);
+      setSubscriptions(fetchedSubscriptions);
+      setAutoShipItems(fetchedAutoShips);
+      return;
+    }
     try {
       setIsLoading(true);
       const [
@@ -23,7 +37,7 @@ export function useSavings() {
         fetchedSubscriptions, 
         fetchedAutoShips
       ] = await Promise.all([
-        SavingsService.getSavingsItems(),
+        SavingsService.getSavingsItems(selectedAccountId),
         SubscriptionService.getSubscriptions(),
         AutoShipService.getAutoShipItems(),
       ]);
@@ -40,15 +54,19 @@ export function useSavings() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, selectedAccountId]);
 
   useEffect(() => {
     fetchAllData();
   }, [fetchAllData]);
 
-  const addSavingsItem = useCallback(async (itemData: Omit<SavingsItem, 'id'>) => {
+  const addSavingsItem = useCallback(async (itemData: Omit<SavingsItem, 'id' | 'accountId'>) => {
+    if (!selectedAccountId) {
+      toast({ title: 'Error', description: 'No account selected.', variant: 'destructive' });
+      return;
+    }
     try {
-      const newItem = await SavingsService.addSavingsItem(itemData);
+      const newItem = await SavingsService.addSavingsItem({ ...itemData, accountId: selectedAccountId });
       setSavingsItems(prev => [...prev, newItem].sort((a, b) => a.name.localeCompare(b.name)));
     } catch (error) {
       console.error('Failed to add savings item:', error);
@@ -58,9 +76,9 @@ export function useSavings() {
         variant: 'destructive',
       });
     }
-  }, [toast]);
+  }, [toast, selectedAccountId]);
 
-  const updateSavingsItem = useCallback(async (id: string, itemData: Partial<Omit<SavingsItem, 'id'>>) => {
+  const updateSavingsItem = useCallback(async (id: string, itemData: Partial<Omit<SavingsItem, 'id' | 'accountId'>>) => {
     const originalItems = savingsItems;
     setSavingsItems(prev => prev.map(item => (item.id === id ? { ...item, ...itemData } as SavingsItem : item)));
     try {

@@ -4,17 +4,33 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { SavingsTable } from '@/components/savings-table';
-import { ArrowLeft, Printer, PiggyBank, Landmark, Truck, Repeat, Star } from 'lucide-react';
+import { ArrowLeft, Printer, PiggyBank, Landmark, Truck, Repeat, Star, ChevronsUpDown } from 'lucide-react';
 import { GoalTable } from '@/components/goal-table';
 import { AutoShipTable } from '@/components/autoship-table';
 import { SubscriptionTable } from '@/components/subscription-table';
 import { AccountLedgerTable } from '@/components/account-ledger-table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useSelectedAccount } from '@/hooks/use-selected-account';
+import { useAccounts } from '@/hooks/use-accounts';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Skeleton } from '@/components/ui/skeleton';
+
 
 export default function SavingsPage() {
   const handlePrint = () => {
     window.print();
   };
+
+  const { selectedAccountId, setSelectedAccountId } = useSelectedAccount();
+  const { accounts, isLoading: isLoadingAccounts } = useAccounts();
+
+  const selectedAccountName = accounts.find(a => a.id === selectedAccountId)?.name || 'Loading...';
 
   return (
     <div className="container mx-auto max-w-7xl p-4 md:p-8">
@@ -29,6 +45,22 @@ export default function SavingsPage() {
             <h1 className="text-3xl font-bold font-headline text-primary hidden md:block">
                 Future Spending
             </h1>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                 <Button variant="outline" className="w-[200px] justify-between">
+                    {isLoadingAccounts ? <Skeleton className="h-5 w-24" /> : <span>{selectedAccountName}</span>}
+                    <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                 </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-[200px]">
+                <DropdownMenuRadioGroup value={selectedAccountId} onValueChange={setSelectedAccountId}>
+                    {accounts.map(account => (
+                        <DropdownMenuRadioItem key={account.id} value={account.id}>{account.name}</DropdownMenuRadioItem>
+                    ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Button variant="outline" onClick={handlePrint}>
                 <Printer className="mr-2 h-4 w-4" />
                 Print
@@ -48,7 +80,7 @@ export default function SavingsPage() {
           <TabsContent value="ledger">
             <h2 className="text-2xl font-bold font-headline text-primary mb-4">Account Ledger</h2>
             <p className="text-muted-foreground mb-6 max-w-2xl">
-              This is the master ledger for your future spending account (e.g., EQ Bank). It includes balances from your sinking funds and goals.
+              This is the master ledger for your future spending account. It includes balances from your sinking funds and goals for this account.
             </p>
             <AccountLedgerTable />
           </TabsContent>
@@ -56,7 +88,7 @@ export default function SavingsPage() {
           <TabsContent value="goals">
              <h2 className="text-2xl font-bold font-headline text-primary mb-4">Goal Savings</h2>
               <p className="text-muted-foreground mb-6 max-w-2xl">
-                Track savings for specific, tangible goals. The money saved here is kept separate from your sinking funds for needs.
+                Track savings for specific, tangible goals within this account.
               </p>
             <GoalTable />
           </TabsContent>

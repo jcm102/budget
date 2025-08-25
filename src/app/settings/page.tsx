@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -9,6 +10,7 @@ import { MileageRateManager } from '@/components/mileage-rate-manager';
 import { WorkCategoryManager } from '@/components/work-category-manager';
 import { LinkGroupManager } from '@/components/link-group-manager';
 import { PersonManager } from '@/components/person-manager';
+import { AccountManager } from '@/components/account-manager';
 
 export default function SettingsPage() {
   return (
@@ -25,6 +27,7 @@ export default function SettingsPage() {
         <div>
           <h1 className="text-3xl font-bold font-headline text-primary mb-6">Settings</h1>
           <div className="space-y-4">
+            <AccountManager />
             <PersonManager />
             <IncomeCategoryManager />
             <WorkCategoryManager />

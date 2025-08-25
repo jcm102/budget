@@ -13,6 +13,7 @@ import {
   addDoc,
   getDoc,
   orderBy,
+  where,
 } from 'firebase/firestore';
 import { addMonths } from 'date-fns';
 
@@ -27,9 +28,9 @@ const recurrenceIntervalMap: Record<SavingsRecurrence, number> = {
 };
 
 
-export async function getSavingsItems(): Promise<SavingsItem[]> {
+export async function getSavingsItems(accountId: string): Promise<SavingsItem[]> {
   const savingsCollection = collection(db, SAVINGS_COLLECTION);
-  const q = query(savingsCollection, orderBy('name'));
+  const q = query(savingsCollection, where('accountId', '==', accountId), orderBy('name'));
   const querySnapshot = await getDocs(q);
   const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SavingsItem));
   return items;
@@ -41,7 +42,7 @@ export async function addSavingsItem(itemData: Omit<SavingsItem, 'id'>): Promise
   return { id: docSnap.id, ...(docSnap.data() as Omit<SavingsItem, 'id'>) };
 }
 
-export async function updateSavingsItem(id: string, itemData: Partial<Omit<SavingsItem, 'id'>>): Promise<void> {
+export async function updateSavingsItem(id: string, itemData: Partial<Omit<SavingsItem, 'id' | 'accountId'>>): Promise<void> {
   const itemRef = doc(db, SAVINGS_COLLECTION, id);
   const docSnap = await getDoc(itemRef);
 

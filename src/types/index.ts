@@ -127,6 +127,7 @@ export interface SavingsItem {
   savingsTarget?: number | null; // Optional personal savings goal if different from totalCost
   dueDate?: string | null; // Optional due date for the fund
   recurrence?: SavingsRecurrence | null;
+  accountId: string;
   
   // These fields are calculated at runtime for display
   monthlyAmount?: number;
@@ -137,6 +138,7 @@ export interface AccountLedgerItem {
   id: string;
   name: string;
   amount: number;
+  accountId: string;
 }
 
 export type AutoShipFrequency = 'Monthly' | 'Every 2 Months' | 'Every 3 Months' | 'Every 4 Months' | 'Every 6 Months';
@@ -177,6 +179,7 @@ export interface Goal {
   cost: number;
   amount: number; // Amount saved towards the goal
   link?: string | null;
+  accountId: string;
 }
 
 export interface CalendarColumn {
@@ -188,4 +191,9 @@ export interface CalendarRow {
   id: string;
   description: string;
   values: Record<string, number>; // Record<columnId, amount>
+}
+
+export interface Account {
+  id: string;
+  name: string;
 }

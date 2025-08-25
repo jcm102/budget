@@ -5,16 +5,23 @@ import { useState, useEffect, useCallback } from 'react';
 import type { AccountLedgerItem } from '@/types';
 import { useToast } from './use-toast';
 import * as AccountLedgerService from '@/services/account-ledger-service';
+import { useSelectedAccount } from './use-selected-account';
 
 export function useAccountLedger() {
   const [ledgerItems, setLedgerItems] = useState<AccountLedgerItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const { selectedAccountId } = useSelectedAccount();
 
   const fetchItems = useCallback(async () => {
+    if (!selectedAccountId) {
+      setIsLoading(false);
+      setLedgerItems([]);
+      return;
+    };
     try {
       setIsLoading(true);
-      const fetchedItems = await AccountLedgerService.getLedgerItems();
+      const fetchedItems = await AccountLedgerService.getLedgerItems(selectedAccountId);
       setLedgerItems(fetchedItems);
     } catch (error) {
       console.error('Failed to load ledger items:', error);
@@ -26,15 +33,19 @@ export function useAccountLedger() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, selectedAccountId]);
 
   useEffect(() => {
     fetchItems();
   }, [fetchItems]);
 
-  const addItem = useCallback(async (itemData: Omit<AccountLedgerItem, 'id'>) => {
+  const addItem = useCallback(async (itemData: Omit<AccountLedgerItem, 'id' | 'accountId'>) => {
+    if (!selectedAccountId) {
+        toast({ title: 'Error', description: 'No account selected.', variant: 'destructive' });
+        return;
+    }
     try {
-      const newItem = await AccountLedgerService.addLedgerItem(itemData);
+      const newItem = await AccountLedgerService.addLedgerItem({ ...itemData, accountId: selectedAccountId });
       setLedgerItems(prev => [...prev, newItem].sort((a, b) => a.name.localeCompare(b.name)));
     } catch (error) {
       console.error('Failed to add ledger item:', error);
@@ -44,9 +55,9 @@ export function useAccountLedger() {
         variant: 'destructive',
       });
     }
-  }, [toast]);
+  }, [toast, selectedAccountId]);
 
-  const updateItem = useCallback(async (id: string, itemData: Partial<Omit<AccountLedgerItem, 'id'>>) => {
+  const updateItem = useCallback(async (id: string, itemData: Partial<Omit<AccountLedgerItem, 'id' | 'accountId'>>) => {
     const originalItems = ledgerItems;
     setLedgerItems(prev => prev.map(item => (item.id === id ? { ...item, ...itemData } as AccountLedgerItem : item)));
     try {

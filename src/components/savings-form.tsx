@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useEffect } from 'react';
@@ -41,8 +40,8 @@ const formSchema = z.object({
 type SavingsFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  addSavingsItem: (item: Omit<SavingsItem, 'id'>) => void;
-  updateSavingsItem: (id: string, item: Partial<Omit<SavingsItem, 'id'>>) => void;
+  addSavingsItem: (item: Omit<SavingsItem, 'id' | 'accountId'>) => void;
+  updateSavingsItem: (id: string, item: Partial<Omit<SavingsItem, 'id' | 'accountId'>>) => void;
   editingItem: SavingsItem | null;
 };
 
