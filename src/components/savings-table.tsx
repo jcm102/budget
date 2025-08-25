@@ -57,6 +57,7 @@ import { Pencil, Trash2, PlusCircle, ArrowUpDown, DollarSign, MinusCircle, Info,
 import { Progress } from './ui/progress';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
 import { Badge } from './ui/badge';
+import { useExchangeRate } from '@/hooks/use-exchange-rate';
 
 const transactionSchema = z.object({
   amount: z.coerce.number().min(0.01, 'Amount must be greater than zero.'),
@@ -123,7 +124,7 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
     <TableHead className={className}>
       <Button variant="ghost" onClick={() => requestSort(column)}>
         {label}
-        {isSorted && <ArrowUpDown className={'ml-2 h-4 w-4 transform ${direction === \'descending\' ? \'rotate-180\' : \'\'}'} />}
+        {isSorted && <ArrowUpDown className={'ml-2 h-4 w-4 transform ${direction === 'descending' ? 'rotate-180' : ''}'} />}
         {!isSorted && <ArrowUpDown className="ml-2 h-4 w-4 opacity-0 group-hover:opacity-50" />}
       </Button>
     </TableHead>
@@ -150,12 +151,16 @@ export function SavingsTable() {
     addSavingsItem, 
     updateSavingsItem, 
     deleteSavingsItem, 
-    isLoading 
+    isLoading: isLoadingSavings 
   } = useSavings();
+  
+  const { exchangeRate, isLoading: isLoadingRate } = useExchangeRate();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<SavingsItem | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
+
+  const isLoading = isLoadingSavings || isLoadingRate;
 
   const handleEdit = (item: SavingsItem) => {
     setEditingItem(item);
@@ -169,8 +174,8 @@ export function SavingsTable() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+  const formatCurrency = (amount: number, currency: 'CAD' | 'USD' = 'CAD') => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
   };
   
   const calculateMonthlyAmount = (totalCost: number, amountSaved: number, dueDate: Date): number => {
@@ -260,8 +265,15 @@ export function SavingsTable() {
     ))
   );
 
-  const totalAmount = savingsItems.reduce((acc, item) => acc + item.amount, 0);
-  const totalMonthlyContribution = sortedItems.reduce((acc, item) => acc + (item.monthlyAmount || item.goal || 0), 0);
+  const totalCadSaved = savingsItems.filter(i => i.currency === 'CAD').reduce((acc, item) => acc + item.amount, 0);
+  const totalUsdSaved = savingsItems.filter(i => i.currency === 'USD').reduce((acc, item) => acc + item.amount, 0);
+  
+  const totalMonthlyContribution = sortedItems.reduce((acc, item) => {
+    const monthlyAmt = item.monthlyAmount || item.goal || 0;
+    const rate = exchangeRate || 1.0;
+    const convertedAmt = item.currency === 'USD' ? monthlyAmt * rate : monthlyAmt;
+    return acc + convertedAmt;
+  }, 0);
 
   return (
     <>
@@ -300,15 +312,20 @@ export function SavingsTable() {
                     sortedItems.map((item) => {
                         const costToUse = (item.savingsTarget && item.savingsTarget > 0) ? item.savingsTarget : item.totalCost;
                         const progress = costToUse && costToUse > 0 ? (item.amount / costToUse) * 100 : 0;
+                        
+                        const monthlyAmount = item.monthlyAmount || item.goal || 0;
+                        const isUsd = item.currency === 'USD';
+                        const convertedMonthlyAmount = isUsd ? monthlyAmount * (exchangeRate || 1) : monthlyAmount;
+
                         return (
                         <TableRow key={item.id}>
                             <TableCell className="font-medium">{item.name}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(item.amount)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(item.amount, item.currency)}</TableCell>
                             <TableCell className="text-right">
-                                {item.totalCost ? formatCurrency(item.totalCost) : '-'}
+                                {item.totalCost ? formatCurrency(item.totalCost, item.currency) : '-'}
                             </TableCell>
                             <TableCell className="text-right">
-                                {item.savingsTarget ? formatCurrency(item.savingsTarget) : '-'}
+                                {item.savingsTarget ? formatCurrency(item.savingsTarget, item.currency) : '-'}
                                 {costToUse && costToUse > 0 && (
                                     <div className="flex items-center justify-end gap-2 mt-1">
                                          <Progress value={progress} className="w-[60%]" aria-label={`${Math.round(progress)}% funded`} />
@@ -328,17 +345,23 @@ export function SavingsTable() {
                             </TableCell>
                             <TableCell className="text-right">
                                 <div className='flex items-center justify-end gap-1'>
-                                {item.monthlyAmount ? formatCurrency(item.monthlyAmount) : (item.goal ? formatCurrency(item.goal) : '-')}
-                                {item.monthlyAmount && (
+                                {monthlyAmount > 0 && (
+                                  <>
+                                    {formatCurrency(convertedMonthlyAmount, 'CAD')}
                                     <Popover>
                                         <PopoverTrigger asChild>
                                             <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground"><Info className="h-3 w-3" /></Button>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-60 text-xs">
-                                            This is the calculated amount needed each month to be fully funded one month before the due date.
+                                            {isUsd 
+                                              ? `This is the calculated monthly amount of ${formatCurrency(monthlyAmount, 'USD')} converted to CAD at a rate of ${exchangeRate}.`
+                                              : 'This is the calculated monthly amount needed to be fully funded one month before the due date.'
+                                            }
                                         </PopoverContent>
                                     </Popover>
+                                  </>
                                 )}
+                                {monthlyAmount <= 0 && '-'}
                                 </div>
                             </TableCell>
                             <TableCell className="text-right">
@@ -372,13 +395,18 @@ export function SavingsTable() {
             </TableBody>
             <TableFooter>
               <TableRow>
-                <TableCell colSpan={6} className="font-semibold text-right">Total Monthly Contribution</TableCell>
-                <TableCell className="text-right font-semibold">{formatCurrency(totalMonthlyContribution)}</TableCell>
+                <TableCell colSpan={6} className="font-semibold text-right">Total Monthly Contribution (CAD)</TableCell>
+                <TableCell className="text-right font-semibold">{formatCurrency(totalMonthlyContribution, 'CAD')}</TableCell>
                 <TableCell></TableCell>
               </TableRow>
               <TableRow>
-                <TableCell colSpan={6} className="font-semibold text-right">Total Saved</TableCell>
-                <TableCell className="text-right font-semibold">{formatCurrency(totalAmount)}</TableCell>
+                <TableCell colSpan={6} className="font-semibold text-right">Total Saved (CAD)</TableCell>
+                <TableCell className="text-right font-semibold">{formatCurrency(totalCadSaved, 'CAD')}</TableCell>
+                <TableCell></TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell colSpan={6} className="font-semibold text-right">Total Saved (USD)</TableCell>
+                <TableCell className="text-right font-semibold">{formatCurrency(totalUsdSaved, 'USD')}</TableCell>
                 <TableCell></TableCell>
               </TableRow>
             </TableFooter>

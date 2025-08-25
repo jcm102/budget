@@ -10,6 +10,7 @@ import { MileageRateManager } from '@/components/mileage-rate-manager';
 import { WorkCategoryManager } from '@/components/work-category-manager';
 import { LinkGroupManager } from '@/components/link-group-manager';
 import { PersonManager } from '@/components/person-manager';
+import { ExchangeRateManager } from '@/components/exchange-rate-manager';
 
 export default function SettingsPage() {
   return (
@@ -31,6 +32,7 @@ export default function SettingsPage() {
             <WorkCategoryManager />
             <TransfereeManager />
             <MileageRateManager />
+            <ExchangeRateManager />
             <LinkGroupManager />
           </div>
         </div>

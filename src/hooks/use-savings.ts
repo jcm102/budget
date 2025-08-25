@@ -65,7 +65,7 @@ export function useSavings() {
     setSavingsItems(prev => prev.map(item => (item.id === id ? { ...item, ...itemData } as SavingsItem : item)));
     try {
       await SavingsService.updateSavingsItem(id, itemData);
-      await fetchAllData(); // refetch to be safe
+       // No full refetch to keep optimistic updates smooth, unless there's a server-side change we need
     } catch (error) {
       console.error('Failed to update savings item:', error);
       setSavingsItems(originalItems);
@@ -75,7 +75,7 @@ export function useSavings() {
         variant: 'destructive',
       });
     }
-  }, [savingsItems, toast, fetchAllData]);
+  }, [savingsItems, toast]);
 
   const deleteSavingsItem = useCallback(async (id: string) => {
     const originalItems = savingsItems;
