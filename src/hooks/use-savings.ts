@@ -40,7 +40,7 @@ export function useSavings() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     fetchAllData();
