@@ -26,7 +26,7 @@ export function useAccountLedger() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     fetchItems();
