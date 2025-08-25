@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import type { Expense, MileageLog } from '@/types';
+import type { Expense, MileageLog, Honorarium } from '@/types';
 import { useToast } from './use-toast';
 import * as ExpenseService from '@/services/expense-service';
 import * as MileageService from '@/services/mileage-service';
@@ -10,18 +10,21 @@ import * as MileageService from '@/services/mileage-service';
 export function useExpenses() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [mileageLogs, setMileageLogs] = useState<MileageLog[]>([]);
+  const [honorariums, setHonorariums] = useState<Honorarium[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const [fetchedExpenses, fetchedMileage] = await Promise.all([
+      const [fetchedExpenses, fetchedMileage, fetchedHonorariums] = await Promise.all([
         ExpenseService.getExpenses('active'),
         MileageService.getMileageLogs('active'),
+        ExpenseService.getHonorariums('active'),
       ]);
       setExpenses(fetchedExpenses);
       setMileageLogs(fetchedMileage);
+      setHonorariums(fetchedHonorariums);
     } catch (error) {
       console.error('Failed to load expense data:', error);
       toast({
@@ -145,9 +148,53 @@ export function useExpenses() {
     }
   }, [toast, fetchData]);
 
+  // Honorarium functions
+  const addHonorarium = useCallback(async (itemData: Omit<Honorarium, 'id'>) => {
+    try {
+      await ExpenseService.addHonorarium(itemData);
+      await fetchData();
+    } catch (error) {
+      console.error('Failed to add honorarium:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to add the new honorarium.',
+        variant: 'destructive',
+      });
+    }
+  }, [toast, fetchData]);
+
+  const updateHonorarium = useCallback(async (id: string, itemData: Partial<Omit<Honorarium, 'id'>>) => {
+    try {
+      await ExpenseService.updateHonorarium(id, itemData);
+      await fetchData();
+    } catch (error) {
+      console.error('Failed to update honorarium:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update the honorarium.',
+        variant: 'destructive',
+      });
+    }
+  }, [toast, fetchData]);
+
+  const deleteHonorarium = useCallback(async (id: string) => {
+    try {
+      await ExpenseService.deleteHonorarium(id);
+      await fetchData();
+    } catch (error) {
+      console.error('Failed to delete honorarium:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete the honorarium.',
+        variant: 'destructive',
+      });
+    }
+  }, [toast, fetchData]);
+
   return { 
     expenses, 
     mileageLogs, 
+    honorariums,
     addExpense, 
     updateExpense, 
     deleteExpense, 
@@ -155,6 +202,9 @@ export function useExpenses() {
     addMileage,
     updateMileage,
     deleteMileage,
+    addHonorarium,
+    updateHonorarium,
+    deleteHonorarium,
     isLoading, 
     fetchData,
   };

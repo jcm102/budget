@@ -3,7 +3,7 @@
 
 import { Button } from '@/components/ui/button';
 import { ExpenseTable } from '@/components/expense-table';
-import { ArrowLeft, Download, Archive, CalendarClock, ChevronsUpDown, Printer } from 'lucide-react';
+import { ArrowLeft, Download, Archive, CalendarClock, ChevronsUpDown, Printer, Landmark, DollarSign } from 'lucide-react';
 import Link from 'next/link';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MileageTable } from '@/components/mileage-table';
@@ -14,7 +14,7 @@ import * as XLSX from 'xlsx';
 import * as ExpenseService from '@/services/expense-service';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useState } from 'react';
-import type { Expense, MileageLog } from '@/types';
+import type { Expense, MileageLog, Honorarium } from '@/types';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,16 +37,19 @@ import {
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
+import { HonorariumTable } from '@/components/honorarium-table';
 
 type DisplayData = {
   expenses: Expense[];
   mileageLogs: MileageLog[];
+  honorariums: Honorarium[];
 };
 
 export default function ExpensesPage() {
   const { 
     expenses: activeExpenses, 
     mileageLogs: activeMileageLogs, 
+    honorariums: activeHonorariums,
     fetchData,
     addExpense,
     updateExpense,
@@ -55,13 +58,16 @@ export default function ExpensesPage() {
     addMileage,
     updateMileage,
     deleteMileage,
+    addHonorarium,
+    updateHonorarium,
+    deleteHonorarium,
     isLoading: dataLoading 
   } = useExpenses();
   const { toast } = useToast();
   
   const [archivedMonths, setArchivedMonths] = useState<string[]>([]);
   const [selectedMonth, setSelectedMonth] = useState('active'); // 'active' or 'YYYY-MM'
-  const [displayData, setDisplayData] = useState<DisplayData>({ expenses: [], mileageLogs: [] });
+  const [displayData, setDisplayData] = useState<DisplayData>({ expenses: [], mileageLogs: [], honorariums: [] });
   const [isArchiving, setIsArchiving] = useState(false);
 
   // Fetch initial data and archived months list
@@ -77,14 +83,14 @@ export default function ExpensesPage() {
   useEffect(() => {
     async function loadDataForMonth() {
       if (selectedMonth === 'active') {
-        setDisplayData({ expenses: activeExpenses, mileageLogs: activeMileageLogs });
+        setDisplayData({ expenses: activeExpenses, mileageLogs: activeMileageLogs, honorariums: activeHonorariums });
       } else {
         const data = await ExpenseService.getExpensesForMonth(selectedMonth);
-        setDisplayData({ expenses: data.expenses, mileageLogs: data.mileageLogs });
+        setDisplayData({ expenses: data.expenses, mileageLogs: data.mileageLogs, honorariums: data.honorariums });
       }
     }
     loadDataForMonth();
-  }, [selectedMonth, activeExpenses, activeMileageLogs]);
+  }, [selectedMonth, activeExpenses, activeMileageLogs, activeHonorariums]);
 
   const handleArchive = async () => {
     setIsArchiving(true);
@@ -163,7 +169,7 @@ export default function ExpensesPage() {
     ]);
     
     const data = [
-      ['${monthName} Expenses'],
+      [`${monthName} Expenses`],
       [], // Spacer row
       ['Mileage'],
       mileageHeader,
@@ -209,17 +215,17 @@ export default function ExpensesPage() {
     // Style Credit Card section
     const creditCardSectionRowIndex = 5 + mileageRows.length;
     const creditCardHeaderRowIndex = creditCardSectionRowIndex + 1;
-    if (ws['A${creditCardSectionRowIndex + 1}']) ws['A${creditCardSectionRowIndex + 1}'].s = sectionHeaderStyle;
+    if (ws[`A${creditCardSectionRowIndex + 1}`]) ws[`A${creditCardSectionRowIndex + 1}`].s = sectionHeaderStyle;
     applyHeaderStyles(creditCardHeaderRowIndex, creditCardHeader);
 
     // Style Other Reimbursable section
     const otherSectionRowIndex = creditCardHeaderRowIndex + creditCardRows.length + 2;
     const otherHeaderRowIndex = otherSectionRowIndex + 1;
-     if (ws['A${otherSectionRowIndex + 1}']) ws['A${otherSectionRowIndex + 1}'].s = sectionHeaderStyle;
+     if (ws[`A${otherSectionRowIndex + 1}`]) ws[`A${otherSectionRowIndex + 1}`].s = sectionHeaderStyle;
     applyHeaderStyles(otherHeaderRowIndex, otherReimbursableHeader);
     
     XLSX.utils.book_append_sheet(wb, ws, 'Work Expenses');
-    XLSX.writeFile(wb, 'work-expenses-${monthName.replace(/\s+/g, \'-\')}.xlsx');
+    XLSX.writeFile(wb, `work-expenses-${monthName.replace(/\s+/g, '-')}.xlsx`);
   };
 
   const handlePrint = () => {
@@ -229,16 +235,24 @@ export default function ExpensesPage() {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
-
-  const totalMonetaryExpenses = displayData.expenses.reduce((acc, item) => acc + item.amount, 0);
+  
   const reimbursableMonetary = displayData.expenses
-    .filter((item) => item.reimbursable && item.transferee !== 'Work Visa')
+    .filter((item) => item.reimbursable)
     .reduce((acc, item) => acc + item.amount, 0);
   
   const totalMileageReimbursement = displayData.mileageLogs
     .reduce((acc, item) => acc + (item.distance * item.rate), 0);
     
   const totalReimbursable = reimbursableMonetary + totalMileageReimbursement;
+  
+  const honorariumTotal = displayData.honorariums.reduce((acc, item) => acc + item.amount, 0);
+  
+  const churchExpensesTotal = displayData.expenses
+    .filter(e => e.category === 'Church Expense')
+    .reduce((acc, item) => acc + item.amount, 0);
+  
+  const fundBalance = honorariumTotal - churchExpensesTotal;
+
   const isViewingArchive = selectedMonth !== 'active';
 
 
@@ -309,14 +323,18 @@ export default function ExpensesPage() {
       <main>
         <div className="flex justify-between items-center mb-6 gap-2">
             <h2 className="text-3xl font-bold font-headline text-primary">
-              {isViewingArchive ? 'Work Expenses: ${format(parse(selectedMonth, \'yyyy-MM\', new Date()), \'MMMM yyyy\')}' : 'Active Work Expenses'}
+              {isViewingArchive ? `Work Expenses: ${format(parse(selectedMonth, 'yyyy-MM', new Date()), 'MMMM yyyy')}` : 'Active Work Expenses'}
             </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             <div className="p-4 border rounded-lg bg-card">
-                <h4 className="text-muted-foreground">Total Monetary Expenses</h4>
-                <p className="text-2xl font-semibold">{formatCurrency(totalMonetaryExpenses)}</p>
+                <h4 className="text-muted-foreground">Honorarium Received</h4>
+                <p className="text-2xl font-semibold">{formatCurrency(honorariumTotal)}</p>
+            </div>
+             <div className="p-4 border rounded-lg bg-card">
+                <h4 className="text-muted-foreground">Reimbursable Fund Balance</h4>
+                <p className="text-2xl font-semibold">{formatCurrency(fundBalance)}</p>
             </div>
             <div className="p-4 border rounded-lg bg-card">
                 <h4 className="text-muted-foreground">Total Reimbursable (Monetary + Mileage)</h4>
@@ -325,9 +343,10 @@ export default function ExpensesPage() {
         </div>
 
         <Tabs defaultValue="monetary" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-secondary/50 mb-6 no-print">
+          <TabsList className="grid w-full grid-cols-3 bg-secondary/50 mb-6 no-print">
             <TabsTrigger value="monetary"><Banknote className="mr-2 h-4 w-4" />Monetary Expenses</TabsTrigger>
             <TabsTrigger value="mileage"><Car className="mr-2 h-4 w-4" />Mileage Log</TabsTrigger>
+            <TabsTrigger value="honorariums"><DollarSign className="mr-2 h-4 w-4" />Honorariums</TabsTrigger>
           </TabsList>
           <TabsContent value="monetary">
             <ExpenseTable 
@@ -338,6 +357,8 @@ export default function ExpensesPage() {
               toggleExpenseCompleted={toggleExpenseCompleted}
               addMileage={addMileage}
               updateMileage={updateMileage}
+              addHonorarium={addHonorarium}
+              updateHonorarium={updateHonorarium}
               isLoading={dataLoading} 
               isArchived={isViewingArchive}
             />
@@ -350,6 +371,22 @@ export default function ExpensesPage() {
               addMileage={addMileage}
               updateMileage={updateMileage}
               deleteMileage={deleteMileage}
+              addHonorarium={addHonorarium}
+              updateHonorarium={updateHonorarium}
+              isLoading={dataLoading} 
+              isArchived={isViewingArchive}
+            />
+          </TabsContent>
+           <TabsContent value="honorariums">
+            <HonorariumTable 
+              honorariums={displayData.honorariums} 
+              addExpense={addExpense}
+              updateExpense={updateExpense}
+              addMileage={addMileage}
+              updateMileage={updateMileage}
+              addHonorarium={addHonorarium}
+              updateHonorarium={updateHonorarium}
+              deleteHonorarium={deleteHonorarium}
               isLoading={dataLoading} 
               isArchived={isViewingArchive}
             />

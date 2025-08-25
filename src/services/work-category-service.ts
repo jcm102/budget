@@ -1,3 +1,4 @@
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -16,7 +17,7 @@ import {
 } from 'firebase/firestore';
 
 const CATEGORY_COLLECTION = 'work-expense-categories';
-const defaultCategories = ['Travel', 'Meals', 'Office Supplies', 'Software', 'Other'];
+const defaultCategories = ['Travel', 'Meals', 'Office Supplies', 'Software', 'Church Expense', 'Other'];
 
 async function seedDefaultCategories() {
   const categoryCollectionRef = collection(db, CATEGORY_COLLECTION);

@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, Repeat } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle } from 'lucide-react';
 import type { Expense, MileageLog, Honorarium } from '@/types';
 import {
   Table,
@@ -26,44 +26,40 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
 import { ExpenseForm } from './expense-form';
 import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
-import { Checkbox } from './ui/checkbox';
 
-type ExpenseTableProps = {
-  expenses: Expense[];
+type HonorariumTableProps = {
+  honorariums: Honorarium[];
   addExpense: (item: Omit<Expense, 'id'>, callback: (success: boolean) => void) => void;
   updateExpense: (id: string, item: Partial<Omit<Expense, 'id'>>) => void;
-  deleteExpense: (id: string) => void;
-  toggleExpenseCompleted: (id: string, completed: boolean) => void;
   addMileage: (item: Omit<MileageLog, 'id'>) => void;
   updateMileage: (id: string, item: Omit<MileageLog, 'id'>) => void;
   addHonorarium: (item: Omit<Honorarium, 'id'>) => void;
   updateHonorarium: (id: string, item: Partial<Omit<Honorarium, 'id'>>) => void;
+  deleteHonorarium: (id: string) => void;
   isLoading: boolean;
   isArchived: boolean;
 };
 
-export function ExpenseTable({ 
-  expenses, 
+export function HonorariumTable({ 
+  honorariums, 
   addExpense,
   updateExpense,
-  deleteExpense,
-  toggleExpenseCompleted,
   addMileage,
   updateMileage,
   addHonorarium,
   updateHonorarium,
+  deleteHonorarium,
   isLoading, 
   isArchived 
-}: ExpenseTableProps) {
+}: HonorariumTableProps) {
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<Expense | MileageLog | Honorarium | null>(null);
+  const [editingItem, setEditingItem] = useState<Honorarium | null>(null);
 
-  const handleEdit = (item: Expense) => {
+  const handleEdit = (item: Honorarium) => {
     setEditingItem(item);
     setIsFormOpen(true);
   };
@@ -78,23 +74,17 @@ export function ExpenseTable({
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
-  
+
   const renderLoadingSkeletonTable = () => (
-    Array.from({ length: 5 }).map((_, i) => (
-      <TableRow key={`skeleton-table-${i}`}>
-        <TableCell><Skeleton className="h-6 w-full" /></TableCell>
-        <TableCell><Skeleton className="h-6 w-full" /></TableCell>
-        <TableCell><Skeleton className="h-6 w-full" /></TableCell>
-        <TableCell><Skeleton className="h-6 w-full" /></TableCell>
-        <TableCell><Skeleton className="h-6 w-full" /></TableCell>
-        <TableCell><Skeleton className="h-6 w-full" /></TableCell>
-        <TableCell><Skeleton className="h-6 w-full" /></TableCell>
+    Array.from({ length: 2 }).map((_, i) => (
+      <TableRow key={`skeleton-honorarium-${i}`}>
+        <TableCell colSpan={4}><Skeleton className="h-6 w-full" /></TableCell>
       </TableRow>
     ))
   );
 
-  const totalExpenses = expenses.reduce((acc, item) => acc + item.amount, 0);
-  
+  const totalHonorariums = honorariums.reduce((acc, item) => acc + item.amount, 0);
+
   return (
     <>
       <ExpenseForm
@@ -112,7 +102,7 @@ export function ExpenseTable({
         {!isArchived && (
           <Button onClick={() => setIsFormOpen(true)}>
             <PlusCircle className="mr-2 h-5 w-5" />
-            Add Monetary Expense
+            Add Honorarium
           </Button>
         )}
       </div>
@@ -121,13 +111,8 @@ export function ExpenseTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[50px]">Paid</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Description</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Payment Source</TableHead>
-              <TableHead>Frequency</TableHead>
-              <TableHead>Status</TableHead>
               <TableHead className="text-right">Amount</TableHead>
               {!isArchived && <TableHead className="w-[100px] text-right">Actions</TableHead>}
             </TableRow>
@@ -135,37 +120,11 @@ export function ExpenseTable({
           <TableBody>
             {isLoading ? (
               renderLoadingSkeletonTable()
-            ) : expenses.length > 0 ? (
-              expenses.map((item) => (
-                <TableRow key={item.id} data-state={item.completed ? "completed" : "" } className={cn(item.completed && "bg-accent/30 text-muted-foreground")}>
-                   <TableCell>
-                        <Checkbox
-                          checked={item.completed}
-                          onCheckedChange={() => toggleExpenseCompleted(item.id, item.completed || false)}
-                          aria-label={`Mark ${item.description} as paid`}
-                          disabled={isArchived || item.frequency === 'One-Time'}
-                        />
-                      </TableCell>
+            ) : honorariums.length > 0 ? (
+              honorariums.map((item) => (
+                <TableRow key={item.id}>
                   <TableCell>{format(new Date(item.date), 'PPP')}</TableCell>
-                  <TableCell className={cn("font-medium", item.completed && "line-through")}>{item.description}</TableCell>
-                  <TableCell>{item.category}</TableCell>
-                  <TableCell>{item.transferee}</TableCell>
-                   <TableCell>
-                      {item.frequency !== 'One-Time' ? (
-                        <Badge variant="secondary" className="gap-1 items-center">
-                          <Repeat className="h-3 w-3" /> {item.frequency}
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline">One-Time</Badge>
-                      )}
-                    </TableCell>
-                   <TableCell>
-                    {item.reimbursable ? (
-                      <Badge variant="default">Reimbursable</Badge>
-                    ) : (
-                      <Badge variant="secondary">Non-Reimbursable</Badge>
-                    )}
-                  </TableCell>
+                  <TableCell className="font-medium">{item.description}</TableCell>
                   <TableCell className="text-right">{formatCurrency(item.amount)}</TableCell>
                   {!isArchived && (
                     <TableCell className="text-right">
@@ -183,12 +142,12 @@ export function ExpenseTable({
                             <AlertDialogHeader>
                               <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                This will permanently delete this expense item.
+                                This will permanently delete this honorarium item.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => deleteExpense(item.id)} className={cn(buttonVariants({ variant: "destructive" }))}>
+                              <AlertDialogAction onClick={() => deleteHonorarium(item.id)} className={cn(buttonVariants({ variant: "destructive" }))}>
                                 Delete
                               </AlertDialogAction>
                             </AlertDialogFooter>
@@ -201,19 +160,19 @@ export function ExpenseTable({
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={isArchived ? 8 : 9} className="h-24 text-center">
-                  No expenses added yet.
+                <TableCell colSpan={isArchived ? 3 : 4} className="h-24 text-center">
+                  No honorariums logged yet.
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
-          {expenses.length > 0 && (
+          {honorariums.length > 0 && (
             <TableFooter>
-                <TableRow>
-                <TableCell colSpan={isArchived ? 7 : 8} className="font-semibold text-right">Total Expenses</TableCell>
-                <TableCell className="text-right font-semibold">{formatCurrency(totalExpenses)}</TableCell>
+              <TableRow>
+                <TableCell colSpan={isArchived ? 2 : 3} className="font-semibold text-right">Total Received</TableCell>
+                <TableCell className="text-right font-semibold">{formatCurrency(totalHonorariums)}</TableCell>
                 {!isArchived && <TableCell></TableCell>}
-                </TableRow>
+              </TableRow>
             </TableFooter>
           )}
         </Table>

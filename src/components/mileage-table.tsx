@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { Pencil, Trash2, PlusCircle, Fuel, Wrench } from 'lucide-react';
-import type { Expense, MileageLog } from '@/types';
+import type { Expense, MileageLog, Honorarium } from '@/types';
 import {
   Table,
   TableBody,
@@ -40,6 +40,8 @@ type MileageTableProps = {
   addMileage: (item: Omit<MileageLog, 'id'>) => void;
   updateMileage: (id: string, item: Omit<MileageLog, 'id'>) => void;
   deleteMileage: (id: string) => void;
+  addHonorarium: (item: Omit<Honorarium, 'id'>) => void;
+  updateHonorarium: (id: string, item: Partial<Omit<Honorarium, 'id'>>) => void;
   isLoading: boolean;
   isArchived: boolean;
 };
@@ -51,11 +53,13 @@ export function MileageTable({
   addMileage,
   updateMileage,
   deleteMileage,
+  addHonorarium,
+  updateHonorarium,
   isLoading, 
   isArchived 
 }: MileageTableProps) {
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<MileageLog | Expense | null>(null);
+  const [editingItem, setEditingItem] = useState<MileageLog | Expense | Honorarium | null>(null);
 
   const handleEdit = (item: MileageLog) => {
     setEditingItem(item);
@@ -104,6 +108,8 @@ export function MileageTable({
         updateExpense={updateExpense}
         addMileage={addMileage}
         updateMileage={updateMileage}
+        addHonorarium={addHonorarium}
+        updateHonorarium={updateHonorarium}
         editingItem={editingItem}
       />
       <div className="flex justify-end items-center mb-6 gap-2">

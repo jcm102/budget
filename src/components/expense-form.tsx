@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
@@ -30,7 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import type { Expense, MileageLog, BudgetItemFrequency, TripType } from '@/types';
+import type { Expense, MileageLog, Honorarium, BudgetItemFrequency, TripType } from '@/types';
 import { useWorkCategories } from '@/hooks/use-work-categories';
 import { useTransferees } from '@/hooks/use-transferees';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
@@ -41,7 +42,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AddressAutocompleteInput } from './address-autocomplete-input';
 
 const formSchema = z.object({
-  expenseType: z.enum(['Monetary', 'Mileage']),
+  expenseType: z.enum(['Monetary', 'Mileage', 'Honorarium']),
   description: z.string().min(2, 'Description must be at least 2 characters.'),
   date: z.string().min(1, 'A date is required.'),
   // Monetary fields
@@ -72,6 +73,14 @@ const formSchema = z.object({
 }, {
     message: 'Distance and rate are required for mileage expenses.',
     path: ['distance'],
+}).refine(data => {
+    if (data.expenseType === 'Honorarium') {
+        return !!data.amount && data.amount > 0;
+    }
+    return true;
+}, {
+    message: 'Amount is required for honorariums.',
+    path: ['amount'],
 });
 
 
@@ -82,7 +91,9 @@ type ExpenseFormProps = {
   updateExpense: (id: string, item: Partial<Omit<Expense, 'id'>>) => void;
   addMileage: (item: Omit<MileageLog, 'id'>) => void;
   updateMileage: (id: string, item: Omit<MileageLog, 'id'>) => void;
-  editingItem: Expense | MileageLog | null;
+  addHonorarium: (item: Omit<Honorarium, 'id'>) => void;
+  updateHonorarium: (id: string, item: Partial<Omit<Honorarium, 'id'>>) => void;
+  editingItem: Expense | MileageLog | Honorarium | null;
 };
 
 export function ExpenseForm({ 
@@ -92,6 +103,8 @@ export function ExpenseForm({
     updateExpense, 
     addMileage,
     updateMileage,
+    addHonorarium,
+    updateHonorarium,
     editingItem 
 }: ExpenseFormProps) {
   const { categories: workCategories } = useWorkCategories();
@@ -110,7 +123,7 @@ export function ExpenseForm({
       amount: 0,
       category: '',
       transferee: '',
-      reimbursable: false,
+      reimbursable: true, // Default to true now
       frequency: 'One-Time',
       origin: '',
       destination: '',
@@ -122,6 +135,16 @@ export function ExpenseForm({
 
   const expenseType = form.watch('expenseType');
   const tripType = form.watch('tripType');
+  const category = form.watch('category');
+  
+  // Set reimbursable to false if category is Church Expense
+  useEffect(() => {
+    if (category === 'Church Expense') {
+      form.setValue('reimbursable', false);
+    } else {
+      form.setValue('reimbursable', true);
+    }
+  }, [category, form]);
 
   // Effect to set the mileage rate from settings when it loads
   useEffect(() => {
@@ -135,21 +158,21 @@ export function ExpenseForm({
     if (open) {
       const defaultRate = mileageRate ?? 0.50;
       if (editingItem) {
-        const isMonetary = 'amount' in editingItem;
+        const itemType = editingItem.type;
         form.reset({
-          expenseType: isMonetary ? 'Monetary' : 'Mileage',
+          expenseType: itemType,
           description: editingItem.description,
           date: new Date(editingItem.date).toISOString().split('T')[0],
-          amount: isMonetary ? editingItem.amount : 0,
-          category: isMonetary ? editingItem.category : '',
-          transferee: isMonetary ? editingItem.transferee : '',
-          reimbursable: isMonetary ? editingItem.reimbursable : false,
-          frequency: isMonetary ? editingItem.frequency : 'One-Time',
-          origin: !isMonetary ? editingItem.origin : '',
-          destination: !isMonetary ? editingItem.destination : '',
-          distance: !isMonetary ? editingItem.distance : 0,
-          rate: !isMonetary ? editingItem.rate : defaultRate,
-          tripType: !isMonetary ? editingItem.tripType : 'One-Way',
+          amount: 'amount' in editingItem ? editingItem.amount : 0,
+          category: 'category' in editingItem ? editingItem.category : '',
+          transferee: 'transferee' in editingItem ? editingItem.transferee : '',
+          reimbursable: 'reimbursable' in editingItem ? editingItem.reimbursable : true,
+          frequency: 'frequency' in editingItem ? editingItem.frequency : 'One-Time',
+          origin: 'origin' in editingItem ? editingItem.origin : '',
+          destination: 'destination' in editingItem ? editingItem.destination : '',
+          distance: 'distance' in editingItem ? editingItem.distance : 0,
+          rate: 'rate' in editingItem ? editingItem.rate : defaultRate,
+          tripType: 'tripType' in editingItem ? editingItem.tripType : 'One-Way',
         });
         if ('distance' in editingItem && editingItem.tripType === 'Return') {
             oneWayDistanceRef.current = editingItem.distance / 2;
@@ -165,7 +188,7 @@ export function ExpenseForm({
           amount: 0,
           category: '',
           transferee: '',
-          reimbursable: false,
+          reimbursable: true,
           frequency: 'One-Time',
           origin: '',
           destination: '',
@@ -242,7 +265,7 @@ export function ExpenseForm({
             frequency: values.frequency as BudgetItemFrequency,
             completed: false,
         };
-        if (editingItem && 'amount' in editingItem) {
+        if (editingItem && editingItem.type === 'Monetary') {
             updateExpense(editingItem.id, submissionData);
             onOpenChange(false);
         } else {
@@ -252,7 +275,7 @@ export function ExpenseForm({
               }
             });
         }
-    } else { // Mileage
+    } else if (values.expenseType === 'Mileage') { 
         const submissionData: Omit<MileageLog, 'id'> = {
             type: 'Mileage',
             description: values.description,
@@ -263,10 +286,23 @@ export function ExpenseForm({
             date: localDate.toISOString(),
             tripType: values.tripType as TripType,
         };
-        if (editingItem && 'distance' in editingItem) {
+        if (editingItem && editingItem.type === 'Mileage') {
             updateMileage(editingItem.id, submissionData);
         } else {
             addMileage(submissionData);
+        }
+        onOpenChange(false);
+    } else { // Honorarium
+         const submissionData: Omit<Honorarium, 'id'> = {
+            type: 'Honorarium',
+            description: values.description,
+            amount: values.amount!,
+            date: localDate.toISOString(),
+        };
+         if (editingItem && editingItem.type === 'Honorarium') {
+            updateHonorarium(editingItem.id, submissionData);
+        } else {
+            addHonorarium(submissionData);
         }
         onOpenChange(false);
     }
@@ -302,6 +338,10 @@ export function ExpenseForm({
                         <FormItem className="flex items-center space-x-2 space-y-0">
                             <FormControl><RadioGroupItem value="Mileage" /></FormControl>
                             <FormLabel className="font-normal">Mileage</FormLabel>
+                        </FormItem>
+                         <FormItem className="flex items-center space-x-2 space-y-0">
+                            <FormControl><RadioGroupItem value="Honorarium" /></FormControl>
+                            <FormLabel className="font-normal">Honorarium</FormLabel>
                         </FormItem>
                         </RadioGroup>
                     </FormControl>
@@ -471,6 +511,17 @@ export function ExpenseForm({
                 </>
             )}
 
+            {expenseType === 'Honorarium' && (
+                 <FormField control={form.control} name="amount" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Amount</FormLabel>
+                        <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )}
+                />
+            )}
+
             {expenseType === 'Monetary' && (
               <FormField
                 control={form.control}
@@ -485,6 +536,7 @@ export function ExpenseForm({
                       <Switch
                         checked={field.value}
                         onCheckedChange={field.onChange}
+                        disabled={category === 'Church Expense'}
                       />
                     </FormControl>
                   </FormItem>

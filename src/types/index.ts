@@ -83,7 +83,7 @@ export interface Transferee {
     name: string;
 }
 
-export type ExpenseType = 'Monetary' | 'Mileage';
+export type ExpenseType = 'Monetary' | 'Mileage' | 'Honorarium';
 
 interface BaseExpense {
   id: string;
@@ -103,6 +103,11 @@ export interface Expense extends BaseExpense {
   frequency: BudgetItemFrequency;
   originalId?: string;
   completed?: boolean;
+}
+
+export interface Honorarium extends BaseExpense {
+    type: 'Honorarium';
+    amount: number;
 }
 
 export type TripType = 'One-Way' | 'Return';
