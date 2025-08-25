@@ -222,7 +222,7 @@ export default function ExpensesPage() {
     const otherSectionRowIndex = creditCardHeaderRowIndex + creditCardRows.length + 2;
     const otherHeaderRowIndex = otherSectionRowIndex + 1;
      if (ws[`A${otherSectionRowIndex + 1}`]) ws[`A${otherSectionRowIndex + 1}`].s = sectionHeaderStyle;
-    applyHeaderStyles(otherHeaderRowIndex, otherReimbursableHeader);
+    applyHeaderStyles(otherHeaderRowIndex, otherHeaderReimbursableHeader);
     
     XLSX.utils.book_append_sheet(wb, ws, 'Work Expenses');
     XLSX.writeFile(wb, `work-expenses-${monthName.replace(/\s+/g, '-')}.xlsx`);
@@ -251,7 +251,7 @@ export default function ExpensesPage() {
     .filter(e => e.category === 'Church Expense')
     .reduce((acc, item) => acc + item.amount, 0);
   
-  const fundBalance = honorariumTotal - churchExpensesTotal;
+  const honorariumFundBalance = honorariumTotal - churchExpensesTotal;
 
   const isViewingArchive = selectedMonth !== 'active';
 
@@ -334,10 +334,10 @@ export default function ExpensesPage() {
             </div>
              <div className="p-4 border rounded-lg bg-card">
                 <h4 className="text-muted-foreground">Reimbursable Fund Balance</h4>
-                <p className="text-2xl font-semibold">{formatCurrency(fundBalance)}</p>
+                <p className="text-2xl font-semibold">{formatCurrency(honorariumFundBalance)}</p>
             </div>
             <div className="p-4 border rounded-lg bg-card">
-                <h4 className="text-muted-foreground">Total Reimbursable (Monetary + Mileage)</h4>
+                <h4 className="text-muted-foreground">Total Reimbursable</h4>
                 <p className="text-2xl font-semibold">{formatCurrency(totalReimbursable)}</p>
             </div>
         </div>
