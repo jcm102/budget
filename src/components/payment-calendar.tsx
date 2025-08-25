@@ -105,7 +105,7 @@ export function PaymentCalendar() {
         {isLoading ? (
             <Skeleton className="h-40 w-full" />
         ) : (
-            <div className="overflow-x-auto px-1">
+            <div className="overflow-x-auto p-2">
                 <div style={{ display: 'grid', gridTemplateColumns: gridTemplateColumns }} className="gap-2 items-center pb-2 border-b">
                     <div className="font-medium">Description</div>
                     {columns.map(col => (
