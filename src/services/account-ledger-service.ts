@@ -20,10 +20,10 @@ const LEDGER_COLLECTION = 'account-ledger-items';
 
 export async function getLedgerItems(accountId: string): Promise<AccountLedgerItem[]> {
   const ledgerCollection = collection(db, LEDGER_COLLECTION);
-  const q = query(ledgerCollection, where('accountId', '==', accountId), orderBy('name'));
+  const q = query(ledgerCollection, where('accountId', '==', accountId));
   const querySnapshot = await getDocs(q);
   const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccountLedgerItem));
-  return items;
+  return items.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function addLedgerItem(itemData: Omit<AccountLedgerItem, 'id'>): Promise<AccountLedgerItem> {
