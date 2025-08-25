@@ -105,8 +105,8 @@ export function PaymentCalendar() {
         {isLoading ? (
             <Skeleton className="h-40 w-full" />
         ) : (
-            <div className="overflow-x-auto">
-                <div style={{ display: 'grid', gridTemplateColumns: gridTemplateColumns, minWidth: '700px' }} className="gap-2 items-center pb-2 border-b">
+            <div className="overflow-x-auto px-1">
+                <div style={{ display: 'grid', gridTemplateColumns: gridTemplateColumns }} className="gap-2 items-center pb-2 border-b">
                     <div className="font-medium">Description</div>
                     {columns.map(col => (
                         <div key={col.id} className="flex items-center gap-1">
@@ -133,7 +133,7 @@ export function PaymentCalendar() {
                     </div>
                 </div>
                 {/* Rows Section */}
-                <div className="space-y-2 mt-2" style={{ minWidth: '700px' }}>
+                <div className="space-y-2 mt-2">
                     {rows.map((row, rowIndex) => (
                         <div key={row.id} style={{ display: 'grid', gridTemplateColumns: gridTemplateColumns }} className="gap-2 items-center">
                             <div>
