@@ -122,7 +122,7 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
     <TableHead className={className}>
       <Button variant="ghost" onClick={() => requestSort(column)}>
         {label}
-        {isSorted && <ArrowUpDown className={'ml-2 h-4 w-4 transform ${direction === \'descending\' ? \'rotate-180\' : \'\'}'} />}
+        {isSorted && <ArrowUpDown className={`ml-2 h-4 w-4 transform ${direction === 'descending' ? 'rotate-180' : ''}`} />}
         {!isSorted && <ArrowUpDown className="ml-2 h-4 w-4 opacity-0 group-hover:opacity-50" />}
       </Button>
     </TableHead>
