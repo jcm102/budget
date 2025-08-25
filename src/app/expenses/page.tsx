@@ -257,7 +257,7 @@ export default function ExpensesPage() {
 
 
   return (
-    <div className="container mx-auto max-w-6xl p-4 md:p-8">
+    <div className="container mx-auto max-w-7xl p-4 md:p-8">
       <header className="mb-8 flex justify-between items-center no-print">
         <Button asChild variant="outline">
           <Link href="/">
@@ -327,7 +327,7 @@ export default function ExpensesPage() {
             </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
             <div className="p-4 border rounded-lg bg-card">
                 <h4 className="text-muted-foreground">Honorarium Received</h4>
                 <p className="text-2xl font-semibold">{formatCurrency(honorariumTotal)}</p>
@@ -335,6 +335,10 @@ export default function ExpensesPage() {
              <div className="p-4 border rounded-lg bg-card">
                 <h4 className="text-muted-foreground">Honorarium Fund Balance</h4>
                 <p className="text-2xl font-semibold">{formatCurrency(honorariumFundBalance)}</p>
+            </div>
+            <div className="p-4 border rounded-lg bg-card">
+                <h4 className="text-muted-foreground">Reimbursable Expenses</h4>
+                <p className="text-2xl font-semibold">{formatCurrency(reimbursableMonetary)}</p>
             </div>
             <div className="p-4 border rounded-lg bg-card">
                 <h4 className="text-muted-foreground">Total Reimbursable</h4>
@@ -396,3 +400,5 @@ export default function ExpensesPage() {
     </div>
   );
 }
+
+    
