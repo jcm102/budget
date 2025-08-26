@@ -6,6 +6,7 @@ import type { AccountLedgerItem } from '@/types';
 import * as z from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useSelectedAccount } from '@/hooks/use-selected-account';
 
 import {
   Table,
@@ -133,6 +134,8 @@ export function AccountLedgerTable() {
   const { ledgerItems, addItem, updateItem, deleteItem, isLoading: isLoadingLedger } = useAccountLedger();
   const { savingsItems, isLoading: isLoadingSavings } = useSavings();
   const { goals, isLoading: isLoadingGoals } = useGoals();
+  const { selectedAccountId } = useSelectedAccount();
+
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<AccountLedgerItem | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
@@ -193,13 +196,36 @@ export function AccountLedgerTable() {
       </TableRow>
     ))
   );
-
-  const ledgerTotal = ledgerItems.reduce((acc, item) => acc + item.amount, 0);
-  const sinkingFundsCadTotal = savingsItems.filter(i => i.currency === 'CAD').reduce((acc, item) => acc + item.amount, 0);
-  const sinkingFundsUsdTotal = savingsItems.filter(i => i.currency === 'USD').reduce((acc, item) => acc + item.amount, 0);
-  const goalSavingsTotal = goals.reduce((acc, goal) => acc + goal.amount, 0);
   
-  const totalCad = ledgerTotal + sinkingFundsCadTotal + goalSavingsTotal;
+  const {
+    ledgerTotal,
+    sinkingFundsCadTotal,
+    sinkingFundsUsdTotal,
+    goalSavingsTotal,
+    totalCad,
+    totalUsd,
+  } = useMemo(() => {
+    const currentLedgerTotal = ledgerItems.reduce((acc, item) => acc + item.amount, 0);
+
+    const currentSinkingFunds = savingsItems.filter(i => i.accountId === selectedAccountId);
+    const currentSinkingFundsCadTotal = currentSinkingFunds.filter(i => i.currency === 'CAD').reduce((acc, item) => acc + item.amount, 0);
+    const currentSinkingFundsUsdTotal = currentSinkingFunds.filter(i => i.currency === 'USD').reduce((acc, item) => acc + item.amount, 0);
+
+    const currentGoals = goals.filter(g => g.accountId === selectedAccountId);
+    const currentGoalSavingsTotal = currentGoals.reduce((acc, goal) => acc + goal.amount, 0);
+    
+    const finalTotalCad = currentLedgerTotal + currentSinkingFundsCadTotal + currentGoalSavingsTotal;
+    const finalTotalUsd = currentSinkingFundsUsdTotal;
+
+    return {
+      ledgerTotal: currentLedgerTotal,
+      sinkingFundsCadTotal: currentSinkingFundsCadTotal,
+      sinkingFundsUsdTotal: currentSinkingFundsUsdTotal,
+      goalSavingsTotal: currentGoalSavingsTotal,
+      totalCad: finalTotalCad,
+      totalUsd: finalTotalUsd,
+    };
+  }, [ledgerItems, savingsItems, goals, selectedAccountId]);
 
 
   return (
@@ -256,7 +282,7 @@ export function AccountLedgerTable() {
                                 </TableCell>
                             </TableRow>
                         ))}
-                         <TableRow className="bg-secondary/50 hover:bg-secondary/70">
+                         {goalSavingsTotal > 0 && <TableRow className="bg-secondary/50 hover:bg-secondary/70">
                             <TableCell className="font-medium flex items-center gap-2">
                                 Goal Savings Balance
                                  <Popover>
@@ -272,8 +298,8 @@ export function AccountLedgerTable() {
                             </TableCell>
                             <TableCell className="text-right">{formatCurrency(goalSavingsTotal)}</TableCell>
                             <TableCell></TableCell>
-                        </TableRow>
-                        <TableRow className="bg-secondary/50 hover:bg-secondary/70">
+                        </TableRow>}
+                        {sinkingFundsCadTotal > 0 && <TableRow className="bg-secondary/50 hover:bg-secondary/70">
                             <TableCell className="font-medium flex items-center gap-2">
                                 Sinking Funds Balance (CAD)
                                 <Popover>
@@ -289,8 +315,8 @@ export function AccountLedgerTable() {
                             </TableCell>
                             <TableCell className="text-right">{formatCurrency(sinkingFundsCadTotal, 'CAD')}</TableCell>
                             <TableCell></TableCell>
-                        </TableRow>
-                        <TableRow className="bg-secondary/50 hover:bg-secondary/70">
+                        </TableRow>}
+                        {sinkingFundsUsdTotal > 0 && <TableRow className="bg-secondary/50 hover:bg-secondary/70">
                             <TableCell className="font-medium flex items-center gap-2">
                                 Sinking Funds Balance (USD)
                                 <Popover>
@@ -306,13 +332,13 @@ export function AccountLedgerTable() {
                             </TableCell>
                             <TableCell className="text-right">{formatCurrency(sinkingFundsUsdTotal, 'USD')}</TableCell>
                             <TableCell></TableCell>
-                        </TableRow>
+                        </TableRow>}
                     </>
                 )}
-                 {(!isLoading && sortedItems.length === 0) && (
+                 {(!isLoading && sortedItems.length === 0 && goalSavingsTotal === 0 && sinkingFundsCadTotal === 0 && sinkingFundsUsdTotal === 0) && (
                      <TableRow>
                         <TableCell colSpan={3} className="h-24 text-center">
-                            No ledger categories created yet. Add one to get started!
+                            No ledger categories or linked funds found for this account.
                         </TableCell>
                     </TableRow>
                  )}
@@ -325,7 +351,7 @@ export function AccountLedgerTable() {
               </TableRow>
               <TableRow>
                 <TableCell className="font-semibold text-right">Total USD Balance</TableCell>
-                <TableCell className="text-right font-semibold">{formatCurrency(sinkingFundsUsdTotal, 'USD')}</TableCell>
+                <TableCell className="text-right font-semibold">{formatCurrency(totalUsd, 'USD')}</TableCell>
                 <TableCell></TableCell>
               </TableRow>
             </TableFooter>
@@ -334,3 +360,4 @@ export function AccountLedgerTable() {
     </>
   );
 }
+
