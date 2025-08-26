@@ -23,27 +23,38 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { AccountLedgerItem } from '@/types';
+import { useAccounts } from '@/hooks/use-accounts';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Category name must be at least 2 characters.'),
   amount: z.coerce.number().min(0, 'Amount must be a positive number.'),
+  accountId: z.string().min(1, 'An account is required.'),
 });
 
 type AccountLedgerFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  addItem: (item: Omit<AccountLedgerItem, 'id' | 'accountId'>) => void;
-  updateItem: (id: string, item: Partial<Omit<AccountLedgerItem, 'id' | 'accountId'>>) => void;
+  addItem: (item: Omit<AccountLedgerItem, 'id'>) => void;
+  updateItem: (id: string, item: Partial<Omit<AccountLedgerItem, 'id'>>) => void;
   editingItem: AccountLedgerItem | null;
 };
 
 export function AccountLedgerForm({ open, onOpenChange, addItem, updateItem, editingItem }: AccountLedgerFormProps) {
+  const { accounts, isLoading: isLoadingAccounts } = useAccounts();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
       amount: 0,
+      accountId: '',
     },
   });
 
@@ -53,15 +64,17 @@ export function AccountLedgerForm({ open, onOpenChange, addItem, updateItem, edi
         form.reset({
           name: editingItem.name,
           amount: editingItem.amount,
+          accountId: editingItem.accountId,
         });
       } else {
         form.reset({
           name: '',
           amount: 0,
+          accountId: accounts[0]?.id || '',
         });
       }
     }
-  }, [editingItem, open, form]);
+  }, [editingItem, open, form, accounts]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     if (editingItem) {
@@ -87,6 +100,28 @@ export function AccountLedgerForm({ open, onOpenChange, addItem, updateItem, edi
                 <FormItem>
                   <FormLabel>Category Name</FormLabel>
                   <FormControl><Input placeholder="e.g., Emergency Fund" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="accountId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Account</FormLabel>
+                   <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingAccounts}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an account" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {accounts.map(account => (
+                        <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
