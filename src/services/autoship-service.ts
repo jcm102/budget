@@ -29,10 +29,10 @@ const frequencyMap: Record<AutoShipFrequency, number> = {
 
 export async function getAutoShipItems(accountId: string): Promise<AutoShipItem[]> {
   const autoShipCollection = collection(db, AUTOSHIP_COLLECTION);
-  const q = query(autoShipCollection, where('accountId', '==', accountId), orderBy('nextShipmentDate'));
+  const q = query(autoShipCollection, where('accountId', '==', accountId));
   const querySnapshot = await getDocs(q);
   const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AutoShipItem));
-  return items;
+  return items.sort((a, b) => new Date(a.nextShipmentDate).getTime() - new Date(b.nextShipmentDate).getTime());
 }
 
 export async function addAutoShipItem(itemData: Omit<AutoShipItem, 'id'>): Promise<AutoShipItem> {
