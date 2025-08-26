@@ -24,18 +24,11 @@ export async function getMileageLogs(status: 'active' | 'archived', archiveKey?:
 
   if (status === 'active') {
      const activeQuery = query(expenseCollection, where('type', '==', 'Mileage'), where('status', '==', 'active'));
-     const legacyQuery = query(expenseCollection, where('type', '==', 'Mileage'), where('status', '==', null));
      
-     const [activeSnapshot, legacySnapshot] = await Promise.all([
-        getDocs(activeQuery),
-        getDocs(legacyQuery)
-     ]);
+     const activeSnapshot = await getDocs(activeQuery);
 
-     const allItems = [
-        ...activeSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MileageLog)),
-        ...legacySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MileageLog))
-     ];
-
+     const allItems = activeSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MileageLog))
+     
      const uniqueItems = Array.from(new Map(allItems.map(item => [item.id, item])).values());
      return uniqueItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
