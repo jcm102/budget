@@ -20,10 +20,10 @@ const SUBSCRIPTION_COLLECTION = 'subscriptions';
 
 export async function getSubscriptions(accountId: string): Promise<SubscriptionItem[]> {
   const subCollection = collection(db, SUBSCRIPTION_COLLECTION);
-  const q = query(subCollection, where('accountId', '==', accountId), orderBy('serviceName'));
+  const q = query(subCollection, where('accountId', '==', accountId));
   const querySnapshot = await getDocs(q);
   const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SubscriptionItem));
-  return items;
+  return items.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
 }
 
 export async function addSubscription(itemData: Omit<SubscriptionItem, 'id'>): Promise<SubscriptionItem> {
