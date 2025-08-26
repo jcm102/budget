@@ -21,6 +21,9 @@ const ACCOUNT_COLLECTION = 'accounts';
 const SINKING_FUNDS_COLLECTION = 'sinking-funds';
 const GOALS_COLLECTION = 'goals';
 const LEDGER_ITEMS_COLLECTION = 'account-ledger-items';
+const SUBSCRIPTIONS_COLLECTION = 'subscriptions';
+const AUTOSHIP_COLLECTION = 'autoship-items';
+
 
 async function seedDefaultAccount() {
   const accountCollectionRef = collection(db, ACCOUNT_COLLECTION);
@@ -33,7 +36,7 @@ async function seedDefaultAccount() {
 
 async function migrateOrphanedItems(defaultAccountId: string) {
     const batch = writeBatch(db);
-    const collectionsToMigrate = [SINKING_FUNDS_COLLECTION, GOALS_COLLECTION, LEDGER_ITEMS_COLLECTION];
+    const collectionsToMigrate = [SINKING_FUNDS_COLLECTION, GOALS_COLLECTION, LEDGER_ITEMS_COLLECTION, SUBSCRIPTIONS_COLLECTION, AUTOSHIP_COLLECTION];
 
     for (const coll of collectionsToMigrate) {
         // Fetch all documents in the collection and filter client-side
