@@ -13,7 +13,7 @@ import { format, parse } from 'date-fns';
 import * as XLSX from 'xlsx';
 import * as ExpenseService from '@/services/expense-service';
 import { useToast } from '@/hooks/use-toast';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import type { Expense, MileageLog, Honorarium } from '@/types';
 import {
   DropdownMenu,
@@ -38,6 +38,7 @@ import {
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
 import { HonorariumTable } from '@/components/honorarium-table';
+import { useAccountLedger } from '@/hooks/use-account-ledger';
 
 type DisplayData = {
   expenses: Expense[];
@@ -63,6 +64,7 @@ export default function ExpensesPage() {
     deleteHonorarium,
     isLoading: dataLoading 
   } = useExpenses();
+  const { ledgerItems, isLoading: isLoadingLedger } = useAccountLedger();
   const { toast } = useToast();
   
   const [archivedMonths, setArchivedMonths] = useState<string[]>([]);
@@ -255,6 +257,10 @@ export default function ExpensesPage() {
 
   const isViewingArchive = selectedMonth !== 'active';
 
+  const reimbursableFund = useMemo(() => {
+    return ledgerItems.find(item => item.name.toLowerCase() === 'reimbursable fund');
+  }, [ledgerItems]);
+
 
   return (
     <div className="container mx-auto max-w-7xl p-4 md:p-8">
@@ -327,10 +333,14 @@ export default function ExpensesPage() {
             </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
              <div className="p-4 border rounded-lg bg-card">
                 <h4 className="text-muted-foreground">Honorarium Fund Balance</h4>
                 <p className="text-2xl font-semibold">{formatCurrency(honorariumFundBalance)}</p>
+            </div>
+             <div className="p-4 border rounded-lg bg-card">
+                <h4 className="text-muted-foreground">Reimbursable Fund</h4>
+                <p className="text-2xl font-semibold">{formatCurrency(reimbursableFund?.amount || 0)}</p>
             </div>
             <div className="p-4 border rounded-lg bg-card">
                 <h4 className="text-muted-foreground">Reimbursable Expenses</h4>
@@ -396,6 +406,8 @@ export default function ExpensesPage() {
     </div>
   );
 }
+
+    
 
     
 
