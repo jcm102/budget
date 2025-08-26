@@ -151,7 +151,7 @@ export function AccountLedgerTable() {
     }
   };
 
-  const formatCurrency = (amount: number, currency: 'CAD' | 'USD' = 'CAD') => {
+  const formatCurrency = (amount: number, currency: 'CAD' | 'USD' = 'USD') => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
   };
 
