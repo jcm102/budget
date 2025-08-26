@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function ExpensesPage() {
+    const { ledgerItems, isLoading: isLoadingLedger, fetchItems: fetchLedgerItems } = useAccountLedger();
     const {
         expenses,
         mileageLogs,
@@ -32,9 +33,8 @@ export default function ExpensesPage() {
         deleteHonorarium,
         isLoading,
         fetchData,
-    } = useExpenses();
+    } = useExpenses(fetchLedgerItems);
     
-    const { ledgerItems, isLoading: isLoadingLedger } = useAccountLedger();
     const { toast } = useToast();
     const [archivedMonths, setArchivedMonths] = useState<string[]>([]);
     const [selectedArchive, setSelectedArchive] = useState<string | null>(null);

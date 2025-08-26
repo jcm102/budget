@@ -6,16 +6,13 @@ import type { Expense, MileageLog, Honorarium } from '@/types';
 import { useToast } from './use-toast';
 import * as ExpenseService from '@/services/expense-service';
 import * as MileageService from '@/services/mileage-service';
-import { useAccountLedger } from './use-account-ledger';
 
-export function useExpenses() {
+export function useExpenses(fetchLedgerItems: () => Promise<void>) {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [mileageLogs, setMileageLogs] = useState<MileageLog[]>([]);
   const [honorariums, setHonorariums] = useState<Honorarium[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
-  const { fetchItems: fetchLedgerItems } = useAccountLedger();
-
 
   const fetchData = useCallback(async () => {
     try {
