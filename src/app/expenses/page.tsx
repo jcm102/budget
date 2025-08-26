@@ -33,7 +33,7 @@ export default function ExpensesPage() {
         deleteHonorarium,
         isLoading,
         fetchData,
-    } = useExpenses(fetchLedgerItems);
+    } = useExpenses();
     
     const { toast } = useToast();
     const [archivedMonths, setArchivedMonths] = useState<string[]>([]);
@@ -81,6 +81,31 @@ export default function ExpensesPage() {
                 variant: 'destructive',
             });
         }
+    };
+
+    const handleAddExpense = (item: any, ledgerAccountId: any, callback: any) => {
+        addExpense(item, ledgerAccountId, (success) => {
+            if (success && ledgerAccountId) {
+                fetchLedgerItems();
+            }
+            callback(success);
+        });
+    };
+
+    const handleAddHonorarium = (item: any) => {
+        addHonorarium(item).then(() => {
+            fetchLedgerItems();
+        }).catch(() => {
+            // Error is already toasted in the hook
+        });
+    };
+
+    const handleDeleteHonorarium = (id: string) => {
+        deleteHonorarium(id).then(() => {
+            fetchLedgerItems();
+        }).catch(() => {
+            // Error is already toasted in the hook
+        });
     };
     
     const reimbursableFund = ledgerItems.find(item => item.name === 'Reimbursable Fund');
@@ -153,13 +178,13 @@ export default function ExpensesPage() {
                     <TabsContent value="expenses">
                         <ExpenseTable 
                             expenses={expenses}
-                            addExpense={addExpense}
+                            addExpense={handleAddExpense}
                             updateExpense={updateExpense}
                             deleteExpense={deleteExpense}
                             toggleExpenseCompleted={toggleExpenseCompleted}
                             addMileage={addMileage}
                             updateMileage={updateMileage}
-                            addHonorarium={addHonorarium}
+                            addHonorarium={handleAddHonorarium}
                             updateHonorarium={updateHonorarium}
                             isLoading={isLoading}
                             isArchived={false}
@@ -169,12 +194,12 @@ export default function ExpensesPage() {
                     <TabsContent value="mileage">
                          <MileageTable 
                             mileageLogs={mileageLogs}
-                            addExpense={addExpense}
+                            addExpense={handleAddExpense}
                             updateExpense={updateExpense}
                             addMileage={addMileage}
                             updateMileage={updateMileage}
                             deleteMileage={deleteMileage}
-                            addHonorarium={addHonorarium}
+                            addHonorarium={handleAddHonorarium}
                             updateHonorarium={updateHonorarium}
                             isLoading={isLoading}
                             isArchived={false}
@@ -184,13 +209,13 @@ export default function ExpensesPage() {
                     <TabsContent value="honorariums">
                         <HonorariumTable
                             honorariums={honorariums}
-                            addExpense={addExpense}
+                            addExpense={handleAddExpense}
                             updateExpense={updateExpense}
                             addMileage={addMileage}
                             updateMileage={updateMileage}
-                            addHonorarium={addHonorarium}
+                            addHonorarium={handleAddHonorarium}
                             updateHonorarium={updateHonorarium}
-                            deleteHonorarium={deleteHonorarium}
+                            deleteHonorarium={handleDeleteHonorarium}
                             isLoading={isLoading}
                             isArchived={false}
                         />

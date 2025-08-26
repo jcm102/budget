@@ -7,7 +7,7 @@ import { useToast } from './use-toast';
 import * as ExpenseService from '@/services/expense-service';
 import * as MileageService from '@/services/mileage-service';
 
-export function useExpenses(fetchLedgerItems: () => Promise<void>) {
+export function useExpenses() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [mileageLogs, setMileageLogs] = useState<MileageLog[]>([]);
   const [honorariums, setHonorariums] = useState<Honorarium[]>([]);
@@ -45,9 +45,6 @@ export function useExpenses(fetchLedgerItems: () => Promise<void>) {
     try {
       await ExpenseService.addExpense(itemData, ledgerAccountId);
       await fetchData(); 
-      if(ledgerAccountId) {
-        await fetchLedgerItems(); // refetch ledger if it was updated
-      }
       callback(true);
     } catch (error) {
       console.error('Failed to add expense:', error);
@@ -58,7 +55,7 @@ export function useExpenses(fetchLedgerItems: () => Promise<void>) {
       });
       callback(false);
     }
-  }, [toast, fetchData, fetchLedgerItems]);
+  }, [toast, fetchData]);
 
   const updateExpense = useCallback(async (id: string, itemData: Partial<Omit<Expense, 'id' | 'originalId'>>) => {
     try {
@@ -155,8 +152,7 @@ export function useExpenses(fetchLedgerItems: () => Promise<void>) {
   const addHonorarium = useCallback(async (itemData: Omit<Honorarium, 'id'>) => {
     try {
       await ExpenseService.addHonorarium(itemData);
-      // Refetch both expenses and ledger items to see updates everywhere
-      await Promise.all([fetchData(), fetchLedgerItems()]);
+      await fetchData();
     } catch (error) {
       console.error('Failed to add honorarium:', error);
       toast({
@@ -164,8 +160,9 @@ export function useExpenses(fetchLedgerItems: () => Promise<void>) {
         description: 'Failed to add the new honorarium.',
         variant: 'destructive',
       });
+      throw error;
     }
-  }, [toast, fetchData, fetchLedgerItems]);
+  }, [toast, fetchData]);
 
   const updateHonorarium = useCallback(async (id: string, itemData: Partial<Omit<Honorarium, 'id'>>) => {
     try {
@@ -184,7 +181,7 @@ export function useExpenses(fetchLedgerItems: () => Promise<void>) {
   const deleteHonorarium = useCallback(async (id: string) => {
     try {
       await ExpenseService.deleteHonorarium(id);
-      await Promise.all([fetchData(), fetchLedgerItems()]);
+      await fetchData();
     } catch (error) {
       console.error('Failed to delete honorarium:', error);
       toast({
@@ -192,8 +189,9 @@ export function useExpenses(fetchLedgerItems: () => Promise<void>) {
         description: 'Failed to delete the honorarium.',
         variant: 'destructive',
       });
+      throw error;
     }
-  }, [toast, fetchData, fetchLedgerItems]);
+  }, [toast, fetchData]);
 
   return { 
     expenses, 
