@@ -19,7 +19,6 @@ const navItems = [
     { href: '/', icon: Home, label: 'Tasks' },
     { href: '/debt', icon: Wallet, label: 'Debt Worksheet' },
     { href: '/budget', icon: Banknote, label: 'Budget Overview' },
-    { href: '/expenses', icon: CreditCard, label: 'Work Expenses' },
     { href: '/savings', icon: PiggyBank, label: 'Future Spending' },
     { href: '/split', icon: Users, label: 'Split Calculator' },
 ];
