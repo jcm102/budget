@@ -19,9 +19,9 @@ import {
 
 const GOAL_COLLECTION = 'goals';
 
-export async function getGoals(): Promise<Goal[]> {
+export async function getGoals(accountId: string): Promise<Goal[]> {
   const goalCollection = collection(db, GOAL_COLLECTION);
-  const q = query(goalCollection, orderBy('name'));
+  const q = query(goalCollection, where('accountId', '==', accountId), orderBy('name'));
   const querySnapshot = await getDocs(q);
   const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Goal));
   return items;

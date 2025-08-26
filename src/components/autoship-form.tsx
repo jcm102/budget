@@ -31,8 +31,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { AutoShipItem, AutoShipFrequency } from '@/types';
+import { useAccounts } from '@/hooks/use-accounts';
 
 const formSchema = z.object({
+  accountId: z.string().min(1, 'An account is required.'),
   item: z.string().min(2, 'Item name must be at least 2 characters.'),
   nextShipmentDate: z.string().min(1, 'A next shipment date is required.'),
   frequency: z.enum(['Monthly', 'Every 2 Months', 'Every 3 Months', 'Every 4 Months', 'Every 6 Months']),
@@ -48,9 +50,11 @@ type AutoShipFormProps = {
 };
 
 export function AutoShipForm({ open, onOpenChange, addAutoShipItem, updateAutoShipItem, editingItem }: AutoShipFormProps) {
+  const { accounts, isLoading: isLoadingAccounts } = useAccounts();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      accountId: '',
       item: '',
       nextShipmentDate: '',
       frequency: 'Monthly',
@@ -62,6 +66,7 @@ export function AutoShipForm({ open, onOpenChange, addAutoShipItem, updateAutoSh
     if (open) {
       if (editingItem) {
         form.reset({
+          accountId: editingItem.accountId,
           item: editingItem.item,
           nextShipmentDate: new Date(editingItem.nextShipmentDate).toISOString().split('T')[0],
           frequency: editingItem.frequency,
@@ -69,6 +74,7 @@ export function AutoShipForm({ open, onOpenChange, addAutoShipItem, updateAutoSh
         });
       } else {
         form.reset({
+          accountId: accounts[0]?.id || '',
           item: '',
           nextShipmentDate: new Date().toISOString().split('T')[0],
           frequency: 'Monthly',
@@ -76,7 +82,7 @@ export function AutoShipForm({ open, onOpenChange, addAutoShipItem, updateAutoSh
         });
       }
     }
-  }, [editingItem, open, form]);
+  }, [editingItem, open, form, accounts]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const [year, month, day] = values.nextShipmentDate.split('-').map(Number);
@@ -106,6 +112,28 @@ export function AutoShipForm({ open, onOpenChange, addAutoShipItem, updateAutoSh
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+             <FormField
+              control={form.control}
+              name="accountId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Account</FormLabel>
+                   <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingAccounts}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an account" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {accounts.map(account => (
+                        <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField control={form.control} name="item" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Item Name</FormLabel>

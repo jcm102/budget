@@ -7,6 +7,7 @@ import { useToast } from './use-toast';
 import * as SavingsService from '@/services/savings-service';
 import * as SubscriptionService from '@/services/subscription-service';
 import * as AutoShipService from '@/services/autoship-service';
+import { useSelectedAccount } from './use-selected-account';
 
 export function useSavings() {
   const [savingsItems, setSavingsItems] = useState<SavingsItem[]>([]);
@@ -14,8 +15,16 @@ export function useSavings() {
   const [autoShipItems, setAutoShipItems] = useState<AutoShipItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const { selectedAccountId } = useSelectedAccount();
 
   const fetchAllData = useCallback(async () => {
+    if (!selectedAccountId) {
+      setSavingsItems([]);
+      setSubscriptions([]);
+      setAutoShipItems([]);
+      setIsLoading(false);
+      return;
+    }
     try {
       setIsLoading(true);
       const [
@@ -23,9 +32,9 @@ export function useSavings() {
         fetchedSubscriptions, 
         fetchedAutoShips
       ] = await Promise.all([
-        SavingsService.getSavingsItems(),
-        SubscriptionService.getSubscriptions(),
-        AutoShipService.getAutoShipItems(),
+        SavingsService.getSavingsItems(selectedAccountId),
+        SubscriptionService.getSubscriptions(selectedAccountId),
+        AutoShipService.getAutoShipItems(selectedAccountId),
       ]);
       setSavingsItems(fetchedItems);
       setSubscriptions(fetchedSubscriptions);
@@ -40,7 +49,7 @@ export function useSavings() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [selectedAccountId, toast]);
 
   useEffect(() => {
     fetchAllData();
@@ -65,7 +74,7 @@ export function useSavings() {
     setSavingsItems(prev => prev.map(item => (item.id === id ? { ...item, ...itemData } as SavingsItem : item)));
     try {
       await SavingsService.updateSavingsItem(id, itemData);
-       // No full refetch to keep optimistic updates smooth, unless there's a server-side change we need
+       await fetchAllData();
     } catch (error) {
       console.error('Failed to update savings item:', error);
       setSavingsItems(originalItems);
@@ -75,7 +84,7 @@ export function useSavings() {
         variant: 'destructive',
       });
     }
-  }, [savingsItems, toast]);
+  }, [savingsItems, toast, fetchAllData]);
 
   const deleteSavingsItem = useCallback(async (id: string) => {
     const originalItems = savingsItems;

@@ -31,8 +31,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { SubscriptionItem, SubscriptionBillingFrequency } from '@/types';
+import { useAccounts } from '@/hooks/use-accounts';
 
 const formSchema = z.object({
+  accountId: z.string().min(1, 'An account is required.'),
   serviceName: z.string().min(2, 'Service name must be at least 2 characters.'),
   billingFrequency: z.enum(['Monthly', 'Quarterly', 'Annually']),
   cost: z.coerce.number().min(0, 'Cost must be a positive number.'),
@@ -48,9 +50,11 @@ type SubscriptionFormProps = {
 };
 
 export function SubscriptionForm({ open, onOpenChange, addSubscription, updateSubscription, editingItem }: SubscriptionFormProps) {
+  const { accounts, isLoading: isLoadingAccounts } = useAccounts();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      accountId: '',
       serviceName: '',
       billingFrequency: 'Monthly',
       cost: 0,
@@ -62,6 +66,7 @@ export function SubscriptionForm({ open, onOpenChange, addSubscription, updateSu
     if (open) {
       if (editingItem) {
         form.reset({
+          accountId: editingItem.accountId,
           serviceName: editingItem.serviceName,
           billingFrequency: editingItem.billingFrequency,
           cost: editingItem.cost,
@@ -69,6 +74,7 @@ export function SubscriptionForm({ open, onOpenChange, addSubscription, updateSu
         });
       } else {
         form.reset({
+          accountId: accounts[0]?.id || '',
           serviceName: '',
           billingFrequency: 'Monthly',
           cost: 0,
@@ -76,7 +82,7 @@ export function SubscriptionForm({ open, onOpenChange, addSubscription, updateSu
         });
       }
     }
-  }, [editingItem, open, form]);
+  }, [editingItem, open, form, accounts]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const [year, month, day] = values.nextRenewalDate.split('-').map(Number);
@@ -107,6 +113,28 @@ export function SubscriptionForm({ open, onOpenChange, addSubscription, updateSu
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+             <FormField
+              control={form.control}
+              name="accountId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Account</FormLabel>
+                   <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingAccounts}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an account" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {accounts.map(account => (
+                        <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField control={form.control} name="serviceName" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Service Name</FormLabel>

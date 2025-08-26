@@ -23,10 +23,14 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Goal } from '@/types';
+import { useAccounts } from '@/hooks/use-accounts';
+
 
 const formSchema = z.object({
   name: z.string().min(2, 'Goal name must be at least 2 characters.'),
+  accountId: z.string().min(1, 'An account is required.'),
   cost: z.coerce.number().min(0.01, 'Cost must be a positive number.'),
   amount: z.coerce.number().min(0, 'Amount must be a positive number.'),
   link: z.string().url('Please enter a valid URL.').or(z.literal('')).optional(),
@@ -42,10 +46,12 @@ type GoalFormProps = {
 };
 
 export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem }: GoalFormProps) {
+  const { accounts, isLoading: isLoadingAccounts } = useAccounts();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
+      accountId: '',
       cost: 0,
       amount: 0,
       link: '',
@@ -57,6 +63,7 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
       if (editingItem) {
         form.reset({
           name: editingItem.name,
+          accountId: editingItem.accountId,
           cost: editingItem.cost || 0,
           amount: editingItem.amount || 0,
           link: editingItem.link || '',
@@ -64,17 +71,19 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
       } else {
         form.reset({
           name: '',
+          accountId: accounts[0]?.id || '',
           cost: 0,
           amount: 0,
           link: '',
         });
       }
     }
-  }, [editingItem, open, form]);
+  }, [editingItem, open, form, accounts]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const submissionData = { 
         name: values.name,
+        accountId: values.accountId,
         cost: values.cost,
         amount: values.amount,
         link: values.link || null,
@@ -103,6 +112,29 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
                 <FormItem>
                   <FormLabel>Goal Name</FormLabel>
                   <FormControl><Input placeholder="e.g., New Car" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="accountId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Account</FormLabel>
+                   <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingAccounts}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an account" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {accounts.map(account => (
+                        <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

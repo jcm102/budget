@@ -5,16 +5,23 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Goal } from '@/types';
 import { useToast } from './use-toast';
 import * as GoalService from '@/services/goal-service';
+import { useSelectedAccount } from './use-selected-account';
 
 export function useGoals() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const { selectedAccountId } = useSelectedAccount();
 
   const fetchGoals = useCallback(async () => {
+    if (!selectedAccountId) {
+        setGoals([]);
+        setIsLoading(false);
+        return;
+    }
     try {
       setIsLoading(true);
-      const fetchedItems = await GoalService.getGoals();
+      const fetchedItems = await GoalService.getGoals(selectedAccountId);
       setGoals(fetchedItems);
     } catch (error) {
       console.error('Failed to load goals:', error);
@@ -26,7 +33,7 @@ export function useGoals() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, selectedAccountId]);
 
   useEffect(() => {
     fetchGoals();
@@ -51,7 +58,7 @@ export function useGoals() {
     setGoals(prev => prev.map(item => (item.id === id ? { ...item, ...itemData } as Goal : item)));
     try {
       await GoalService.updateGoal(id, itemData);
-      // No full refetch needed for optimistic updates unless there's a server-side change we need
+      await fetchGoals();
     } catch (error) {
       console.error('Failed to update goal:', error);
       setGoals(originalItems);
@@ -61,7 +68,7 @@ export function useGoals() {
         variant: 'destructive',
       });
     }
-  }, [goals, toast]);
+  }, [goals, toast, fetchGoals]);
 
   const deleteGoal = useCallback(async (id: string) => {
     const originalItems = goals;

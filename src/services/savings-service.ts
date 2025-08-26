@@ -28,9 +28,9 @@ const recurrenceIntervalMap: Record<SavingsRecurrence, number> = {
 };
 
 
-export async function getSavingsItems(): Promise<SavingsItem[]> {
+export async function getSavingsItems(accountId: string): Promise<SavingsItem[]> {
   const savingsCollection = collection(db, SAVINGS_COLLECTION);
-  const q = query(savingsCollection, orderBy('name'));
+  const q = query(savingsCollection, where('accountId', '==', accountId), orderBy('name'));
   const querySnapshot = await getDocs(q);
   const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SavingsItem));
   return items;

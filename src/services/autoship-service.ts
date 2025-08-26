@@ -13,6 +13,7 @@ import {
   addDoc,
   getDoc,
   orderBy,
+  where,
 } from 'firebase/firestore';
 import { addMonths } from 'date-fns';
 
@@ -26,9 +27,9 @@ const frequencyMap: Record<AutoShipFrequency, number> = {
     'Every 6 Months': 6,
 };
 
-export async function getAutoShipItems(): Promise<AutoShipItem[]> {
+export async function getAutoShipItems(accountId: string): Promise<AutoShipItem[]> {
   const autoShipCollection = collection(db, AUTOSHIP_COLLECTION);
-  const q = query(autoShipCollection, orderBy('nextShipmentDate'));
+  const q = query(autoShipCollection, where('accountId', '==', accountId), orderBy('nextShipmentDate'));
   const querySnapshot = await getDocs(q);
   const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AutoShipItem));
   return items;

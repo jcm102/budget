@@ -25,11 +25,13 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { SavingsItem, SavingsRecurrence } from '@/types';
+import type { SavingsItem, SavingsRecurrence, Account } from '@/types';
+import { useAccounts } from '@/hooks/use-accounts';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Fund name must be at least 2 characters.'),
   amount: z.coerce.number().min(0, 'Amount must be a positive number.'),
+  accountId: z.string().min(1, 'An account is required.'),
   currency: z.enum(['CAD', 'USD']),
   goal: z.coerce.number().optional(), // Monthly contribution goal
   totalCost: z.coerce.number().optional(),
@@ -47,11 +49,13 @@ type SavingsFormProps = {
 };
 
 export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsItem, editingItem }: SavingsFormProps) {
+  const { accounts, isLoading: isLoadingAccounts } = useAccounts();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
       amount: 0,
+      accountId: '',
       currency: 'CAD',
       goal: 0,
       totalCost: 0,
@@ -94,6 +98,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
         form.reset({
           name: editingItem.name,
           amount: editingItem.amount,
+          accountId: editingItem.accountId,
           currency: editingItem.currency || 'CAD',
           goal: editingItem.goal || 0,
           totalCost: editingItem.totalCost || 0,
@@ -105,6 +110,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
         form.reset({
           name: '',
           amount: 0,
+          accountId: accounts[0]?.id || '',
           currency: 'CAD',
           goal: 0,
           totalCost: 0,
@@ -114,7 +120,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
         });
       }
     }
-  }, [editingItem, open, form]);
+  }, [editingItem, open, form, accounts]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
      const submissionData = {
@@ -152,6 +158,28 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
                 <FormItem>
                   <FormLabel>Fund Name</FormLabel>
                   <FormControl><Input placeholder="e.g., Car Maintenance" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="accountId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Account</FormLabel>
+                   <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingAccounts}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an account" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {accounts.map(account => (
+                        <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

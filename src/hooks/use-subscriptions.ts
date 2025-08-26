@@ -5,16 +5,23 @@ import { useState, useEffect, useCallback } from 'react';
 import type { SubscriptionItem } from '@/types';
 import { useToast } from './use-toast';
 import * as SubscriptionService from '@/services/subscription-service';
+import { useSelectedAccount } from './use-selected-account';
 
 export function useSubscriptions() {
   const [subscriptions, setSubscriptions] = useState<SubscriptionItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const { selectedAccountId } = useSelectedAccount();
 
   const fetchSubscriptions = useCallback(async () => {
+    if (!selectedAccountId) {
+      setSubscriptions([]);
+      setIsLoading(false);
+      return;
+    }
     try {
       setIsLoading(true);
-      const fetchedItems = await SubscriptionService.getSubscriptions();
+      const fetchedItems = await SubscriptionService.getSubscriptions(selectedAccountId);
       setSubscriptions(fetchedItems);
     } catch (error) {
       console.error('Failed to load subscriptions:', error);
@@ -26,7 +33,7 @@ export function useSubscriptions() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, selectedAccountId]);
 
   useEffect(() => {
     fetchSubscriptions();

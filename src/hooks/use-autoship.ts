@@ -5,16 +5,23 @@ import { useState, useEffect, useCallback } from 'react';
 import type { AutoShipItem } from '@/types';
 import { useToast } from './use-toast';
 import * as AutoShipService from '@/services/autoship-service';
+import { useSelectedAccount } from './use-selected-account';
 
 export function useAutoShip() {
   const [autoShipItems, setAutoShipItems] = useState<AutoShipItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const { selectedAccountId } = useSelectedAccount();
 
   const fetchAutoShipItems = useCallback(async () => {
+    if (!selectedAccountId) {
+      setAutoShipItems([]);
+      setIsLoading(false);
+      return;
+    }
     try {
       setIsLoading(true);
-      const fetchedItems = await AutoShipService.getAutoShipItems();
+      const fetchedItems = await AutoShipService.getAutoShipItems(selectedAccountId);
       setAutoShipItems(fetchedItems);
     } catch (error) {
       console.error('Failed to load auto-ship items:', error);
@@ -26,7 +33,7 @@ export function useAutoShip() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, selectedAccountId]);
 
   useEffect(() => {
     fetchAutoShipItems();

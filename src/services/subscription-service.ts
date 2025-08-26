@@ -13,13 +13,14 @@ import {
   addDoc,
   getDoc,
   orderBy,
+  where
 } from 'firebase/firestore';
 
 const SUBSCRIPTION_COLLECTION = 'subscriptions';
 
-export async function getSubscriptions(): Promise<SubscriptionItem[]> {
+export async function getSubscriptions(accountId: string): Promise<SubscriptionItem[]> {
   const subCollection = collection(db, SUBSCRIPTION_COLLECTION);
-  const q = query(subCollection, orderBy('serviceName'));
+  const q = query(subCollection, where('accountId', '==', accountId), orderBy('serviceName'));
   const querySnapshot = await getDocs(q);
   const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SubscriptionItem));
   return items;
