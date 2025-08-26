@@ -23,7 +23,7 @@ import { buttonVariants } from './ui/button';
 import { Skeleton } from './ui/skeleton';
 
 export function AccountManager() {
-  const { accounts, addAccount, deleteAccount, isLoading } from useAccounts();
+  const { accounts, addAccount, deleteAccount, isLoading } = useAccounts();
   const [newAccount, setNewAccount] = useState('');
 
   const handleAddAccount = () => {
