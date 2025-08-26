@@ -125,6 +125,7 @@ export type SavingsRecurrence = 'None' | 'Quarterly' | 'Semi-Annually' | 'Annual
 
 export interface SavingsItem {
   id: string;
+  accountId: string;
   name: string;
   amount: number;
   currency: 'CAD' | 'USD';
@@ -141,6 +142,7 @@ export interface SavingsItem {
 
 export interface AccountLedgerItem {
   id: string;
+  accountId: string;
   name: string;
   amount: number;
 }
@@ -149,6 +151,7 @@ export type AutoShipFrequency = 'Monthly' | 'Every 2 Months' | 'Every 3 Months' 
 
 export interface AutoShipItem {
     id: string;
+    accountId: string;
     item: string;
     nextShipmentDate: string; // ISO string
     frequency: AutoShipFrequency;
@@ -159,6 +162,7 @@ export type SubscriptionBillingFrequency = 'Monthly' | 'Quarterly' | 'Annually';
 
 export interface SubscriptionItem {
   id: string;
+  accountId: string;
   serviceName: string;
   billingFrequency: SubscriptionBillingFrequency;
   cost: number;
@@ -179,6 +183,7 @@ export interface Person {
 
 export interface Goal {
   id: string;
+  accountId: string;
   name: string;
   cost: number;
   amount: number; // Amount saved towards the goal
@@ -194,4 +199,9 @@ export interface CalendarRow {
   id: string;
   description: string;
   values: Record<string, number>; // Record<columnId, amount>
+}
+
+export interface Account {
+  id: string;
+  name: string;
 }

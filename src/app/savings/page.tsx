@@ -10,12 +10,25 @@ import { AutoShipTable } from '@/components/autoship-table';
 import { SubscriptionTable } from '@/components/subscription-table';
 import { AccountLedgerTable } from '@/components/account-ledger-table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAccounts } from '@/hooks/use-accounts';
+import { useSelectedAccount } from '@/hooks/use-selected-account';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 
 export default function SavingsPage() {
+  const { accounts, isLoading: isLoadingAccounts } = useAccounts();
+  const { selectedAccountId, setSelectedAccountId } = useSelectedAccount();
+
   const handlePrint = () => {
     window.print();
   };
+  
+  const selectedAccount = accounts.find(a => a.id === selectedAccountId);
 
   return (
     <div className="container mx-auto max-w-7xl p-4 md:p-8">
@@ -27,9 +40,29 @@ export default function SavingsPage() {
           </Link>
         </Button>
         <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-bold font-headline text-primary hidden md:block">
-                Future Spending
-            </h1>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-[200px] justify-between">
+                  {selectedAccount ? selectedAccount.name : 'Select Account'}
+                  <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-[200px]">
+                {isLoadingAccounts ? (
+                  <DropdownMenuItem disabled>Loading...</DropdownMenuItem>
+                ) : (
+                  accounts.map(account => (
+                    <DropdownMenuItem 
+                      key={account.id} 
+                      onSelect={() => setSelectedAccountId(account.id)}
+                      disabled={account.id === selectedAccountId}
+                    >
+                      {account.name}
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button variant="outline" onClick={handlePrint}>
                 <Printer className="mr-2 h-4 w-4" />
                 Print
