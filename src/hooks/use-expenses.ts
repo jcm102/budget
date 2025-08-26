@@ -158,7 +158,8 @@ export function useExpenses() {
   const addHonorarium = useCallback(async (itemData: Omit<Honorarium, 'id'>) => {
     try {
       await ExpenseService.addHonorarium(itemData);
-      await fetchData();
+      // Refetch both expenses and ledger items to see updates everywhere
+      await Promise.all([fetchData(), fetchLedgerItems()]);
     } catch (error) {
       console.error('Failed to add honorarium:', error);
       toast({
@@ -167,7 +168,7 @@ export function useExpenses() {
         variant: 'destructive',
       });
     }
-  }, [toast, fetchData]);
+  }, [toast, fetchData, fetchLedgerItems]);
 
   const updateHonorarium = useCallback(async (id: string, itemData: Partial<Omit<Honorarium, 'id'>>) => {
     try {
@@ -186,7 +187,7 @@ export function useExpenses() {
   const deleteHonorarium = useCallback(async (id: string) => {
     try {
       await ExpenseService.deleteHonorarium(id);
-      await fetchData();
+      await Promise.all([fetchData(), fetchLedgerItems()]);
     } catch (error) {
       console.error('Failed to delete honorarium:', error);
       toast({
@@ -195,7 +196,7 @@ export function useExpenses() {
         variant: 'destructive',
       });
     }
-  }, [toast, fetchData]);
+  }, [toast, fetchData, fetchLedgerItems]);
 
   return { 
     expenses, 
