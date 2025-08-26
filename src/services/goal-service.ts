@@ -21,10 +21,10 @@ const GOAL_COLLECTION = 'goals';
 
 export async function getGoals(accountId: string): Promise<Goal[]> {
   const goalCollection = collection(db, GOAL_COLLECTION);
-  const q = query(goalCollection, where('accountId', '==', accountId), orderBy('name'));
+  const q = query(goalCollection, where('accountId', '==', accountId));
   const querySnapshot = await getDocs(q);
   const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Goal));
-  return items;
+  return items.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function addGoal(itemData: Omit<Goal, 'id'>): Promise<Goal> {
