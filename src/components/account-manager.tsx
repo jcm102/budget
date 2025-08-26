@@ -23,7 +23,7 @@ import { buttonVariants } from './ui/button';
 import { Skeleton } from './ui/skeleton';
 
 export function AccountManager() {
-  const { accounts, addAccount, deleteAccount, isLoading } = useAccounts();
+  const { accounts, addAccount, deleteAccount, updateAccount, isLoading } = useAccounts();
   const [newAccount, setNewAccount] = useState('');
 
   const handleAddAccount = () => {
@@ -32,6 +32,13 @@ export function AccountManager() {
       setNewAccount('');
     }
   };
+  
+  const handleNameChange = (id: string, newName: string) => {
+    if (newName.trim()) {
+      updateAccount(id, newName.trim());
+    }
+  };
+
 
   const renderLoadingSkeleton = () => (
     <div className="space-y-2">
@@ -45,7 +52,7 @@ export function AccountManager() {
       <CardHeader>
         <CardTitle>Manage Savings Accounts</CardTitle>
         <CardDescription>
-          Add or remove accounts for the Future Spending page.
+          Add, remove, or edit accounts for the Future Spending page.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -67,9 +74,13 @@ export function AccountManager() {
             accounts.map((account) => (
               <div
                 key={account.id}
-                className="flex items-center justify-between p-2 border rounded-md"
+                className="flex items-center justify-between p-2 pl-3 border rounded-md"
               >
-                <span>{account.name}</span>
+                <Input 
+                  defaultValue={account.name}
+                  onBlur={(e) => handleNameChange(account.id, e.target.value)}
+                  className="bg-transparent border-none h-auto p-0 text-sm font-medium focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" disabled={accounts.length <= 1}>

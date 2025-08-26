@@ -14,6 +14,7 @@ import {
   getDoc,
   writeBatch,
   where,
+  updateDoc,
 } from 'firebase/firestore';
 
 const ACCOUNT_COLLECTION = 'accounts';
@@ -70,6 +71,11 @@ export async function addAccount(name: string): Promise<Account> {
   const docSnap = await getDoc(docRef);
   const newAccount = { id: docSnap.id, ...docSnap.data() } as Account;
   return newAccount;
+}
+
+export async function updateAccount(id: string, name: string): Promise<void> {
+    const accountRef = doc(db, ACCOUNT_COLLECTION, id);
+    await updateDoc(accountRef, { name });
 }
 
 export async function deleteAccount(id: string): Promise<void> {

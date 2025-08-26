@@ -45,7 +45,7 @@ export function useAccounts() {
 
   const addAccount = useCallback(async (name: string) => {
     try {
-      const newAccount = await AccountService.addAccount(name);
+      await AccountService.addAccount(name);
       await fetchAccounts(); // refetch to get the latest list and set selected ID if needed
     } catch (error) {
       console.error('Failed to add account:', error);
@@ -56,6 +56,26 @@ export function useAccounts() {
       });
     }
   }, [toast, fetchAccounts]);
+  
+  const updateAccount = useCallback(async (id: string, name: string) => {
+    const originalAccounts = [...accounts];
+    setAccounts((prev) => prev.map(a => a.id === id ? {...a, name} : a));
+    try {
+      await AccountService.updateAccount(id, name);
+      toast({
+        title: 'Account Updated',
+        description: `The account name has been changed to "${name}".`
+      });
+    } catch (error) {
+      setAccounts(originalAccounts);
+       console.error('Failed to update account:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update the account name.',
+        variant: 'destructive',
+      });
+    }
+  }, [accounts, toast]);
 
   const deleteAccount = useCallback(async (id: string) => {
     if (accounts.length <= 1) {
@@ -82,5 +102,5 @@ export function useAccounts() {
     }
   }, [accounts, toast, fetchAccounts]);
 
-  return { accounts, addAccount, deleteAccount, isLoading };
+  return { accounts, addAccount, deleteAccount, updateAccount, isLoading };
 }
