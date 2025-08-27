@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Landmark, HandCoins, DollarSign, FileClock, Archive, FileText, Route, Car } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useExpenses } from '@/hooks/use-expenses';
-import { useAccountLedger } from '@/hooks/use-account-ledger';
+import { useExpenseFunds } from '@/hooks/use-expense-funds';
 import { ExpenseTable } from '@/components/expense-table';
 import { MileageTable } from '@/components/mileage-table';
 import { HonorariumTable } from '@/components/honorarium-table';
@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function ExpensesPage() {
-    const { ledgerItems, isLoading: isLoadingLedger, fetchItems: fetchLedgerItems } = useAccountLedger();
+    const { honorariumFund, reimbursableFund, isLoading: isLoadingLedger, fetchFunds } = useExpenseFunds();
     const {
         expenses,
         mileageLogs,
@@ -85,8 +85,8 @@ export default function ExpensesPage() {
 
     const handleAddExpense = (item: any, ledgerAccountId: any, callback: any) => {
         addExpense(item, ledgerAccountId, (success) => {
-            if (success && ledgerAccountId) {
-                fetchLedgerItems();
+            if (success) {
+                fetchFunds();
             }
             callback(success);
         });
@@ -94,7 +94,7 @@ export default function ExpensesPage() {
 
     const handleAddHonorarium = (item: any) => {
         addHonorarium(item).then(() => {
-            fetchLedgerItems();
+            fetchFunds();
         }).catch(() => {
             // Error is already toasted in the hook
         });
@@ -102,14 +102,12 @@ export default function ExpensesPage() {
 
     const handleDeleteHonorarium = (id: string) => {
         deleteHonorarium(id).then(() => {
-            fetchLedgerItems();
+            fetchFunds();
         }).catch(() => {
             // Error is already toasted in the hook
         });
     };
     
-    const reimbursableFund = ledgerItems.find(item => item.name === 'Reimbursable Fund');
-    const honorariumFund = ledgerItems.find(item => item.name === 'Honorarium Fund');
     const totalReimbursable = expenses.filter(e => e.reimbursable).reduce((acc, e) => acc + e.amount, 0);
 
     const renderSummarySkeleton = () => (

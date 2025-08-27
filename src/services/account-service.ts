@@ -24,13 +24,22 @@ const LEDGER_ITEMS_COLLECTION = 'account-ledger-items';
 const SUBSCRIPTIONS_COLLECTION = 'subscriptions';
 const AUTOSHIP_COLLECTION = 'autoship-items';
 
+const defaultAccounts = ['Primary Account', 'Future Expenses', 'Reimbursable Expenses'];
 
-async function seedDefaultAccount() {
+async function seedDefaultAccounts() {
   const accountCollectionRef = collection(db, ACCOUNT_COLLECTION);
   const snapshot = await getDocs(query(accountCollectionRef));
-  
-  if (snapshot.empty) {
-    await addDoc(accountCollectionRef, { name: 'Primary Account' });
+  const existingNames = snapshot.docs.map(doc => doc.data().name);
+
+  const missingAccounts = defaultAccounts.filter(name => !existingNames.includes(name));
+
+  if (missingAccounts.length > 0) {
+    const batch = writeBatch(db);
+    missingAccounts.forEach(accountName => {
+      const newDocRef = doc(accountCollectionRef);
+      batch.set(newDocRef, { name: accountName });
+    });
+    await batch.commit();
   }
 }
 
@@ -53,7 +62,7 @@ async function migrateOrphanedItems(defaultAccountId: string) {
 }
 
 export async function getAccounts(): Promise<Account[]> {
-  await seedDefaultAccount();
+  await seedDefaultAccounts();
   const accountCollection = collection(db, ACCOUNT_COLLECTION);
   const q = query(accountCollection, orderBy('name'));
   const querySnapshot = await getDocs(q);
@@ -89,7 +98,7 @@ export async function deleteAccount(id: string): Promise<void> {
   batch.delete(accountRef);
 
   // Find and delete all items associated with this account
-  const collectionsToDeleteFrom = [SINKING_FUNDS_COLLECTION, GOALS_COLLECTION, LEDGER_ITEMS_COLLECTION];
+  const collectionsToDeleteFrom = [SINKING_FUNDS_COLLECTION, GOALS_COLLECTION, LEDGER_ITEMS_COLLECTION, SUBSCRIPTIONS_COLLECTION, AUTOSHIP_COLLECTION];
   for (const coll of collectionsToDeleteFrom) {
     const q = query(collection(db, coll), where('accountId', '==', id));
     const snapshot = await getDocs(q);
