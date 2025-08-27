@@ -49,8 +49,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { AccountLedgerForm } from './account-ledger-form';
 import { useAccountLedger } from '@/hooks/use-account-ledger';
-import { useSavings } from '@/hooks/use-savings';
-import { useGoals } from '@/hooks/use-goals';
 import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
@@ -131,16 +129,11 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
 }
 
 export function AccountLedgerTable() {
-  const { ledgerItems, addItem, updateItem, deleteItem, isLoading: isLoadingLedger } = useAccountLedger();
-  const { savingsItems, isLoading: isLoadingSavings } = useSavings();
-  const { goals, isLoading: isLoadingGoals } = useGoals();
-  const { selectedAccountId } = useSelectedAccount();
+  const { ledgerItems, savingsItems, goals, addItem, updateItem, deleteItem, isLoading } = useAccountLedger();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<AccountLedgerItem | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
-
-  const isLoading = isLoadingLedger || isLoadingSavings || isLoadingGoals;
 
   const handleEdit = (item: AccountLedgerItem) => {
     setEditingItem(item);
@@ -205,15 +198,10 @@ export function AccountLedgerTable() {
     totalCad,
     totalUsd,
   } = useMemo(() => {
-    const currentLedgerItems = ledgerItems.filter(i => i.accountId === selectedAccountId);
-    const currentLedgerTotal = currentLedgerItems.reduce((acc, item) => acc + item.amount, 0);
-
-    const currentSinkingFunds = savingsItems.filter(i => i.accountId === selectedAccountId);
-    const currentSinkingFundsCadTotal = currentSinkingFunds.filter(i => i.currency === 'CAD').reduce((acc, item) => acc + item.amount, 0);
-    const currentSinkingFundsUsdTotal = currentSinkingFunds.filter(i => i.currency === 'USD').reduce((acc, item) => acc + item.amount, 0);
-
-    const currentGoals = goals.filter(g => g.accountId === selectedAccountId);
-    const currentGoalSavingsTotal = currentGoals.reduce((acc, goal) => acc + goal.amount, 0);
+    const currentLedgerTotal = ledgerItems.reduce((acc, item) => acc + item.amount, 0);
+    const currentSinkingFundsCadTotal = savingsItems.filter(i => i.currency === 'CAD').reduce((acc, item) => acc + item.amount, 0);
+    const currentSinkingFundsUsdTotal = savingsItems.filter(i => i.currency === 'USD').reduce((acc, item) => acc + item.amount, 0);
+    const currentGoalSavingsTotal = goals.reduce((acc, goal) => acc + goal.amount, 0);
     
     const finalTotalCad = currentLedgerTotal + currentSinkingFundsCadTotal + currentGoalSavingsTotal;
     const finalTotalUsd = currentSinkingFundsUsdTotal;
@@ -226,7 +214,7 @@ export function AccountLedgerTable() {
       totalCad: finalTotalCad,
       totalUsd: finalTotalUsd,
     };
-  }, [ledgerItems, savingsItems, goals, selectedAccountId]);
+  }, [ledgerItems, savingsItems, goals]);
 
 
   return (

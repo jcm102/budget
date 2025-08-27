@@ -2,15 +2,17 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import type { AccountLedgerItem, Account } from '@/types';
+import type { AccountLedgerItem, SavingsItem, Goal } from '@/types';
 import { useToast } from './use-toast';
 import * as AccountLedgerService from '@/services/account-ledger-service';
-import * as AccountService from '@/services/account-service';
+import * as SavingsService from '@/services/savings-service';
+import * as GoalService from '@/services/goal-service';
 import { useSelectedAccount } from './use-selected-account';
 
 export function useAccountLedger() {
   const [ledgerItems, setLedgerItems] = useState<AccountLedgerItem[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [savingsItems, setSavingsItems] = useState<SavingsItem[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { selectedAccountId } = useSelectedAccount();
@@ -18,20 +20,24 @@ export function useAccountLedger() {
   const fetchItems = useCallback(async () => {
     if (!selectedAccountId) {
       setLedgerItems([]);
+      setSavingsItems([]);
+      setGoals([]);
       setIsLoading(false);
       return;
     }
 
     try {
       setIsLoading(true);
-      const [fetchedItems, fetchedAccounts] = await Promise.all([
+      const [fetchedLedger, fetchedSavings, fetchedGoals] = await Promise.all([
         AccountLedgerService.getLedgerItems(selectedAccountId),
-        AccountService.getAccounts()
+        SavingsService.getSavingsItems(selectedAccountId),
+        GoalService.getGoals(selectedAccountId),
       ]);
-      setLedgerItems(fetchedItems);
-      setAccounts(fetchedAccounts);
+      setLedgerItems(fetchedLedger);
+      setSavingsItems(fetchedSavings);
+      setGoals(fetchedGoals);
     } catch (error) {
-      console.error('Failed to load ledger data:', error);
+      console.error('Failed to load account ledger data:', error);
       toast({
         title: 'Error',
         description: 'Failed to load account ledger data from the database.',
@@ -106,5 +112,5 @@ export function useAccountLedger() {
     }
   }, [ledgerItems, toast]);
 
-  return { ledgerItems, accounts, isLoading, addItem, updateItem, deleteItem, fetchItems };
+  return { ledgerItems, savingsItems, goals, isLoading, addItem, updateItem, deleteItem, fetchItems };
 }
