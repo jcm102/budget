@@ -17,8 +17,8 @@ export function useAccountLedger() {
   const { toast } = useToast();
   const { selectedAccountId } = useSelectedAccount();
 
-  const fetchItems = useCallback(async () => {
-    if (!selectedAccountId) {
+  const fetchItems = useCallback(async (accountId: string | null) => {
+    if (!accountId) {
       setLedgerItems([]);
       setSavingsItems([]);
       setGoals([]);
@@ -29,9 +29,9 @@ export function useAccountLedger() {
     try {
       setIsLoading(true);
       const [fetchedLedger, fetchedSavings, fetchedGoals] = await Promise.all([
-        AccountLedgerService.getLedgerItems(selectedAccountId),
-        SavingsService.getSavingsItems(selectedAccountId),
-        GoalService.getGoals(selectedAccountId),
+        AccountLedgerService.getLedgerItems(accountId),
+        SavingsService.getSavingsItems(accountId),
+        GoalService.getGoals(accountId),
       ]);
       setLedgerItems(fetchedLedger);
       setSavingsItems(fetchedSavings);
@@ -46,11 +46,11 @@ export function useAccountLedger() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast, selectedAccountId]);
+  }, [toast]);
 
   useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
+    fetchItems(selectedAccountId);
+  }, [selectedAccountId, fetchItems]);
 
   const addItem = useCallback(async (itemData: Omit<AccountLedgerItem, 'id'>) => {
     if (!itemData.accountId) {
@@ -83,7 +83,7 @@ export function useAccountLedger() {
       await AccountLedgerService.updateLedgerItem(id, itemData);
        // If account was changed, we need to refetch to remove it from the current view.
       if (itemData.accountId && itemData.accountId !== originalAccount) {
-          await fetchItems();
+          await fetchItems(selectedAccountId);
       }
     } catch (error) {
       console.error('Failed to update ledger item:', error);
@@ -94,7 +94,7 @@ export function useAccountLedger() {
         variant: 'destructive',
       });
     }
-  }, [ledgerItems, toast, fetchItems]);
+  }, [ledgerItems, toast, selectedAccountId, fetchItems]);
 
   const deleteItem = useCallback(async (id: string) => {
     const originalItems = ledgerItems;
@@ -112,5 +112,5 @@ export function useAccountLedger() {
     }
   }, [ledgerItems, toast]);
 
-  return { ledgerItems, savingsItems, goals, isLoading, addItem, updateItem, deleteItem, fetchItems };
+  return { ledgerItems, savingsItems, goals, isLoading, addItem, updateItem, deleteItem, fetchItems: () => fetchItems(selectedAccountId) };
 }

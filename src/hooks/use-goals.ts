@@ -13,15 +13,15 @@ export function useGoals() {
   const { toast } = useToast();
   const { selectedAccountId } = useSelectedAccount();
 
-  const fetchGoals = useCallback(async () => {
-    if (!selectedAccountId) {
+  const fetchGoals = useCallback(async (accountId: string | null) => {
+    if (!accountId) {
         setGoals([]);
         setIsLoading(false);
         return;
     }
     try {
       setIsLoading(true);
-      const fetchedItems = await GoalService.getGoals(selectedAccountId);
+      const fetchedItems = await GoalService.getGoals(accountId);
       setGoals(fetchedItems);
     } catch (error) {
       console.error('Failed to load goals:', error);
@@ -33,11 +33,11 @@ export function useGoals() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast, selectedAccountId]);
+  }, [toast]);
 
   useEffect(() => {
-    fetchGoals();
-  }, [fetchGoals]);
+    fetchGoals(selectedAccountId);
+  }, [selectedAccountId, fetchGoals]);
 
   const addGoal = useCallback(async (itemData: Omit<Goal, 'id'>) => {
     try {
@@ -58,7 +58,7 @@ export function useGoals() {
     setGoals(prev => prev.map(item => (item.id === id ? { ...item, ...itemData } as Goal : item)));
     try {
       await GoalService.updateGoal(id, itemData);
-      await fetchGoals();
+      await fetchGoals(selectedAccountId);
     } catch (error) {
       console.error('Failed to update goal:', error);
       setGoals(originalItems);
@@ -68,7 +68,7 @@ export function useGoals() {
         variant: 'destructive',
       });
     }
-  }, [goals, toast, fetchGoals]);
+  }, [goals, toast, selectedAccountId, fetchGoals]);
 
   const deleteGoal = useCallback(async (id: string) => {
     const originalItems = goals;
@@ -86,5 +86,5 @@ export function useGoals() {
     }
   }, [goals, toast]);
 
-  return { goals, isLoading, addGoal, updateGoal, deleteGoal, fetchGoals };
+  return { goals, isLoading, addGoal, updateGoal, deleteGoal, fetchGoals: () => fetchGoals(selectedAccountId) };
 }

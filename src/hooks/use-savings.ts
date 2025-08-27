@@ -17,8 +17,8 @@ export function useSavings() {
   const { toast } = useToast();
   const { selectedAccountId } = useSelectedAccount();
 
-  const fetchAllData = useCallback(async () => {
-    if (!selectedAccountId) {
+  const fetchAllData = useCallback(async (accountId: string | null) => {
+    if (!accountId) {
       setSavingsItems([]);
       setSubscriptions([]);
       setAutoShipItems([]);
@@ -32,9 +32,9 @@ export function useSavings() {
         fetchedSubscriptions, 
         fetchedAutoShips
       ] = await Promise.all([
-        SavingsService.getSavingsItems(selectedAccountId),
-        SubscriptionService.getSubscriptions(selectedAccountId),
-        AutoShipService.getAutoShipItems(selectedAccountId),
+        SavingsService.getSavingsItems(accountId),
+        SubscriptionService.getSubscriptions(accountId),
+        AutoShipService.getAutoShipItems(accountId),
       ]);
       setSavingsItems(fetchedItems);
       setSubscriptions(fetchedSubscriptions);
@@ -49,11 +49,11 @@ export function useSavings() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedAccountId, toast]);
+  }, [toast]);
 
   useEffect(() => {
-    fetchAllData();
-  }, [fetchAllData]);
+    fetchAllData(selectedAccountId);
+  }, [selectedAccountId, fetchAllData]);
 
   const addSavingsItem = useCallback(async (itemData: Omit<SavingsItem, 'id'>) => {
     try {
@@ -74,7 +74,7 @@ export function useSavings() {
     setSavingsItems(prev => prev.map(item => (item.id === id ? { ...item, ...itemData } as SavingsItem : item)));
     try {
       await SavingsService.updateSavingsItem(id, itemData);
-       await fetchAllData();
+       await fetchAllData(selectedAccountId);
     } catch (error) {
       console.error('Failed to update savings item:', error);
       setSavingsItems(originalItems);
@@ -84,7 +84,7 @@ export function useSavings() {
         variant: 'destructive',
       });
     }
-  }, [savingsItems, toast, fetchAllData]);
+  }, [savingsItems, toast, selectedAccountId, fetchAllData]);
 
   const deleteSavingsItem = useCallback(async (id: string) => {
     const originalItems = savingsItems;
@@ -110,6 +110,6 @@ export function useSavings() {
     addSavingsItem, 
     updateSavingsItem, 
     deleteSavingsItem, 
-    fetchSavingsItems: fetchAllData 
+    fetchSavingsItems: () => fetchAllData(selectedAccountId)
   };
 }

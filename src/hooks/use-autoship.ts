@@ -13,15 +13,15 @@ export function useAutoShip() {
   const { toast } = useToast();
   const { selectedAccountId } = useSelectedAccount();
 
-  const fetchAutoShipItems = useCallback(async () => {
-    if (!selectedAccountId) {
+  const fetchAutoShipItems = useCallback(async (accountId: string | null) => {
+    if (!accountId) {
       setAutoShipItems([]);
       setIsLoading(false);
       return;
     }
     try {
       setIsLoading(true);
-      const fetchedItems = await AutoShipService.getAutoShipItems(selectedAccountId);
+      const fetchedItems = await AutoShipService.getAutoShipItems(accountId);
       setAutoShipItems(fetchedItems);
     } catch (error) {
       console.error('Failed to load auto-ship items:', error);
@@ -33,11 +33,11 @@ export function useAutoShip() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast, selectedAccountId]);
+  }, [toast]);
 
   useEffect(() => {
-    fetchAutoShipItems();
-  }, [fetchAutoShipItems]);
+    fetchAutoShipItems(selectedAccountId);
+  }, [selectedAccountId, fetchAutoShipItems]);
 
   const addAutoShipItem = useCallback(async (itemData: Omit<AutoShipItem, 'id'>) => {
     try {
@@ -58,7 +58,7 @@ export function useAutoShip() {
     setAutoShipItems(prev => prev.map(item => (item.id === id ? { ...item, ...itemData } as AutoShipItem : item)));
     try {
       await AutoShipService.updateAutoShipItem(id, itemData);
-      await fetchAutoShipItems();
+      await fetchAutoShipItems(selectedAccountId);
     } catch (error) {
       console.error('Failed to update auto-ship item:', error);
       setAutoShipItems(originalItems);
@@ -68,7 +68,7 @@ export function useAutoShip() {
         variant: 'destructive',
       });
     }
-  }, [autoShipItems, toast, fetchAutoShipItems]);
+  }, [autoShipItems, toast, selectedAccountId, fetchAutoShipItems]);
 
   const deleteAutoShipItem = useCallback(async (id: string) => {
     const originalItems = autoShipItems;
@@ -89,12 +89,12 @@ export function useAutoShip() {
   const shipItem = useCallback(async (id: string) => {
     try {
       await AutoShipService.advanceShipmentDate(id);
-      await fetchAutoShipItems();
+      await fetchAutoShipItems(selectedAccountId);
     } catch (error) {
       console.error('Failed to advance shipment date:', error);
       throw error; // Rethrow to be caught in the component for toast message
     }
-  }, [fetchAutoShipItems]);
+  }, [selectedAccountId, fetchAutoShipItems]);
 
   return { autoShipItems, isLoading, addAutoShipItem, updateAutoShipItem, deleteAutoShipItem, shipItem };
 }
