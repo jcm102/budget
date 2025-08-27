@@ -205,7 +205,8 @@ export function AccountLedgerTable() {
     totalCad,
     totalUsd,
   } = useMemo(() => {
-    const currentLedgerTotal = ledgerItems.reduce((acc, item) => acc + item.amount, 0);
+    const currentLedgerItems = ledgerItems.filter(i => i.accountId === selectedAccountId);
+    const currentLedgerTotal = currentLedgerItems.reduce((acc, item) => acc + item.amount, 0);
 
     const currentSinkingFunds = savingsItems.filter(i => i.accountId === selectedAccountId);
     const currentSinkingFundsCadTotal = currentSinkingFunds.filter(i => i.currency === 'CAD').reduce((acc, item) => acc + item.amount, 0);
