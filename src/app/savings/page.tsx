@@ -18,11 +18,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useLedgerSettings } from '@/hooks/use-ledger-settings';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 
 export default function SavingsPage() {
   const { accounts, isLoading: isLoadingAccounts } = useAccounts();
   const { selectedAccountId, setSelectedAccountId } = useSelectedAccount();
+  const { includeGoalSavings, setIncludeGoalSavings, includeSinkingFunds, setIncludeSinkingFunds } = useLedgerSettings();
 
   const handlePrint = () => {
     window.print();
@@ -88,18 +92,42 @@ export default function SavingsPage() {
           </TabsContent>
 
           <TabsContent value="goals">
-             <h2 className="text-2xl font-bold font-headline text-primary mb-4">Goal Savings</h2>
-              <p className="text-muted-foreground mb-6 max-w-2xl">
-                Track savings for specific, tangible goals.
-              </p>
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                 <h2 className="text-2xl font-bold font-headline text-primary">Goal Savings</h2>
+                  <p className="text-muted-foreground mt-2 max-w-2xl">
+                    Track savings for specific, tangible goals.
+                  </p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch 
+                  id="include-goals-switch" 
+                  checked={includeGoalSavings}
+                  onCheckedChange={setIncludeGoalSavings}
+                  />
+                <Label htmlFor="include-goals-switch">Include in Ledger</Label>
+              </div>
+            </div>
             <GoalTable />
           </TabsContent>
 
           <TabsContent value="funds">
-            <h2 className="text-2xl font-bold font-headline text-primary mb-4">Sinking Funds</h2>
-            <p className="text-muted-foreground mb-6 max-w-2xl">
-                Set aside money for anticipated future expenses. Link subscriptions and auto-shipments to automatically calculate what you need to save each month.
-            </p>
+             <div className="flex justify-between items-start mb-4">
+                <div>
+                    <h2 className="text-2xl font-bold font-headline text-primary">Sinking Funds</h2>
+                    <p className="text-muted-foreground mt-2 max-w-2xl">
+                        Set aside money for anticipated future expenses. Link subscriptions and auto-shipments to automatically calculate what you need to save each month.
+                    </p>
+                </div>
+                 <div className="flex items-center space-x-2">
+                    <Switch 
+                      id="include-funds-switch" 
+                      checked={includeSinkingFunds}
+                      onCheckedChange={setIncludeSinkingFunds}
+                      />
+                    <Label htmlFor="include-funds-switch">Include in Ledger</Label>
+                  </div>
+            </div>
             <SavingsTable />
           </TabsContent>
 

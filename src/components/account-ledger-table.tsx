@@ -53,6 +53,7 @@ import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
 import { Pencil, Trash2, PlusCircle, ArrowUpDown, DollarSign, MinusCircle, Info } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { useLedgerSettings } from '@/hooks/use-ledger-settings';
 
 
 const transactionSchema = z.object({
@@ -129,6 +130,7 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
 
 export function AccountLedgerTable() {
   const { ledgerItems, savingsItems, goals, addItem, updateItem, deleteItem, isLoading } = useAccountLedger();
+  const { includeSinkingFunds, includeGoalSavings } = useLedgerSettings();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<AccountLedgerItem | null>(null);
@@ -190,7 +192,6 @@ export function AccountLedgerTable() {
   );
   
   const {
-    ledgerTotal,
     sinkingFundsCadTotal,
     sinkingFundsUsdTotal,
     goalSavingsTotal,
@@ -198,22 +199,30 @@ export function AccountLedgerTable() {
     totalUsd,
   } = useMemo(() => {
     const currentLedgerTotal = ledgerItems.reduce((acc, item) => acc + item.amount, 0);
-    const currentSinkingFundsCadTotal = savingsItems.filter(i => i.currency === 'CAD').reduce((acc, item) => acc + item.amount, 0);
-    const currentSinkingFundsUsdTotal = savingsItems.filter(i => i.currency === 'USD').reduce((acc, item) => acc + item.amount, 0);
-    const currentGoalSavingsTotal = goals.reduce((acc, goal) => acc + goal.amount, 0);
+
+    const currentSinkingFundsCadTotal = includeSinkingFunds
+        ? savingsItems.filter(i => i.currency === 'CAD').reduce((acc, item) => acc + item.amount, 0)
+        : 0;
+    
+    const currentSinkingFundsUsdTotal = includeSinkingFunds
+        ? savingsItems.filter(i => i.currency === 'USD').reduce((acc, item) => acc + item.amount, 0)
+        : 0;
+        
+    const currentGoalSavingsTotal = includeGoalSavings
+        ? goals.reduce((acc, goal) => acc + goal.amount, 0)
+        : 0;
     
     const finalTotalCad = currentLedgerTotal + currentSinkingFundsCadTotal + currentGoalSavingsTotal;
     const finalTotalUsd = currentSinkingFundsUsdTotal;
 
     return {
-      ledgerTotal: currentLedgerTotal,
       sinkingFundsCadTotal: currentSinkingFundsCadTotal,
       sinkingFundsUsdTotal: currentSinkingFundsUsdTotal,
       goalSavingsTotal: currentGoalSavingsTotal,
       totalCad: finalTotalCad,
       totalUsd: finalTotalUsd,
     };
-  }, [ledgerItems, savingsItems, goals]);
+  }, [ledgerItems, savingsItems, goals, includeSinkingFunds, includeGoalSavings]);
 
 
   return (
