@@ -84,7 +84,7 @@ export default function SavingsPage() {
             <p className="text-muted-foreground mb-6 max-w-2xl">
               This is the master ledger for your future spending account. It includes balances from your sinking funds and goals.
             </p>
-            <AccountLedgerTable />
+            <AccountLedgerTable key={selectedAccountId} />
           </TabsContent>
 
           <TabsContent value="goals">
