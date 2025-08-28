@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -198,33 +199,24 @@ export function AccountLedgerTable({ accountId }: { accountId: string | null }) 
   
   const {
     sinkingFundsCadTotal,
-    sinkingFundsUsdTotal,
     goalSavingsTotal,
     totalCad,
-    totalUsd,
   } = useMemo(() => {
     const ledgerTotal = ledgerItems.reduce((acc, item) => acc + item.amount, 0);
 
     const cadSinkingFunds = savingsItems
         .filter(i => i.currency === 'CAD')
         .reduce((acc, item) => acc + item.amount, 0);
-    
-    const usdSinkingFunds = savingsItems
-        .filter(i => i.currency === 'USD')
-        .reduce((acc, item) => acc + item.amount, 0);
         
     const goalsTotal = goals
         .reduce((acc, goal) => acc + goal.amount, 0);
     
     const finalTotalCad = ledgerTotal + (includeSinkingFunds ? cadSinkingFunds : 0) + (includeGoalSavings ? goalsTotal : 0);
-    const finalTotalUsd = includeSinkingFunds ? usdSinkingFunds : 0;
 
     return {
       sinkingFundsCadTotal: cadSinkingFunds,
-      sinkingFundsUsdTotal: usdSinkingFunds,
       goalSavingsTotal: goalsTotal,
       totalCad: finalTotalCad,
-      totalUsd: finalTotalUsd,
     };
   }, [ledgerItems, savingsItems, goals, includeSinkingFunds, includeGoalSavings]);
 
@@ -321,25 +313,6 @@ export function AccountLedgerTable({ accountId }: { accountId: string | null }) 
                                 <TableCell></TableCell>
                             </TableRow>
                          )}
-                        {savingsItems.some(i => i.currency === 'USD') && (
-                            <TableRow className="bg-secondary/50 hover:bg-secondary/70">
-                                <TableCell className="font-medium flex items-center gap-2">
-                                    Sinking Funds Balance (USD)
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:bg-transparent hover:text-foreground p-0">
-                                                <Info className="h-4 w-4" />
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-60 text-sm">
-                                        This is the total from your Sinking Funds table and is read-only. Its inclusion in the grand total is controlled by the switch on the Sinking Funds tab.
-                                        </PopoverContent>
-                                    </Popover>
-                                </TableCell>
-                                <TableCell className="text-right">{formatCurrency(sinkingFundsUsdTotal, 'USD')}</TableCell>
-                                <TableCell></TableCell>
-                            </TableRow>
-                        )}
                     </>
                 )}
                  {(!isLoading && sortedItems.length === 0 && goals.length === 0 && savingsItems.length === 0) && (
@@ -354,10 +327,6 @@ export function AccountLedgerTable({ accountId }: { accountId: string | null }) 
               <TableRow>
                 <TableCell colSpan={2} className="font-semibold text-right">Total CAD Balance</TableCell>
                 <TableCell className="text-right font-semibold">{formatCurrency(totalCad, 'CAD')}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell colSpan={2} className="font-semibold text-right">Total USD Balance</TableCell>
-                <TableCell className="text-right font-semibold">{formatCurrency(totalUsd, 'USD')}</TableCell>
               </TableRow>
             </TableFooter>
           </Table>

@@ -266,7 +266,6 @@ export function SavingsTable() {
   );
 
   const totalCadSaved = savingsItems.filter(i => i.currency === 'CAD').reduce((acc, item) => acc + item.amount, 0);
-  const totalUsdSaved = savingsItems.filter(i => i.currency === 'USD').reduce((acc, item) => acc + item.amount, 0);
   
   const totalMonthlyContribution = sortedItems.reduce((acc, item) => {
     const monthlyAmt = item.monthlyAmount || item.goal || 0;
@@ -402,11 +401,6 @@ export function SavingsTable() {
               <TableRow>
                 <TableCell colSpan={6} className="font-semibold text-right">Total Saved (CAD)</TableCell>
                 <TableCell className="text-right font-semibold">{formatCurrency(totalCadSaved, 'CAD')}</TableCell>
-                <TableCell></TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell colSpan={6} className="font-semibold text-right">Total Saved (USD)</TableCell>
-                <TableCell className="text-right font-semibold">{formatCurrency(totalUsdSaved, 'USD')}</TableCell>
                 <TableCell></TableCell>
               </TableRow>
             </TableFooter>
