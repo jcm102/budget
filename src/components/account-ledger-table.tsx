@@ -196,29 +196,29 @@ export function AccountLedgerTable({ accountId }: { accountId: string | null }) 
     totalCad,
     totalUsd,
   } = useMemo(() => {
-    const ledgerTotal = ledgerItems.reduce((acc, item) => acc + item.amount, 0);
+    const currentLedgerTotal = ledgerItems.reduce((acc, item) => acc + item.amount, 0);
 
-    const cadSinkingFunds = includeSinkingFunds
+    const currentSinkingFundsCadTotal = includeSinkingFunds
         ? savingsItems.filter(i => i.currency === 'CAD').reduce((acc, item) => acc + item.amount, 0)
         : 0;
     
-    const usdSinkingFunds = includeSinkingFunds
+    const currentSinkingFundsUsdTotal = includeSinkingFunds
         ? savingsItems.filter(i => i.currency === 'USD').reduce((acc, item) => acc + item.amount, 0)
         : 0;
         
-    const goalsTotal = includeGoalSavings
+    const currentGoalSavingsTotal = includeGoalSavings
         ? goals.reduce((acc, goal) => acc + goal.amount, 0)
         : 0;
     
-    const finalCadTotal = ledgerTotal + cadSinkingFunds + goalsTotal;
-    const finalUsdTotal = usdSinkingFunds;
+    const finalTotalCad = currentLedgerTotal + currentSinkingFundsCadTotal + currentGoalSavingsTotal;
+    const finalTotalUsd = currentSinkingFundsUsdTotal;
 
     return {
-      sinkingFundsCadTotal: cadSinkingFunds,
-      sinkingFundsUsdTotal: usdSinkingFunds,
-      goalSavingsTotal: goalsTotal,
-      totalCad: finalCadTotal,
-      totalUsd: finalUsdTotal,
+      sinkingFundsCadTotal: currentSinkingFundsCadTotal,
+      sinkingFundsUsdTotal: currentSinkingFundsUsdTotal,
+      goalSavingsTotal: currentGoalSavingsTotal,
+      totalCad: finalTotalCad,
+      totalUsd: finalTotalUsd,
     };
   }, [ledgerItems, savingsItems, goals, includeSinkingFunds, includeGoalSavings]);
 
