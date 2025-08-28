@@ -129,7 +129,7 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
 }
 
 export function AccountLedgerTable({ accountId }: { accountId: string | null }) {
-  const { ledgerItems, savingsItems, goals, addItem, updateItem, deleteItem, isLoading } = useAccountLedger(accountId);
+  const { ledgerItems, savingsItems, goals, isLoading } = useAccountLedger(accountId);
   const { includeSinkingFunds, includeGoalSavings } = useLedgerSettings();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
