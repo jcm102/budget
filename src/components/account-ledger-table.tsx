@@ -357,7 +357,3 @@ export function AccountLedgerTable({ accountId }: { accountId: string | null }) 
     </>
   );
 }
-
-    
-
-    
