@@ -276,7 +276,7 @@ export function AccountLedgerTable({ accountId }: { accountId: string | null }) 
                                 </TableCell>
                             </TableRow>
                         ))}
-                         {savingsItems.some(i => i.currency === 'CAD') && (
+                         {sinkingFundsCadTotal > 0 && (
                             <TableRow className="bg-secondary/50 hover:bg-secondary/70">
                                 <TableCell className="font-medium flex items-center gap-2">
                                     Sinking Funds Balance (CAD)
@@ -295,7 +295,7 @@ export function AccountLedgerTable({ accountId }: { accountId: string | null }) 
                                 <TableCell></TableCell>
                             </TableRow>
                          )}
-                         {goals.length > 0 && (
+                         {goalSavingsTotal > 0 && (
                             <TableRow className="bg-secondary/50 hover:bg-secondary/70">
                                 <TableCell className="font-medium flex items-center gap-2">
                                     Goal Savings Balance
