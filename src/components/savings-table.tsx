@@ -174,8 +174,8 @@ export function SavingsTable() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'CAD' }).format(amount);
+  const formatCurrency = (amount: number, currency: 'CAD' | 'USD' = 'CAD') => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
   };
   
   const calculateMonthlyAmount = (totalCost: number, amountSaved: number, dueDate: Date): number => {
@@ -265,10 +265,8 @@ export function SavingsTable() {
     ))
   );
 
-  const { totalCadSaved, totalMonthlyContribution } = useMemo(() => {
-    const saved = sortedItems
-        .filter(item => item.currency === 'CAD')
-        .reduce((acc, item) => acc + item.amount, 0);
+  const { totalSaved, totalMonthlyContribution } = useMemo(() => {
+    const saved = sortedItems.reduce((acc, item) => acc + item.amount, 0);
 
     const monthly = sortedItems.reduce((acc, item) => {
         const monthlyAmt = item.monthlyAmount || item.goal || 0;
@@ -277,7 +275,7 @@ export function SavingsTable() {
         return acc + convertedAmt;
     }, 0);
 
-    return { totalCadSaved: saved, totalMonthlyContribution: monthly };
+    return { totalSaved: saved, totalMonthlyContribution: monthly };
 }, [sortedItems, exchangeRate]);
 
   return (
@@ -324,13 +322,13 @@ export function SavingsTable() {
 
                         return (
                         <TableRow key={item.id}>
-                            <TableCell className="font-medium">{item.name}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(item.amount)}</TableCell>
+                            <TableCell className="font-medium">{item.name}{isUsd && <Badge variant="secondary" className="ml-2">USD</Badge>}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(item.amount, item.currency)}</TableCell>
                             <TableCell className="text-right">
-                                {item.totalCost ? formatCurrency(item.totalCost) : '-'}
+                                {item.totalCost ? formatCurrency(item.totalCost, item.currency) : '-'}
                             </TableCell>
                             <TableCell className="text-right">
-                                {item.savingsTarget ? formatCurrency(item.savingsTarget) : '-'}
+                                {item.savingsTarget ? formatCurrency(item.savingsTarget, item.currency) : '-'}
                                 {costToUse && costToUse > 0 && (
                                     <div className="flex items-center justify-end gap-2 mt-1">
                                          <Progress value={progress} className="w-[60%]" aria-label={`${Math.round(progress)}% funded`} />
@@ -353,17 +351,14 @@ export function SavingsTable() {
                                 {monthlyAmount > 0 && (
                                   <>
                                     {formatCurrency(convertedMonthlyAmount)}
-                                    <Popover>
+                                    {isUsd && <Popover>
                                         <PopoverTrigger asChild>
                                             <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground"><Info className="h-3 w-3" /></Button>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-60 text-xs">
-                                            {isUsd 
-                                              ? `This is the calculated monthly amount of ${formatCurrency(monthlyAmount)} converted to CAD at a rate of ${exchangeRate}.`
-                                              : 'This is the calculated monthly amount needed to be fully funded one month before the due date.'
-                                            }
+                                            Original: {formatCurrency(monthlyAmount, 'USD')}. Converted to CAD at a rate of {exchangeRate}.
                                         </PopoverContent>
-                                    </Popover>
+                                    </Popover>}
                                   </>
                                 )}
                                 {monthlyAmount <= 0 && '-'}
@@ -401,13 +396,13 @@ export function SavingsTable() {
             {sortedItems.length > 0 && (
               <TableFooter>
                 <TableRow>
-                  <TableCell colSpan={6} className="font-semibold text-right">Total Monthly Contribution</TableCell>
-                  <TableCell className="text-right font-semibold">{formatCurrency(totalMonthlyContribution)}</TableCell>
-                  <TableCell></TableCell>
+                    <TableCell colSpan={6} className="font-semibold text-right">Total Saved (CAD)</TableCell>
+                    <TableCell className="text-right font-semibold">{formatCurrency(totalSaved)}</TableCell>
+                    <TableCell></TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell colSpan={6} className="font-semibold text-right">Total Saved (CAD)</TableCell>
-                  <TableCell className="text-right font-semibold">{formatCurrency(totalCadSaved)}</TableCell>
+                  <TableCell colSpan={6} className="font-semibold text-right">Total Monthly Contribution (CAD)</TableCell>
+                  <TableCell className="text-right font-semibold">{formatCurrency(totalMonthlyContribution)}</TableCell>
                   <TableCell></TableCell>
                 </TableRow>
               </TableFooter>
@@ -417,3 +412,4 @@ export function SavingsTable() {
     </>
   );
 }
+
