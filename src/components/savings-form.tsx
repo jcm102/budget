@@ -123,11 +123,18 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
   }, [editingItem, open, form, accounts]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-     const submissionData = {
-      ...values,
-      dueDate: values.dueDate ? new Date(values.dueDate).toISOString() : undefined,
+    const submissionData = {
+      name: values.name,
+      accountId: values.accountId,
+      amount: values.amount,
+      currency: values.currency,
+      goal: values.goal || 0,
+      totalCost: values.totalCost || null,
+      savingsTarget: values.savingsTarget || null,
+      dueDate: values.dueDate ? new Date(values.dueDate).toISOString() : null,
       recurrence: values.recurrence as SavingsRecurrence,
     };
+
     if (editingItem) {
       updateSavingsItem(editingItem.id, submissionData);
     } else {
