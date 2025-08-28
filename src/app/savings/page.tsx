@@ -2,6 +2,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { SavingsTable } from '@/components/savings-table';
 import { ArrowLeft, Printer, PiggyBank, Landmark, Truck, Repeat, Star, ChevronsUpDown } from 'lucide-react';
@@ -21,18 +22,35 @@ import {
 import { useLedgerSettings } from '@/hooks/use-ledger-settings';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { useSavings } from '@/hooks/use-savings';
+import { useGoals } from '@/hooks/use-goals';
 
 
 export default function SavingsPage() {
   const { accounts, isLoading: isLoadingAccounts } = useAccounts();
   const { selectedAccountId, setSelectedAccountId } = useSelectedAccount();
   const { includeGoalSavings, setIncludeGoalSavings, includeSinkingFunds, setIncludeSinkingFunds } = useLedgerSettings();
+  const { savingsItems, isLoading: isLoadingSavings } = useSavings();
+  const { goals, isLoading: isLoadingGoals } = useGoals();
+
 
   const handlePrint = () => {
     window.print();
   };
   
   const selectedAccount = accounts.find(a => a.id === selectedAccountId);
+
+  const { sinkingFundsTotal, goalsTotal } = useMemo(() => {
+    const fundsTotal = includeSinkingFunds 
+        ? savingsItems.reduce((acc, item) => acc + item.amount, 0)
+        : 0;
+
+    const goalsSum = includeGoalSavings
+        ? goals.reduce((acc, goal) => acc + goal.amount, 0)
+        : 0;
+
+    return { sinkingFundsTotal: fundsTotal, goalsTotal: goalsSum };
+  }, [savingsItems, goals, includeSinkingFunds, includeGoalSavings]);
 
   return (
     <div className="container mx-auto max-w-7xl p-4 md:p-8">
@@ -88,7 +106,12 @@ export default function SavingsPage() {
             <p className="text-muted-foreground mb-6 max-w-2xl">
               This is the master ledger for your future spending account. It includes balances from your sinking funds and goals.
             </p>
-            <AccountLedgerTable key={selectedAccountId} accountId={selectedAccountId} />
+            <AccountLedgerTable 
+                key={selectedAccountId} 
+                accountId={selectedAccountId} 
+                sinkingFundsTotal={sinkingFundsTotal}
+                goalsTotal={goalsTotal}
+             />
           </TabsContent>
 
           <TabsContent value="goals">

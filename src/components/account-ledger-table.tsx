@@ -3,7 +3,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import type { AccountLedgerItem, SavingsItem, Goal } from '@/types';
+import type { AccountLedgerItem } from '@/types';
 import * as z from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -48,15 +48,11 @@ import {
 } from '@/components/ui/alert-dialog';
 import { AccountLedgerForm } from './account-ledger-form';
 import { useAccountLedger } from '@/hooks/use-account-ledger';
-import { useSavings } from '@/hooks/use-savings';
-import { useGoals } from '@/hooks/use-goals';
 import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
 import { Pencil, Trash2, PlusCircle, ArrowUpDown, DollarSign, MinusCircle, Info } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
-import { useLedgerSettings } from '@/hooks/use-ledger-settings';
-
 
 const transactionSchema = z.object({
   amount: z.coerce.number().min(0.01, 'Amount must be greater than zero.'),
@@ -130,13 +126,16 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
   )
 }
 
-export function AccountLedgerTable({ accountId }: { accountId: string | null }) {
-  const { ledgerItems, addItem, updateItem, deleteItem, isLoading: isLoadingLedger } = useAccountLedger(accountId);
-  const { savingsItems, isLoading: isLoadingSavings } = useSavings();
-  const { goals, isLoading: isLoadingGoals } = useGoals();
-  const { includeSinkingFunds, includeGoalSavings } = useLedgerSettings();
-  
-  const isLoading = isLoadingLedger || isLoadingSavings || isLoadingGoals;
+export function AccountLedgerTable({ 
+    accountId, 
+    sinkingFundsTotal, 
+    goalsTotal 
+}: { 
+    accountId: string | null;
+    sinkingFundsTotal: number;
+    goalsTotal: number;
+}) {
+  const { ledgerItems, addItem, updateItem, deleteItem, isLoading } = useAccountLedger(accountId);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<AccountLedgerItem | null>(null);
@@ -197,29 +196,10 @@ export function AccountLedgerTable({ accountId }: { accountId: string | null }) 
     ))
   );
   
-  const {
-    sinkingFundsCadTotal,
-    goalSavingsTotal,
-    totalCad,
-  } = useMemo(() => {
+  const totalCad = useMemo(() => {
     const currentLedgerTotal = ledgerItems.reduce((acc, item) => acc + item.amount, 0);
-
-    const currentSinkingFundsCadTotal = includeSinkingFunds
-        ? savingsItems.filter(i => i.currency === 'CAD').reduce((acc, item) => acc + item.amount, 0)
-        : 0;
-        
-    const currentGoalSavingsTotal = includeGoalSavings
-        ? goals.reduce((acc, goal) => acc + goal.amount, 0)
-        : 0;
-    
-    const finalTotalCad = currentLedgerTotal + currentSinkingFundsCadTotal + currentGoalSavingsTotal;
-
-    return {
-      sinkingFundsCadTotal: currentSinkingFundsCadTotal,
-      goalSavingsTotal: currentGoalSavingsTotal,
-      totalCad: finalTotalCad,
-    };
-  }, [ledgerItems, savingsItems, goals, includeSinkingFunds, includeGoalSavings]);
+    return currentLedgerTotal + sinkingFundsTotal + goalsTotal;
+  }, [ledgerItems, sinkingFundsTotal, goalsTotal]);
 
 
   return (
@@ -276,7 +256,7 @@ export function AccountLedgerTable({ accountId }: { accountId: string | null }) 
                                 </TableCell>
                             </TableRow>
                         ))}
-                         {sinkingFundsCadTotal > 0 && (
+                         {sinkingFundsTotal > 0 && (
                             <TableRow className="bg-secondary/50 hover:bg-secondary/70">
                                 <TableCell className="font-medium flex items-center gap-2">
                                     Sinking Funds Balance (CAD)
@@ -291,11 +271,11 @@ export function AccountLedgerTable({ accountId }: { accountId: string | null }) 
                                         </PopoverContent>
                                     </Popover>
                                 </TableCell>
-                                <TableCell className="text-right">{formatCurrency(sinkingFundsCadTotal, 'CAD')}</TableCell>
+                                <TableCell className="text-right">{formatCurrency(sinkingFundsTotal, 'CAD')}</TableCell>
                                 <TableCell></TableCell>
                             </TableRow>
                          )}
-                         {goalSavingsTotal > 0 && (
+                         {goalsTotal > 0 && (
                             <TableRow className="bg-secondary/50 hover:bg-secondary/70">
                                 <TableCell className="font-medium flex items-center gap-2">
                                     Goal Savings Balance
@@ -310,13 +290,13 @@ export function AccountLedgerTable({ accountId }: { accountId: string | null }) 
                                         </PopoverContent>
                                     </Popover>
                                 </TableCell>
-                                <TableCell className="text-right">{formatCurrency(goalSavingsTotal, 'CAD')}</TableCell>
+                                <TableCell className="text-right">{formatCurrency(goalsTotal, 'CAD')}</TableCell>
                                 <TableCell></TableCell>
                             </TableRow>
                          )}
                     </>
                 )}
-                 {(!isLoading && sortedItems.length === 0 && !savingsItems.some(i => i.currency === 'CAD') && goals.length === 0) && (
+                 {(!isLoading && sortedItems.length === 0 && sinkingFundsTotal === 0 && goalsTotal === 0) && (
                      <TableRow>
                         <TableCell colSpan={3} className="h-24 text-center">
                             No ledger categories or linked funds found for this account.
@@ -335,4 +315,3 @@ export function AccountLedgerTable({ accountId }: { accountId: string | null }) 
     </>
   );
 }
-
