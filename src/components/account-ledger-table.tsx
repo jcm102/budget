@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -277,7 +278,7 @@ export function AccountLedgerTable({ accountId }: { accountId: string | null }) 
                                 </TableCell>
                             </TableRow>
                         ))}
-                         {goals.length > 0 && <TableRow className="bg-secondary/50 hover:bg-secondary/70">
+                         {includeGoalSavings && goals.length > 0 && <TableRow className="bg-secondary/50 hover:bg-secondary/70">
                             <TableCell className="font-medium flex items-center gap-2">
                                 Goal Savings Balance
                                  <Popover>
@@ -294,7 +295,7 @@ export function AccountLedgerTable({ accountId }: { accountId: string | null }) 
                             <TableCell className="text-right">{formatCurrency(goalSavingsTotal)}</TableCell>
                             <TableCell></TableCell>
                         </TableRow>}
-                        {savingsItems.some(i => i.currency === 'CAD') && <TableRow className="bg-secondary/50 hover:bg-secondary/70">
+                        {includeSinkingFunds && savingsItems.some(i => i.currency === 'CAD') && <TableRow className="bg-secondary/50 hover:bg-secondary/70">
                             <TableCell className="font-medium flex items-center gap-2">
                                 Sinking Funds Balance (CAD)
                                 <Popover>
@@ -311,7 +312,7 @@ export function AccountLedgerTable({ accountId }: { accountId: string | null }) 
                             <TableCell className="text-right">{formatCurrency(sinkingFundsCadTotal, 'CAD')}</TableCell>
                             <TableCell></TableCell>
                         </TableRow>}
-                        {savingsItems.some(i => i.currency === 'USD') && <TableRow className="bg-secondary/50 hover:bg-secondary/70">
+                        {includeSinkingFunds && savingsItems.some(i => i.currency === 'USD') && <TableRow className="bg-secondary/50 hover:bg-secondary/70">
                             <TableCell className="font-medium flex items-center gap-2">
                                 Sinking Funds Balance (USD)
                                 <Popover>
@@ -340,14 +341,12 @@ export function AccountLedgerTable({ accountId }: { accountId: string | null }) 
             </TableBody>
             <TableFooter>
               <TableRow>
-                <TableCell className="font-semibold text-right">Total CAD Balance</TableCell>
+                <TableCell colSpan={2} className="font-semibold text-right">Total CAD Balance</TableCell>
                 <TableCell className="text-right font-semibold">{formatCurrency(totalCad, 'CAD')}</TableCell>
-                <TableCell></TableCell>
               </TableRow>
               <TableRow>
-                <TableCell className="font-semibold text-right">Total USD Balance</TableCell>
+                <TableCell colSpan={2} className="font-semibold text-right">Total USD Balance</TableCell>
                 <TableCell className="text-right font-semibold">{formatCurrency(totalUsd, 'USD')}</TableCell>
-                <TableCell></TableCell>
               </TableRow>
             </TableFooter>
           </Table>
