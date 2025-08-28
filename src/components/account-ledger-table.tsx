@@ -197,27 +197,27 @@ export function AccountLedgerTable({ accountId }: { accountId: string | null }) 
     totalCad,
     totalUsd,
   } = useMemo(() => {
-    const currentLedgerTotal = ledgerItems.reduce((acc, item) => acc + item.amount, 0);
+    const ledgerTotal = ledgerItems.reduce((acc, item) => acc + item.amount, 0);
 
-    const currentSinkingFundsCadTotal = includeSinkingFunds
+    const cadSinkingFunds = includeSinkingFunds
         ? savingsItems.filter(i => i.currency === 'CAD').reduce((acc, item) => acc + item.amount, 0)
         : 0;
     
-    const currentSinkingFundsUsdTotal = includeSinkingFunds
+    const usdSinkingFunds = includeSinkingFunds
         ? savingsItems.filter(i => i.currency === 'USD').reduce((acc, item) => acc + item.amount, 0)
         : 0;
         
-    const currentGoalSavingsTotal = includeGoalSavings
+    const goalsTotal = includeGoalSavings
         ? goals.reduce((acc, goal) => acc + goal.amount, 0)
         : 0;
     
-    const finalTotalCad = currentLedgerTotal + currentSinkingFundsCadTotal + currentGoalSavingsTotal;
-    const finalTotalUsd = currentSinkingFundsUsdTotal;
+    const finalTotalCad = ledgerTotal + cadSinkingFunds + goalsTotal;
+    const finalTotalUsd = usdSinkingFunds;
 
     return {
-      sinkingFundsCadTotal: currentSinkingFundsCadTotal,
-      sinkingFundsUsdTotal: currentSinkingFundsUsdTotal,
-      goalSavingsTotal: currentGoalSavingsTotal,
+      sinkingFundsCadTotal: cadSinkingFunds,
+      sinkingFundsUsdTotal: usdSinkingFunds,
+      goalSavingsTotal: goalsTotal,
       totalCad: finalTotalCad,
       totalUsd: finalTotalUsd,
     };
@@ -278,7 +278,7 @@ export function AccountLedgerTable({ accountId }: { accountId: string | null }) 
                                 </TableCell>
                             </TableRow>
                         ))}
-                         {includeGoalSavings && goals.length > 0 && <TableRow className="bg-secondary/50 hover:bg-secondary/70">
+                         {goals.length > 0 && <TableRow className="bg-secondary/50 hover:bg-secondary/70">
                             <TableCell className="font-medium flex items-center gap-2">
                                 Goal Savings Balance
                                  <Popover>
@@ -288,14 +288,14 @@ export function AccountLedgerTable({ accountId }: { accountId: string | null }) 
                                         </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-60 text-sm">
-                                        This is the total from your Goal Savings and is read-only.
+                                        This is the total from your Goal Savings and is read-only. Its inclusion in the grand total is controlled by the switch on the Goal Savings tab.
                                     </PopoverContent>
                                 </Popover>
                             </TableCell>
                             <TableCell className="text-right">{formatCurrency(goalSavingsTotal)}</TableCell>
                             <TableCell></TableCell>
                         </TableRow>}
-                        {includeSinkingFunds && savingsItems.some(i => i.currency === 'CAD') && <TableRow className="bg-secondary/50 hover:bg-secondary/70">
+                        {savingsItems.some(i => i.currency === 'CAD') && <TableRow className="bg-secondary/50 hover:bg-secondary/70">
                             <TableCell className="font-medium flex items-center gap-2">
                                 Sinking Funds Balance (CAD)
                                 <Popover>
@@ -305,14 +305,14 @@ export function AccountLedgerTable({ accountId }: { accountId: string | null }) 
                                         </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-60 text-sm">
-                                        This is the total from your Sinking Funds table and is read-only.
+                                        This is the total from your Sinking Funds table and is read-only. Its inclusion in the grand total is controlled by the switch on the Sinking Funds tab.
                                     </PopoverContent>
                                 </Popover>
                             </TableCell>
                             <TableCell className="text-right">{formatCurrency(sinkingFundsCadTotal, 'CAD')}</TableCell>
                             <TableCell></TableCell>
                         </TableRow>}
-                        {includeSinkingFunds && savingsItems.some(i => i.currency === 'USD') && <TableRow className="bg-secondary/50 hover:bg-secondary/70">
+                        {savingsItems.some(i => i.currency === 'USD') && <TableRow className="bg-secondary/50 hover:bg-secondary/70">
                             <TableCell className="font-medium flex items-center gap-2">
                                 Sinking Funds Balance (USD)
                                 <Popover>
@@ -322,7 +322,7 @@ export function AccountLedgerTable({ accountId }: { accountId: string | null }) 
                                         </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-60 text-sm">
-                                        This is the total from your Sinking Funds table and is read-only.
+                                       This is the total from your Sinking Funds table and is read-only. Its inclusion in the grand total is controlled by the switch on the Sinking Funds tab.
                                     </PopoverContent>
                                 </Popover>
                             </TableCell>
@@ -354,3 +354,5 @@ export function AccountLedgerTable({ accountId }: { accountId: string | null }) 
     </>
   );
 }
+
+    
