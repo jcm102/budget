@@ -3,7 +3,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import type { AccountLedgerItem } from '@/types';
+import type { AccountLedgerItem, SavingsItem, Goal } from '@/types';
 import * as z from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -202,20 +202,21 @@ export function AccountLedgerTable({ accountId }: { accountId: string | null }) 
     goalSavingsTotal,
     totalCad,
   } = useMemo(() => {
-    const ledgerTotal = ledgerItems.reduce((acc, item) => acc + item.amount, 0);
+    const currentLedgerTotal = ledgerItems.reduce((acc, item) => acc + item.amount, 0);
 
-    const cadSinkingFunds = savingsItems
-        .filter(i => i.currency === 'CAD')
-        .reduce((acc, item) => acc + item.amount, 0);
+    const currentSinkingFundsCadTotal = includeSinkingFunds
+        ? savingsItems.filter(i => i.currency === 'CAD').reduce((acc, item) => acc + item.amount, 0)
+        : 0;
         
-    const goalsTotal = goals
-        .reduce((acc, goal) => acc + goal.amount, 0);
+    const currentGoalSavingsTotal = includeGoalSavings
+        ? goals.reduce((acc, goal) => acc + goal.amount, 0)
+        : 0;
     
-    const finalTotalCad = ledgerTotal + (includeSinkingFunds ? cadSinkingFunds : 0) + (includeGoalSavings ? goalsTotal : 0);
+    const finalTotalCad = currentLedgerTotal + currentSinkingFundsCadTotal + currentGoalSavingsTotal;
 
     return {
-      sinkingFundsCadTotal: cadSinkingFunds,
-      goalSavingsTotal: goalsTotal,
+      sinkingFundsCadTotal: currentSinkingFundsCadTotal,
+      goalSavingsTotal: currentGoalSavingsTotal,
       totalCad: finalTotalCad,
     };
   }, [ledgerItems, savingsItems, goals, includeSinkingFunds, includeGoalSavings]);
@@ -275,25 +276,6 @@ export function AccountLedgerTable({ accountId }: { accountId: string | null }) 
                                 </TableCell>
                             </TableRow>
                         ))}
-                         {goals.length > 0 && (
-                            <TableRow className="bg-secondary/50 hover:bg-secondary/70">
-                                <TableCell className="font-medium flex items-center gap-2">
-                                    Goal Savings Balance
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:bg-transparent hover:text-foreground p-0">
-                                                <Info className="h-4 w-4" />
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-60 text-sm">
-                                            This is the total from your Goal Savings and is read-only. Its inclusion in the grand total is controlled by the switch on the Goal Savings tab.
-                                        </PopoverContent>
-                                    </Popover>
-                                </TableCell>
-                                <TableCell className="text-right">{formatCurrency(goalSavingsTotal, 'CAD')}</TableCell>
-                                <TableCell></TableCell>
-                            </TableRow>
-                         )}
                          {savingsItems.some(i => i.currency === 'CAD') && (
                             <TableRow className="bg-secondary/50 hover:bg-secondary/70">
                                 <TableCell className="font-medium flex items-center gap-2">
@@ -313,9 +295,28 @@ export function AccountLedgerTable({ accountId }: { accountId: string | null }) 
                                 <TableCell></TableCell>
                             </TableRow>
                          )}
+                         {goals.length > 0 && (
+                            <TableRow className="bg-secondary/50 hover:bg-secondary/70">
+                                <TableCell className="font-medium flex items-center gap-2">
+                                    Goal Savings Balance
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:bg-transparent hover:text-foreground p-0">
+                                                <Info className="h-4 w-4" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-60 text-sm">
+                                            This is the total from your Goal Savings and is read-only. Its inclusion in the grand total is controlled by the switch on the Goal Savings tab.
+                                        </PopoverContent>
+                                    </Popover>
+                                </TableCell>
+                                <TableCell className="text-right">{formatCurrency(goalSavingsTotal, 'CAD')}</TableCell>
+                                <TableCell></TableCell>
+                            </TableRow>
+                         )}
                     </>
                 )}
-                 {(!isLoading && sortedItems.length === 0 && goals.length === 0 && savingsItems.length === 0) && (
+                 {(!isLoading && sortedItems.length === 0 && !savingsItems.some(i => i.currency === 'CAD') && goals.length === 0) && (
                      <TableRow>
                         <TableCell colSpan={3} className="h-24 text-center">
                             No ledger categories or linked funds found for this account.
@@ -334,3 +335,4 @@ export function AccountLedgerTable({ accountId }: { accountId: string | null }) 
     </>
   );
 }
+
