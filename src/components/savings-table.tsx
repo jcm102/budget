@@ -265,10 +265,10 @@ export function SavingsTable() {
     ))
   );
 
-  const { totalSaved, totalMonthlyContribution } = useMemo(() => {
-    const saved = sortedItems.reduce((acc, item) => {
-        return acc + item.amount;
-    }, 0);
+  const { totalCadSaved, totalMonthlyContribution } = useMemo(() => {
+    const saved = sortedItems
+        .filter(item => item.currency === 'CAD')
+        .reduce((acc, item) => acc + item.amount, 0);
 
     const monthly = sortedItems.reduce((acc, item) => {
         const monthlyAmt = item.monthlyAmount || item.goal || 0;
@@ -277,7 +277,7 @@ export function SavingsTable() {
         return acc + convertedAmt;
     }, 0);
 
-    return { totalSaved: saved, totalMonthlyContribution: monthly };
+    return { totalCadSaved: saved, totalMonthlyContribution: monthly };
 }, [sortedItems, exchangeRate]);
 
   return (
@@ -406,9 +406,9 @@ export function SavingsTable() {
                         <TableCell></TableCell>
                     </TableRow>
                     <TableRow>
-                        <TableCell colSpan={1} className="font-semibold text-right">Total Saved</TableCell>
-                        <TableCell className="text-right font-semibold">{formatCurrency(totalSaved, 'CAD')}</TableCell>
-                        <TableCell colSpan={6}></TableCell>
+                        <TableCell colSpan={6} className="font-semibold text-right">Total Saved (CAD)</TableCell>
+                        <TableCell className="text-right font-semibold">{formatCurrency(totalCadSaved, 'CAD')}</TableCell>
+                        <TableCell></TableCell>
                     </TableRow>
                 </TableFooter>
             )}
