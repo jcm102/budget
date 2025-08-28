@@ -265,20 +265,20 @@ export function SavingsTable() {
     ))
   );
 
-  const totalCadSaved = useMemo(() => {
-    return savingsItems
-        .filter(i => i.currency === 'CAD')
-        .reduce((acc, item) => acc + item.amount, 0);
-    }, [savingsItems]);
+  const { totalSaved, totalMonthlyContribution } = useMemo(() => {
+    const saved = sortedItems.reduce((acc, item) => {
+        return acc + item.amount;
+    }, 0);
 
-  const totalMonthlyContribution = useMemo(() => {
-    return sortedItems.reduce((acc, item) => {
+    const monthly = sortedItems.reduce((acc, item) => {
         const monthlyAmt = item.monthlyAmount || item.goal || 0;
         const rate = exchangeRate || 1.0;
         const convertedAmt = item.currency === 'USD' ? monthlyAmt * rate : monthlyAmt;
         return acc + convertedAmt;
     }, 0);
-  }, [sortedItems, exchangeRate]);
+
+    return { totalSaved: saved, totalMonthlyContribution: monthly };
+}, [sortedItems, exchangeRate]);
 
   return (
     <>
@@ -398,18 +398,20 @@ export function SavingsTable() {
                     </TableRow>
                 )}
             </TableBody>
-            <TableFooter>
-                <TableRow>
-                    <TableCell colSpan={6} className="font-semibold text-right">Total Monthly Contribution</TableCell>
-                    <TableCell className="text-right font-semibold">{formatCurrency(totalMonthlyContribution, 'CAD')}</TableCell>
-                    <TableCell></TableCell>
-                </TableRow>
-                <TableRow>
-                    <TableCell colSpan={1} className="font-semibold text-right">Total Saved</TableCell>
-                    <TableCell className="text-right font-semibold">{formatCurrency(totalCadSaved, 'CAD')}</TableCell>
-                    <TableCell colSpan={6}></TableCell>
-                </TableRow>
-            </TableFooter>
+            {sortedItems.length > 0 && (
+                <TableFooter>
+                    <TableRow>
+                        <TableCell colSpan={6} className="font-semibold text-right">Total Monthly Contribution</TableCell>
+                        <TableCell className="text-right font-semibold">{formatCurrency(totalMonthlyContribution, 'CAD')}</TableCell>
+                        <TableCell></TableCell>
+                    </TableRow>
+                    <TableRow>
+                        <TableCell colSpan={1} className="font-semibold text-right">Total Saved</TableCell>
+                        <TableCell className="text-right font-semibold">{formatCurrency(totalSaved, 'CAD')}</TableCell>
+                        <TableCell colSpan={6}></TableCell>
+                    </TableRow>
+                </TableFooter>
+            )}
           </Table>
       </div>
     </>
