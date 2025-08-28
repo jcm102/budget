@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -15,7 +14,7 @@ export function useAccountLedger(accountId: string | null) {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchItems = useCallback(async (currentAccountId: string | null) => {
+  const fetchAllDataForAccount = useCallback(async (currentAccountId: string | null) => {
     if (!currentAccountId) {
       setLedgerItems([]);
       setSavingsItems([]);
@@ -35,10 +34,10 @@ export function useAccountLedger(accountId: string | null) {
       setSavingsItems(fetchedSavings);
       setGoals(fetchedGoals);
     } catch (error) {
-      console.error('Failed to load account ledger data:', error);
+      console.error('Failed to load account data:', error);
       toast({
         title: 'Error',
-        description: 'Failed to load account ledger data from the database.',
+        description: 'Failed to load data for the selected account.',
         variant: 'destructive',
       });
     } finally {
@@ -47,8 +46,8 @@ export function useAccountLedger(accountId: string | null) {
   }, [toast]);
 
   useEffect(() => {
-    fetchItems(accountId);
-  }, [accountId, fetchItems]);
+    fetchAllDataForAccount(accountId);
+  }, [accountId, fetchAllDataForAccount]);
 
   const addItem = useCallback(async (itemData: Omit<AccountLedgerItem, 'id'>) => {
     if (!itemData.accountId) {
@@ -60,6 +59,7 @@ export function useAccountLedger(accountId: string | null) {
       if (newItem.accountId === accountId) {
         setLedgerItems(prev => [...prev, newItem].sort((a, b) => a.name.localeCompare(b.name)));
       }
+       await fetchAllDataForAccount(accountId);
     } catch (error) {
       console.error('Failed to add ledger item:', error);
       toast({
@@ -68,12 +68,12 @@ export function useAccountLedger(accountId: string | null) {
         variant: 'destructive',
       });
     }
-  }, [toast, accountId]);
+  }, [toast, accountId, fetchAllDataForAccount]);
 
   const updateItem = useCallback(async (id: string, itemData: Partial<Omit<AccountLedgerItem, 'id'>>) => {
     try {
       await AccountLedgerService.updateLedgerItem(id, itemData);
-      await fetchItems(accountId); // Refetch to ensure consistency
+      await fetchAllDataForAccount(accountId);
     } catch (error) {
       console.error('Failed to update ledger item:', error);
       toast({
@@ -82,7 +82,7 @@ export function useAccountLedger(accountId: string | null) {
         variant: 'destructive',
       });
     }
-  }, [toast, accountId, fetchItems]);
+  }, [toast, accountId, fetchAllDataForAccount]);
 
   const deleteItem = useCallback(async (id: string) => {
     try {
@@ -98,5 +98,14 @@ export function useAccountLedger(accountId: string | null) {
     }
   }, [toast]);
 
-  return { ledgerItems, savingsItems, goals, isLoading, addItem, updateItem, deleteItem, fetchItems: () => fetchItems(accountId) };
+  return { 
+      ledgerItems, 
+      savingsItems, 
+      goals, 
+      isLoading, 
+      addItem, 
+      updateItem, 
+      deleteItem, 
+      fetchItems: () => fetchAllDataForAccount(accountId) 
+    };
 }
