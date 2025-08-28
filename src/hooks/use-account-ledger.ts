@@ -7,18 +7,16 @@ import { useToast } from './use-toast';
 import * as AccountLedgerService from '@/services/account-ledger-service';
 import * as SavingsService from '@/services/savings-service';
 import * as GoalService from '@/services/goal-service';
-import { useSelectedAccount } from './use-selected-account';
 
-export function useAccountLedger() {
+export function useAccountLedger(accountId: string | null) {
   const [ledgerItems, setLedgerItems] = useState<AccountLedgerItem[]>([]);
   const [savingsItems, setSavingsItems] = useState<SavingsItem[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
-  const { selectedAccountId } = useSelectedAccount();
 
-  const fetchItems = useCallback(async (accountId: string | null) => {
-    if (!accountId) {
+  const fetchItems = useCallback(async (currentAccountId: string | null) => {
+    if (!currentAccountId) {
       setLedgerItems([]);
       setSavingsItems([]);
       setGoals([]);
@@ -29,9 +27,9 @@ export function useAccountLedger() {
     try {
       setIsLoading(true);
       const [fetchedLedger, fetchedSavings, fetchedGoals] = await Promise.all([
-        AccountLedgerService.getLedgerItems(accountId),
-        SavingsService.getSavingsItems(accountId),
-        GoalService.getGoals(accountId),
+        AccountLedgerService.getLedgerItems(currentAccountId),
+        SavingsService.getSavingsItems(currentAccountId),
+        GoalService.getGoals(currentAccountId),
       ]);
       setLedgerItems(fetchedLedger);
       setSavingsItems(fetchedSavings);
@@ -49,8 +47,8 @@ export function useAccountLedger() {
   }, [toast]);
 
   useEffect(() => {
-    fetchItems(selectedAccountId);
-  }, [selectedAccountId, fetchItems]);
+    fetchItems(accountId);
+  }, [accountId, fetchItems]);
 
   const addItem = useCallback(async (itemData: Omit<AccountLedgerItem, 'id'>) => {
     if (!itemData.accountId) {
@@ -59,7 +57,7 @@ export function useAccountLedger() {
     }
     try {
       const newItem = await AccountLedgerService.addLedgerItem(itemData);
-      if (newItem.accountId === selectedAccountId) {
+      if (newItem.accountId === accountId) {
         setLedgerItems(prev => [...prev, newItem].sort((a, b) => a.name.localeCompare(b.name)));
       }
     } catch (error) {
@@ -70,7 +68,7 @@ export function useAccountLedger() {
         variant: 'destructive',
       });
     }
-  }, [toast, selectedAccountId]);
+  }, [toast, accountId]);
 
   const updateItem = useCallback(async (id: string, itemData: Partial<Omit<AccountLedgerItem, 'id'>>) => {
     const originalItems = ledgerItems;
@@ -83,7 +81,7 @@ export function useAccountLedger() {
       await AccountLedgerService.updateLedgerItem(id, itemData);
        // If account was changed, we need to refetch to remove it from the current view.
       if (itemData.accountId && itemData.accountId !== originalAccount) {
-          await fetchItems(selectedAccountId);
+          await fetchItems(accountId);
       }
     } catch (error) {
       console.error('Failed to update ledger item:', error);
@@ -94,7 +92,7 @@ export function useAccountLedger() {
         variant: 'destructive',
       });
     }
-  }, [ledgerItems, toast, selectedAccountId, fetchItems]);
+  }, [ledgerItems, toast, accountId, fetchItems]);
 
   const deleteItem = useCallback(async (id: string) => {
     const originalItems = ledgerItems;
@@ -112,5 +110,5 @@ export function useAccountLedger() {
     }
   }, [ledgerItems, toast]);
 
-  return { ledgerItems, savingsItems, goals, isLoading, addItem, updateItem, deleteItem, fetchItems: () => fetchItems(selectedAccountId) };
+  return { ledgerItems, savingsItems, goals, isLoading, addItem, updateItem, deleteItem, fetchItems: () => fetchItems(accountId) };
 }

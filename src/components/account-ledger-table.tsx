@@ -128,8 +128,8 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
   )
 }
 
-export function AccountLedgerTable() {
-  const { ledgerItems, savingsItems, goals, addItem, updateItem, deleteItem, isLoading } = useAccountLedger();
+export function AccountLedgerTable({ accountId }: { accountId: string | null }) {
+  const { ledgerItems, savingsItems, goals, addItem, updateItem, deleteItem, isLoading } = useAccountLedger(accountId);
   const { includeSinkingFunds, includeGoalSavings } = useLedgerSettings();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -279,7 +279,7 @@ export function AccountLedgerTable() {
                                 </TableCell>
                             </TableRow>
                         ))}
-                         {goalSavingsTotal > 0 && <TableRow className="bg-secondary/50 hover:bg-secondary/70">
+                         {goals.length > 0 && <TableRow className="bg-secondary/50 hover:bg-secondary/70">
                             <TableCell className="font-medium flex items-center gap-2">
                                 Goal Savings Balance
                                  <Popover>
@@ -296,7 +296,7 @@ export function AccountLedgerTable() {
                             <TableCell className="text-right">{formatCurrency(goalSavingsTotal)}</TableCell>
                             <TableCell></TableCell>
                         </TableRow>}
-                        {sinkingFundsCadTotal > 0 && <TableRow className="bg-secondary/50 hover:bg-secondary/70">
+                        {savingsItems.some(i => i.currency === 'CAD') && <TableRow className="bg-secondary/50 hover:bg-secondary/70">
                             <TableCell className="font-medium flex items-center gap-2">
                                 Sinking Funds Balance (CAD)
                                 <Popover>
@@ -313,7 +313,7 @@ export function AccountLedgerTable() {
                             <TableCell className="text-right">{formatCurrency(sinkingFundsCadTotal, 'CAD')}</TableCell>
                             <TableCell></TableCell>
                         </TableRow>}
-                        {sinkingFundsUsdTotal > 0 && <TableRow className="bg-secondary/50 hover:bg-secondary/70">
+                        {savingsItems.some(i => i.currency === 'USD') && <TableRow className="bg-secondary/50 hover:bg-secondary/70">
                             <TableCell className="font-medium flex items-center gap-2">
                                 Sinking Funds Balance (USD)
                                 <Popover>
@@ -332,7 +332,7 @@ export function AccountLedgerTable() {
                         </TableRow>}
                     </>
                 )}
-                 {(!isLoading && sortedItems.length === 0 && goalSavingsTotal === 0 && sinkingFundsCadTotal === 0 && sinkingFundsUsdTotal === 0) && (
+                 {(!isLoading && sortedItems.length === 0 && goals.length === 0 && savingsItems.length === 0) && (
                      <TableRow>
                         <TableCell colSpan={3} className="h-24 text-center">
                             No ledger categories or linked funds found for this account.
