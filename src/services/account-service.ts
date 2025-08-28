@@ -29,13 +29,10 @@ const defaultAccounts = ['Primary Account', 'Future Expenses', 'Reimbursable Exp
 async function seedDefaultAccounts() {
   const accountCollectionRef = collection(db, ACCOUNT_COLLECTION);
   const snapshot = await getDocs(query(accountCollectionRef));
-  const existingNames = snapshot.docs.map(doc => doc.data().name);
-
-  const missingAccounts = defaultAccounts.filter(name => !existingNames.includes(name));
-
-  if (missingAccounts.length > 0) {
+  
+  if (snapshot.empty) {
     const batch = writeBatch(db);
-    missingAccounts.forEach(accountName => {
+    defaultAccounts.forEach(accountName => {
       const newDocRef = doc(accountCollectionRef);
       batch.set(newDocRef, { name: accountName });
     });
