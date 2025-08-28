@@ -71,44 +71,32 @@ export function useAccountLedger(accountId: string | null) {
   }, [toast, accountId]);
 
   const updateItem = useCallback(async (id: string, itemData: Partial<Omit<AccountLedgerItem, 'id'>>) => {
-    const originalItems = ledgerItems;
-    const originalAccount = ledgerItems.find(item => item.id === id)?.accountId;
-    
-    // Optimistic update
-    setLedgerItems(prev => prev.map(item => (item.id === id ? { ...item, ...itemData } as AccountLedgerItem : item))
-                                .filter(item => itemData.accountId ? item.accountId === itemData.accountId : true));
     try {
       await AccountLedgerService.updateLedgerItem(id, itemData);
-       // If account was changed, we need to refetch to remove it from the current view.
-      if (itemData.accountId && itemData.accountId !== originalAccount) {
-          await fetchItems(accountId);
-      }
+      await fetchItems(accountId); // Refetch to ensure consistency
     } catch (error) {
       console.error('Failed to update ledger item:', error);
-      setLedgerItems(originalItems);
       toast({
         title: 'Error',
         description: 'Failed to update the category.',
         variant: 'destructive',
       });
     }
-  }, [ledgerItems, toast, accountId, fetchItems]);
+  }, [toast, accountId, fetchItems]);
 
   const deleteItem = useCallback(async (id: string) => {
-    const originalItems = ledgerItems;
-    setLedgerItems(prev => prev.filter(item => item.id !== id));
     try {
       await AccountLedgerService.deleteLedgerItem(id);
+      setLedgerItems(prev => prev.filter(item => item.id !== id));
     } catch (error) {
       console.error('Failed to delete ledger item:', error);
-      setLedgerItems(originalItems);
       toast({
         title: 'Error',
         description: 'Failed to delete the category.',
         variant: 'destructive',
       });
     }
-  }, [ledgerItems, toast]);
+  }, [toast]);
 
   return { ledgerItems, savingsItems, goals, isLoading, addItem, updateItem, deleteItem, fetchItems: () => fetchItems(accountId) };
 }
