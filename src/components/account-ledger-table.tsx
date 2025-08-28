@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from 'react';
 import type { AccountLedgerItem, SavingsItem, Goal } from '@/types';
-import * * as z from 'zod';
+import * as z from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
