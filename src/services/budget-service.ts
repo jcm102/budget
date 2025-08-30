@@ -276,17 +276,16 @@ export async function resetPaPayments(): Promise<void> {
   const q = query(collection(db, BUDGET_COLLECTION), where('type', '==', 'Pre-Authorized Payments'));
   const querySnapshot = await getDocs(q);
 
-  const baseItemsToUpdate: BudgetItem[] = [];
   const modifiedItemsToDelete: string[] = [];
+  const itemsToUpdate = new Map<string, BudgetItem>();
 
+  // Segregate base items and modified items
   querySnapshot.forEach(docSnap => {
     const item = { id: docSnap.id, ...docSnap.data() } as BudgetItem;
     if (item.originalId) {
-      // This is a modified instance from a previous month, mark for deletion.
       modifiedItemsToDelete.push(item.id);
     } else {
-      // This is a base item (recurring or one-time)
-      baseItemsToUpdate.push(item);
+      itemsToUpdate.set(item.id, item);
     }
   });
 
@@ -296,29 +295,33 @@ export async function resetPaPayments(): Promise<void> {
   });
   
   // Update the base items
-  baseItemsToUpdate.forEach(item => {
+  itemsToUpdate.forEach(item => {
     const itemRef = doc(db, BUDGET_COLLECTION, item.id);
-    let newDate = new Date(item.date);
-    let completed = false; // Reset completion status
+    const newDate = new Date(item.date);
+    let updated = false;
 
     // Only advance date for recurring items
     if (item.frequency !== 'One-Time') {
-      switch (item.frequency) {
-        case 'Monthly':
-          newDate = addMonths(newDate, 1);
-          break;
-        case 'Weekly':
-          newDate = addWeeks(newDate, 1);
-          break;
-        case 'Bi-Weekly':
-          newDate = addWeeks(newDate, 2);
-          break;
-      }
+        const today = new Date();
+        while(isBefore(newDate, today)) {
+            switch (item.frequency) {
+                case 'Monthly':
+                  newDate.setMonth(newDate.getMonth() + 1);
+                  break;
+                case 'Weekly':
+                  newDate.setDate(newDate.getDate() + 7);
+                  break;
+                case 'Bi-Weekly':
+                  newDate.setDate(newDate.getDate() + 14);
+                  break;
+            }
+            updated = true;
+        }
     }
     
     batch.update(itemRef, {
-      date: newDate.toISOString(),
-      completed: completed,
+      date: updated ? newDate.toISOString() : item.date,
+      completed: false, // Always reset completion status
     });
   });
 
