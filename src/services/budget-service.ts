@@ -276,18 +276,17 @@ export async function resetPaPayments(): Promise<void> {
   const q = query(collection(db, BUDGET_COLLECTION), where('type', '==', 'Pre-Authorized Payments'));
   const querySnapshot = await getDocs(q);
 
-  const baseItems: BudgetItem[] = [];
+  const baseItemsToUpdate: BudgetItem[] = [];
   const modifiedItemsToDelete: string[] = [];
-  const oneTimeItemsToReset: string[] = [];
 
   querySnapshot.forEach(docSnap => {
     const item = { id: docSnap.id, ...docSnap.data() } as BudgetItem;
     if (item.originalId) {
+      // This is a modified instance from a previous month, mark for deletion.
       modifiedItemsToDelete.push(item.id);
-    } else if (item.frequency !== 'One-Time') {
-      baseItems.push(item);
     } else {
-      oneTimeItemsToReset.push(item.id);
+      // This is a base item (recurring or one-time)
+      baseItemsToUpdate.push(item);
     }
   });
 
@@ -296,41 +295,30 @@ export async function resetPaPayments(): Promise<void> {
     batch.delete(doc(db, BUDGET_COLLECTION, id));
   });
   
-  // Reset one-time items
-  oneTimeItemsToReset.forEach(id => {
-      const itemRef = doc(db, BUDGET_COLLECTION, id);
-      batch.update(itemRef, { completed: false });
-  });
-
-  // Update the base recurring items
-  baseItems.forEach(item => {
+  // Update the base items
+  baseItemsToUpdate.forEach(item => {
     const itemRef = doc(db, BUDGET_COLLECTION, item.id);
     let newDate = new Date(item.date);
-    const today = new Date();
-    
+    let completed = false; // Reset completion status
+
     // Only advance date for recurring items
     if (item.frequency !== 'One-Time') {
-        while (isBefore(newDate, today)) {
-            switch (item.frequency) {
-                case 'Monthly':
-                    newDate = addMonths(newDate, 1);
-                    break;
-                case 'Weekly':
-                    newDate = addWeeks(newDate, 1);
-                    break;
-                case 'Bi-Weekly':
-                    newDate = addWeeks(newDate, 2);
-                    break;
-                default:
-                    // This case should not be hit due to the outer if, but it's good practice
-                    break;
-            }
-        }
+      switch (item.frequency) {
+        case 'Monthly':
+          newDate = addMonths(newDate, 1);
+          break;
+        case 'Weekly':
+          newDate = addWeeks(newDate, 1);
+          break;
+        case 'Bi-Weekly':
+          newDate = addWeeks(newDate, 2);
+          break;
+      }
     }
     
     batch.update(itemRef, {
       date: newDate.toISOString(),
-      completed: false,
+      completed: completed,
     });
   });
 
