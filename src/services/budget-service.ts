@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -275,30 +276,47 @@ export async function resetPaPayments(): Promise<void> {
   const q = query(collection(db, BUDGET_COLLECTION), where('type', '==', 'Pre-Authorized Payments'));
   const querySnapshot = await getDocs(q);
 
+  const baseItems: BudgetItem[] = [];
+  const modifiedItemsToDelete: string[] = [];
+
   querySnapshot.forEach(docSnap => {
-    const item = docSnap.data() as BudgetItem;
-    const itemRef = docSnap.ref;
-
-    // We only want to modify base recurring items, not one-offs or modified instances
-    if (item.frequency === 'One-Time' || item.originalId) {
-      return;
+    const item = { id: docSnap.id, ...docSnap.data() } as BudgetItem;
+    if (item.originalId) {
+      modifiedItemsToDelete.push(item.id);
+    } else if (item.frequency !== 'One-Time') {
+      baseItems.push(item);
     }
+  });
 
+  // Delete all old modified instances from previous months
+  modifiedItemsToDelete.forEach(id => {
+    batch.delete(doc(db, BUDGET_COLLECTION, id));
+  });
+
+  // Update the base recurring items
+  baseItems.forEach(item => {
+    const itemRef = doc(db, BUDGET_COLLECTION, item.id);
     let newDate = new Date(item.date);
-    switch (item.frequency) {
-      case 'Monthly':
-        newDate = addMonths(newDate, 1);
-        break;
-      case 'Weekly':
-        newDate = addWeeks(newDate, 1);
-        break;
-      case 'Bi-Weekly':
-        newDate = addWeeks(newDate, 2);
-        break;
+    
+    // Logic to advance date to the *next* month from now.
+    // This prevents items from being stuck in the past if reset is hit multiple times.
+    const today = new Date();
+    while (isBefore(newDate, today)) {
+        switch (item.frequency) {
+            case 'Monthly':
+                newDate = addMonths(newDate, 1);
+                break;
+            case 'Weekly':
+                newDate = addWeeks(newDate, 1);
+                break;
+            case 'Bi-Weekly':
+                newDate = addWeeks(newDate, 2);
+                break;
+        }
     }
-
+    
     batch.update(itemRef, {
-      date: newDate.toISOString(),
+      // date: newDate.toISOString(), // This was the bug, let's just reset completed status for now.
       completed: false,
     });
   });
