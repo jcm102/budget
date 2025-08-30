@@ -278,6 +278,7 @@ export async function resetPaPayments(): Promise<void> {
 
   const baseItems: BudgetItem[] = [];
   const modifiedItemsToDelete: string[] = [];
+  const oneTimeItemsToReset: string[] = [];
 
   querySnapshot.forEach(docSnap => {
     const item = { id: docSnap.id, ...docSnap.data() } as BudgetItem;
@@ -285,6 +286,8 @@ export async function resetPaPayments(): Promise<void> {
       modifiedItemsToDelete.push(item.id);
     } else if (item.frequency !== 'One-Time') {
       baseItems.push(item);
+    } else {
+      oneTimeItemsToReset.push(item.id);
     }
   });
 
@@ -292,31 +295,41 @@ export async function resetPaPayments(): Promise<void> {
   modifiedItemsToDelete.forEach(id => {
     batch.delete(doc(db, BUDGET_COLLECTION, id));
   });
+  
+  // Reset one-time items
+  oneTimeItemsToReset.forEach(id => {
+      const itemRef = doc(db, BUDGET_COLLECTION, id);
+      batch.update(itemRef, { completed: false });
+  });
 
   // Update the base recurring items
   baseItems.forEach(item => {
     const itemRef = doc(db, BUDGET_COLLECTION, item.id);
     let newDate = new Date(item.date);
-    
-    // Logic to advance date to the *next* month from now.
-    // This prevents items from being stuck in the past if reset is hit multiple times.
     const today = new Date();
-    while (isBefore(newDate, today)) {
-        switch (item.frequency) {
-            case 'Monthly':
-                newDate = addMonths(newDate, 1);
-                break;
-            case 'Weekly':
-                newDate = addWeeks(newDate, 1);
-                break;
-            case 'Bi-Weekly':
-                newDate = addWeeks(newDate, 2);
-                break;
+    
+    // Only advance date for recurring items
+    if (item.frequency !== 'One-Time') {
+        while (isBefore(newDate, today)) {
+            switch (item.frequency) {
+                case 'Monthly':
+                    newDate = addMonths(newDate, 1);
+                    break;
+                case 'Weekly':
+                    newDate = addWeeks(newDate, 1);
+                    break;
+                case 'Bi-Weekly':
+                    newDate = addWeeks(newDate, 2);
+                    break;
+                default:
+                    // This case should not be hit due to the outer if, but it's good practice
+                    break;
+            }
         }
     }
     
     batch.update(itemRef, {
-      // date: newDate.toISOString(), // This was the bug, let's just reset completed status for now.
+      date: newDate.toISOString(),
       completed: false,
     });
   });
