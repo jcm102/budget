@@ -269,3 +269,39 @@ export async function clearDebtPayments(): Promise<void> {
 
   await batch.commit();
 }
+
+export async function resetPaPayments(): Promise<void> {
+  const batch = writeBatch(db);
+  const q = query(collection(db, BUDGET_COLLECTION), where('type', '==', 'Pre-Authorized Payments'));
+  const querySnapshot = await getDocs(q);
+
+  querySnapshot.forEach(docSnap => {
+    const item = docSnap.data() as BudgetItem;
+    const itemRef = docSnap.ref;
+
+    // We only want to modify base recurring items, not one-offs or modified instances
+    if (item.frequency === 'One-Time' || item.originalId) {
+      return;
+    }
+
+    let newDate = new Date(item.date);
+    switch (item.frequency) {
+      case 'Monthly':
+        newDate = addMonths(newDate, 1);
+        break;
+      case 'Weekly':
+        newDate = addWeeks(newDate, 1);
+        break;
+      case 'Bi-Weekly':
+        newDate = addWeeks(newDate, 2);
+        break;
+    }
+
+    batch.update(itemRef, {
+      date: newDate.toISOString(),
+      completed: false,
+    });
+  });
+
+  await batch.commit();
+}

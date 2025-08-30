@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, Repeat, Info, ChevronsUpDown, ArrowUpDown } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, Repeat, Info, ChevronsUpDown, ArrowUpDown, RotateCcw } from 'lucide-react';
 import type { BudgetItem } from '@/types';
 import {
   Table,
@@ -59,7 +59,7 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
 }
 
 export function PaPaymentsTable() {
-  const { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, toggleBudgetItemCompleted, isLoading } = useBudget();
+  const { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, toggleBudgetItemCompleted, resetPaPayments, isLoading } = useBudget();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<BudgetItem | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'ascending' });
@@ -146,10 +146,34 @@ export function PaPaymentsTable() {
             </PopoverContent>
             </Popover>
         </div>
-        <Button onClick={() => setIsFormOpen(true)}>
-          <PlusCircle className="mr-2 h-5 w-5" />
-          Add Budget Item
-        </Button>
+        <div className="flex items-center gap-2">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" disabled={paymentItems.length === 0}>
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Monthly Reset
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will uncheck all paid items and advance their dates to the next month based on their frequency. This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => resetPaPayments()} className={cn(buttonVariants({ variant: "default" }))}>
+                    Yes, Reset Payments
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <Button onClick={() => setIsFormOpen(true)}>
+            <PlusCircle className="mr-2 h-5 w-5" />
+            Add Budget Item
+            </Button>
+        </div>
       </div>
 
        <div className="rounded-lg border bg-card text-card-foreground shadow-sm">

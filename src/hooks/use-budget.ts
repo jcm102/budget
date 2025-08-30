@@ -133,12 +133,31 @@ export function useBudget() {
     }
   }, [fetchBudgetItems]);
 
+  const resetPaPayments = useCallback(async () => {
+    try {
+      await BudgetService.resetPaPayments();
+      await fetchBudgetItems();
+      toast({
+        title: 'Success!',
+        description: 'Pre-authorized payments have been reset for the next month.',
+      });
+    } catch (error) {
+      console.error('Failed to reset PA payments:', error);
+      toast({
+        title: 'Error',
+        description: 'Could not reset pre-authorized payments.',
+        variant: 'destructive',
+      });
+    }
+  }, [fetchBudgetItems, toast]);
+
   return { 
     budgetItems, 
     addBudgetItem, 
     updateBudgetItem, 
     deleteBudgetItem, 
     toggleBudgetItemCompleted, 
+    resetPaPayments,
     isLoading,
     syncDebtPayments,
     clearDebtPayments,
