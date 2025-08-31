@@ -276,53 +276,39 @@ export async function resetPaPayments(): Promise<void> {
   const q = query(collection(db, BUDGET_COLLECTION), where('type', '==', 'Pre-Authorized Payments'));
   const querySnapshot = await getDocs(q);
 
-  const modifiedItemsToDelete: string[] = [];
-  const itemsToUpdate = new Map<string, BudgetItem>();
-
-  // Segregate base items and modified items
   querySnapshot.forEach(docSnap => {
     const item = { id: docSnap.id, ...docSnap.data() } as BudgetItem;
-    if (item.originalId) {
-      modifiedItemsToDelete.push(item.id);
-    } else {
-      itemsToUpdate.set(item.id, item);
-    }
-  });
-
-  // Delete all old modified instances from previous months
-  modifiedItemsToDelete.forEach(id => {
-    batch.delete(doc(db, BUDGET_COLLECTION, id));
-  });
-  
-  // Update the base items
-  itemsToUpdate.forEach(item => {
-    const itemRef = doc(db, BUDGET_COLLECTION, item.id);
-    const newDate = new Date(item.date);
-    let updated = false;
-
-    // Only advance date for recurring items
-    if (item.frequency !== 'One-Time') {
-        const today = new Date();
-        while(isBefore(newDate, today)) {
-            switch (item.frequency) {
-                case 'Monthly':
-                  newDate.setMonth(newDate.getMonth() + 1);
-                  break;
-                case 'Weekly':
-                  newDate.setDate(newDate.getDate() + 7);
-                  break;
-                case 'Bi-Weekly':
-                  newDate.setDate(newDate.getDate() + 14);
-                  break;
-            }
-            updated = true;
-        }
-    }
     
-    batch.update(itemRef, {
-      date: updated ? newDate.toISOString() : item.date,
-      completed: false, // Always reset completion status
-    });
+    // We only want to update items that are not one-time instances of recurring payments
+    if (!item.originalId) {
+        const newDate = new Date(item.date);
+        
+        switch (item.frequency) {
+            case 'Monthly':
+                newDate.setMonth(newDate.getMonth() + 1);
+                break;
+            case 'Weekly':
+                newDate.setDate(newDate.getDate() + 7);
+                break;
+            case 'Bi-Weekly':
+                newDate.setDate(newDate.getDate() + 14);
+                break;
+            case 'One-Time':
+                // Do not change date for one-time payments, just uncheck them.
+                break;
+        }
+
+        const updatedData: Partial<BudgetItem> = {
+            completed: false,
+        };
+
+        // Only update the date if it's a recurring payment
+        if (item.frequency !== 'One-Time') {
+            updatedData.date = newDate.toISOString();
+        }
+
+        batch.update(docSnap.ref, updatedData);
+    }
   });
 
   await batch.commit();
