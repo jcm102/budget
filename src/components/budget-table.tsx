@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { format } from 'date-fns';
-import { Pencil, Save, X, ChevronDown, ArrowRightLeft } from 'lucide-react';
+import { Pencil, Save, X, ChevronDown, ArrowRightLeft, CornerDownRight } from 'lucide-react';
 import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
 import {
   Table,
@@ -32,8 +32,161 @@ type BudgetTableProps = {
     onEditBreakdown: (category: Category) => void;
 }
 
+type CategoryWithChildren = Category & { children: CategoryWithChildren[] };
+
+const buildCategoryTree = (categories: Category[]): CategoryWithChildren[] => {
+    const tree: CategoryWithChildren[] = [];
+    const map: { [key: string]: CategoryWithChildren } = {};
+
+    categories.forEach(cat => {
+        map[cat.id] = { ...cat, children: [] };
+    });
+
+    categories.forEach(cat => {
+        if (cat.parentId && map[cat.parentId]) {
+            map[cat.parentId].children.push(map[cat.id]);
+        } else {
+            tree.push(map[cat.id]);
+        }
+    });
+
+    return tree;
+}
+
+const CategoryRow = ({ 
+    category, 
+    level, 
+    budgetItems, 
+    transactionTotals, 
+    transactionsByCategory,
+    accountMap,
+    onEditBreakdown 
+}: { 
+    category: CategoryWithChildren, 
+    level: number,
+    budgetItems: MonthlyBudgetItem[],
+    transactionTotals: Record<string, number>,
+    transactionsByCategory: Record<string, Transaction[]>,
+    accountMap: Record<string, string>,
+    onEditBreakdown: (category: Category) => void 
+}) => {
+    const [isOpen, setIsOpen] = useState(false);
+
+    const budgetItem = budgetItems.find(b => b.categoryId === category.id);
+    const budgeted = budgetItem?.budgeted || 0;
+    const actual = transactionTotals[category.id] || 0;
+    const remaining = budgeted - actual;
+    const progress = budgeted > 0 ? (actual / budgeted) * 100 : 0;
+    const categoryTransactions = transactionsByCategory[category.id] || [];
+    
+    const hasBreakdown = budgetItem?.breakdown && budgetItem.breakdown.length > 0 && (budgetItem.breakdown.length > 1 || budgetItem.breakdown[0].name !== 'Default');
+    const hasChildren = category.children.length > 0;
+    const hasTransactions = categoryTransactions.length > 0;
+    const isCollapsible = hasTransactions || hasBreakdown || hasChildren;
+
+    const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+    };
+
+    return (
+        <>
+            <TableRow className="font-medium" data-state={isOpen ? 'open' : 'closed'}>
+                <TableCell style={{ paddingLeft: `${1 + level * 1.5}rem` }}>
+                    <div className="flex items-center gap-2">
+                        {level > 0 && <CornerDownRight className="h-4 w-4 text-muted-foreground" />}
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsOpen(!isOpen)} disabled={!isCollapsible}>
+                            <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isOpen && "-rotate-180")} />
+                        </Button>
+                        <span>{category.name}</span>
+                    </div>
+                </TableCell>
+                <TableCell className="text-right">{formatCurrency(budgeted)}</TableCell>
+                <TableCell className="text-right">{formatCurrency(actual)}</TableCell>
+                <TableCell className="text-right">
+                <div className="flex flex-col items-end">
+                    <span className={remaining < 0 ? 'text-destructive' : ''}>
+                    {formatCurrency(remaining)}
+                    </span>
+                    <Progress value={progress} className="h-2 w-24 mt-1" />
+                </div>
+                </TableCell>
+                <TableCell className="text-right">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEditBreakdown(category)}>
+                        <Pencil className="h-4 w-4" />
+                    </Button>
+                </TableCell>
+            </TableRow>
+            <TableRow>
+                <TableCell colSpan={5} className="p-0 border-none">
+                    <Collapsible open={isOpen}>
+                        <CollapsibleContent>
+                            <div className="p-4 pl-14 space-y-4">
+                                {hasBreakdown && (
+                                    <div className="p-3 border rounded-md bg-secondary/30">
+                                        <h4 className="text-sm font-semibold mb-2">Budget Breakdown</h4>
+                                        <div className="space-y-1">
+                                            {budgetItem?.breakdown?.map((item, idx) => (
+                                                <div key={idx} className="flex justify-between text-sm">
+                                                    <span>{item.name}</span>
+                                                    <span>{formatCurrency(item.amount)}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {hasTransactions && (
+                                    <div>
+                                        {hasBreakdown && <Separator className="my-4"/>}
+                                        <h4 className="text-sm font-semibold mb-2">Transactions</h4>
+                                        <Table>
+                                            <TableBody>
+                                            {categoryTransactions.map(tx => (
+                                                <TableRow key={tx.id} className="border-b-0 hover:bg-transparent">
+                                                    <TableCell className="py-2">{format(new Date(tx.date), 'MMM dd')}</TableCell>
+                                                    <TableCell className="py-2">{tx.description}</TableCell>
+                                                    {tx.type === 'transfer' && tx.transferFromId && tx.transferToId && (
+                                                    <TableCell className="py-2 text-muted-foreground flex items-center gap-1">
+                                                        {accountMap[tx.transferFromId] || 'Unknown'} 
+                                                        <ArrowRightLeft className="h-3 w-3"/>
+                                                        {accountMap[tx.transferToId] || 'Unknown'}
+                                                    </TableCell>
+                                                    )}
+                                                    <TableCell className="py-2 text-right">{formatCurrency(tx.amount)}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                )}
+                            </div>
+                             {hasChildren && (
+                                <Table>
+                                    <TableBody>
+                                    {category.children.map(child => (
+                                        <CategoryRow 
+                                            key={child.id}
+                                            category={child}
+                                            level={level + 1}
+                                            budgetItems={budgetItems}
+                                            transactionTotals={transactionTotals}
+                                            transactionsByCategory={transactionsByCategory}
+                                            accountMap={accountMap}
+                                            onEditBreakdown={onEditBreakdown}
+                                        />
+                                    ))}
+                                    </TableBody>
+                                </Table>
+                            )}
+                        </CollapsibleContent>
+                    </Collapsible>
+                </TableCell>
+            </TableRow>
+        </>
+    )
+}
+
+
 export function BudgetTable({ budgetItems, categories, transactions, isLoading, onEditBreakdown }: BudgetTableProps) {
-  const [openRows, setOpenRows] = useState<Record<string, boolean>>({});
   const { accounts: allAccounts } = useAccountDetails();
 
   const accountMap = useMemo(() => {
@@ -70,10 +223,6 @@ export function BudgetTable({ budgetItems, categories, transactions, isLoading, 
      return totals;
   }, [expenseTransactions]);
 
-  const toggleRow = (categoryId: string) => {
-    setOpenRows(prev => ({...prev, [categoryId]: !prev[categoryId]}));
-  }
-
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
@@ -81,10 +230,12 @@ export function BudgetTable({ budgetItems, categories, transactions, isLoading, 
   const renderLoadingSkeleton = () => (
     Array.from({ length: 5 }).map((_, i) => (
       <TableRow key={`skeleton-budget-${i}`}>
-        <TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell>
+        <TableCell colSpan={5}><Skeleton className="h-8 w-full" /></TableCell>
       </TableRow>
     ))
   );
+
+  const categoryTree = useMemo(() => buildCategoryTree(categories), [categories]);
 
   const totalBudgeted = budgetItems.reduce((acc, item) => acc + item.budgeted, 0);
   const totalSpent = Object.values(transactionTotals).reduce((acc, val) => acc + val, 0);
@@ -94,7 +245,6 @@ export function BudgetTable({ budgetItems, categories, transactions, isLoading, 
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[50px]"></TableHead>
             <TableHead>Category</TableHead>
             <TableHead className="text-right">Budgeted</TableHead>
             <TableHead className="text-right">Actual</TableHead>
@@ -105,96 +255,22 @@ export function BudgetTable({ budgetItems, categories, transactions, isLoading, 
         <TableBody>
           {isLoading ? (
             renderLoadingSkeleton()
-          ) : categories.length > 0 ? (
-            categories.map((category) => {
-              const budgetItem = budgetItems.find(b => b.categoryId === category.id);
-              const budgeted = budgetItem?.budgeted || 0;
-              const actual = transactionTotals[category.id] || 0;
-              const remaining = budgeted - actual;
-              const progress = budgeted > 0 ? (actual / budgeted) * 100 : 0;
-              const categoryTransactions = transactionsByCategory[category.id] || [];
-              const hasTransactions = categoryTransactions.length > 0;
-              const hasBreakdown = budgetItem?.breakdown && budgetItem.breakdown.length > 0 && (budgetItem.breakdown.length > 1 || budgetItem.breakdown[0].name !== 'Default');
-              const isOpen = openRows[category.id] || false;
-
-              return (
-                 <React.Fragment key={category.id}>
-                    <TableRow className="font-medium" data-state={isOpen ? 'open' : 'closed'}>
-                        <TableCell>
-                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toggleRow(category.id)} disabled={!hasTransactions && !hasBreakdown}>
-                             <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isOpen && "-rotate-180")} />
-                           </Button>
-                        </TableCell>
-                        <TableCell>{category.name}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(budgeted)}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(actual)}</TableCell>
-                        <TableCell className="text-right">
-                        <div className="flex flex-col items-end">
-                            <span className={remaining < 0 ? 'text-destructive' : ''}>
-                            {formatCurrency(remaining)}
-                            </span>
-                            <Progress value={progress} className="h-2 w-24 mt-1" />
-                        </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEditBreakdown(category)}>
-                                <Pencil className="h-4 w-4" />
-                            </Button>
-                        </TableCell>
-                    </TableRow>
-                     <TableRow>
-                        <TableCell colSpan={6} className="p-0 border-none">
-                            <Collapsible open={isOpen}>
-                                <CollapsibleContent>
-                                    <div className="p-4 pl-14 space-y-4">
-                                        {hasBreakdown && (
-                                            <div className="p-3 border rounded-md bg-secondary/30">
-                                                <h4 className="text-sm font-semibold mb-2">Budget Breakdown</h4>
-                                                <div className="space-y-1">
-                                                    {budgetItem?.breakdown?.map((item, idx) => (
-                                                        <div key={idx} className="flex justify-between text-sm">
-                                                            <span>{item.name}</span>
-                                                            <span>{formatCurrency(item.amount)}</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                        {hasTransactions && (
-                                            <div>
-                                                {hasBreakdown && <Separator className="my-4"/>}
-                                                <h4 className="text-sm font-semibold mb-2">Transactions</h4>
-                                                <Table>
-                                                    <TableBody>
-                                                    {categoryTransactions.map(tx => (
-                                                        <TableRow key={tx.id} className="border-b-0 hover:bg-transparent">
-                                                          <TableCell className="py-2">{format(new Date(tx.date), 'MMM dd')}</TableCell>
-                                                          <TableCell className="py-2">{tx.description}</TableCell>
-                                                          {tx.type === 'transfer' && tx.transferFromId && tx.transferToId && (
-                                                            <TableCell className="py-2 text-muted-foreground flex items-center gap-1">
-                                                                {accountMap[tx.transferFromId] || 'Unknown'} 
-                                                                <ArrowRightLeft className="h-3 w-3"/>
-                                                                {accountMap[tx.transferToId] || 'Unknown'}
-                                                            </TableCell>
-                                                          )}
-                                                          <TableCell className="py-2 text-right">{formatCurrency(tx.amount)}</TableCell>
-                                                        </TableRow>
-                                                    ))}
-                                                    </TableBody>
-                                                </Table>
-                                            </div>
-                                        )}
-                                    </div>
-                                </CollapsibleContent>
-                            </Collapsible>
-                        </TableCell>
-                    </TableRow>
-                 </React.Fragment>
-              );
-            })
+          ) : categoryTree.length > 0 ? (
+            categoryTree.map((category) => (
+                <CategoryRow 
+                    key={category.id} 
+                    category={category} 
+                    level={0} 
+                    budgetItems={budgetItems} 
+                    transactionTotals={transactionTotals}
+                    transactionsByCategory={transactionsByCategory}
+                    accountMap={accountMap}
+                    onEditBreakdown={onEditBreakdown}
+                />
+            ))
           ) : (
             <TableRow>
-              <TableCell colSpan={6} className="h-24 text-center">
+              <TableCell colSpan={5} className="h-24 text-center">
                 No budget categories created yet. Go to Settings to add some.
               </TableCell>
             </TableRow>
@@ -202,7 +278,7 @@ export function BudgetTable({ budgetItems, categories, transactions, isLoading, 
         </TableBody>
         <TableFooter>
           <TableRow>
-            <TableCell colSpan={2} className="font-semibold">Totals</TableCell>
+            <TableCell className="font-semibold">Totals</TableCell>
             <TableCell className="text-right font-semibold">{formatCurrency(totalBudgeted)}</TableCell>
             <TableCell className="text-right font-semibold">{formatCurrency(totalSpent)}</TableCell>
             <TableCell className="text-right font-semibold">{formatCurrency(totalBudgeted - totalSpent)}</TableCell>
