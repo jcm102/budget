@@ -69,6 +69,9 @@ export default function AccountsPage() {
   const chequingAccounts = enrichedAccounts.filter(a => a.type === 'Chequing');
   const savingsAccounts = enrichedAccounts.filter(a => a.type === 'Savings');
   const creditAccounts = enrichedAccounts.filter(a => a.type === 'Credit');
+  const giftCardAccounts = enrichedAccounts.filter(a => a.type === 'Gift Card');
+  const iouAccounts = enrichedAccounts.filter(a => a.type === 'IOU');
+
 
   const renderSkeleton = () => (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -112,6 +115,8 @@ export default function AccountsPage() {
                 <AccountSection title="Chequing" accounts={chequingAccounts} />
                 <AccountSection title="Savings" accounts={savingsAccounts} />
                 <AccountSection title="Credit" accounts={creditAccounts} />
+                <AccountSection title="Gift Cards" accounts={giftCardAccounts} />
+                <AccountSection title="IOUs" accounts={iouAccounts} />
                 {accounts.length === 0 && (
                     <Card>
                         <CardHeader>

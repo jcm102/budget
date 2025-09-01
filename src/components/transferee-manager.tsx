@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { AccountDetails, AccountType } from '@/types';
+import { AccountDetails, AccountType, Debt } from '@/types';
 
 function AccountRow({ account, onUpdate, onDelete, debts, isLoadingDebts }: { account: AccountDetails, onUpdate: (id: string, field: keyof AccountDetails, value: any) => void, onDelete: (id: string) => void, debts: Debt[], isLoadingDebts: boolean }) {
   return (
@@ -63,7 +63,7 @@ function AccountRow({ account, onUpdate, onDelete, debts, isLoadingDebts }: { ac
           onValueChange={(value) => onUpdate(account.id, 'linkedDebtId', value === 'null' ? null : value)}
           disabled={isLoadingDebts}
         >
-          <SelectTrigger><SelectValue placeholder="Link to Debt" /></SelectTrigger>
+          <SelectTrigger><SelectValue placeholder="Link to Debt Worksheet" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="null">None</SelectItem>
             {debts.map(debt => (
