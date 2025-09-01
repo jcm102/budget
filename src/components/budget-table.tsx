@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { format } from 'date-fns';
 import { Pencil, Save, X, ChevronDown, ArrowRightLeft, CornerDownRight } from 'lucide-react';
 import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
@@ -60,7 +60,8 @@ const CategoryRow = ({
     transactionTotals, 
     transactionsByCategory,
     accountMap,
-    onEditBreakdown 
+    onEditBreakdown,
+    getCategoryTotals,
 }: { 
     category: CategoryWithChildren, 
     level: number,
@@ -68,13 +69,14 @@ const CategoryRow = ({
     transactionTotals: Record<string, number>,
     transactionsByCategory: Record<string, Transaction[]>,
     accountMap: Record<string, string>,
-    onEditBreakdown: (category: Category) => void 
+    onEditBreakdown: (category: Category) => void,
+    getCategoryTotals: (cat: CategoryWithChildren) => { budgeted: number, actual: number },
 }) => {
     const [isOpen, setIsOpen] = useState(false);
 
+    const { budgeted, actual } = getCategoryTotals(category);
+    
     const budgetItem = budgetItems.find(b => b.categoryId === category.id);
-    const budgeted = budgetItem?.budgeted || 0;
-    const actual = transactionTotals[category.id] || 0;
     const remaining = budgeted - actual;
     const progress = budgeted > 0 ? (actual / budgeted) * 100 : 0;
     const categoryTransactions = transactionsByCategory[category.id] || [];
@@ -172,6 +174,7 @@ const CategoryRow = ({
                                             transactionsByCategory={transactionsByCategory}
                                             accountMap={accountMap}
                                             onEditBreakdown={onEditBreakdown}
+                                            getCategoryTotals={getCategoryTotals}
                                         />
                                     ))}
                                     </TableBody>
@@ -237,8 +240,34 @@ export function BudgetTable({ budgetItems, categories, transactions, isLoading, 
 
   const categoryTree = useMemo(() => buildCategoryTree(categories), [categories]);
 
-  const totalBudgeted = budgetItems.reduce((acc, item) => acc + item.budgeted, 0);
-  const totalSpent = Object.values(transactionTotals).reduce((acc, val) => acc + val, 0);
+  const getCategoryTotals = useCallback((category: CategoryWithChildren): { budgeted: number, actual: number } => {
+    const budgetItem = budgetItems.find(b => b.categoryId === category.id);
+    let totals = {
+      budgeted: budgetItem?.budgeted || 0,
+      actual: transactionTotals[category.id] || 0,
+    };
+
+    if (category.children.length > 0) {
+      category.children.forEach(child => {
+        const childTotals = getCategoryTotals(child);
+        totals.budgeted += childTotals.budgeted;
+        totals.actual += childTotals.actual;
+      });
+    }
+
+    return totals;
+  }, [budgetItems, transactionTotals]);
+
+  const { totalBudgeted, totalSpent } = useMemo(() => {
+    let budgeted = 0;
+    let spent = 0;
+    categoryTree.forEach(category => {
+      const totals = getCategoryTotals(category);
+      budgeted += totals.budgeted;
+      spent += totals.actual;
+    });
+    return { totalBudgeted: budgeted, totalSpent: spent };
+  }, [categoryTree, getCategoryTotals]);
 
   return (
     <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
@@ -266,6 +295,7 @@ export function BudgetTable({ budgetItems, categories, transactions, isLoading, 
                     transactionsByCategory={transactionsByCategory}
                     accountMap={accountMap}
                     onEditBreakdown={onEditBreakdown}
+                    getCategoryTotals={getCategoryTotals}
                 />
             ))
           ) : (
