@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { Pencil, Save, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
