@@ -55,12 +55,6 @@ export function BudgetTable({ budgetItems, categories, transactions, isLoading, 
           byCategory[transaction.categoryId] = [];
         }
         byCategory[transaction.categoryId].push(transaction);
-      } else if (transaction.type === 'transfer') {
-        // Find the "from" account's category if it's a credit card linked to a debt
-        if (transaction.transferFromId) {
-           if (!byCategory['transfers']) byCategory['transfers'] = [];
-           byCategory['transfers'].push(transaction);
-        }
       }
     });
     return { expenseTransactions: expenses, transactionsByCategory: byCategory };
