@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import type { MonthlyBudgetItem, Category } from '@/types';
+import type { MonthlyBudgetItem, Category, BudgetSubItem } from '@/types';
 import { useToast } from './use-toast';
 import * as MonthlyBudgetService from '@/services/monthly-budget-service';
 import * as BudgetCategoryService from '@/services/budget-category-service';
@@ -59,6 +59,25 @@ export function useMonthlyBudget() {
       });
     }
   }, [budgetItems, currentMonth, toast, fetchBudget]);
+  
+  const updateBudgetItemWithBreakdown = useCallback(async (categoryId: string, breakdown: BudgetSubItem[]) => {
+    try {
+        const existingItem = budgetItems.find(item => item.categoryId === categoryId);
+        if (existingItem) {
+            await MonthlyBudgetService.updateBudgetItem(existingItem.id, { breakdown });
+        } else {
+            await MonthlyBudgetService.addBudgetItem({ categoryId, budgeted: 0, month: currentMonth, breakdown });
+        }
+        await fetchBudget();
+    } catch (error) {
+         console.error('Failed to update budget breakdown:', error);
+         toast({
+            title: 'Error',
+            description: 'Failed to update the budget breakdown.',
+            variant: 'destructive',
+        });
+    }
+  }, [budgetItems, currentMonth, toast, fetchBudget]);
 
-  return { budgetItems, categories, updateBudgetItem, isLoading, fetchBudget };
+  return { budgetItems, categories, updateBudgetItem, updateBudgetItemWithBreakdown, isLoading, fetchBudget };
 }

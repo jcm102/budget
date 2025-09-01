@@ -9,14 +9,32 @@ import { BudgetTable } from '@/components/budget-table';
 import { TransactionForm } from '@/components/transaction-form';
 import { useTransactions } from '@/hooks/use-transactions';
 import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
+import { BudgetBreakdownForm } from '@/components/budget-breakdown-form';
+import type { Category, MonthlyBudgetItem, BudgetSubItem } from '@/types';
 
 export default function MonthlyBudgetPage() {
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isTransactionFormOpen, setIsTransactionFormOpen] = useState(false);
+  const [isBreakdownFormOpen, setIsBreakdownFormOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+
   const { transactions, addTransaction, isLoading: isLoadingTransactions } = useTransactions();
-  const { budgetItems, isLoading: isLoadingBudget } = useMonthlyBudget();
+  const { budgetItems, categories, updateBudgetItemWithBreakdown, isLoading: isLoadingBudget } = useMonthlyBudget();
 
   const totalBudgeted = budgetItems.reduce((acc, item) => acc + item.budgeted, 0);
   const totalSpent = transactions.reduce((acc, item) => acc + item.amount, 0);
+  
+  const selectedBudgetItem = selectedCategory 
+    ? budgetItems.find(b => b.categoryId === selectedCategory.id) 
+    : null;
+
+  const handleEditBreakdown = (category: Category) => {
+    setSelectedCategory(category);
+    setIsBreakdownFormOpen(true);
+  }
+
+  const handleSaveBreakdown = (categoryId: string, breakdown: BudgetSubItem[]) => {
+    updateBudgetItemWithBreakdown(categoryId, breakdown);
+  }
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
@@ -25,9 +43,16 @@ export default function MonthlyBudgetPage() {
   return (
     <>
       <TransactionForm
-        open={isFormOpen}
-        onOpenChange={setIsFormOpen}
+        open={isTransactionFormOpen}
+        onOpenChange={setIsTransactionFormOpen}
         addTransaction={addTransaction}
+      />
+      <BudgetBreakdownForm
+        open={isBreakdownFormOpen}
+        onOpenChange={setIsBreakdownFormOpen}
+        onSave={handleSaveBreakdown}
+        category={selectedCategory}
+        budgetItem={selectedBudgetItem}
       />
       <div className="container mx-auto max-w-4xl p-4 md:p-8">
         <header className="mb-8 flex justify-between items-center">
@@ -37,7 +62,7 @@ export default function MonthlyBudgetPage() {
               Back to Home
             </Link>
           </Button>
-           <Button onClick={() => setIsFormOpen(true)}>
+           <Button onClick={() => setIsTransactionFormOpen(true)}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Add Transaction
             </Button>
@@ -66,8 +91,11 @@ export default function MonthlyBudgetPage() {
             </div>
 
             <BudgetTable 
+                budgetItems={budgetItems}
+                categories={categories}
                 transactions={transactions}
                 isLoading={isLoadingBudget || isLoadingTransactions}
+                onEditBreakdown={handleEditBreakdown}
             />
         </main>
       </div>

@@ -18,19 +18,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from './ui/skeleton';
 import { Progress } from './ui/progress';
-import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
-import type { Transaction } from '@/types';
+import type { Transaction, Category, MonthlyBudgetItem } from '@/types';
+import { Separator } from './ui/separator';
 
 type BudgetTableProps = {
+    budgetItems: MonthlyBudgetItem[];
+    categories: Category[];
     transactions: Transaction[];
     isLoading: boolean;
+    onEditBreakdown: (category: Category) => void;
 }
 
-export function BudgetTable({ transactions, isLoading }: BudgetTableProps) {
-  const { budgetItems, categories, updateBudgetItem } = useMonthlyBudget();
-  const [editingRow, setEditingRow] = useState<string | null>(null);
-  const [editingValue, setEditingValue] = useState<number>(0);
+export function BudgetTable({ budgetItems, categories, transactions, isLoading, onEditBreakdown }: BudgetTableProps) {
   const [openRows, setOpenRows] = useState<Record<string, boolean>>({});
 
   const { transactionTotals, transactionsByCategory } = useMemo(() => {
@@ -46,20 +47,6 @@ export function BudgetTable({ transactions, isLoading }: BudgetTableProps) {
     });
     return { transactionTotals: totals, transactionsByCategory: byCategory };
   }, [transactions]);
-
-  const handleEdit = (categoryId: string, currentBudget: number) => {
-    setEditingRow(categoryId);
-    setEditingValue(currentBudget);
-  };
-
-  const handleSave = (categoryId: string) => {
-    updateBudgetItem(categoryId, editingValue);
-    setEditingRow(null);
-  };
-
-  const handleCancel = () => {
-    setEditingRow(null);
-  };
 
   const toggleRow = (categoryId: string) => {
     setOpenRows(prev => ({...prev, [categoryId]: !prev[categoryId]}));
@@ -103,32 +90,21 @@ export function BudgetTable({ transactions, isLoading }: BudgetTableProps) {
               const actual = transactionTotals[category.id] || 0;
               const remaining = budgeted - actual;
               const progress = budgeted > 0 ? (actual / budgeted) * 100 : 0;
-              const isEditing = editingRow === category.id;
               const categoryTransactions = transactionsByCategory[category.id] || [];
               const hasTransactions = categoryTransactions.length > 0;
+              const hasBreakdown = budgetItem?.breakdown && budgetItem.breakdown.length > 0 && (budgetItem.breakdown.length > 1 || budgetItem.breakdown[0].name !== 'Default');
               const isOpen = openRows[category.id] || false;
 
               return (
                  <React.Fragment key={category.id}>
                     <TableRow className="font-medium" data-state={isOpen ? 'open' : 'closed'}>
                         <TableCell>
-                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toggleRow(category.id)} disabled={!hasTransactions}>
+                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toggleRow(category.id)} disabled={!hasTransactions && !hasBreakdown}>
                              <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isOpen && "-rotate-180")} />
                            </Button>
                         </TableCell>
                         <TableCell>{category.name}</TableCell>
-                        <TableCell className="text-right">
-                        {isEditing ? (
-                            <Input
-                            type="number"
-                            value={editingValue}
-                            onChange={(e) => setEditingValue(parseFloat(e.target.value) || 0)}
-                            className="h-8 text-right"
-                            />
-                        ) : (
-                            formatCurrency(budgeted)
-                        )}
-                        </TableCell>
+                        <TableCell className="text-right">{formatCurrency(budgeted)}</TableCell>
                         <TableCell className="text-right">{formatCurrency(actual)}</TableCell>
                         <TableCell className="text-right">
                         <div className="flex flex-col items-end">
@@ -139,45 +115,51 @@ export function BudgetTable({ transactions, isLoading }: BudgetTableProps) {
                         </div>
                         </TableCell>
                         <TableCell className="text-right">
-                        {isEditing ? (
-                            <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleSave(category.id)}>
-                                <Save className="h-4 w-4" />
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEditBreakdown(category)}>
+                                <Pencil className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleCancel}>
-                                <X className="h-4 w-4" />
-                            </Button>
-                            </div>
-                        ) : (
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(category.id, budgeted)}>
-                            <Pencil className="h-4 w-4" />
-                            </Button>
-                        )}
                         </TableCell>
                     </TableRow>
-                    {hasTransactions && (
-                        <TableRow className="bg-muted/50 hover:bg-muted/50">
-                            <TableCell colSpan={6} className="p-0">
-                                <Collapsible open={isOpen}>
-                                    <CollapsibleContent>
-                                        <div className="p-4 pl-14">
-                                            <Table>
-                                                <TableBody>
-                                                {categoryTransactions.map(tx => (
-                                                    <TableRow key={tx.id} className="border-b-0 hover:bg-transparent">
-                                                    <TableCell className="py-2">{format(new Date(tx.date), 'MMM dd')}</TableCell>
-                                                    <TableCell className="py-2">{tx.description}</TableCell>
-                                                    <TableCell className="py-2 text-right">{formatCurrency(tx.amount)}</TableCell>
-                                                    </TableRow>
-                                                ))}
-                                                </TableBody>
-                                            </Table>
-                                        </div>
-                                    </CollapsibleContent>
-                                </Collapsible>
-                            </TableCell>
-                        </TableRow>
-                    )}
+                     <TableRow>
+                        <TableCell colSpan={6} className="p-0 border-none">
+                            <Collapsible open={isOpen}>
+                                <CollapsibleContent>
+                                    <div className="p-4 pl-14 space-y-4">
+                                        {hasBreakdown && (
+                                            <div className="p-3 border rounded-md bg-secondary/30">
+                                                <h4 className="text-sm font-semibold mb-2">Budget Breakdown</h4>
+                                                <div className="space-y-1">
+                                                    {budgetItem?.breakdown?.map((item, idx) => (
+                                                        <div key={idx} className="flex justify-between text-sm">
+                                                            <span>{item.name}</span>
+                                                            <span>{formatCurrency(item.amount)}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {hasTransactions && (
+                                            <div>
+                                                {hasBreakdown && <Separator className="my-4"/>}
+                                                <h4 className="text-sm font-semibold mb-2">Transactions</h4>
+                                                <Table>
+                                                    <TableBody>
+                                                    {categoryTransactions.map(tx => (
+                                                        <TableRow key={tx.id} className="border-b-0 hover:bg-transparent">
+                                                        <TableCell className="py-2">{format(new Date(tx.date), 'MMM dd')}</TableCell>
+                                                        <TableCell className="py-2">{tx.description}</TableCell>
+                                                        <TableCell className="py-2 text-right">{formatCurrency(tx.amount)}</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        )}
+                                    </div>
+                                </CollapsibleContent>
+                            </Collapsible>
+                        </TableCell>
+                    </TableRow>
                  </React.Fragment>
               );
             })
