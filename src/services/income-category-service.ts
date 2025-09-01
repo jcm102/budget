@@ -18,7 +18,7 @@ import {
 } from 'firebase/firestore';
 
 const CATEGORY_COLLECTION = 'income-categories';
-const defaultCategories = ['Paycheck', 'Bonus', 'Freelance', 'Misc. Income'];
+const defaultCategories = ['DSW', 'Government Benefits', 'Honoraria', 'Mileage', 'Paycheque'];
 
 async function seedDefaultCategories() {
   const categoryCollectionRef = collection(db, CATEGORY_COLLECTION);

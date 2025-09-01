@@ -91,16 +91,17 @@ export default function MonthlyBudgetPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                 <div 
-                  className="p-4 border rounded-lg bg-card cursor-pointer hover:bg-accent transition-colors"
-                  onClick={() => setIsIncomeFormOpen(true)}
-                >
-                    <div className="flex justify-between items-center">
-                      <h4 className="text-muted-foreground">Budgeted Income</h4>
-                      <Pencil className="h-4 w-4 text-muted-foreground" />
+                 <Link href="/budget">
+                    <div 
+                    className="p-4 border rounded-lg bg-card cursor-pointer hover:bg-accent transition-colors h-full"
+                    >
+                        <div className="flex justify-between items-center">
+                        <h4 className="text-muted-foreground">Budgeted Income</h4>
+                        <Pencil className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <p className="text-2xl font-semibold">{formatCurrency(income?.amount || 0)}</p>
                     </div>
-                    <p className="text-2xl font-semibold">{formatCurrency(income?.amount || 0)}</p>
-                </div>
+                 </Link>
                 <div className="p-4 border rounded-lg bg-card">
                     <h4 className="text-muted-foreground">Amount Budgeted</h4>
                     <p className="text-2xl font-semibold">{formatCurrency(totalBudgeted)}</p>
