@@ -32,6 +32,7 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
   const today = new Date();
   const allGeneratedItems: BudgetItem[] = [];
   const startOfCurrentMonth = startOfMonth(today);
+  const endOfCurrentMonth = lastDayOfMonth(today);
   const processedRecurringInstances = new Set<string>();
 
   const allItems = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BudgetItem));
@@ -78,11 +79,17 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
       if (isSameMonth(itemStartDate, today) && !allGeneratedItems.some(i => i.id === item.id)) {
         allGeneratedItems.push(item);
       }
-    } else if (item.frequency === 'Monthly') {
-        let currentDate = startOfDay(itemStartDate);
-        
-        while (getMonth(currentDate) < getMonth(startOfCurrentMonth) && getYear(currentDate) <= getYear(today)) {
-             currentDate = addMonths(currentDate, 1);
+    } else if (item.frequency === 'Monthly' || item.frequency === 'Monthly (Last Day)') {
+        let currentDate;
+        if (item.frequency === 'Monthly (Last Day)') {
+            currentDate = lastDayOfMonth(startOfCurrentMonth);
+        } else {
+             // Handle regular monthly items
+            let tempDate = startOfDay(itemStartDate);
+            while (isBefore(tempDate, startOfCurrentMonth)) {
+                tempDate = addMonths(tempDate, 1);
+            }
+            currentDate = tempDate;
         }
 
         if (isSameMonth(currentDate, today)) {
@@ -276,33 +283,49 @@ export async function resetPaPayments(): Promise<void> {
   const q = query(collection(db, BUDGET_COLLECTION), where('type', '==', 'Pre-Authorized Payments'));
   const querySnapshot = await getDocs(q);
 
+  // First, delete all modified one-time instances of PA payments to clean up
+  const modifiedQuery = query(collection(db, BUDGET_COLLECTION), where('type', '==', 'Pre-Authorized Payments'), where('originalId', '!=', null));
+  const modifiedSnapshot = await getDocs(modifiedQuery);
+  modifiedSnapshot.forEach(doc => {
+    batch.delete(doc.ref);
+  });
+  
+  // Now, update the base recurring items
   querySnapshot.forEach(docSnap => {
     const item = { id: docSnap.id, ...docSnap.data() } as BudgetItem;
     
-    // We only want to update items that are not one-time instances of recurring payments
+    // We only want to update the base items, not the modified instances we are about to delete
     if (!item.originalId) {
-        const newDate = new Date(item.date);
-        
-        switch (item.frequency) {
-            case 'Monthly':
-                newDate.setMonth(newDate.getMonth() + 1);
-                break;
-            case 'Weekly':
-                newDate.setDate(newDate.getDate() + 7);
-                break;
-            case 'Bi-Weekly':
-                newDate.setDate(newDate.getDate() + 14);
-                break;
-            case 'One-Time':
-                // Do not change date for one-time payments, just uncheck them.
-                break;
+        let newDate = new Date(item.date);
+
+        if (item.frequency !== 'One-Time') {
+            const today = new Date();
+            let nextDate = new Date(item.date);
+            
+            // Loop until we find the date for the *next* month
+            while (isBefore(nextDate, today) || isSameMonth(nextDate, today)) {
+                switch (item.frequency) {
+                    case 'Monthly':
+                        nextDate = addMonths(nextDate, 1);
+                        break;
+                    case 'Monthly (Last Day)':
+                        nextDate = lastDayOfMonth(addMonths(nextDate, 1));
+                        break;
+                    case 'Weekly':
+                        nextDate = addWeeks(nextDate, 1);
+                        break;
+                    case 'Bi-Weekly':
+                        nextDate = addWeeks(nextDate, 2);
+                        break;
+                }
+            }
+             newDate = nextDate;
         }
 
         const updatedData: Partial<BudgetItem> = {
             completed: false,
         };
 
-        // Only update the date if it's a recurring payment
         if (item.frequency !== 'One-Time') {
             updatedData.date = newDate.toISOString();
         }

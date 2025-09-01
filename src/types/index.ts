@@ -54,7 +54,7 @@ export interface Debt {
 }
 
 export type BudgetItemType = 'Income' | 'Debt Payments' | 'Transfers' | 'Pre-Authorized Payments';
-export type BudgetItemFrequency = 'One-Time' | 'Weekly' | 'Bi-Weekly' | 'Monthly';
+export type BudgetItemFrequency = 'One-Time' | 'Weekly' | 'Bi-Weekly' | 'Monthly' | 'Monthly (Last Day)';
 
 export interface BudgetItem {
   id: string;

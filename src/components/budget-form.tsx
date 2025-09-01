@@ -49,7 +49,7 @@ const formSchema = z.object({
     amount: z.coerce.number().min(0.01, 'Amount must be greater than 0.'),
     type: z.enum(['Income', 'Debt Payments', 'Transfers', 'Pre-Authorized Payments']),
     date: z.string().min(1, 'A date is required.'),
-    frequency: z.enum(['One-Time', 'Weekly', 'Bi-Weekly', 'Monthly']),
+    frequency: z.enum(['One-Time', 'Weekly', 'Bi-Weekly', 'Monthly', 'Monthly (Last Day)']),
     transferTo: z.string().optional(),
     transferFrom: z.string().optional(),
     // New fields for allocation
@@ -466,6 +466,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                       <SelectItem value="Weekly">Weekly</SelectItem>
                       <SelectItem value="Bi-Weekly">Bi-Weekly</SelectItem>
                       <SelectItem value="Monthly">Monthly</SelectItem>
+                      <SelectItem value="Monthly (Last Day)">Monthly (Last Day)</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
