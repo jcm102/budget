@@ -207,11 +207,17 @@ export interface Account {
   name: string;
 }
 
+export interface BudgetSubItem {
+  name: string;
+  amount: number;
+}
+
 export interface MonthlyBudgetItem {
     id: string;
     categoryId: string;
     budgeted: number;
     month: string; // YYYY-MM format
+    breakdown?: BudgetSubItem[];
 }
 
 export interface Transaction {

@@ -27,14 +27,24 @@ export async function getBudgetForMonth(month: string): Promise<MonthlyBudgetIte
 }
 
 export async function addBudgetItem(itemData: Omit<MonthlyBudgetItem, 'id'>): Promise<MonthlyBudgetItem> {
-  const docRef = await addDoc(collection(db, BUDGET_ITEMS_COLLECTION), itemData);
+  const budgeted = itemData.breakdown?.reduce((sum, item) => sum + item.amount, 0) || itemData.budgeted || 0;
+  const dataToSave = { ...itemData, budgeted };
+
+  const docRef = await addDoc(collection(db, BUDGET_ITEMS_COLLECTION), dataToSave);
   const docSnap = await getDoc(docRef);
   return { id: docSnap.id, ...(docSnap.data() as Omit<MonthlyBudgetItem, 'id'>) };
 }
 
 export async function updateBudgetItem(id: string, itemData: Partial<Omit<MonthlyBudgetItem, 'id'>>): Promise<void> {
   const itemRef = doc(db, BUDGET_ITEMS_COLLECTION, id);
-  await updateDoc(itemRef, itemData);
+  let dataToUpdate = { ...itemData };
+
+  if (itemData.breakdown) {
+    const totalBudgeted = itemData.breakdown.reduce((sum, item) => sum + item.amount, 0);
+    dataToUpdate.budgeted = totalBudgeted;
+  }
+  
+  await updateDoc(itemRef, dataToUpdate);
 }
 
 // ===== Transactions =====
