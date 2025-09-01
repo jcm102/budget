@@ -36,6 +36,7 @@ import { Badge } from './ui/badge';
 import { useSavings } from '@/hooks/use-savings';
 import { useToast } from '@/hooks/use-toast';
 import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
+import { CreateSinkingFundDialog } from './create-sinking-fund-dialog';
 
 type SortableHeaderProps = {
   column: keyof SubscriptionItem | 'monthlyCost';
@@ -67,6 +68,7 @@ export function SubscriptionTable() {
   const [editingItem, setEditingItem] = useState<SubscriptionItem | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: keyof SubscriptionItem | 'monthlyCost'; direction: 'ascending' | 'descending' }>({ key: 'serviceName', direction: 'ascending' });
   const { toast } = useToast();
+  const [sinkingFundCandidate, setSinkingFundCandidate] = useState<SubscriptionItem | null>(null);
 
 
   const requestSort = (key: keyof SubscriptionItem | 'monthlyCost' | 'nextRenewalDate') => {
@@ -132,7 +134,7 @@ export function SubscriptionTable() {
     }
   };
 
-  const handleCreateSinkingFund = (item: SubscriptionItem) => {
+  const handleCreateSinkingFund = (item: SubscriptionItem, categoryId: string) => {
     const fundExists = savingsItems.some(fund => fund.name.toLowerCase() === item.serviceName.toLowerCase());
     if (fundExists) {
       toast({ title: 'Fund Exists', description: `A sinking fund for "${item.serviceName}" already exists.`, variant: 'destructive' });
@@ -153,7 +155,7 @@ export function SubscriptionTable() {
       });
     
     // 2. Add it to the monthly budget
-    const budgetCategory = budgetCategories.find(c => c.name === "Subscriptions & Services");
+    const budgetCategory = budgetCategories.find(c => c.id === categoryId);
     if (budgetCategory) {
         const budgetItem = budgetItems.find(b => b.categoryId === budgetCategory.id);
         const newBreakdownItem = { name: item.serviceName, amount: monthlyCost };
@@ -163,6 +165,7 @@ export function SubscriptionTable() {
     }
 
     toast({ title: 'Sinking Fund Created', description: `A new sinking fund for "${item.serviceName}" has been added and updated in your monthly budget.` });
+    setSinkingFundCandidate(null);
   };
 
 
@@ -196,6 +199,15 @@ export function SubscriptionTable() {
         updateSubscription={updateSubscription}
         editingItem={editingItem}
       />
+      {sinkingFundCandidate && (
+        <CreateSinkingFundDialog
+          open={!!sinkingFundCandidate}
+          onOpenChange={() => setSinkingFundCandidate(null)}
+          item={sinkingFundCandidate}
+          itemType="Subscription"
+          onConfirm={(categoryId) => handleCreateSinkingFund(sinkingFundCandidate, categoryId)}
+        />
+      )}
       <div className="flex justify-end items-center mb-6 gap-2">
           <Button onClick={() => setIsFormOpen(true)}>
             <PlusCircle className="mr-2 h-5 w-5" />
@@ -227,7 +239,7 @@ export function SubscriptionTable() {
                             <TableCell className="text-right">{formatCurrency(getMonthlyCost(item))}</TableCell>
                             <TableCell className="text-right">
                                 <div className="flex justify-end gap-1">
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" title="Create Sinking Fund" onClick={() => handleCreateSinkingFund(item)}>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" title="Create Sinking Fund" onClick={() => setSinkingFundCandidate(item)}>
                                         <PiggyBank className="h-4 w-4" />
                                     </Button>
                                     <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit Item" onClick={() => handleEdit(item)}>
@@ -285,3 +297,4 @@ export function SubscriptionTable() {
     </>
   );
 }
+

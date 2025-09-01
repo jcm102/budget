@@ -36,6 +36,8 @@ import { Badge } from './ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useSavings } from '@/hooks/use-savings';
 import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
+import { CreateSinkingFundDialog } from './create-sinking-fund-dialog';
+
 
 type SortConfig = {
     key: keyof AutoShipItem | 'monthlyCost';
@@ -76,6 +78,8 @@ export function AutoShipTable() {
   const [editingItem, setEditingItem] = useState<AutoShipItem | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'nextShipmentDate', direction: 'ascending' });
   const { toast } = useToast();
+  const [sinkingFundCandidate, setSinkingFundCandidate] = useState<AutoShipItem | null>(null);
+
 
   const handleEdit = (item: AutoShipItem) => {
     setEditingItem(item);
@@ -125,7 +129,7 @@ export function AutoShipTable() {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
 
-  const handleCreateSinkingFund = (item: AutoShipItem) => {
+  const handleCreateSinkingFund = (item: AutoShipItem, categoryId: string) => {
     const fundExists = savingsItems.some(fund => fund.name.toLowerCase() === item.item.toLowerCase());
     if (fundExists) {
       toast({ title: 'Fund Exists', description: `A sinking fund for "${item.item}" already exists.`, variant: 'destructive' });
@@ -144,7 +148,7 @@ export function AutoShipTable() {
         currency: 'CAD', // Assuming CAD
     });
 
-    const budgetCategory = budgetCategories.find(c => c.name === "Auto-Shipments");
+    const budgetCategory = budgetCategories.find(c => c.id === categoryId);
     if (budgetCategory) {
         const budgetItem = budgetItems.find(b => b.categoryId === budgetCategory.id);
         const newBreakdownItem = { name: item.item, amount: monthlyCost };
@@ -154,6 +158,7 @@ export function AutoShipTable() {
     }
 
     toast({ title: 'Sinking Fund Created', description: `A new sinking fund for "${item.item}" has been added and updated in your monthly budget.` });
+    setSinkingFundCandidate(null);
   };
 
   const handleShipItem = async (item: AutoShipItem) => {
@@ -189,6 +194,15 @@ export function AutoShipTable() {
         updateAutoShipItem={updateAutoShipItem}
         editingItem={editingItem}
       />
+      {sinkingFundCandidate && (
+        <CreateSinkingFundDialog
+          open={!!sinkingFundCandidate}
+          onOpenChange={() => setSinkingFundCandidate(null)}
+          item={sinkingFundCandidate}
+          itemType="Auto-Shipment"
+          onConfirm={(categoryId) => handleCreateSinkingFund(sinkingFundCandidate, categoryId)}
+        />
+      )}
       <div className="flex justify-end items-center mb-6 gap-2">
           <Button onClick={() => setIsFormOpen(true)}>
             <PlusCircle className="mr-2 h-5 w-5" />
@@ -220,7 +234,7 @@ export function AutoShipTable() {
                             <TableCell className="text-right">{formatCurrency(getMonthlyCost(item))}</TableCell>
                             <TableCell className="text-right">
                                 <div className="flex justify-end gap-1">
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" title="Create Sinking Fund" onClick={() => handleCreateSinkingFund(item)}>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" title="Create Sinking Fund" onClick={() => setSinkingFundCandidate(item)}>
                                         <PiggyBank className="h-4 w-4" />
                                     </Button>
                                     <Button variant="ghost" size="icon" className="h-8 w-8" title="Ship Item" onClick={() => handleShipItem(item)}>
