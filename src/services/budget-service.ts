@@ -60,13 +60,13 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
 
     const itemStartDate = new Date(item.date);
     
-    // For "Debt Payments", we want to show all of them, regardless of date.
-    if (item.type === 'Debt Payments') {
+    // For "Debt Payments" and "Transfers", we want to show all of them, regardless of date.
+    if (item.type === 'Debt Payments' || item.type === 'Transfers') {
         allGeneratedItems.push(item);
         return; // Move to the next item
     }
 
-    // Existing logic for other types (Income, Transfers, PA Payments)
+    // Existing logic for other types (Income, PA Payments)
     if (getYear(itemStartDate) > getYear(today) || (getYear(itemStartDate) === getYear(today) && getMonth(itemStartDate) > getMonth(today))) {
         if (item.frequency === 'One-Time' && isSameMonth(itemStartDate, today)) {
             // allow
@@ -280,58 +280,56 @@ export async function clearDebtPayments(): Promise<void> {
 
 export async function resetPaPayments(): Promise<void> {
   const batch = writeBatch(db);
-  const q = query(collection(db, BUDGET_COLLECTION), where('type', '==', 'Pre-Authorized Payments'));
-  const querySnapshot = await getDocs(q);
-
+  
   // First, delete all modified one-time instances of PA payments to clean up
   const modifiedQuery = query(collection(db, BUDGET_COLLECTION), where('type', '==', 'Pre-Authorized Payments'), where('originalId', '!=', null));
   const modifiedSnapshot = await getDocs(modifiedQuery);
   modifiedSnapshot.forEach(doc => {
     batch.delete(doc.ref);
   });
+
+  // Now, update all PA payment items (recurring and one-time)
+  const q = query(collection(db, BUDGET_COLLECTION), where('type', '==', 'Pre-Authorized Payments'));
+  const querySnapshot = await getDocs(q);
   
-  // Now, update the base recurring items
   querySnapshot.forEach(docSnap => {
     const item = { id: docSnap.id, ...docSnap.data() } as BudgetItem;
     
-    // We only want to update the base items, not the modified instances we are about to delete
-    if (!item.originalId) {
-        let newDate = new Date(item.date);
-
-        if (item.frequency !== 'One-Time') {
-            const today = new Date();
-            let nextDate = new Date(item.date);
-            
-            // Loop until we find the date for the *next* month
-            while (isBefore(nextDate, today) || isSameMonth(nextDate, today)) {
-                switch (item.frequency) {
-                    case 'Monthly':
-                        nextDate = addMonths(nextDate, 1);
-                        break;
-                    case 'Monthly (Last Day)':
-                        nextDate = lastDayOfMonth(addMonths(nextDate, 1));
-                        break;
-                    case 'Weekly':
-                        nextDate = addWeeks(nextDate, 1);
-                        break;
-                    case 'Bi-Weekly':
-                        nextDate = addWeeks(nextDate, 2);
-                        break;
-                }
-            }
-             newDate = nextDate;
-        }
-
-        const updatedData: Partial<BudgetItem> = {
-            completed: false,
-        };
-
-        if (item.frequency !== 'One-Time') {
-            updatedData.date = newDate.toISOString();
-        }
-
-        batch.update(docSnap.ref, updatedData);
+    // We only want to update the base items, not the modified instances we just deleted
+    if (item.originalId) {
+      return; 
     }
+
+    const updatedData: Partial<BudgetItem> = { completed: false };
+
+    if (item.frequency !== 'One-Time') {
+      let newDate = new Date(item.date);
+      const today = new Date();
+      
+      // Loop until we find the date for the *next* month or beyond
+      while (isBefore(newDate, today) || isSameMonth(newDate, today)) {
+        switch (item.frequency) {
+          case 'Monthly':
+            newDate = addMonths(newDate, 1);
+            break;
+          case 'Monthly (Last Day)':
+            newDate = lastDayOfMonth(addMonths(newDate, 1));
+            break;
+          case 'Weekly':
+            newDate = addWeeks(newDate, 1);
+            break;
+          case 'Bi-Weekly':
+            newDate = addWeeks(newDate, 2);
+            break;
+          default:
+            // This case should not be hit for recurring items, but it's good practice
+            break;
+        }
+      }
+      updatedData.date = newDate.toISOString();
+    }
+    
+    batch.update(docSnap.ref, updatedData);
   });
 
   await batch.commit();
