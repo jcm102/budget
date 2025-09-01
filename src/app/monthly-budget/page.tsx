@@ -4,24 +4,27 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, PlusCircle } from 'lucide-react';
+import { ArrowLeft, PlusCircle, Pencil } from 'lucide-react';
 import { BudgetTable } from '@/components/budget-table';
 import { TransactionForm } from '@/components/transaction-form';
 import { useTransactions } from '@/hooks/use-transactions';
 import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
 import { BudgetBreakdownForm } from '@/components/budget-breakdown-form';
 import type { Category, MonthlyBudgetItem, BudgetSubItem } from '@/types';
+import { useIncome } from '@/hooks/use-income';
+import { IncomeForm } from '@/components/income-form';
 
 export default function MonthlyBudgetPage() {
   const [isTransactionFormOpen, setIsTransactionFormOpen] = useState(false);
   const [isBreakdownFormOpen, setIsBreakdownFormOpen] = useState(false);
+  const [isIncomeFormOpen, setIsIncomeFormOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
 
   const { transactions, addTransaction, isLoading: isLoadingTransactions } = useTransactions();
   const { budgetItems, categories, updateBudgetItemWithBreakdown, isLoading: isLoadingBudget } = useMonthlyBudget();
+  const { income, setIncome, isLoading: isLoadingIncome } = useIncome();
 
   const totalBudgeted = budgetItems.reduce((acc, item) => acc + item.budgeted, 0);
-  const totalSpent = transactions.reduce((acc, item) => acc + item.amount, 0);
   
   const selectedBudgetItem = selectedCategory 
     ? budgetItems.find(b => b.categoryId === selectedCategory.id) 
@@ -36,9 +39,15 @@ export default function MonthlyBudgetPage() {
     updateBudgetItemWithBreakdown(categoryId, breakdown);
   }
 
+  const handleSaveIncome = (newIncome: number) => {
+    setIncome(newIncome);
+  }
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
+  
+  const leftToBudget = (income?.amount || 0) - totalBudgeted;
 
   return (
     <>
@@ -53,6 +62,12 @@ export default function MonthlyBudgetPage() {
         onSave={handleSaveBreakdown}
         category={selectedCategory}
         budgetItem={selectedBudgetItem}
+      />
+      <IncomeForm
+        open={isIncomeFormOpen}
+        onOpenChange={setIsIncomeFormOpen}
+        onSave={handleSaveIncome}
+        currentIncome={income?.amount || 0}
       />
       <div className="container mx-auto max-w-4xl p-4 md:p-8">
         <header className="mb-8 flex justify-between items-center">
@@ -71,22 +86,30 @@ export default function MonthlyBudgetPage() {
             <div>
                 <h1 className="text-3xl font-bold font-headline text-primary mb-2">Monthly Budget</h1>
                  <p className="text-muted-foreground mt-2 text-lg">
-                    Set your budget, track your spending, and stay on top of your finances.
+                    Give every dollar a job. Set your income, budget your categories, and track your spending.
                 </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                 <div 
+                  className="p-4 border rounded-lg bg-card cursor-pointer hover:bg-accent transition-colors"
+                  onClick={() => setIsIncomeFormOpen(true)}
+                >
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-muted-foreground">Budgeted Income</h4>
+                      <Pencil className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <p className="text-2xl font-semibold">{formatCurrency(income?.amount || 0)}</p>
+                </div>
                 <div className="p-4 border rounded-lg bg-card">
-                    <h4 className="text-muted-foreground">Total Budgeted</h4>
+                    <h4 className="text-muted-foreground">Amount Budgeted</h4>
                     <p className="text-2xl font-semibold">{formatCurrency(totalBudgeted)}</p>
                 </div>
                 <div className="p-4 border rounded-lg bg-card">
-                    <h4 className="text-muted-foreground">Total Spent</h4>
-                    <p className="text-2xl font-semibold">{formatCurrency(totalSpent)}</p>
-                </div>
-                <div className="p-4 border rounded-lg bg-card">
-                    <h4 className="text-muted-foreground">Remaining</h4>
-                    <p className="text-2xl font-semibold">{formatCurrency(totalBudgeted - totalSpent)}</p>
+                    <h4 className="text-muted-foreground">Left to Budget</h4>
+                    <p className={`text-2xl font-semibold ${leftToBudget < 0 ? 'text-destructive' : ''}`}>
+                      {formatCurrency(leftToBudget)}
+                    </p>
                 </div>
             </div>
 
@@ -94,7 +117,7 @@ export default function MonthlyBudgetPage() {
                 budgetItems={budgetItems}
                 categories={categories}
                 transactions={transactions}
-                isLoading={isLoadingBudget || isLoadingTransactions}
+                isLoading={isLoadingBudget || isLoadingTransactions || isLoadingIncome}
                 onEditBreakdown={handleEditBreakdown}
             />
         </main>

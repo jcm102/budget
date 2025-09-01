@@ -238,3 +238,9 @@ export interface Transaction {
     transferFromId?: string;
     transferToId?: string;
 }
+
+export interface Income {
+    id: string; // Will be the month string 'YYYY-MM'
+    month: string;
+    amount: number;
+}
