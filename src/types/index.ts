@@ -1,5 +1,4 @@
 
-
 export type TaskFrequency = "daily" | "weekly" | "monthly";
 
 export const internalPages = [
@@ -205,4 +204,19 @@ export interface CalendarRow {
 export interface Account {
   id: string;
   name: string;
+}
+
+export interface MonthlyBudgetItem {
+    id: string;
+    categoryId: string;
+    budgeted: number;
+    month: string; // YYYY-MM format
+}
+
+export interface Transaction {
+    id: string;
+    description: string;
+    amount: number;
+    date: string; // ISO string
+    categoryId: string;
 }
