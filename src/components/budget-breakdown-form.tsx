@@ -1,6 +1,7 @@
 
 'use client';
 
+import * as React from 'react';
 import { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useFieldArray } from 'react-hook-form';
@@ -26,6 +27,7 @@ import { Input } from '@/components/ui/input';
 import type { MonthlyBudgetItem, BudgetSubItem, Category } from '@/types';
 import { PlusCircle, Trash2 } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
+import { Separator } from './ui/separator';
 
 const breakdownItemSchema = z.object({
   name: z.string().min(1, 'Name is required.'),
@@ -157,13 +159,3 @@ export function BudgetBreakdownForm({ open, onOpenChange, onSave, category, budg
     </Dialog>
   );
 }
-
-// We need a Separator, let's add it. It's not in the original file.
-const Separator = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div ref={ref} className="shrink-0 bg-border h-[1px] w-full" {...props} />
-));
-Separator.displayName = 'Separator';
-
