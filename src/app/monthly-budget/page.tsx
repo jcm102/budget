@@ -5,9 +5,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, PlusCircle } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BudgetTable } from '@/components/budget-table';
-import { TransactionTable } from '@/components/transaction-table';
 import { TransactionForm } from '@/components/transaction-form';
 import { useTransactions } from '@/hooks/use-transactions';
 import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
@@ -67,18 +65,10 @@ export default function MonthlyBudgetPage() {
                 </div>
             </div>
 
-            <Tabs defaultValue="budget" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="budget">Budget</TabsTrigger>
-                    <TabsTrigger value="transactions">Transactions</TabsTrigger>
-                </TabsList>
-                <TabsContent value="budget">
-                    <BudgetTable />
-                </TabsContent>
-                <TabsContent value="transactions">
-                    <TransactionTable />
-                </TabsContent>
-            </Tabs>
+            <BudgetTable 
+                transactions={transactions}
+                isLoading={isLoadingBudget || isLoadingTransactions}
+            />
         </main>
       </div>
     </>

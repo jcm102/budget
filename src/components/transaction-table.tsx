@@ -9,6 +9,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -31,6 +32,8 @@ export function TransactionTable() {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
+  
+  const totalSpent = transactions.reduce((acc, item) => acc + item.amount, 0);
 
   const renderLoadingSkeleton = () => (
     Array.from({ length: 5 }).map((_, i) => (
@@ -71,6 +74,14 @@ export function TransactionTable() {
             </TableRow>
           )}
         </TableBody>
+         {transactions.length > 0 && (
+          <TableFooter>
+            <TableRow>
+              <TableCell colSpan={3} className="text-right font-semibold">Total Spent</TableCell>
+              <TableCell className="text-right font-semibold">{formatCurrency(totalSpent)}</TableCell>
+            </TableRow>
+          </TableFooter>
+        )}
       </Table>
     </div>
   );

@@ -2,9 +2,9 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Pencil, Save, X } from 'lucide-react';
+import { format } from 'date-fns';
+import { Pencil, Save, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
-import { useTransactions } from '@/hooks/use-transactions';
 import {
   Table,
   TableBody,
@@ -18,20 +18,32 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from './ui/skeleton';
 import { Progress } from './ui/progress';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { cn } from '@/lib/utils';
+import type { Transaction } from '@/types';
 
-export function BudgetTable() {
-  const { budgetItems, categories, updateBudgetItem, isLoading: isLoadingBudget } = useMonthlyBudget();
-  const { transactions, isLoading: isLoadingTransactions } = useTransactions();
+type BudgetTableProps = {
+    transactions: Transaction[];
+    isLoading: boolean;
+}
+
+export function BudgetTable({ transactions, isLoading }: BudgetTableProps) {
+  const { budgetItems, categories, updateBudgetItem } = useMonthlyBudget();
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<number>(0);
 
-  const isLoading = isLoadingBudget || isLoadingTransactions;
+  const { transactionTotals, transactionsByCategory } = useMemo(() => {
+    const totals: Record<string, number> = {};
+    const byCategory: Record<string, Transaction[]> = {};
 
-  const transactionTotals = useMemo(() => {
-    return transactions.reduce((acc, transaction) => {
-      acc[transaction.categoryId] = (acc[transaction.categoryId] || 0) + transaction.amount;
-      return acc;
-    }, {} as Record<string, number>);
+    transactions.forEach((transaction) => {
+      totals[transaction.categoryId] = (totals[transaction.categoryId] || 0) + transaction.amount;
+      if (!byCategory[transaction.categoryId]) {
+        byCategory[transaction.categoryId] = [];
+      }
+      byCategory[transaction.categoryId].push(transaction);
+    });
+    return { transactionTotals: totals, transactionsByCategory: byCategory };
   }, [transactions]);
 
   const handleEdit = (categoryId: string, currentBudget: number) => {
@@ -68,6 +80,7 @@ export function BudgetTable() {
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-[50px]"></TableHead>
             <TableHead>Category</TableHead>
             <TableHead className="text-right">Budgeted</TableHead>
             <TableHead className="text-right">Actual</TableHead>
@@ -86,53 +99,87 @@ export function BudgetTable() {
               const remaining = budgeted - actual;
               const progress = budgeted > 0 ? (actual / budgeted) * 100 : 0;
               const isEditing = editingRow === category.id;
+              const categoryTransactions = transactionsByCategory[category.id] || [];
+              const hasTransactions = categoryTransactions.length > 0;
 
               return (
-                <TableRow key={category.id}>
-                  <TableCell className="font-medium">{category.name}</TableCell>
-                  <TableCell className="text-right">
-                    {isEditing ? (
-                      <Input
-                        type="number"
-                        value={editingValue}
-                        onChange={(e) => setEditingValue(parseFloat(e.target.value) || 0)}
-                        className="h-8 text-right"
-                      />
-                    ) : (
-                      formatCurrency(budgeted)
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">{formatCurrency(actual)}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex flex-col items-end">
-                      <span className={remaining < 0 ? 'text-destructive' : ''}>
-                        {formatCurrency(remaining)}
-                      </span>
-                      <Progress value={progress} className="h-2 w-24 mt-1" />
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {isEditing ? (
-                      <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleSave(category.id)}>
-                          <Save className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleCancel}>
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(category.id, budgeted)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
+                <Collapsible asChild key={category.id}>
+                    <>
+                        <TableRow className="font-medium data-[state=open]:bg-muted/50">
+                            <TableCell>
+                                <CollapsibleTrigger asChild disabled={!hasTransactions}>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                        {hasTransactions ? <ChevronDown className="h-4 w-4 transition-transform duration-200 [&[data-state=open]]:rotate-180" /> : <ChevronRight className="h-4 w-4" />}
+                                    </Button>
+                                </CollapsibleTrigger>
+                            </TableCell>
+                            <TableCell>{category.name}</TableCell>
+                            <TableCell className="text-right">
+                                {isEditing ? (
+                                <Input
+                                    type="number"
+                                    value={editingValue}
+                                    onChange={(e) => setEditingValue(parseFloat(e.target.value) || 0)}
+                                    className="h-8 text-right"
+                                />
+                                ) : (
+                                formatCurrency(budgeted)
+                                )}
+                            </TableCell>
+                            <TableCell className="text-right">{formatCurrency(actual)}</TableCell>
+                            <TableCell className="text-right">
+                                <div className="flex flex-col items-end">
+                                <span className={remaining < 0 ? 'text-destructive' : ''}>
+                                    {formatCurrency(remaining)}
+                                </span>
+                                <Progress value={progress} className="h-2 w-24 mt-1" />
+                                </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                                {isEditing ? (
+                                <div className="flex justify-end gap-2">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleSave(category.id)}>
+                                    <Save className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleCancel}>
+                                    <X className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                                ) : (
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(category.id, budgeted)}>
+                                    <Pencil className="h-4 w-4" />
+                                </Button>
+                                )}
+                            </TableCell>
+                        </TableRow>
+                        {hasTransactions && (
+                             <CollapsibleContent asChild>
+                                 <TableRow className="bg-secondary/20 hover:bg-secondary/30">
+                                    <TableCell colSpan={6} className="p-0">
+                                         <div className="p-4 pl-14">
+                                            <Table>
+                                                <TableBody>
+                                                {categoryTransactions.map(tx => (
+                                                    <TableRow key={tx.id} className="border-b-0 hover:bg-secondary/50">
+                                                        <TableCell className="py-2">{format(new Date(tx.date), 'MMM dd')}</TableCell>
+                                                        <TableCell className="py-2">{tx.description}</TableCell>
+                                                        <TableCell className="py-2 text-right">{formatCurrency(tx.amount)}</TableCell>
+                                                    </TableRow>
+                                                ))}
+                                                </TableBody>
+                                            </Table>
+                                         </div>
+                                    </TableCell>
+                                </TableRow>
+                            </CollapsibleContent>
+                        )}
+                    </>
+                </Collapsible>
               );
             })
           ) : (
             <TableRow>
-              <TableCell colSpan={5} className="h-24 text-center">
+              <TableCell colSpan={6} className="h-24 text-center">
                 No budget categories created yet. Go to Settings to add some.
               </TableCell>
             </TableRow>
@@ -140,7 +187,7 @@ export function BudgetTable() {
         </TableBody>
         <TableFooter>
           <TableRow>
-            <TableCell className="font-semibold">Totals</TableCell>
+            <TableCell colSpan={2} className="font-semibold">Totals</TableCell>
             <TableCell className="text-right font-semibold">{formatCurrency(totalBudgeted)}</TableCell>
             <TableCell className="text-right font-semibold">{formatCurrency(totalSpent)}</TableCell>
             <TableCell className="text-right font-semibold">{formatCurrency(totalBudgeted - totalSpent)}</TableCell>
