@@ -31,7 +31,7 @@ import { Separator } from './ui/separator';
 
 const breakdownItemSchema = z.object({
   name: z.string().min(1, 'Name is required.'),
-  amount: z.coerce.number().min(0.01, 'Amount must be positive.'),
+  amount: z.coerce.number().min(0, 'Amount must be a positive number.'),
 });
 
 const formSchema = z.object({
