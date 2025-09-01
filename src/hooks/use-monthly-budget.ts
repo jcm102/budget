@@ -63,10 +63,12 @@ export function useMonthlyBudget() {
   const updateBudgetItemWithBreakdown = useCallback(async (categoryId: string, breakdown: BudgetSubItem[]) => {
     try {
         const existingItem = budgetItems.find(item => item.categoryId === categoryId);
+        const totalBudgeted = breakdown.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+
         if (existingItem) {
-            await MonthlyBudgetService.updateBudgetItem(existingItem.id, { breakdown });
+            await MonthlyBudgetService.updateBudgetItem(existingItem.id, { budgeted: totalBudgeted, breakdown });
         } else {
-            await MonthlyBudgetService.addBudgetItem({ categoryId, budgeted: 0, month: currentMonth, breakdown });
+            await MonthlyBudgetService.addBudgetItem({ categoryId, budgeted: totalBudgeted, month: currentMonth, breakdown });
         }
         await fetchBudget();
     } catch (error) {

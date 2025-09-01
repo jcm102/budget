@@ -27,26 +27,15 @@ export async function getBudgetForMonth(month: string): Promise<MonthlyBudgetIte
 }
 
 export async function addBudgetItem(itemData: Omit<MonthlyBudgetItem, 'id'>): Promise<MonthlyBudgetItem> {
-  const budgeted = itemData.breakdown?.reduce((sum, item) => sum + (item.amount || 0), 0) || itemData.budgeted || 0;
-  const dataToSave = { ...itemData, budgeted };
-
-  const docRef = await addDoc(collection(db, BUDGET_ITEMS_COLLECTION), dataToSave);
+  const docRef = await addDoc(collection(db, BUDGET_ITEMS_COLLECTION), itemData);
   const docSnap = await getDoc(docRef);
   return { id: docSnap.id, ...(docSnap.data() as Omit<MonthlyBudgetItem, 'id'>) };
 }
 
 export async function updateBudgetItem(id: string, itemData: Partial<Omit<MonthlyBudgetItem, 'id'>>): Promise<void> {
   const itemRef = doc(db, BUDGET_ITEMS_COLLECTION, id);
-  let dataToUpdate = { ...itemData };
-
-  // If breakdown is part of the update, recalculate the total budgeted amount.
-  // This handles adding/removing/updating breakdown items.
-  if (itemData.breakdown) {
-    const totalBudgeted = itemData.breakdown.reduce((sum, item) => sum + (item.amount || 0), 0);
-    dataToUpdate.budgeted = totalBudgeted;
-  }
-  
-  await updateDoc(itemRef, dataToUpdate);
+  // The hook now calculates the total, so we just need to save it.
+  await updateDoc(itemRef, itemData);
 }
 
 // ===== Transactions =====
