@@ -1,64 +1,79 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import type { Transferee } from '@/types';
+import type { AccountDetails } from '@/types';
 import { useToast } from './use-toast';
-import * as TransfereeService from '@/services/transferee-service';
+import * as AccountDetailsService from '@/services/account-details-service';
 
-export function useTransferees() {
-  const [transferees, setTransferees] = useState<Transferee[]>([]);
+export function useAccountDetails() {
+  const [accounts, setAccounts] = useState<AccountDetails[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchTransferees = async () => {
+  const fetchAccounts = useCallback(async () => {
       try {
         setIsLoading(true);
-        const fetchedTransferees = await TransfereeService.getTransferees();
-        setTransferees(fetchedTransferees);
+        const fetchedAccounts = await AccountDetailsService.getAccounts();
+        setAccounts(fetchedAccounts);
       } catch (error) {
-        console.error('Failed to load transferees:', error);
+        console.error('Failed to load accounts:', error);
         toast({
           title: 'Error',
-          description: 'Failed to load transferees from the database.',
+          description: 'Failed to load accounts from the database.',
           variant: 'destructive',
         });
       } finally {
         setIsLoading(false);
       }
-    };
-    fetchTransferees();
-  }, [toast]);
+    }, [toast]);
 
-  const addTransferee = useCallback(async (name: string) => {
+  useEffect(() => {
+    fetchAccounts();
+  }, [fetchAccounts]);
+
+  const addAccount = useCallback(async (accountData: Omit<AccountDetails, 'id'>) => {
     try {
-      const newTransferee = await TransfereeService.addTransferee(name);
-      setTransferees((prev) => [...prev, newTransferee]);
+      const newAccount = await AccountDetailsService.addAccount(accountData);
+      setAccounts((prev) => [...prev, newAccount]);
     } catch (error) {
-      console.error('Failed to add transferee:', error);
+      console.error('Failed to add account:', error);
       toast({
         title: 'Error',
-        description: 'Failed to add the new transferee.',
+        description: 'Failed to add the new account.',
         variant: 'destructive',
       });
     }
   }, [toast]);
-
-  const deleteTransferee = useCallback(async (id: string) => {
-    const originalTransferees = transferees;
-    setTransferees((prev) => prev.filter((transferee) => transferee.id !== id));
+  
+  const updateAccount = useCallback(async (id: string, accountData: Partial<Omit<AccountDetails, 'id'>>) => {
+    const originalAccounts = accounts;
+    setAccounts(prev => prev.map(acc => acc.id === id ? { ...acc, ...accountData } as AccountDetails : acc));
     try {
-      await TransfereeService.deleteTransferee(id);
+      await AccountDetailsService.updateAccount(id, accountData);
     } catch (error) {
-      console.error('Failed to delete transferee:', error);
-      setTransferees(originalTransferees);
+       setAccounts(originalAccounts);
+       console.error('Failed to update account:', error);
+       toast({ title: 'Error', description: 'Failed to update account.', variant: 'destructive'});
+    }
+  }, [accounts, toast]);
+
+
+  const deleteAccount = useCallback(async (id: string) => {
+    const originalAccounts = accounts;
+    setAccounts((prev) => prev.filter((acc) => acc.id !== id));
+    try {
+      await AccountDetailsService.deleteAccount(id);
+    } catch (error) {
+      console.error('Failed to delete account:', error);
+      setAccounts(originalAccounts);
       toast({
         title: 'Error',
-        description: 'Failed to delete the transferee.',
+        description: 'Failed to delete the account.',
         variant: 'destructive',
       });
     }
-  }, [transferees, toast]);
+  }, [accounts, toast]);
 
-  return { transferees, addTransferee, deleteTransferee, isLoading };
+  return { accounts, addAccount, updateAccount, deleteAccount, isLoading, fetchAccounts };
 }

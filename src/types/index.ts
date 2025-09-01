@@ -1,4 +1,5 @@
 
+
 export type TaskFrequency = "daily" | "weekly" | "monthly";
 
 export const internalPages = [
@@ -79,10 +80,16 @@ export interface Category {
     parentId?: string | null;
 }
 
-export interface Transferee {
+export type AccountType = 'Chequing' | 'Savings' | 'Credit';
+
+export interface AccountDetails {
     id: string;
     name: string;
+    type: AccountType;
+    balance?: number;
+    linkedDebtId?: string | null;
 }
+
 
 export type ExpenseType = 'Monetary' | 'Mileage' | 'Honorarium';
 

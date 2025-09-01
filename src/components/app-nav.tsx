@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Banknote, CreditCard, Home, Lightbulb, PiggyBank, Settings, Users, Wallet, Briefcase, LayoutGrid } from 'lucide-react';
+import { Banknote, CreditCard, Home, Lightbulb, PiggyBank, Settings, Users, Wallet, Briefcase, LayoutGrid, Landmark } from 'lucide-react';
 import {
   SidebarContent,
   SidebarMenu,
@@ -17,6 +17,7 @@ import { Button } from './ui/button';
 
 const navItems = [
     { href: '/', icon: Home, label: 'Tasks' },
+    { href: '/accounts', icon: Landmark, label: 'Accounts' },
     { href: '/debt', icon: Wallet, label: 'Debt Worksheet' },
     { href: '/budget', icon: Banknote, label: 'Budget Overview' },
     { href: '/monthly-budget', icon: LayoutGrid, label: 'Monthly Budget' },

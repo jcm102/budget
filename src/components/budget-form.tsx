@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/select';
 import type { BudgetItem, BudgetItemType, BudgetItemFrequency } from '@/types';
 import { useIncomeCategories } from '@/hooks/use-income-categories';
-import { useTransferees } from '@/hooks/use-transferees';
+import { useAccountDetails } from '@/hooks/use-transferees';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { useGoals } from '@/hooks/use-goals';
 import { useDebt } from '@/hooks/use-debt';
@@ -76,7 +76,7 @@ type BudgetFormProps = {
 
 export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem, editingItem }: BudgetFormProps) {
   const { categories: incomeCategories } = useIncomeCategories();
-  const { transferees } = useTransferees();
+  const { accounts: transferees } = useAccountDetails();
   const { goals, fetchGoals } = useGoals();
   const { debts, fetchDebts } = useDebt();
   const [split, setSplit] = useState({ savings: 0, charity: 0, fun: 0 });

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { IncomeCategoryManager } from '@/components/income-category-manager';
 import { ArrowLeft } from 'lucide-react';
-import { TransfereeManager } from '@/components/transferee-manager';
+import { AccountDetailsManager } from '@/components/transferee-manager';
 import { MileageRateManager } from '@/components/mileage-rate-manager';
 import { WorkCategoryManager } from '@/components/work-category-manager';
 import { LinkGroupManager } from '@/components/link-group-manager';
@@ -39,7 +39,7 @@ export default function SettingsPage() {
                 <TabsContent value="accounts" className="mt-6">
                     <div className="space-y-4">
                         <AccountManager />
-                        <TransfereeManager />
+                        <AccountDetailsManager />
                     </div>
                 </TabsContent>
                 <TabsContent value="categories" className="mt-6">
