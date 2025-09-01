@@ -131,22 +131,19 @@ export function AutoShipTable() {
 
   const handleCreateSinkingFund = (item: AutoShipItem, categoryId: string) => {
     const fundExists = savingsItems.some(fund => fund.name.toLowerCase() === item.item.toLowerCase());
-    if (fundExists) {
-      toast({ title: 'Fund Exists', description: `A sinking fund for "${item.item}" already exists.`, variant: 'destructive' });
-      return;
-    }
-    
     const monthlyCost = getMonthlyCost(item);
 
-    addSavingsItem({ 
-        name: item.item, 
-        amount: 0, 
-        goal: monthlyCost,
-        totalCost: item.estimatedCost,
-        dueDate: item.nextShipmentDate,
-        accountId: item.accountId,
-        currency: 'CAD', // Assuming CAD
-    });
+    if (!fundExists) {
+        addSavingsItem({ 
+            name: item.item, 
+            amount: 0, 
+            goal: monthlyCost,
+            totalCost: item.estimatedCost,
+            dueDate: item.nextShipmentDate,
+            accountId: item.accountId,
+            currency: 'CAD', // Assuming CAD
+        });
+    }
 
     const budgetCategory = budgetCategories.find(c => c.id === categoryId);
     if (budgetCategory) {
@@ -157,7 +154,7 @@ export function AutoShipTable() {
         updateBudgetItemWithBreakdown(budgetCategory.id, newBreakdown);
     }
 
-    toast({ title: 'Sinking Fund Created', description: `A new sinking fund for "${item.item}" has been added and updated in your monthly budget.` });
+    toast({ title: 'Sinking Fund Linked', description: `"${item.item}" has been added to your monthly budget.` });
     setSinkingFundCandidate(null);
   };
 

@@ -136,25 +136,21 @@ export function SubscriptionTable() {
 
   const handleCreateSinkingFund = (item: SubscriptionItem, categoryId: string) => {
     const fundExists = savingsItems.some(fund => fund.name.toLowerCase() === item.serviceName.toLowerCase());
-    if (fundExists) {
-      toast({ title: 'Fund Exists', description: `A sinking fund for "${item.serviceName}" already exists.`, variant: 'destructive' });
-      return;
-    }
-
     const monthlyCost = getMonthlyCost(item);
 
-    // 1. Create the sinking fund
-    addSavingsItem({ 
-        name: item.serviceName, 
-        amount: 0, 
-        goal: monthlyCost,
-        totalCost: item.cost,
-        dueDate: item.nextRenewalDate,
-        accountId: item.accountId,
-        currency: 'CAD', // Assuming CAD, adjust as needed
-      });
+    if (!fundExists) {
+        addSavingsItem({ 
+            name: item.serviceName, 
+            amount: 0, 
+            goal: monthlyCost,
+            totalCost: item.cost,
+            dueDate: item.nextRenewalDate,
+            accountId: item.accountId,
+            currency: 'CAD', // Assuming CAD, adjust as needed
+        });
+    }
     
-    // 2. Add it to the monthly budget
+    // Add it to the monthly budget
     const budgetCategory = budgetCategories.find(c => c.id === categoryId);
     if (budgetCategory) {
         const budgetItem = budgetItems.find(b => b.categoryId === budgetCategory.id);
@@ -164,7 +160,7 @@ export function SubscriptionTable() {
         updateBudgetItemWithBreakdown(budgetCategory.id, newBreakdown);
     }
 
-    toast({ title: 'Sinking Fund Created', description: `A new sinking fund for "${item.serviceName}" has been added and updated in your monthly budget.` });
+    toast({ title: 'Sinking Fund Linked', description: `"${item.serviceName}" has been added to your monthly budget.` });
     setSinkingFundCandidate(null);
   };
 
@@ -297,4 +293,3 @@ export function SubscriptionTable() {
     </>
   );
 }
-
