@@ -42,6 +42,9 @@ export function AccountDetailsManager() {
         if(field === 'balance') {
             updatedValue = parseFloat(value) || 0;
         }
+        if (field === 'linkedDebtId' && value === 'null') {
+            updatedValue = null;
+        }
         updateAccount(id, { [field]: updatedValue });
     }
   };
@@ -97,13 +100,13 @@ export function AccountDetailsManager() {
 
                 {account.type === 'Credit' ? (
                      <Select
-                        value={account.linkedDebtId || ''}
+                        value={account.linkedDebtId || 'null'}
                         onValueChange={(value) => handleUpdate(account.id, 'linkedDebtId', value)}
                         disabled={isLoadingDebts}
                     >
                         <SelectTrigger><SelectValue placeholder="Link to Debt"/></SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="">None</SelectItem>
+                            <SelectItem value="null">None</SelectItem>
                             {debts.map(debt => (
                                 <SelectItem key={debt.id} value={debt.id}>{debt.name}</SelectItem>
                             ))}
