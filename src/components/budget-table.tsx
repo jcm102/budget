@@ -108,7 +108,7 @@ export function BudgetTable({ transactions, isLoading }: BudgetTableProps) {
                     <TableRow className="font-medium data-[state=open]:bg-muted/50">
                       <TableCell>
                         <CollapsibleTrigger asChild disabled={!hasTransactions}>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                           <Button variant="ghost" size="icon" className="h-8 w-8">
                             <ChevronDown className="h-4 w-4 transition-transform duration-200 [&[data-state=open]]:-rotate-180" />
                           </Button>
                         </CollapsibleTrigger>
