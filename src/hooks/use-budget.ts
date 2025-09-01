@@ -34,8 +34,7 @@ export function useBudget() {
 
   const addBudgetItem = useCallback(async (itemData: Omit<BudgetItem, 'id'>) => {
     try {
-      const newItem = await BudgetService.addBudgetItem(itemData);
-      setBudgetItems((prev) => [...prev, newItem]);
+      await BudgetService.addBudgetItem(itemData);
       await fetchBudgetItems(); // refetch to get the correct state
     } catch (error) {
       console.error('Failed to add budget item:', error);
