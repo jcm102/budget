@@ -133,7 +133,7 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
 }
 
 export async function addBudgetItem(itemData: Omit<BudgetItem, 'id'>): Promise<BudgetItem> {
-  const dataWithCompleted = { ...itemData, completed: false };
+  const dataWithCompleted = { ...itemData, completed: false, forNextMonth: itemData.forNextMonth || false };
   const docRef = await addDoc(collection(db, BUDGET_COLLECTION), dataWithCompleted);
   const docSnap = await getDoc(docRef);
   return { id: docSnap.id, ...(docSnap.data() as Omit<BudgetItem, 'id'>) };

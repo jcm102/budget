@@ -42,6 +42,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
+import { Switch } from './ui/switch';
 
 const formSchema = z.object({
     description: z.string().min(2, 'Description must be at least 2 characters.'),
@@ -52,6 +53,7 @@ const formSchema = z.object({
     frequency: z.enum(['One-Time', 'Weekly', 'Bi-Weekly', 'Monthly', 'Monthly (Last Day)']),
     transferTo: z.string().optional(),
     transferFrom: z.string().optional(),
+    forNextMonth: z.boolean().optional(),
     // New fields for allocation
     allocationType: z.enum(['none', 'goal', 'debt']).default('none'),
     allocationTargetId: z.string().optional(),
@@ -94,6 +96,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
       frequency: 'One-Time',
       transferFrom: '',
       transferTo: '',
+      forNextMonth: false,
       allocationType: 'none',
       allocationTargetId: '',
       allocationAmount: 0,
@@ -152,6 +155,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
           frequency: editingItem.frequency || 'One-Time',
           transferFrom: editingItem.transferFrom || '',
           transferTo: editingItem.transferTo || '',
+          forNextMonth: editingItem.forNextMonth || false,
           allocationType: 'none',
           allocationTargetId: '',
           allocationAmount: 0,
@@ -166,6 +170,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
           frequency: 'One-Time',
           transferFrom: '',
           transferTo: '',
+          forNextMonth: false,
           allocationType: 'none',
           allocationTargetId: '',
           allocationAmount: 0,
@@ -287,23 +292,43 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
               )}
             />
              {itemType === 'Income' && (
-                <FormField control={form.control} name="category" render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Category</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                        <FormControl>
-                            <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                            {incomeCategories.map(category => (
-                            <SelectItem key={category.id} value={category.name}>{category.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                        </Select>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
+                <>
+                    <FormField control={form.control} name="category" render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Category</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                            <FormControl>
+                                <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                                {incomeCategories.map(category => (
+                                <SelectItem key={category.id} value={category.name}>{category.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                            </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="forNextMonth"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                          <div className="space-y-0.5">
+                            <FormLabel>For Next Month's Budget</FormLabel>
+                            <FormMessage />
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                </>
              )}
             <FormField control={form.control} name="amount" render={({ field }) => (
                 <FormItem>

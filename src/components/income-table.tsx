@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, Repeat, ArrowUpDown } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, Repeat, ArrowUpDown, ArrowRight } from 'lucide-react';
 import type { BudgetItem } from '@/types';
 import {
   Table,
@@ -150,7 +150,17 @@ export function IncomeTable() {
                 ) : sortedItems.length > 0 ? (
                     sortedItems.map((item) => (
                     <TableRow key={item.id}>
-                        <TableCell className="font-medium">{item.description}</TableCell>
+                        <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                                {item.description}
+                                {item.forNextMonth && (
+                                    <Badge variant="outline" className="text-xs font-normal border-amber-500/50 text-amber-600">
+                                        Next Month
+                                        <ArrowRight className="ml-1 h-3 w-3" />
+                                    </Badge>
+                                )}
+                            </div>
+                        </TableCell>
                         <TableCell>{item.category}</TableCell>
                         <TableCell>{format(new Date(item.date), 'PPP')}</TableCell>
                         <TableCell>

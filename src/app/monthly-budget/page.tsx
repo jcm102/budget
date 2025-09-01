@@ -22,7 +22,10 @@ export default function MonthlyBudgetPage() {
   const { budgetItems: monthlyBudgetItems, categories, updateBudgetItemWithBreakdown, isLoading: isLoadingBudget } = useMonthlyBudget();
   const { budgetItems, isLoading: isLoadingIncome } = useBudget();
 
-  const incomeAmount = budgetItems.filter(i => i.type === 'Income').reduce((acc, i) => acc + i.amount, 0);
+  const incomeAmount = budgetItems
+    .filter(i => i.type === 'Income' && !i.forNextMonth)
+    .reduce((acc, i) => acc + i.amount, 0);
+
   const totalBudgeted = monthlyBudgetItems.reduce((acc, item) => acc + item.budgeted, 0);
   
   const selectedBudgetItem = selectedCategory 

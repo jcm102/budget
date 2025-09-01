@@ -72,6 +72,7 @@ export interface BudgetItem {
   allocationType?: 'none' | 'goal' | 'debt';
   allocationTargetId?: string;
   allocationAmount?: number;
+  forNextMonth?: boolean;
 }
 
 export interface Category {
