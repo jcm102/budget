@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from './ui/skeleton';
 import { Progress } from './ui/progress';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import type { Transaction } from '@/types';
 
@@ -112,11 +112,9 @@ export function BudgetTable({ transactions, isLoading }: BudgetTableProps) {
                  <React.Fragment key={category.id}>
                     <TableRow className="font-medium" data-state={isOpen ? 'open' : 'closed'}>
                         <TableCell>
-                           <CollapsibleTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toggleRow(category.id)} disabled={!hasTransactions}>
-                                <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isOpen && "-rotate-180")} />
-                              </Button>
-                           </CollapsibleTrigger>
+                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toggleRow(category.id)} disabled={!hasTransactions}>
+                             <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isOpen && "-rotate-180")} />
+                           </Button>
                         </TableCell>
                         <TableCell>{category.name}</TableCell>
                         <TableCell className="text-right">
@@ -157,8 +155,8 @@ export function BudgetTable({ transactions, isLoading }: BudgetTableProps) {
                         )}
                         </TableCell>
                     </TableRow>
-                    {isOpen && (
-                        <TableRow className="bg-muted/50 hover:bg-muted/80">
+                    {hasTransactions && (
+                        <TableRow className="bg-muted/50 hover:bg-muted/50">
                             <TableCell colSpan={6} className="p-0">
                                 <Collapsible open={isOpen}>
                                     <CollapsibleContent>
