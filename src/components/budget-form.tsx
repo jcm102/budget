@@ -310,24 +310,24 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                         </FormItem>
                     )}
                     />
-                    <FormField
-                      control={form.control}
-                      name="forNextMonth"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                          <div className="space-y-0.5">
-                            <FormLabel>For Next Month's Budget</FormLabel>
-                            <FormMessage />
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
+                     <FormField
+                        control={form.control}
+                        name="forNextMonth"
+                        render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                            <div className="space-y-0.5">
+                                <FormLabel>For Next Month's Budget</FormLabel>
+                                <FormMessage />
+                            </div>
+                            <FormControl>
+                                <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                />
+                            </FormControl>
+                            </FormItem>
+                        )}
+                        />
                 </>
              )}
             <FormField control={form.control} name="amount" render={({ field }) => (
