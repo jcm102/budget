@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { format } from 'date-fns';
-import { Pencil, Save, X, ChevronDown, ChevronRight } from 'lucide-react';
+import { Pencil, Save, X, ChevronDown } from 'lucide-react';
 import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
 import {
   Table,
@@ -104,12 +104,12 @@ export function BudgetTable({ transactions, isLoading }: BudgetTableProps) {
 
               return (
                 <Collapsible asChild key={category.id}>
-                  <React.Fragment>
+                  <>
                     <TableRow className="font-medium data-[state=open]:bg-muted/50">
                       <TableCell>
                         <CollapsibleTrigger asChild disabled={!hasTransactions}>
                           <Button variant="ghost" size="icon" className="h-8 w-8">
-                            {hasTransactions ? <ChevronDown className="h-4 w-4 transition-transform duration-200 [&[data-state=open]]:rotate-180" /> : <ChevronRight className="h-4 w-4" />}
+                            <ChevronDown className="h-4 w-4 transition-transform duration-200 [&[data-state=open]]:-rotate-180" />
                           </Button>
                         </CollapsibleTrigger>
                       </TableCell>
@@ -173,7 +173,7 @@ export function BudgetTable({ transactions, isLoading }: BudgetTableProps) {
                         </TableRow>
                       </CollapsibleContent>
                     )}
-                  </React.Fragment>
+                  </>
                 </Collapsible>
               );
             })
