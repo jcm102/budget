@@ -104,76 +104,76 @@ export function BudgetTable({ transactions, isLoading }: BudgetTableProps) {
 
               return (
                 <Collapsible asChild key={category.id}>
-                    <>
-                        <TableRow className="font-medium data-[state=open]:bg-muted/50">
-                            <TableCell>
-                                <CollapsibleTrigger asChild disabled={!hasTransactions}>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                                        {hasTransactions ? <ChevronDown className="h-4 w-4 transition-transform duration-200 [&[data-state=open]]:rotate-180" /> : <ChevronRight className="h-4 w-4" />}
-                                    </Button>
-                                </CollapsibleTrigger>
-                            </TableCell>
-                            <TableCell>{category.name}</TableCell>
-                            <TableCell className="text-right">
-                                {isEditing ? (
-                                <Input
-                                    type="number"
-                                    value={editingValue}
-                                    onChange={(e) => setEditingValue(parseFloat(e.target.value) || 0)}
-                                    className="h-8 text-right"
-                                />
-                                ) : (
-                                formatCurrency(budgeted)
-                                )}
-                            </TableCell>
-                            <TableCell className="text-right">{formatCurrency(actual)}</TableCell>
-                            <TableCell className="text-right">
-                                <div className="flex flex-col items-end">
-                                <span className={remaining < 0 ? 'text-destructive' : ''}>
-                                    {formatCurrency(remaining)}
-                                </span>
-                                <Progress value={progress} className="h-2 w-24 mt-1" />
-                                </div>
-                            </TableCell>
-                            <TableCell className="text-right">
-                                {isEditing ? (
-                                <div className="flex justify-end gap-2">
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleSave(category.id)}>
-                                    <Save className="h-4 w-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleCancel}>
-                                    <X className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                                ) : (
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(category.id, budgeted)}>
-                                    <Pencil className="h-4 w-4" />
-                                </Button>
-                                )}
-                            </TableCell>
-                        </TableRow>
-                        {hasTransactions && (
-                             <CollapsibleContent asChild>
-                                 <TableRow className="bg-secondary/20 hover:bg-secondary/30">
-                                    <TableCell colSpan={6} className="p-0">
-                                         <div className="p-4 pl-14">
-                                            <Table>
-                                                <TableBody>
-                                                {categoryTransactions.map(tx => (
-                                                    <TableRow key={tx.id} className="border-b-0 hover:bg-secondary/50">
-                                                        <TableCell className="py-2">{format(new Date(tx.date), 'MMM dd')}</TableCell>
-                                                        <TableCell className="py-2">{tx.description}</TableCell>
-                                                        <TableCell className="py-2 text-right">{formatCurrency(tx.amount)}</TableCell>
-                                                    </TableRow>
-                                                ))}
-                                                </TableBody>
-                                            </Table>
-                                         </div>
-                                    </TableCell>
-                                </TableRow>
-                            </CollapsibleContent>
+                  <React.Fragment>
+                    <TableRow className="font-medium data-[state=open]:bg-muted/50">
+                      <TableCell>
+                        <CollapsibleTrigger asChild disabled={!hasTransactions}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            {hasTransactions ? <ChevronDown className="h-4 w-4 transition-transform duration-200 [&[data-state=open]]:rotate-180" /> : <ChevronRight className="h-4 w-4" />}
+                          </Button>
+                        </CollapsibleTrigger>
+                      </TableCell>
+                      <TableCell>{category.name}</TableCell>
+                      <TableCell className="text-right">
+                        {isEditing ? (
+                          <Input
+                            type="number"
+                            value={editingValue}
+                            onChange={(e) => setEditingValue(parseFloat(e.target.value) || 0)}
+                            className="h-8 text-right"
+                          />
+                        ) : (
+                          formatCurrency(budgeted)
                         )}
-                    </>
+                      </TableCell>
+                      <TableCell className="text-right">{formatCurrency(actual)}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex flex-col items-end">
+                          <span className={remaining < 0 ? 'text-destructive' : ''}>
+                            {formatCurrency(remaining)}
+                          </span>
+                          <Progress value={progress} className="h-2 w-24 mt-1" />
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {isEditing ? (
+                          <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleSave(category.id)}>
+                              <Save className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleCancel}>
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(category.id, budgeted)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                    {hasTransactions && (
+                      <CollapsibleContent asChild>
+                        <TableRow className="bg-secondary/20 hover:bg-secondary/30">
+                          <TableCell colSpan={6} className="p-0">
+                            <div className="p-4 pl-14">
+                              <Table>
+                                <TableBody>
+                                  {categoryTransactions.map(tx => (
+                                    <TableRow key={tx.id} className="border-b-0 hover:bg-secondary/50">
+                                      <TableCell className="py-2">{format(new Date(tx.date), 'MMM dd')}</TableCell>
+                                      <TableCell className="py-2">{tx.description}</TableCell>
+                                      <TableCell className="py-2 text-right">{formatCurrency(tx.amount)}</TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      </CollapsibleContent>
+                    )}
+                  </React.Fragment>
                 </Collapsible>
               );
             })
