@@ -19,14 +19,19 @@ export function useAccounts() {
       const fetchedAccounts = await AccountService.getAccounts();
       setAccounts(fetchedAccounts);
       
-      // If there's no selected account ID or the selected one is no longer valid, set a default
-      if (!selectedAccountId || !fetchedAccounts.some(a => a.id === selectedAccountId)) {
-        if (fetchedAccounts.length > 0) {
-          setSelectedAccountId(fetchedAccounts[0].id);
-        } else {
-          setSelectedAccountId(null);
-        }
+      // Set a default selected account only if none is selected and accounts exist
+      if (!selectedAccountId && fetchedAccounts.length > 0) {
+          const defaultExists = fetchedAccounts.some(a => a.name === 'Primary Account');
+          if (defaultExists) {
+              setSelectedAccountId(fetchedAccounts.find(a => a.name === 'Primary Account')!.id);
+          } else {
+              setSelectedAccountId(fetchedAccounts[0].id);
+          }
+      } else if (selectedAccountId && !fetchedAccounts.some(a => a.id === selectedAccountId)) {
+          // If the selected account was deleted, select the first one
+          setSelectedAccountId(fetchedAccounts.length > 0 ? fetchedAccounts[0].id : null);
       }
+
     } catch (error) {
       console.error('Failed to load accounts:', error);
       toast({
@@ -41,7 +46,8 @@ export function useAccounts() {
 
   useEffect(() => {
     fetchAccounts();
-  }, [fetchAccounts]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only once on mount
 
   const addAccount = useCallback(async (name: string) => {
     try {
