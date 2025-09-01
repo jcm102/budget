@@ -16,7 +16,8 @@ export function useDebounce<T>(value: T, delay: number): T {
     return () => {
       clearTimeout(handler);
     };
-  }, [value, delay]); // Only re-run the effect if value or delay changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(value), delay]); // Use JSON.stringify to compare object/array values
 
   return debouncedValue;
 }
