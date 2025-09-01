@@ -76,6 +76,7 @@ export interface BudgetItem {
 export interface Category {
     id: string;
     name: string;
+    parentId?: string | null;
 }
 
 export interface Transferee {

@@ -13,7 +13,9 @@ import {
   addDoc,
   writeBatch,
   getDoc,
-  limit
+  limit,
+  where,
+  Query,
 } from 'firebase/firestore';
 
 const CATEGORY_COLLECTION = 'budget-categories';
@@ -28,7 +30,7 @@ async function seedDefaultCategories() {
     const batch = writeBatch(db);
     defaultCategories.forEach(categoryName => {
       const newDocRef = doc(categoryCollectionRef);
-      batch.set(newDocRef, { name: categoryName });
+      batch.set(newDocRef, { name: categoryName, parentId: null });
     });
     await batch.commit();
   }
@@ -42,15 +44,22 @@ export async function getCategories(): Promise<Category[]> {
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
 }
 
-export async function addCategory(name: string): Promise<Category> {
+export async function addCategory(name: string, parentId: string | null = null): Promise<Category> {
   const categoryCollection = collection(db, CATEGORY_COLLECTION);
-  const docRef = await addDoc(categoryCollection, { name });
+  const docRef = await addDoc(categoryCollection, { name, parentId });
   const docSnap = await getDoc(docRef);
   const newCategory = { id: docSnap.id, ...docSnap.data() } as Category;
   return newCategory;
 }
 
 export async function deleteCategory(id: string): Promise<void> {
+  // Check if this category is a parent to any other categories
+  const q = query(collection(db, CATEGORY_COLLECTION), where('parentId', '==', id), limit(1));
+  const childrenSnapshot = await getDocs(q);
+  if (!childrenSnapshot.empty) {
+    throw new Error('Cannot delete a category that has subcategories.');
+  }
+
   const categoryRef = doc(db, CATEGORY_COLLECTION, id);
   await deleteDoc(categoryRef);
 }
