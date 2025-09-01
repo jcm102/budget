@@ -80,7 +80,7 @@ export interface Category {
     parentId?: string | null;
 }
 
-export type AccountType = 'Chequing' | 'Savings' | 'Credit';
+export type AccountType = 'Chequing' | 'Savings' | 'Credit' | 'Gift Card' | 'IOU';
 
 export interface AccountDetails {
     id: string;

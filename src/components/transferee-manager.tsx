@@ -95,6 +95,8 @@ export function AccountDetailsManager() {
                         <SelectItem value="Chequing">Chequing</SelectItem>
                         <SelectItem value="Savings">Savings</SelectItem>
                         <SelectItem value="Credit">Credit</SelectItem>
+                        <SelectItem value="Gift Card">Gift Card</SelectItem>
+                        <SelectItem value="IOU">IOU</SelectItem>
                     </SelectContent>
                 </Select>
 
