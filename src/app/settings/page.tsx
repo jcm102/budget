@@ -12,6 +12,7 @@ import { LinkGroupManager } from '@/components/link-group-manager';
 import { PersonManager } from '@/components/person-manager';
 import { ExchangeRateManager } from '@/components/exchange-rate-manager';
 import { AccountManager } from '@/components/account-manager';
+import { BudgetCategoryManager } from '@/components/budget-category-manager';
 
 export default function SettingsPage() {
   return (
@@ -31,6 +32,7 @@ export default function SettingsPage() {
             <AccountManager />
             <PersonManager />
             <IncomeCategoryManager />
+            <BudgetCategoryManager />
             <WorkCategoryManager />
             <TransfereeManager />
             <MileageRateManager />

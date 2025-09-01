@@ -9,6 +9,7 @@ export const internalPages = [
   { name: 'Future Spending', path: '/savings' },
   { name: 'Split Calculator', path: '/split' },
   { name: 'Settings', path: '/settings' },
+  { name: 'Monthly Budget', path: '/monthly-budget' },
 ];
 
 export interface Subtask {
