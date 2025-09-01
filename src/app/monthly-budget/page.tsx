@@ -11,23 +11,22 @@ import { useTransactions } from '@/hooks/use-transactions';
 import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
 import { BudgetBreakdownForm } from '@/components/budget-breakdown-form';
 import type { Category, MonthlyBudgetItem, BudgetSubItem } from '@/types';
-import { useIncome } from '@/hooks/use-income';
-import { IncomeForm } from '@/components/income-form';
+import { useBudget } from '@/hooks/use-budget';
 
 export default function MonthlyBudgetPage() {
   const [isTransactionFormOpen, setIsTransactionFormOpen] = useState(false);
   const [isBreakdownFormOpen, setIsBreakdownFormOpen] = useState(false);
-  const [isIncomeFormOpen, setIsIncomeFormOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
 
   const { transactions, addTransaction, isLoading: isLoadingTransactions } = useTransactions();
-  const { budgetItems, categories, updateBudgetItemWithBreakdown, isLoading: isLoadingBudget } = useMonthlyBudget();
-  const { income, setIncome, isLoading: isLoadingIncome } = useIncome();
+  const { budgetItems: monthlyBudgetItems, categories, updateBudgetItemWithBreakdown, isLoading: isLoadingBudget } = useMonthlyBudget();
+  const { budgetItems, isLoading: isLoadingIncome } = useBudget();
 
-  const totalBudgeted = budgetItems.reduce((acc, item) => acc + item.budgeted, 0);
+  const incomeAmount = budgetItems.filter(i => i.type === 'Income').reduce((acc, i) => acc + i.amount, 0);
+  const totalBudgeted = monthlyBudgetItems.reduce((acc, item) => acc + item.budgeted, 0);
   
   const selectedBudgetItem = selectedCategory 
-    ? budgetItems.find(b => b.categoryId === selectedCategory.id) 
+    ? monthlyBudgetItems.find(b => b.categoryId === selectedCategory.id) 
     : null;
 
   const handleEditBreakdown = (category: Category) => {
@@ -39,15 +38,11 @@ export default function MonthlyBudgetPage() {
     updateBudgetItemWithBreakdown(categoryId, breakdown);
   }
 
-  const handleSaveIncome = (newIncome: number) => {
-    setIncome(newIncome);
-  }
-
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
   
-  const leftToBudget = (income?.amount || 0) - totalBudgeted;
+  const leftToBudget = incomeAmount - totalBudgeted;
 
   return (
     <>
@@ -62,12 +57,6 @@ export default function MonthlyBudgetPage() {
         onSave={handleSaveBreakdown}
         category={selectedCategory}
         budgetItem={selectedBudgetItem}
-      />
-      <IncomeForm
-        open={isIncomeFormOpen}
-        onOpenChange={setIsIncomeFormOpen}
-        onSave={handleSaveIncome}
-        currentIncome={income?.amount || 0}
       />
       <div className="container mx-auto max-w-4xl p-4 md:p-8">
         <header className="mb-8 flex justify-between items-center">
@@ -97,9 +86,8 @@ export default function MonthlyBudgetPage() {
                     >
                         <div className="flex justify-between items-center">
                         <h4 className="text-muted-foreground">Budgeted Income</h4>
-                        <Pencil className="h-4 w-4 text-muted-foreground" />
                         </div>
-                        <p className="text-2xl font-semibold">{formatCurrency(income?.amount || 0)}</p>
+                        <p className="text-2xl font-semibold">{formatCurrency(incomeAmount)}</p>
                     </div>
                  </Link>
                 <div className="p-4 border rounded-lg bg-card">
@@ -115,7 +103,7 @@ export default function MonthlyBudgetPage() {
             </div>
 
             <BudgetTable 
-                budgetItems={budgetItems}
+                budgetItems={monthlyBudgetItems}
                 categories={categories}
                 transactions={transactions}
                 isLoading={isLoadingBudget || isLoadingTransactions || isLoadingIncome}
