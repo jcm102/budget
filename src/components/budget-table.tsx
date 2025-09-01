@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { format } from 'date-fns';
-import { Pencil, Save, X, ChevronDown } from 'lucide-react';
+import { Pencil, Save, X, ChevronDown, ArrowRightLeft } from 'lucide-react';
 import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
 import {
   Table,
@@ -22,6 +22,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { cn } from '@/lib/utils';
 import type { Transaction, Category, MonthlyBudgetItem } from '@/types';
 import { Separator } from './ui/separator';
+import { useAccountDetails } from '@/hooks/use-transferees';
 
 type BudgetTableProps = {
     budgetItems: MonthlyBudgetItem[];
@@ -33,20 +34,47 @@ type BudgetTableProps = {
 
 export function BudgetTable({ budgetItems, categories, transactions, isLoading, onEditBreakdown }: BudgetTableProps) {
   const [openRows, setOpenRows] = useState<Record<string, boolean>>({});
+  const { accounts: allAccounts } = useAccountDetails();
 
-  const { transactionTotals, transactionsByCategory } = useMemo(() => {
-    const totals: Record<string, number> = {};
+  const accountMap = useMemo(() => {
+    return allAccounts.reduce((map, acc) => {
+        map[acc.id] = acc.name;
+        return map;
+    }, {} as Record<string, string>);
+  }, [allAccounts]);
+
+
+  const { expenseTransactions, transactionsByCategory } = useMemo(() => {
     const byCategory: Record<string, Transaction[]> = {};
+    const expenses: Transaction[] = [];
 
     transactions.forEach((transaction) => {
-      totals[transaction.categoryId] = (totals[transaction.categoryId] || 0) + transaction.amount;
-      if (!byCategory[transaction.categoryId]) {
-        byCategory[transaction.categoryId] = [];
+      if (transaction.type === 'expense' && transaction.categoryId) {
+        expenses.push(transaction);
+        if (!byCategory[transaction.categoryId]) {
+          byCategory[transaction.categoryId] = [];
+        }
+        byCategory[transaction.categoryId].push(transaction);
+      } else if (transaction.type === 'transfer') {
+        // Find the "from" account's category if it's a credit card linked to a debt
+        if (transaction.transferFromId) {
+           if (!byCategory['transfers']) byCategory['transfers'] = [];
+           byCategory['transfers'].push(transaction);
+        }
       }
-      byCategory[transaction.categoryId].push(transaction);
     });
-    return { transactionTotals: totals, transactionsByCategory: byCategory };
+    return { expenseTransactions: expenses, transactionsByCategory: byCategory };
   }, [transactions]);
+  
+  const transactionTotals = useMemo(() => {
+     const totals: Record<string, number> = {};
+     expenseTransactions.forEach(tx => {
+         if (tx.categoryId) {
+            totals[tx.categoryId] = (totals[tx.categoryId] || 0) + tx.amount;
+         }
+     });
+     return totals;
+  }, [expenseTransactions]);
 
   const toggleRow = (categoryId: string) => {
     setOpenRows(prev => ({...prev, [categoryId]: !prev[categoryId]}));
@@ -146,9 +174,16 @@ export function BudgetTable({ budgetItems, categories, transactions, isLoading, 
                                                     <TableBody>
                                                     {categoryTransactions.map(tx => (
                                                         <TableRow key={tx.id} className="border-b-0 hover:bg-transparent">
-                                                        <TableCell className="py-2">{format(new Date(tx.date), 'MMM dd')}</TableCell>
-                                                        <TableCell className="py-2">{tx.description}</TableCell>
-                                                        <TableCell className="py-2 text-right">{formatCurrency(tx.amount)}</TableCell>
+                                                          <TableCell className="py-2">{format(new Date(tx.date), 'MMM dd')}</TableCell>
+                                                          <TableCell className="py-2">{tx.description}</TableCell>
+                                                          {tx.type === 'transfer' && tx.transferFromId && tx.transferToId && (
+                                                            <TableCell className="py-2 text-muted-foreground flex items-center gap-1">
+                                                                {accountMap[tx.transferFromId] || 'Unknown'} 
+                                                                <ArrowRightLeft className="h-3 w-3"/>
+                                                                {accountMap[tx.transferToId] || 'Unknown'}
+                                                            </TableCell>
+                                                          )}
+                                                          <TableCell className="py-2 text-right">{formatCurrency(tx.amount)}</TableCell>
                                                         </TableRow>
                                                     ))}
                                                     </TableBody>

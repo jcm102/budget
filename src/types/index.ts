@@ -227,10 +227,14 @@ export interface MonthlyBudgetItem {
     breakdown?: BudgetSubItem[];
 }
 
+export type TransactionType = 'expense' | 'transfer';
 export interface Transaction {
     id: string;
     description: string;
     amount: number;
     date: string; // ISO string
-    categoryId: string;
+    type: TransactionType;
+    categoryId?: string;
+    transferFromId?: string;
+    transferToId?: string;
 }
