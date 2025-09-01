@@ -31,6 +31,7 @@ export function BudgetTable({ transactions, isLoading }: BudgetTableProps) {
   const { budgetItems, categories, updateBudgetItem } = useMonthlyBudget();
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<number>(0);
+  const [openRows, setOpenRows] = useState<Record<string, boolean>>({});
 
   const { transactionTotals, transactionsByCategory } = useMemo(() => {
     const totals: Record<string, number> = {};
@@ -60,6 +61,10 @@ export function BudgetTable({ transactions, isLoading }: BudgetTableProps) {
     setEditingRow(null);
   };
 
+  const toggleRow = (categoryId: string) => {
+    setOpenRows(prev => ({...prev, [categoryId]: !prev[categoryId]}));
+  }
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
@@ -67,7 +72,7 @@ export function BudgetTable({ transactions, isLoading }: BudgetTableProps) {
   const renderLoadingSkeleton = () => (
     Array.from({ length: 5 }).map((_, i) => (
       <TableRow key={`skeleton-budget-${i}`}>
-        <TableCell colSpan={5}><Skeleton className="h-8 w-full" /></TableCell>
+        <TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell>
       </TableRow>
     ))
   );
@@ -101,10 +106,11 @@ export function BudgetTable({ transactions, isLoading }: BudgetTableProps) {
               const isEditing = editingRow === category.id;
               const categoryTransactions = transactionsByCategory[category.id] || [];
               const hasTransactions = categoryTransactions.length > 0;
+              const isOpen = openRows[category.id] || false;
 
               return (
-                <Collapsible asChild key={category.id}>
-                  <>
+                <Collapsible asChild key={category.id} open={isOpen} onOpenChange={() => toggleRow(category.id)}>
+                   <React.Fragment>
                     <TableRow className="font-medium data-[state=open]:bg-muted/50">
                       <TableCell>
                         <CollapsibleTrigger asChild disabled={!hasTransactions}>
@@ -152,28 +158,26 @@ export function BudgetTable({ transactions, isLoading }: BudgetTableProps) {
                         )}
                       </TableCell>
                     </TableRow>
-                    {hasTransactions && (
-                      <CollapsibleContent asChild>
-                        <TableRow className="bg-secondary/20 hover:bg-secondary/30">
+                    <CollapsibleContent asChild>
+                       <TableRow className="bg-secondary/20 hover:bg-secondary/30">
                           <TableCell colSpan={6} className="p-0">
-                            <div className="p-4 pl-14">
-                              <Table>
-                                <TableBody>
-                                  {categoryTransactions.map(tx => (
-                                    <TableRow key={tx.id} className="border-b-0 hover:bg-secondary/50">
-                                      <TableCell className="py-2">{format(new Date(tx.date), 'MMM dd')}</TableCell>
-                                      <TableCell className="py-2">{tx.description}</TableCell>
-                                      <TableCell className="py-2 text-right">{formatCurrency(tx.amount)}</TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            </div>
+                             <div className="p-4 pl-14">
+                               <Table>
+                                 <TableBody>
+                                   {categoryTransactions.map(tx => (
+                                     <TableRow key={tx.id} className="border-b-0 hover:bg-secondary/50">
+                                       <TableCell className="py-2">{format(new Date(tx.date), 'MMM dd')}</TableCell>
+                                       <TableCell className="py-2">{tx.description}</TableCell>
+                                       <TableCell className="py-2 text-right">{formatCurrency(tx.amount)}</TableCell>
+                                     </TableRow>
+                                   ))}
+                                 </TableBody>
+                               </Table>
+                             </div>
                           </TableCell>
                         </TableRow>
-                      </CollapsibleContent>
-                    )}
-                  </>
+                    </CollapsibleContent>
+                   </React.Fragment>
                 </Collapsible>
               );
             })
