@@ -109,74 +109,76 @@ export function BudgetTable({ transactions, isLoading }: BudgetTableProps) {
               const isOpen = openRows[category.id] || false;
 
               return (
-                <React.Fragment key={category.id}>
-                  <TableRow className="font-medium" data-state={isOpen ? 'open' : 'closed'}>
-                    <TableCell>
-                      <CollapsibleTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toggleRow(category.id)} disabled={!hasTransactions}>
-                          <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isOpen && "-rotate-180")} />
-                        </Button>
-                      </CollapsibleTrigger>
-                    </TableCell>
-                    <TableCell>{category.name}</TableCell>
-                    <TableCell className="text-right">
-                      {isEditing ? (
-                        <Input
-                          type="number"
-                          value={editingValue}
-                          onChange={(e) => setEditingValue(parseFloat(e.target.value) || 0)}
-                          className="h-8 text-right"
-                        />
-                      ) : (
-                        formatCurrency(budgeted)
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">{formatCurrency(actual)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex flex-col items-end">
-                        <span className={remaining < 0 ? 'text-destructive' : ''}>
-                          {formatCurrency(remaining)}
-                        </span>
-                        <Progress value={progress} className="h-2 w-24 mt-1" />
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {isEditing ? (
-                        <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleSave(category.id)}>
-                            <Save className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleCancel}>
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(category.id, budgeted)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow className={cn(!isOpen && "hidden")}>
-                    <TableCell colSpan={6} className="p-0">
-                      <CollapsibleContent>
-                        <div className="p-4 pl-14 bg-muted/50">
-                          <Table>
-                            <TableBody>
-                            {categoryTransactions.map(tx => (
-                                <TableRow key={tx.id} className="border-b-0 hover:bg-muted/80">
-                                <TableCell className="py-2">{format(new Date(tx.date), 'MMM dd')}</TableCell>
-                                <TableCell className="py-2">{tx.description}</TableCell>
-                                <TableCell className="py-2 text-right">{formatCurrency(tx.amount)}</TableCell>
-                                </TableRow>
-                            ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      </CollapsibleContent>
-                    </TableCell>
-                  </TableRow>
-                </React.Fragment>
+                 <Collapsible asChild key={category.id} open={isOpen} onOpenChange={() => toggleRow(category.id)}>
+                    <>
+                        <TableRow className="font-medium" data-state={isOpen ? 'open' : 'closed'}>
+                            <TableCell>
+                            <CollapsibleTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" disabled={!hasTransactions}>
+                                <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isOpen && "-rotate-180")} />
+                                </Button>
+                            </CollapsibleTrigger>
+                            </TableCell>
+                            <TableCell>{category.name}</TableCell>
+                            <TableCell className="text-right">
+                            {isEditing ? (
+                                <Input
+                                type="number"
+                                value={editingValue}
+                                onChange={(e) => setEditingValue(parseFloat(e.target.value) || 0)}
+                                className="h-8 text-right"
+                                />
+                            ) : (
+                                formatCurrency(budgeted)
+                            )}
+                            </TableCell>
+                            <TableCell className="text-right">{formatCurrency(actual)}</TableCell>
+                            <TableCell className="text-right">
+                            <div className="flex flex-col items-end">
+                                <span className={remaining < 0 ? 'text-destructive' : ''}>
+                                {formatCurrency(remaining)}
+                                </span>
+                                <Progress value={progress} className="h-2 w-24 mt-1" />
+                            </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                            {isEditing ? (
+                                <div className="flex justify-end gap-2">
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleSave(category.id)}>
+                                    <Save className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleCancel}>
+                                    <X className="h-4 w-4" />
+                                </Button>
+                                </div>
+                            ) : (
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(category.id, budgeted)}>
+                                <Pencil className="h-4 w-4" />
+                                </Button>
+                            )}
+                            </TableCell>
+                        </TableRow>
+                        <CollapsibleContent asChild>
+                            <tr className="bg-muted/50 hover:bg-muted/80">
+                                <TableCell colSpan={6} className="p-0">
+                                    <div className="p-4 pl-14">
+                                        <Table>
+                                            <TableBody>
+                                            {categoryTransactions.map(tx => (
+                                                <TableRow key={tx.id} className="border-b-0 hover:bg-transparent">
+                                                <TableCell className="py-2">{format(new Date(tx.date), 'MMM dd')}</TableCell>
+                                                <TableCell className="py-2">{tx.description}</TableCell>
+                                                <TableCell className="py-2 text-right">{formatCurrency(tx.amount)}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </TableCell>
+                            </tr>
+                        </CollapsibleContent>
+                    </>
+                </Collapsible>
               );
             })
           ) : (
