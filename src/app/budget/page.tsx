@@ -39,6 +39,7 @@ export default function BudgetPage() {
 
   const totalIncome = budgetItems.filter(i => i.type === 'Income').reduce((acc, i) => acc + i.amount, 0);
   const totalDebtPayments = budgetItems.filter(i => i.type === 'Debt Payments').reduce((acc, i) => acc + i.amount, 0);
+  const totalTransfers = budgetItems.filter(i => i.type === 'Transfers').reduce((acc, i) => acc + i.amount, 0);
   const remainingPAPayments = budgetItems
     .filter(i => i.type === 'Pre-Authorized Payments' && !i.completed)
     .reduce((acc, i) => acc + i.amount, 0);
@@ -48,7 +49,7 @@ export default function BudgetPage() {
   };
 
   const renderSummarySkeleton = () => (
-    Array.from({ length: 3 }).map((_, i) => (
+    Array.from({ length: 4 }).map((_, i) => (
       <div key={i} className="p-4 border rounded-lg bg-card">
         <Skeleton className="h-5 w-24 mb-2" />
         <Skeleton className="h-7 w-32" />
@@ -75,7 +76,7 @@ export default function BudgetPage() {
       <main className="space-y-8">
         <div>
             <h2 className="text-3xl font-bold font-headline text-primary mb-6">Budget Overview</h2>
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                 {isLoading ? renderSummarySkeleton() : (
                     <>
                         <div className="p-4 border rounded-lg bg-card">
@@ -85,6 +86,10 @@ export default function BudgetPage() {
                         <div className="p-4 border rounded-lg bg-card">
                             <h4 className="text-muted-foreground">Total Debt Payments</h4>
                             <p className="text-2xl font-semibold">{formatCurrency(totalDebtPayments)}</p>
+                        </div>
+                         <div className="p-4 border rounded-lg bg-card">
+                            <h4 className="text-muted-foreground">Total Transfers</h4>
+                            <p className="text-2xl font-semibold">{formatCurrency(totalTransfers)}</p>
                         </div>
                         <div className="p-4 border rounded-lg bg-card">
                             <h4 className="text-muted-foreground">Remaining PA Payments</h4>
