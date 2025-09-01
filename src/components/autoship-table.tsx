@@ -35,6 +35,7 @@ import { buttonVariants } from './ui/button';
 import { Badge } from './ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useSavings } from '@/hooks/use-savings';
+import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
 
 type SortConfig = {
     key: keyof AutoShipItem | 'monthlyCost';
@@ -70,6 +71,7 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
 export function AutoShipTable() {
   const { autoShipItems, addAutoShipItem, updateAutoShipItem, deleteAutoShipItem, shipItem, isLoading } = useAutoShip();
   const { addSavingsItem, savingsItems } = useSavings();
+  const { categories: budgetCategories, budgetItems, updateBudgetItemWithBreakdown } = useMonthlyBudget();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<AutoShipItem | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'nextShipmentDate', direction: 'ascending' });
@@ -127,10 +129,31 @@ export function AutoShipTable() {
     const fundExists = savingsItems.some(fund => fund.name.toLowerCase() === item.item.toLowerCase());
     if (fundExists) {
       toast({ title: 'Fund Exists', description: `A sinking fund for "${item.item}" already exists.`, variant: 'destructive' });
-    } else {
-      addSavingsItem({ name: item.item, amount: 0, goal: getMonthlyCost(item) });
-      toast({ title: 'Sinking Fund Created', description: `A new sinking fund for "${item.item}" has been added.` });
+      return;
     }
+    
+    const monthlyCost = getMonthlyCost(item);
+
+    addSavingsItem({ 
+        name: item.item, 
+        amount: 0, 
+        goal: monthlyCost,
+        totalCost: item.estimatedCost,
+        dueDate: item.nextShipmentDate,
+        accountId: item.accountId,
+        currency: 'CAD', // Assuming CAD
+    });
+
+    const budgetCategory = budgetCategories.find(c => c.name === "Auto-Shipments");
+    if (budgetCategory) {
+        const budgetItem = budgetItems.find(b => b.categoryId === budgetCategory.id);
+        const newBreakdownItem = { name: item.item, amount: monthlyCost };
+        const existingBreakdown = budgetItem?.breakdown?.filter(b => b.name !== 'Default') || [];
+        const newBreakdown = [...existingBreakdown, newBreakdownItem];
+        updateBudgetItemWithBreakdown(budgetCategory.id, newBreakdown);
+    }
+
+    toast({ title: 'Sinking Fund Created', description: `A new sinking fund for "${item.item}" has been added and updated in your monthly budget.` });
   };
 
   const handleShipItem = async (item: AutoShipItem) => {

@@ -35,6 +35,7 @@ import { buttonVariants } from './ui/button';
 import { Badge } from './ui/badge';
 import { useSavings } from '@/hooks/use-savings';
 import { useToast } from '@/hooks/use-toast';
+import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
 
 type SortableHeaderProps = {
   column: keyof SubscriptionItem | 'monthlyCost';
@@ -61,6 +62,7 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: S
 export function SubscriptionTable() {
   const { subscriptions, addSubscription, updateSubscription, deleteSubscription, isLoading } = useSubscriptions();
   const { addSavingsItem, savingsItems } = useSavings();
+  const { categories: budgetCategories, budgetItems, updateBudgetItemWithBreakdown } = useMonthlyBudget();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<SubscriptionItem | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: keyof SubscriptionItem | 'monthlyCost'; direction: 'ascending' | 'descending' }>({ key: 'serviceName', direction: 'ascending' });
@@ -134,17 +136,35 @@ export function SubscriptionTable() {
     const fundExists = savingsItems.some(fund => fund.name.toLowerCase() === item.serviceName.toLowerCase());
     if (fundExists) {
       toast({ title: 'Fund Exists', description: `A sinking fund for "${item.serviceName}" already exists.`, variant: 'destructive' });
-    } else {
-      addSavingsItem({ 
-          name: item.serviceName, 
-          amount: 0, 
-          goal: getMonthlyCost(item),
-          totalCost: item.cost,
-          dueDate: item.nextRenewalDate,
-        });
-      toast({ title: 'Sinking Fund Created', description: `A new sinking fund for "${item.serviceName}" has been added.` });
+      return;
     }
+
+    const monthlyCost = getMonthlyCost(item);
+
+    // 1. Create the sinking fund
+    addSavingsItem({ 
+        name: item.serviceName, 
+        amount: 0, 
+        goal: monthlyCost,
+        totalCost: item.cost,
+        dueDate: item.nextRenewalDate,
+        accountId: item.accountId,
+        currency: 'CAD', // Assuming CAD, adjust as needed
+      });
+    
+    // 2. Add it to the monthly budget
+    const budgetCategory = budgetCategories.find(c => c.name === "Subscriptions & Services");
+    if (budgetCategory) {
+        const budgetItem = budgetItems.find(b => b.categoryId === budgetCategory.id);
+        const newBreakdownItem = { name: item.serviceName, amount: monthlyCost };
+        const existingBreakdown = budgetItem?.breakdown?.filter(b => b.name !== 'Default') || [];
+        const newBreakdown = [...existingBreakdown, newBreakdownItem];
+        updateBudgetItemWithBreakdown(budgetCategory.id, newBreakdown);
+    }
+
+    toast({ title: 'Sinking Fund Created', description: `A new sinking fund for "${item.serviceName}" has been added and updated in your monthly budget.` });
   };
+
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
