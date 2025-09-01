@@ -13,6 +13,7 @@ import { PersonManager } from '@/components/person-manager';
 import { ExchangeRateManager } from '@/components/exchange-rate-manager';
 import { AccountManager } from '@/components/account-manager';
 import { BudgetCategoryManager } from '@/components/budget-category-manager';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function SettingsPage() {
   return (
@@ -28,17 +29,39 @@ export default function SettingsPage() {
       <main className="space-y-8">
         <div>
           <h1 className="text-3xl font-bold font-headline text-primary mb-6">Settings</h1>
-          <div className="space-y-4">
-            <AccountManager />
-            <PersonManager />
-            <IncomeCategoryManager />
-            <BudgetCategoryManager />
-            <WorkCategoryManager />
-            <TransfereeManager />
-            <MileageRateManager />
-            <ExchangeRateManager />
-            <LinkGroupManager />
-          </div>
+            <Tabs defaultValue="accounts" className="w-full">
+                <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="accounts">Accounts</TabsTrigger>
+                <TabsTrigger value="categories">Categories</TabsTrigger>
+                <TabsTrigger value="general">General</TabsTrigger>
+                <TabsTrigger value="rates">Rates</TabsTrigger>
+                </TabsList>
+                <TabsContent value="accounts" className="mt-6">
+                    <div className="space-y-4">
+                        <AccountManager />
+                        <TransfereeManager />
+                    </div>
+                </TabsContent>
+                <TabsContent value="categories" className="mt-6">
+                    <div className="space-y-4">
+                        <BudgetCategoryManager />
+                        <IncomeCategoryManager />
+                        <WorkCategoryManager />
+                    </div>
+                </TabsContent>
+                <TabsContent value="general" className="mt-6">
+                    <div className="space-y-4">
+                        <PersonManager />
+                        <LinkGroupManager />
+                    </div>
+                </TabsContent>
+                <TabsContent value="rates" className="mt-6">
+                    <div className="space-y-4">
+                        <MileageRateManager />
+                        <ExchangeRateManager />
+                    </div>
+                </TabsContent>
+            </Tabs>
         </div>
       </main>
     </div>
