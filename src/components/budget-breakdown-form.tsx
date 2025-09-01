@@ -126,7 +126,6 @@ export function BudgetBreakdownForm({ open, onOpenChange, onSave, category, budg
                             size="icon"
                             className="h-9 w-9 text-destructive"
                             onClick={() => remove(index)}
-                            disabled={fields.length <= 1}
                         >
                             <Trash2 className="h-4 w-4" />
                         </Button>
