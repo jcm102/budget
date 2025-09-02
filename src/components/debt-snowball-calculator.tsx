@@ -113,10 +113,10 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
         
         paymentForMonth += snowball;
         
-        // Sort by balance (smallest first) for snowball payment
-        currentDebts.sort((a, b) => a.balance - b.balance);
+        // Sort by highest interest rate (avalanche method)
+        currentDebts.sort((a, b) => b.interestRate - a.interestRate);
 
-        // Apply extra payment + snowball to the smallest debt
+        // Apply extra payment + snowball to the highest interest rate debt
         if (paymentForMonth > 0) {
             for (const debt of currentDebts) {
                 if (debt.balance > 0) {
@@ -155,10 +155,10 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
             <Calculator className="h-6 w-6" />
-            Debt Snowball Calculator
+            Debt Repayment Calculator
         </CardTitle>
         <CardDescription>
-          Enter your total monthly debt payment to see a projected repayment schedule using the debt snowball method.
+          Enter your total monthly debt payment to see a projected repayment schedule using the debt avalanche (highest interest rate) method.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -190,7 +190,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
                         <SelectValue placeholder="Select a debt" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="none">Smallest Debt (Default)</SelectItem>
+                        <SelectItem value="none">Highest Interest Rate (Default)</SelectItem>
                         {debts.filter(d => d.balance > 0).map(debt => (
                             <SelectItem key={debt.id} value={debt.id}>{debt.name}</SelectItem>
                         ))}
@@ -209,7 +209,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
             <Separator />
             <CardHeader>
                 <CardTitle>Repayment Schedule</CardTitle>
-                 <div className="text-sm text-muted-foreground">
+                <div className="text-sm text-muted-foreground">
                     <div>Based on your inputs, it will take an estimated <Badge variant="secondary">{schedule.length} months</Badge> to become debt-free.</div>
                 </div>
             </CardHeader>
