@@ -10,6 +10,7 @@ export const internalPages = [
   { name: 'Split Calculator', path: '/split' },
   { name: 'Settings', path: '/settings' },
   { name: 'Monthly Budget', path: '/monthly-budget' },
+  { name: 'Accounts', path: '/accounts' },
 ];
 
 export interface Subtask {
@@ -167,6 +168,7 @@ export interface AutoShipItem {
     nextShipmentDate: string; // ISO string
     frequency: AutoShipFrequency;
     estimatedCost: number;
+    type: 'Auto-Shipment'; // To distinguish for dialog
 }
 
 export type SubscriptionBillingFrequency = 'Monthly' | 'Quarterly' | 'Annually';
@@ -178,6 +180,7 @@ export interface SubscriptionItem {
   billingFrequency: SubscriptionBillingFrequency;
   cost: number;
   nextRenewalDate: string; // ISO string;
+  type: 'Subscription'; // To distinguish for dialog
 }
 
 export interface LinkGroup {

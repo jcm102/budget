@@ -3,7 +3,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import type { BudgetItem, Debt } from '@/types';
+import type { BudgetItem, Debt, AccountDetails } from '@/types';
 import {
   collection,
   getDocs,
@@ -22,6 +22,7 @@ import { isSameMonth, startOfMonth, getDate, getMonth, getYear, set, addWeeks, i
 
 const BUDGET_COLLECTION = 'budget-items';
 const DEBT_COLLECTION = 'debts';
+const ACCOUNT_DETAILS_COLLECTION = 'transferees';
 
 
 export async function getBudgetItems(): Promise<BudgetItem[]> {
@@ -230,11 +231,17 @@ export async function deleteBudgetItem(id: string): Promise<void> {
 export async function syncDebtPayments(): Promise<void> {
   const debtCollectionRef = collection(db, DEBT_COLLECTION);
   const budgetCollectionRef = collection(db, BUDGET_COLLECTION);
+  const accountsCollectionRef = collection(db, ACCOUNT_DETAILS_COLLECTION);
   const batch = writeBatch(db);
 
   // 1. Get all debts from the debt worksheet
   const debtSnapshot = await getDocs(query(debtCollectionRef, orderBy('order')));
   const debts = debtSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Debt));
+
+  // Get all accounts to find linked ones
+  const accountsSnapshot = await getDocs(accountsCollectionRef);
+  const accounts = accountsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccountDetails));
+  const accountMap = new Map(accounts.map(acc => [acc.id, acc]));
 
   // 2. Get all existing debt payments from the budget to delete them
   const existingBudgetPaymentsQuery = query(budgetCollectionRef, where('type', '==', 'Debt Payments'));
@@ -244,19 +251,24 @@ export async function syncDebtPayments(): Promise<void> {
     batch.delete(doc.ref);
   });
 
-  // 3. Create new budget items for each debt, without any filtering
+  // 3. Create new budget items for each debt
   debts.forEach(debt => {
-    const budgetItemData: Omit<BudgetItem, 'id'> = {
-      type: 'Debt Payments',
-      description: debt.name,
-      amount: debt.actualPayment,
-      date: debt.dueDate,
-      frequency: 'One-Time',
-      category: 'N/A',
-      completed: false,
-    };
-    const newDocRef = doc(budgetCollectionRef);
-    batch.set(newDocRef, budgetItemData);
+    if (debt.actualPayment > 0) {
+      const linkedAccount = accounts.find(acc => acc.linkedDebtId === debt.id);
+      
+      const budgetItemData: Omit<BudgetItem, 'id'> = {
+        type: 'Debt Payments',
+        description: debt.name,
+        amount: debt.actualPayment,
+        date: debt.dueDate,
+        frequency: 'One-Time',
+        category: 'N/A',
+        completed: false,
+        transferFrom: linkedAccount ? linkedAccount.name : 'Unknown', // Use linked account name as source
+      };
+      const newDocRef = doc(budgetCollectionRef);
+      batch.set(newDocRef, budgetItemData);
+    }
   });
 
   // 4. Commit all the changes at once

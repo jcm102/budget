@@ -153,7 +153,7 @@ export function DebtPaymentsTable() {
   const renderLoadingSkeleton = () => (
     Array.from({ length: 2 }).map((_, i) => (
       <TableRow key={`skeleton-debt-${i}`}>
-        <TableCell colSpan={4}><Skeleton className="h-8 w-full" /></TableCell>
+        <TableCell colSpan={5}><Skeleton className="h-8 w-full" /></TableCell>
       </TableRow>
     ))
   );
@@ -225,7 +225,7 @@ export function DebtPaymentsTable() {
                     <TableRow key={item.id}>
                         <TableCell className="font-medium">{item.description}</TableCell>
                          <TableCell>
-                            <Badge variant="outline" className="flex items-center gap-1.5">
+                            <Badge variant="outline" className="flex items-center gap-1.5 w-fit">
                                 <ArrowRightLeft className="h-3 w-3" />
                                 {item.transferFrom}
                             </Badge>
@@ -275,7 +275,6 @@ export function DebtPaymentsTable() {
                         <TableCell colSpan={3}></TableCell>
                         <TableCell className="font-semibold text-right">Total</TableCell>
                         <TableCell className="text-right font-semibold">{formatCurrency(total)}</TableCell>
-                        <TableCell></TableCell>
                     </TableRow>
                 </TableFooter>
             </Table>

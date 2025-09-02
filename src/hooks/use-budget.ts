@@ -46,7 +46,7 @@ export function useBudget() {
     }
   }, [toast, fetchBudgetItems]);
 
-  const updateBudgetItem = useCallback(async (id: string, itemData: Omit<BudgetItem, 'id'>) => {
+  const updateBudgetItem = useCallback(async (id: string, itemData: Partial<Omit<BudgetItem, 'id' | 'originalId'>>) => {
     const originalItems = budgetItems;
     // Optimistic update
     const isRecurringInstance = id.includes('-');

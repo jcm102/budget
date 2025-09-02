@@ -147,7 +147,8 @@ export function SubscriptionTable() {
             dueDate: item.nextRenewalDate,
             accountId: item.accountId,
             currency: 'CAD', // Assuming CAD, adjust as needed
-        });
+            type: 'Subscription',
+        } as any);
     }
     
     // Add it to the monthly budget
