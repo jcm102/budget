@@ -210,7 +210,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
             <CardHeader>
                 <CardTitle>Repayment Schedule</CardTitle>
                 <div className="text-sm text-muted-foreground">
-                    <div>Based on your inputs, it will take an estimated <Badge variant="secondary">{schedule.length} months</Badge> to become debt-free.</div>
+                    Based on your inputs, it will take an estimated <Badge variant="secondary">{schedule.length} months</Badge> to become debt-free.
                 </div>
             </CardHeader>
             <CardContent>
@@ -238,7 +238,10 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
                                         return (
                                             <TableCell key={debt.id} className="text-right">
                                                 {isPaidOffThisMonth ? (
-                                                     <span className="text-green-600 font-bold">Paid Off</span>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-destructive font-medium">-{formatCurrency(payment || 0)}</span>
+                                                        <span className="text-xs text-green-600 font-bold">Paid Off</span>
+                                                    </div>
                                                 ) : balance > 0 ? (
                                                     <div className="flex flex-col">
                                                         <span className="text-destructive font-medium">-{formatCurrency(payment || 0)}</span>
