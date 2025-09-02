@@ -36,6 +36,8 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
   useEffect(() => {
     if (totalMinimumPayment > 0) {
       setTotalMonthlyPayment(totalMinimumPayment);
+    } else {
+      setTotalMonthlyPayment(0);
     }
   }, [totalMinimumPayment]);
   
@@ -50,7 +52,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
 
     let currentDebts = debts
         .filter(d => d.balance > 0)
-        .map(d => ({ ...d, balance: d.balance })); // Create mutable copies
+        .map(d => ({ ...d, balance: d.balance, minimumPayment: d.minimumPayment })); // Create mutable copies
         
     if (currentDebts.length === 0) {
         setError("No debts with a positive balance to calculate.");
@@ -59,9 +61,10 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
 
     const newSchedule: ScheduleEntry[] = [];
     let month = 1;
-    let snowball = totalMonthlyPayment - totalMinimumPayment;
+    
 
     while (currentDebts.some(d => d.balance > 0) && month < 360) { // Limit to 30 years
+        let snowball = totalMonthlyPayment - currentDebts.reduce((sum, d) => sum + d.minimumPayment, 0);
         const monthlyPayments: Record<string, number> = {};
         
         // 1. Apply interest to all debts first
@@ -70,33 +73,23 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
             debt.balance += interest;
         });
 
-        // 2. Sort by balance for snowball method (lowest balance first)
-        currentDebts.sort((a, b) => a.balance - b.balance);
-
-        let paymentPool = totalMonthlyPayment;
-
-        // 3. Pay minimums
+        // 2. Pay minimums
         for (const debt of currentDebts) {
-            const minPayment = Math.min(debt.minimumPayment, debt.balance);
-            if (paymentPool >= minPayment) {
-                monthlyPayments[debt.id] = (monthlyPayments[debt.id] || 0) + minPayment;
-                debt.balance -= minPayment;
-                paymentPool -= minPayment;
-            } else {
-                // Not enough money to even cover minimums, pay what's left
-                monthlyPayments[debt.id] = (monthlyPayments[debt.id] || 0) + paymentPool;
-                debt.balance -= paymentPool;
-                paymentPool = 0;
-            }
+            const payment = Math.min(debt.minimumPayment, debt.balance);
+            monthlyPayments[debt.id] = payment;
+            debt.balance -= payment;
         }
         
-        // 4. Apply snowball (the remaining paymentPool) to the lowest balance debt
+        // 3. Sort by balance for snowball method (lowest balance first)
+        currentDebts.sort((a, b) => a.balance - b.balance);
+
+        // 4. Apply snowball to the lowest balance debts
         for (const debt of currentDebts) {
-            if (paymentPool > 0) {
-                const extraPayment = Math.min(paymentPool, debt.balance);
-                monthlyPayments[debt.id] = (monthlyPayments[debt.id] || 0) + extraPayment;
+            if (snowball > 0) {
+                const extraPayment = Math.min(snowball, debt.balance);
+                monthlyPayments[debt.id] += extraPayment;
                 debt.balance -= extraPayment;
-                paymentPool -= extraPayment;
+                snowball -= extraPayment;
             }
         }
         
@@ -115,8 +108,8 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
             balances: monthlyBalances,
             totalPaid: totalMonthPayment
         });
-
-        // 5. Filter out paid-off debts for the next iteration
+        
+        // 5. Filter out paid-off debts and recalculate minimums for next iteration's snowball
         currentDebts = currentDebts.filter(d => d.balance > 0);
         
         month++;
@@ -188,7 +181,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
                                         
                                         // Only show the column if the original balance was > 0
                                         if (originalBalance <= 0) {
-                                            return <TableCell key={debt.id} className="text-right text-muted-foreground">-</TableCell>;
+                                            return null;
                                         }
 
                                         return (
