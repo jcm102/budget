@@ -66,11 +66,8 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
         const monthlyPayments: Record<string, number> = {};
         const monthlyBalances: Record<string, number> = {};
         let totalMonthPayment = 0;
-        let freedUpPayment = 0;
         
-        const targetDebtIndex = currentDebts.findIndex(d => d.balance > 0);
-        if (targetDebtIndex === -1) break;
-        const targetDebtId = currentDebts[targetDebtIndex].id;
+        const freedUpPayments: Record<string, number> = {};
 
         // Apply interest first
         currentDebts.forEach(debt => {
@@ -79,26 +76,31 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
         });
 
         // Distribute payments
-        currentDebts.forEach(debt => {
-            if (debt.balance > 0) {
-                let payment = debt.minimumPayment;
-                if (debt.id === targetDebtId) {
-                    payment += snowball;
-                }
+        let remainingSnowball = snowball;
 
-                const actualPayment = Math.min(payment, debt.balance);
-                monthlyPayments[debt.id] = actualPayment;
-                debt.balance -= actualPayment;
-                totalMonthPayment += actualPayment;
+        // Pay minimums on all debts first
+        for (const debt of currentDebts) {
+            const payment = Math.min(debt.minimumPayment, debt.balance);
+            monthlyPayments[debt.id] = (monthlyPayments[debt.id] || 0) + payment;
+            debt.balance -= payment;
+        }
 
-                if (debt.balance <= 0) {
-                   freedUpPayment += debt.minimumPayment;
-                }
+        // Apply snowball to lowest balance debts
+        for (const debt of currentDebts) {
+             if (remainingSnowball > 0) {
+                const snowballPayment = Math.min(remainingSnowball, debt.balance);
+                monthlyPayments[debt.id] = (monthlyPayments[debt.id] || 0) + snowballPayment;
+                debt.balance -= snowballPayment;
+                remainingSnowball -= snowballPayment;
             }
-        });
+        }
         
         currentDebts.forEach(debt => {
             monthlyBalances[debt.id] = debt.balance;
+            totalMonthPayment += (monthlyPayments[debt.id] || 0);
+            if (debt.balance <= 0) {
+              freedUpPayments[debt.id] = debt.minimumPayment;
+            }
         });
         
         newSchedule.push({
@@ -108,7 +110,11 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
             totalPaid: totalMonthPayment
         });
 
-        snowball += freedUpPayment;
+        // Update snowball for next month
+        for(const debtId in freedUpPayments) {
+            snowball += freedUpPayments[debtId];
+        }
+
         currentDebts = currentDebts.filter(d => d.balance > 0);
         month++;
     }
@@ -151,9 +157,9 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
             <Separator />
             <CardHeader>
                 <CardTitle>Repayment Schedule</CardTitle>
-                <CardDescription>
+                <div className="text-sm text-muted-foreground">
                     Based on your inputs, it will take an estimated <Badge variant="secondary">{schedule.length} months</Badge> to become debt-free.
-                </CardDescription>
+                </div>
             </CardHeader>
             <CardContent>
                 <div className="overflow-x-auto relative max-h-[500px]">
