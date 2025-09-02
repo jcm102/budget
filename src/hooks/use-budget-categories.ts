@@ -35,8 +35,10 @@ export function useBudgetCategories() {
 
   const addCategory = useCallback(async (name: string, parentId: string | null = null) => {
     try {
-      await BudgetCategoryService.addCategory(name, parentId);
-      await fetchCategories(); // Refetch after adding
+      const newCategory = await BudgetCategoryService.addCategory(name, parentId);
+      // Optimistically add to state, then fetch to ensure consistency
+      setCategories((prev) => [...prev, newCategory]);
+      await fetchCategories();
     } catch (error) {
       console.error('Failed to add category:', error);
       toast({
@@ -48,18 +50,26 @@ export function useBudgetCategories() {
   }, [toast, fetchCategories]);
 
   const deleteCategory = useCallback(async (id: string) => {
+    const originalCategories = [...categories];
+    // Optimistically update the UI
+    setCategories(prev => prev.filter(c => c.id !== id));
+    
     try {
       await BudgetCategoryService.deleteCategory(id);
-      await fetchCategories(); // Refetch after deleting
+      // The optimistic update is already done.
+      // A refetch can be done here for ultimate consistency if needed, but the optimistic update should suffice.
+      // await fetchCategories(); 
     } catch (error: any) {
       console.error('Failed to delete category:', error);
+      // Revert on error
+      setCategories(originalCategories);
       toast({
         title: 'Error',
         description: error.message || 'Failed to delete the category.',
         variant: 'destructive',
       });
     }
-  }, [toast, fetchCategories]);
+  }, [categories, toast]);
 
   return { categories, addCategory, deleteCategory, isLoading, fetchCategories };
 }
