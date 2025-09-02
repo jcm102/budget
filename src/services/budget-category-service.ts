@@ -68,19 +68,16 @@ const findAllDescendantIds = (categoryId: string, allCategories: Category[]): st
 export async function deleteCategory(id: string): Promise<void> {
   const batch = writeBatch(db);
   
-  // Fetch all categories to build the hierarchy in memory
   const allCategoriesSnapshot = await getDocs(collection(db, CATEGORY_COLLECTION));
   const allCategories = allCategoriesSnapshot.docs.map(d => ({id: d.id, ...d.data()}) as Category);
   
   const idsToDelete = [id, ...findAllDescendantIds(id, allCategories)];
 
-  // Delete all categories and subcategories
   idsToDelete.forEach(categoryId => {
     const categoryRef = doc(db, CATEGORY_COLLECTION, categoryId);
     batch.delete(categoryRef);
   });
 
-  // Delete associated monthly budget items.
   // Firestore `in` query is limited to 30 items, so we might need to batch this.
   for (let i = 0; i < idsToDelete.length; i += 30) {
     const chunk = idsToDelete.slice(i, i + 30);
