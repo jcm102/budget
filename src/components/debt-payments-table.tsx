@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, Repeat, ArrowUpDown, RefreshCw } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, Repeat, ArrowUpDown, RefreshCw, ArrowRightLeft } from 'lucide-react';
 import type { BudgetItem } from '@/types';
 import {
   Table,
@@ -211,6 +211,7 @@ export function DebtPaymentsTable() {
                 <TableHeader>
                     <TableRow className="group">
                         <SortableHeader column="description" label="Description" sortConfig={sortConfig} requestSort={requestSort} />
+                        <SortableHeader column="transferFrom" label="From" sortConfig={sortConfig} requestSort={requestSort} />
                         <SortableHeader column="date" label="Date" sortConfig={sortConfig} requestSort={requestSort} />
                         <SortableHeader column="amount" label="Amount" sortConfig={sortConfig} requestSort={requestSort} className="text-right" />
                         <TableHead className="w-[100px] text-right">Actions</TableHead>
@@ -223,6 +224,12 @@ export function DebtPaymentsTable() {
                     sortedItems.map((item) => (
                     <TableRow key={item.id}>
                         <TableCell className="font-medium">{item.description}</TableCell>
+                         <TableCell>
+                            <Badge variant="outline" className="flex items-center gap-1.5">
+                                <ArrowRightLeft className="h-3 w-3" />
+                                {item.transferFrom}
+                            </Badge>
+                        </TableCell>
                         <TableCell>{format(new Date(item.date), 'PPP')}</TableCell>
                         <TableCell className="text-right">{formatCurrency(item.amount)}</TableCell>
                         <TableCell className="text-right">
@@ -257,7 +264,7 @@ export function DebtPaymentsTable() {
                     ))
                 ) : (
                     <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">
+                    <TableCell colSpan={5} className="h-24 text-center">
                         No debt payment items added yet. Try syncing from the Debt Worksheet.
                     </TableCell>
                     </TableRow>
@@ -265,7 +272,7 @@ export function DebtPaymentsTable() {
                 </TableBody>
                 <TableFooter>
                     <TableRow>
-                        <TableCell colSpan={2}></TableCell>
+                        <TableCell colSpan={3}></TableCell>
                         <TableCell className="font-semibold text-right">Total</TableCell>
                         <TableCell className="text-right font-semibold">{formatCurrency(total)}</TableCell>
                         <TableCell></TableCell>

@@ -10,9 +10,13 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Calculator } from 'lucide-react';
+import { Calculator, Loader2 } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { useDebt } from '@/hooks/use-debt';
+import { useToast } from '@/hooks/use-toast';
+import * as DebtService from '@/services/debt-service';
+
 
 interface ScheduleEntry {
   month: number;
@@ -26,11 +30,14 @@ const formatCurrency = (amount: number) => {
 };
 
 export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
+  const { fetchDebts } = useDebt();
   const [totalMonthlyPayment, setTotalMonthlyPayment] = useState<number>(0);
   const [extraPayment, setExtraPayment] = useState<number>(0);
   const [extraPaymentTarget, setExtraPaymentTarget] = useState<string>('none');
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [isApplying, setIsApplying] = useState(false);
+  const { toast } = useToast();
 
   const totalMinimumPayment = useMemo(() => {
     return debts.reduce((sum, debt) => sum + debt.minimumPayment, 0);
@@ -148,6 +155,35 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
     }
     setSchedule(newSchedule);
   };
+  
+  const handleApplySchedule = async () => {
+    if (schedule.length === 0) {
+      toast({
+        title: "No Schedule",
+        description: "Please calculate a schedule first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsApplying(true);
+    try {
+      const firstMonthPayments = schedule[0].payments;
+      await DebtService.applyPaymentsToBudget(firstMonthPayments);
+      await fetchDebts(); // Refetch debts to update the table UI
+      toast({
+        title: "Success!",
+        description: "Actual payments have been updated and budget items have been created.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error Applying Schedule",
+        description: error.message || "Could not apply the payment schedule.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsApplying(false);
+    }
+  };
 
 
   return (
@@ -208,9 +244,17 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
          <>
             <Separator />
             <CardHeader>
-                <CardTitle>Repayment Schedule</CardTitle>
-                <div className="text-sm text-muted-foreground">
-                    Based on your inputs, it will take an estimated <Badge variant="secondary">{schedule.length} months</Badge> to become debt-free.
+                <div className="flex justify-between items-center">
+                    <div>
+                        <CardTitle>Repayment Schedule</CardTitle>
+                        <div className="text-sm text-muted-foreground">
+                            Based on your inputs, it will take an estimated <Badge variant="secondary">{schedule.length} months</Badge> to become debt-free.
+                        </div>
+                    </div>
+                    <Button onClick={handleApplySchedule} disabled={isApplying}>
+                        {isApplying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Create Budget Items for this Month
+                    </Button>
                 </div>
             </CardHeader>
             <CardContent>

@@ -35,14 +35,15 @@ function AccountRow({ account, onUpdate, onDelete, debts, isLoadingDebts }: { ac
   return (
     <div
       key={account.id}
-      className="grid grid-cols-4 items-center gap-2 p-2 border rounded-md"
+      className="grid grid-cols-1 md:grid-cols-4 items-center gap-2 p-2 border rounded-md"
     >
-      <Input
-        defaultValue={account.name}
-        onBlur={(e) => onUpdate(account.id, 'name', e.target.value)}
-        placeholder="Account Name"
-        className="col-span-2 md:col-span-1"
-      />
+      <div className="md:col-span-2">
+        <Input
+          defaultValue={account.name}
+          onBlur={(e) => onUpdate(account.id, 'name', e.target.value)}
+          placeholder="Account Name"
+        />
+      </div>
       <Select
         value={account.type}
         onValueChange={(value: AccountType) => onUpdate(account.id, 'type', value)}
@@ -57,51 +58,55 @@ function AccountRow({ account, onUpdate, onDelete, debts, isLoadingDebts }: { ac
         </SelectContent>
       </Select>
 
-      {account.type === 'Credit' ? (
-        <Select
-          value={account.linkedDebtId || 'null'}
-          onValueChange={(value) => onUpdate(account.id, 'linkedDebtId', value === 'null' ? null : value)}
-          disabled={isLoadingDebts}
-        >
-          <SelectTrigger><SelectValue placeholder="Link to Debt Worksheet" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="null">None</SelectItem>
-            {debts.map(debt => (
-              <SelectItem key={debt.id} value={debt.id}>{debt.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      ) : (
-        <Input
-          type="number"
-          defaultValue={account.balance}
-          onBlur={(e) => onUpdate(account.id, 'balance', parseFloat(e.target.value) || 0)}
-          placeholder="Balance"
-        />
-      )}
+      <div className="flex items-center gap-2">
+        {account.type === 'Credit' ? (
+          <div className="flex-grow">
+            <Select
+              value={account.linkedDebtId || 'null'}
+              onValueChange={(value) => onUpdate(account.id, 'linkedDebtId', value === 'null' ? null : value)}
+              disabled={isLoadingDebts}
+            >
+              <SelectTrigger><SelectValue placeholder="Link to Debt" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="null">None</SelectItem>
+                {debts.map(debt => (
+                  <SelectItem key={debt.id} value={debt.id}>{debt.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : (
+          <Input
+            type="number"
+            defaultValue={account.balance}
+            onBlur={(e) => onUpdate(account.id, 'balance', parseFloat(e.target.value) || 0)}
+            placeholder="Balance"
+          />
+        )}
 
-      <div className="text-right">
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive">
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will permanently delete the &quot;{account.name}&quot; account.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => onDelete(account.id)} className={cn(buttonVariants({ variant: "destructive" }))}>
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <div className="text-right">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete the &quot;{account.name}&quot; account.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => onDelete(account.id)} className={cn(buttonVariants({ variant: "destructive" }))}>
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
     </div>
   );
@@ -162,6 +167,11 @@ export function AccountDetailsManager() {
               return (
                 <div key={type} className="space-y-2">
                   <h4 className="font-semibold text-primary">{type}</h4>
+                   <div className="hidden md:grid grid-cols-4 items-center gap-2 text-xs text-muted-foreground px-2">
+                      <span className="col-span-2">Account Name</span>
+                      <span>Account Type</span>
+                      <span>{type === 'Credit' ? 'Linked Debt' : 'Balance'}</span>
+                  </div>
                   <div className="space-y-2">
                     {accs.map(account => (
                       <AccountRow

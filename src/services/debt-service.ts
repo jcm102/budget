@@ -2,7 +2,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import type { Debt } from '@/types';
+import type { Debt, AccountDetails, BudgetItem } from '@/types';
 import { 
   collection, 
   getDocs, 
@@ -14,10 +14,13 @@ import {
   getDoc,
   orderBy,
   updateDoc,
-  runTransaction
+  runTransaction,
+  where
 } from 'firebase/firestore';
 
 const DEBT_COLLECTION = 'debts';
+const ACCOUNT_DETAILS_COLLECTION = 'transferees';
+const BUDGET_COLLECTION = 'budget-items';
 
 export async function getDebts(): Promise<Debt[]> {
   const debtCollection = collection(db, DEBT_COLLECTION);
@@ -56,8 +59,6 @@ export async function updateDebt(id: string, debtData: Partial<Omit<Debt, 'id' |
     await updateDoc(debtRef, debtData);
   } else {
     console.warn(`Attempted to update a debt document that does not exist: ${id}`);
-    // Optionally, you could throw an error here, but for now we'll just log it
-    // to prevent the app from crashing.
   }
 }
 
@@ -141,5 +142,65 @@ export async function cycleToNextMonth(): Promise<void> {
         batch.update(debtRef, updatedData);
     });
 
+    await batch.commit();
+}
+
+export async function applyPaymentsToBudget(payments: Record<string, number>): Promise<void> {
+    const batch = writeBatch(db);
+
+    // 1. Get all credit accounts and all debts
+    const accountsQuery = query(collection(db, ACCOUNT_DETAILS_COLLECTION), where('type', '==', 'Credit'));
+    const debtsQuery = query(collection(db, DEBT_COLLECTION));
+    const [accountsSnapshot, debtsSnapshot] = await Promise.all([getDocs(accountsQuery), getDocs(debtsQuery)]);
+    
+    const allDebts = debtsSnapshot.docs.map(d => ({id: d.id, ...d.data()} as Debt));
+    const creditAccounts = accountsSnapshot.docs.map(a => ({id: a.id, ...a.data()} as AccountDetails));
+
+    // 2. Clear existing debt payments from budget
+    const existingBudgetPaymentsQuery = query(collection(db, BUDGET_COLLECTION), where('type', '==', 'Debt Payments'));
+    const existingBudgetPaymentsSnapshot = await getDocs(existingBudgetPaymentsQuery);
+    existingBudgetPaymentsSnapshot.forEach(doc => {
+      batch.delete(doc.ref);
+    });
+    
+    // 3. Update debts and create new budget items
+    for (const debtId in payments) {
+        const paymentAmount = payments[debtId];
+        const debt = allDebts.find(d => d.id === debtId);
+        
+        if (!debt) {
+            console.warn(`Debt with ID ${debtId} not found while applying schedule.`);
+            continue;
+        }
+
+        // Update the actual payment on the debt worksheet
+        const debtRef = doc(db, DEBT_COLLECTION, debtId);
+        batch.update(debtRef, { actualPayment: paymentAmount });
+        
+        // Find the linked credit account
+        const linkedAccount = creditAccounts.find(acc => acc.linkedDebtId === debtId);
+        
+        if (!linkedAccount) {
+             console.warn(`No credit account linked to debt "${debt.name}". Cannot create budget item.`);
+             continue;
+        }
+        
+        // Create a new budget item
+        const budgetItemData: Omit<BudgetItem, 'id'> = {
+            type: 'Debt Payments',
+            description: `${debt.name} Payment`,
+            amount: paymentAmount,
+            date: new Date().toISOString(), 
+            frequency: 'One-Time',
+            category: 'N/A', // Or another default
+            completed: false,
+            transferFrom: linkedAccount.name, // The name of the credit account
+            transferTo: '', // This might not be relevant for debt payments
+        };
+
+        const newDocRef = doc(collection(db, BUDGET_COLLECTION));
+        batch.set(newDocRef, budgetItemData);
+    }
+    
     await batch.commit();
 }
