@@ -49,51 +49,69 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
         setError(`Total monthly payment must be at least the sum of minimum payments (${formatCurrency(totalMinimumPayment)}).`);
         return;
     }
-
+    
     let currentDebts = debts
         .filter(d => d.balance > 0)
-        .map(d => ({ ...d, balance: d.balance, minimumPayment: d.minimumPayment })); // Create mutable copies
-        
+        .map(d => ({ 
+            id: d.id, 
+            name: d.name,
+            balance: d.balance, 
+            interestRate: d.interestRate, 
+            minimumPayment: d.minimumPayment 
+        }));
+
     if (currentDebts.length === 0) {
         setError("No debts with a positive balance to calculate.");
         return;
     }
 
     const newSchedule: ScheduleEntry[] = [];
-    let month = 1;
+    let month = 0;
     
-
     while (currentDebts.some(d => d.balance > 0) && month < 360) { // Limit to 30 years
-        let snowball = totalMonthlyPayment - currentDebts.reduce((sum, d) => sum + d.minimumPayment, 0);
-        const monthlyPayments: Record<string, number> = {};
+        month++;
         
-        // 1. Apply interest to all debts first
+        let paymentForMonth = totalMonthlyPayment;
+
+        // Apply interest
         currentDebts.forEach(debt => {
-            const interest = (debt.balance * (debt.interestRate / 100)) / 12;
-            debt.balance += interest;
+            const monthlyInterest = (debt.balance * (debt.interestRate / 100)) / 12;
+            debt.balance += monthlyInterest;
         });
 
-        // 2. Pay minimums
-        for (const debt of currentDebts) {
-            const payment = Math.min(debt.minimumPayment, debt.balance);
-            monthlyPayments[debt.id] = payment;
-            debt.balance -= payment;
-        }
-        
-        // 3. Sort by balance for snowball method (lowest balance first)
+        // Sort by balance (smallest first) for snowball payment
         currentDebts.sort((a, b) => a.balance - b.balance);
 
-        // 4. Apply snowball to the lowest balance debts
+        const monthlyPayments: Record<string, number> = {};
+        
+        // Pay minimums on all debts first
         for (const debt of currentDebts) {
-            if (snowball > 0) {
-                const extraPayment = Math.min(snowball, debt.balance);
-                monthlyPayments[debt.id] += extraPayment;
-                debt.balance -= extraPayment;
-                snowball -= extraPayment;
+            const paymentAmount = Math.min(debt.minimumPayment, debt.balance, paymentForMonth);
+            monthlyPayments[debt.id] = (monthlyPayments[debt.id] || 0) + paymentAmount;
+            debt.balance -= paymentAmount;
+            paymentForMonth -= paymentAmount;
+        }
+
+        // Apply extra payment (snowball) to the smallest debt
+        if (paymentForMonth > 0) {
+            for (const debt of currentDebts) { // Loop again in sorted order
+                if (debt.balance > 0) {
+                    const extraPayment = Math.min(paymentForMonth, debt.balance);
+                    monthlyPayments[debt.id] = (monthlyPayments[debt.id] || 0) + extraPayment;
+                    debt.balance -= extraPayment;
+                    paymentForMonth -= extraPayment;
+                    if (paymentForMonth <= 0) break;
+                }
             }
         }
         
-        // Record balances and total paid for the month
+        // Update minimum payments for paid off debts
+        currentDebts.forEach(debt => {
+            if (debt.balance <= 0) {
+                debt.minimumPayment = 0;
+            }
+        });
+        
         const monthlyBalances: Record<string, number> = {};
         let totalMonthPayment = 0;
         debts.forEach(debt => {
@@ -109,10 +127,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
             totalPaid: totalMonthPayment
         });
         
-        // 5. Filter out paid-off debts and recalculate minimums for next iteration's snowball
         currentDebts = currentDebts.filter(d => d.balance > 0);
-        
-        month++;
     }
     setSchedule(newSchedule);
   };
@@ -163,7 +178,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
                         <TableHeader className="sticky top-0 bg-secondary z-10">
                             <TableRow>
                                 <TableHead className="w-[80px]">Month</TableHead>
-                                {debts.map(debt => (
+                                {debts.filter(d => d.balance > 0).map(debt => (
                                     <TableHead key={debt.id} className="text-right min-w-[120px]">{debt.name}</TableHead>
                                 ))}
                                 <TableHead className="text-right font-bold">Total Paid</TableHead>
@@ -173,33 +188,23 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
                             {schedule.map(entry => (
                                 <TableRow key={entry.month}>
                                     <TableCell>{entry.month}</TableCell>
-                                    {debts.map(debt => {
+                                    {debts.filter(d => d.balance > 0).map(debt => {
                                         const payment = entry.payments[debt.id];
                                         const balance = entry.balances[debt.id];
-                                        const originalDebt = debts.find(d => d.id === debt.id);
-                                        const originalBalance = originalDebt ? originalDebt.balance : 0;
                                         
-                                        // Only show the column if the original balance was > 0
-                                        if (originalBalance <= 0) {
-                                            return null;
-                                        }
+                                        const isPaidOffThisMonth = balance <= 0 && (entry.month === 1 || schedule[entry.month - 2].balances[debt.id] > 0);
 
                                         return (
                                             <TableCell key={debt.id} className="text-right">
-                                                {balance !== undefined && balance <= 0 && (entry.month > 0 && newSchedule.find(s => s.month === entry.month -1)?.balances[debt.id] > 0) ? (
+                                                {isPaidOffThisMonth ? (
                                                      <span className="text-green-600 font-bold">Paid Off</span>
                                                 ) : balance > 0 ? (
                                                     <div className="flex flex-col">
                                                         <span className="text-destructive font-medium">-{formatCurrency(payment || 0)}</span>
                                                         <span className="text-xs text-muted-foreground">{formatCurrency(balance)}</span>
                                                     </div>
-                                                ) : schedule.find(s => s.month < entry.month && s.balances[debt.id] <=0) ? (
-                                                    <span className="text-green-600">Paid Off</span>
                                                 ) : (
-                                                    <div className="flex flex-col">
-                                                        <span className="text-destructive font-medium">-{formatCurrency(payment || 0)}</span>
-                                                        <span className="text-xs text-muted-foreground">{formatCurrency(balance)}</span>
-                                                    </div>
+                                                    <span className="text-green-600/70">Paid Off</span>
                                                 )}
                                             </TableCell>
                                         )
