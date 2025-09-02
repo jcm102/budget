@@ -2,7 +2,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import type { Debt, AccountDetails, BudgetItem } from '@/types';
+import type { Debt, AccountDetails, BudgetItem, Category, Transaction, DebtType } from '@/types';
 import { 
   collection, 
   getDocs, 
@@ -20,7 +20,8 @@ import {
 
 const DEBT_COLLECTION = 'debts';
 const ACCOUNT_DETAILS_COLLECTION = 'transferees';
-const BUDGET_COLLECTION = 'budget-items';
+const TRANSACTIONS_COLLECTION = 'transactions';
+const BUDGET_CATEGORIES_COLLECTION = 'budget-categories';
 
 export async function getDebts(): Promise<Debt[]> {
   const debtCollection = collection(db, DEBT_COLLECTION);
@@ -38,6 +39,7 @@ export async function addDebt(debtData: Omit<Debt, 'id' | 'order'>): Promise<Deb
   const newDebt: Omit<Debt, 'id'> = { 
     ...debtData, 
     interestRate: debtData.interestRate || 0,
+    debtType: debtData.debtType || 'Credit Card',
     order: newOrder, 
     paid: false,
     nextBalance: debtData.nextBalance || 0,
@@ -145,25 +147,35 @@ export async function cycleToNextMonth(): Promise<void> {
     await batch.commit();
 }
 
+const getBudgetCategories = async (): Promise<Category[]> => {
+    const q = query(collection(db, BUDGET_CATEGORIES_COLLECTION));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
+};
+
+const getCategoryForDebt = (debtType: DebtType, budgetCategories: Category[]): Category | undefined => {
+    const typeToCategoryName: Record<DebtType, string> = {
+        'Credit Card': 'Credit Cards',
+        'Loan': 'Loans',
+        'Line of Credit': 'Line of Credit'
+    };
+    const categoryName = typeToCategoryName[debtType];
+    return budgetCategories.find(c => c.name === categoryName);
+}
+
+
 export async function applyPaymentsToBudget(payments: Record<string, number>): Promise<void> {
     const batch = writeBatch(db);
 
-    // 1. Get all credit accounts and all debts
-    const accountsQuery = query(collection(db, ACCOUNT_DETAILS_COLLECTION), where('type', '==', 'Credit'));
+    // 1. Get all debts and budget categories
     const debtsQuery = query(collection(db, DEBT_COLLECTION));
-    const [accountsSnapshot, debtsSnapshot] = await Promise.all([getDocs(accountsQuery), getDocs(debtsQuery)]);
-    
+    const [debtsSnapshot, budgetCategories] = await Promise.all([
+        getDocs(debtsQuery),
+        getBudgetCategories()
+    ]);
     const allDebts = debtsSnapshot.docs.map(d => ({id: d.id, ...d.data()} as Debt));
-    const creditAccounts = accountsSnapshot.docs.map(a => ({id: a.id, ...a.data()} as AccountDetails));
 
-    // 2. Clear existing debt payments from budget
-    const existingBudgetPaymentsQuery = query(collection(db, BUDGET_COLLECTION), where('type', '==', 'Debt Payments'));
-    const existingBudgetPaymentsSnapshot = await getDocs(existingBudgetPaymentsQuery);
-    existingBudgetPaymentsSnapshot.forEach(doc => {
-      batch.delete(doc.ref);
-    });
-    
-    // 3. Update debts and create new budget items
+    // 2. Process each payment
     for (const debtId in payments) {
         const paymentAmount = payments[debtId];
         const debt = allDebts.find(d => d.id === debtId);
@@ -173,33 +185,30 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
             continue;
         }
 
-        // Update the actual payment on the debt worksheet
+        // 2a. Update the actual payment on the debt worksheet
         const debtRef = doc(db, DEBT_COLLECTION, debtId);
         batch.update(debtRef, { actualPayment: paymentAmount });
         
-        // Find the linked credit account
-        const linkedAccount = creditAccounts.find(acc => acc.linkedDebtId === debtId);
-        
-        if (!linkedAccount) {
-             console.warn(`No credit account linked to debt "${debt.name}". Cannot create budget item.`);
-             continue;
+        // 2b. Find the corresponding budget category for the debt type
+        const debtCategory = debt.debtType 
+            ? getCategoryForDebt(debt.debtType, budgetCategories)
+            : undefined;
+
+        if (!debtCategory) {
+            console.warn(`No budget category found for debt type: ${debt.debtType} on debt: ${debt.name}`);
+            continue;
         }
         
-        // Create a new budget item
-        const budgetItemData: Omit<BudgetItem, 'id'> = {
-            type: 'Debt Payments',
+        // 2c. Create a new transaction in the monthly budget
+        const transactionData: Omit<Transaction, 'id'> = {
+            type: 'expense',
             description: `${debt.name} Payment`,
             amount: paymentAmount,
-            date: new Date().toISOString(), 
-            frequency: 'One-Time',
-            category: 'N/A', // Or another default
-            completed: false,
-            transferFrom: linkedAccount.name, // The name of the credit account
-            transferTo: '', // This might not be relevant for debt payments
+            date: new Date().toISOString(),
+            categoryId: debtCategory.id,
         };
-
-        const newDocRef = doc(collection(db, BUDGET_COLLECTION));
-        batch.set(newDocRef, budgetItemData);
+        const newTransactionRef = doc(collection(db, TRANSACTIONS_COLLECTION));
+        batch.set(newTransactionRef, transactionData);
     }
     
     await batch.commit();

@@ -39,6 +39,7 @@ export default function DebtPage() {
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
     paid: true,
     name: true,
+    debtType: true,
     balance: true,
     interestRate: true,
     minimumPayment: true,
@@ -50,6 +51,7 @@ export default function DebtPage() {
   const columnConfig = {
     paid: { label: 'Paid' },
     name: { label: 'Debt Name' },
+    debtType: { label: 'Type'},
     balance: { label: 'Balance', isNumeric: true },
     interestRate: { label: 'Rate', isNumeric: true },
     minimumPayment: { label: 'Min. Payment', isNumeric: true },

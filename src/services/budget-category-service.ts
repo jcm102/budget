@@ -19,16 +19,18 @@ import {
 } from 'firebase/firestore';
 
 const CATEGORY_COLLECTION = 'budget-categories';
-const defaultCategories = ['Groceries', 'Utilities', 'Rent/Mortgage', 'Transportation', 'Entertainment', 'Other'];
+const defaultCategories = ['Groceries', 'Utilities', 'Rent/Mortgage', 'Transportation', 'Entertainment', 'Other', 'Credit Cards', 'Loans', 'Line of Credit'];
 
 async function seedDefaultCategories() {
   const categoryCollectionRef = collection(db, CATEGORY_COLLECTION);
-  const q = query(categoryCollectionRef, limit(1));
-  const snapshot = await getDocs(q);
-  
-  if (snapshot.empty) {
+  const snapshot = await getDocs(query(categoryCollectionRef));
+  const existingNames = new Set(snapshot.docs.map(doc => doc.data().name));
+
+  const missingCategories = defaultCategories.filter(name => !existingNames.has(name));
+
+  if (missingCategories.length > 0) {
     const batch = writeBatch(db);
-    defaultCategories.forEach(categoryName => {
+    missingCategories.forEach(categoryName => {
       const newDocRef = doc(categoryCollectionRef);
       batch.set(newDocRef, { name: categoryName, parentId: null });
     });

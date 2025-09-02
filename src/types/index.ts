@@ -38,11 +38,14 @@ export interface Task {
   internalLink?: string | null;
 }
 
+export type DebtType = 'Credit Card' | 'Loan' | 'Line of Credit';
+
 export interface Debt {
   id:string;
   name: string;
   order: number;
   interestRate: number;
+  debtType?: DebtType;
   // Current Month
   balance: number;
   minimumPayment: number;

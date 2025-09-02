@@ -23,12 +23,14 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import type { Debt } from '@/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { Debt, DebtType } from '@/types';
 import { Separator } from './ui/separator';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.'),
   interestRate: z.coerce.number().min(0, 'Interest rate must be a positive number.'),
+  debtType: z.enum(['Credit Card', 'Loan', 'Line of Credit']).optional(),
   // Current month fields
   balance: z.coerce.number().min(0, 'Balance must be a positive number.'),
   minimumPayment: z.coerce.number().min(0, 'Minimum payment must be a positive number.'),
@@ -69,6 +71,7 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
     defaultValues: {
       name: '',
       interestRate: 0,
+      debtType: 'Credit Card',
       balance: 0,
       minimumPayment: 0,
       actualPayment: 0,
@@ -85,6 +88,7 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
         form.reset({
           name: editingDebt.name,
           interestRate: editingDebt.interestRate || 0,
+          debtType: editingDebt.debtType || 'Credit Card',
           balance: editingDebt.balance,
           minimumPayment: editingDebt.minimumPayment,
           actualPayment: editingDebt.actualPayment,
@@ -98,6 +102,7 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
         form.reset({
           name: '',
           interestRate: 0,
+          debtType: 'Credit Card',
           balance: 0,
           minimumPayment: 0,
           actualPayment: 0,
@@ -124,6 +129,7 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
         ...values, 
         dueDate: toLocalISOString(localDate),
         nextDueDate: nextLocalDate,
+        debtType: values.debtType as DebtType,
     };
 
     if (editingDebt) {
@@ -156,7 +162,24 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
                   </FormItem>
                 )}
               />
-              <FormField control={form.control} name="interestRate" render={({ field }) => (
+              <FormField control={form.control} name="debtType" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Debt Type</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                        <FormControl>
+                           <SelectTrigger><SelectValue /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                            <SelectItem value="Credit Card">Credit Card</SelectItem>
+                            <SelectItem value="Loan">Loan</SelectItem>
+                            <SelectItem value="Line of Credit">Line of Credit</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+               <FormField control={form.control} name="interestRate" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Interest Rate (%)</FormLabel>
                     <FormControl>

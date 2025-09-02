@@ -104,6 +104,7 @@ function SortableDebtRow({ debt, view, onEdit, onDelete, onTogglePaid, formatCur
             />
         </TableCell>}
         {columnVisibility.name && <TableCell className={cn("font-medium", isPaid && "line-through")}>{debt.name}</TableCell>}
+        {columnVisibility.debtType && <TableCell>{debt.debtType}</TableCell>}
         {columnVisibility.balance && <TableCell className="text-right">{formatCurrency(balance || 0)}</TableCell>}
         {columnVisibility.interestRate && <TableCell className="text-right">{interestRate ? `${interestRate}%` : '-'}</TableCell>}
         {columnVisibility.minimumPayment && <TableCell className="text-right">{formatCurrency(minPayment || 0)}</TableCell>}
@@ -213,6 +214,7 @@ export function DebtTable({ view, columnVisibility, columnConfig }: DebtTablePro
     let span = 0;
     if (columnVisibility.paid) span++;
     if (columnVisibility.name) span++;
+    if (columnVisibility.debtType) span++;
     return span + 1; // +1 for the drag handle column
   }
   
