@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -11,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Calculator } from 'lucide-react';
 import { Badge } from './ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 interface ScheduleEntry {
   month: number;
@@ -25,6 +27,8 @@ const formatCurrency = (amount: number) => {
 
 export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
   const [totalMonthlyPayment, setTotalMonthlyPayment] = useState<number>(0);
+  const [extraPayment, setExtraPayment] = useState<number>(0);
+  const [extraPaymentTarget, setExtraPaymentTarget] = useState<string>('none');
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,7 +59,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
             id: d.id, 
             name: d.name,
             balance: d.balance, 
-            interestRate: d.interestRate, 
+            interestRate: d.interestRate / 100, // Convert to decimal for calculation
             minimumPayment: d.minimumPayment 
         }));
 
@@ -63,6 +67,15 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
         setError("No debts with a positive balance to calculate.");
         return;
     }
+    
+    // Apply one-time extra payment
+    if (extraPayment > 0 && extraPaymentTarget !== 'none') {
+        const targetDebt = currentDebts.find(d => d.id === extraPaymentTarget);
+        if (targetDebt) {
+            targetDebt.balance -= extraPayment;
+        }
+    }
+
 
     const newSchedule: ScheduleEntry[] = [];
     let month = 0;
@@ -73,32 +86,45 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
         let paymentForMonth = totalMonthlyPayment;
         const monthlyPayments: Record<string, number> = {};
 
-        // Apply interest
+        // Apply interest to remaining balances
         currentDebts.forEach(debt => {
-            const monthlyInterest = (debt.balance * (debt.interestRate / 100)) / 12;
+            const monthlyInterest = debt.balance * (debt.interestRate / 12);
             debt.balance += monthlyInterest;
         });
 
         // Pay minimums on all debts first
         for (const debt of currentDebts) {
-            const paymentAmount = Math.min(debt.minimumPayment, debt.balance, paymentForMonth);
-            monthlyPayments[debt.id] = (monthlyPayments[debt.id] || 0) + paymentAmount;
-            debt.balance -= paymentAmount;
-            paymentForMonth -= paymentAmount;
+             if (debt.balance > 0) {
+                const paymentAmount = Math.min(debt.minimumPayment, debt.balance);
+                monthlyPayments[debt.id] = (monthlyPayments[debt.id] || 0) + paymentAmount;
+                debt.balance -= paymentAmount;
+                paymentForMonth -= paymentAmount;
+            }
         }
+        
+        // Determine snowball amount from paid-off debts' minimums for this month
+        let snowball = 0;
+        debts.forEach(originalDebt => {
+            const currentDebt = currentDebts.find(d => d.id === originalDebt.id);
+            if (!currentDebt || currentDebt.balance <= 0) {
+                snowball += originalDebt.minimumPayment;
+            }
+        });
+        
+        paymentForMonth += snowball;
         
         // Sort by balance (smallest first) for snowball payment
         currentDebts.sort((a, b) => a.balance - b.balance);
 
-        // Apply extra payment (snowball) to the smallest debt
+        // Apply extra payment + snowball to the smallest debt
         if (paymentForMonth > 0) {
-            for (const debt of currentDebts) { // Loop again in sorted order
+            for (const debt of currentDebts) {
                 if (debt.balance > 0) {
-                    const extraPayment = Math.min(paymentForMonth, debt.balance);
-                    monthlyPayments[debt.id] = (monthlyPayments[debt.id] || 0) + extraPayment;
-                    debt.balance -= extraPayment;
-                    paymentForMonth -= extraPayment;
-                    if (paymentForMonth <= 0) break;
+                    const extraPaymentAmount = Math.min(paymentForMonth, debt.balance);
+                    monthlyPayments[debt.id] = (monthlyPayments[debt.id] || 0) + extraPaymentAmount;
+                    debt.balance -= extraPaymentAmount;
+                    paymentForMonth -= extraPaymentAmount;
+                    if (paymentForMonth <= 0.01) break; // Use a small epsilon
                 }
             }
         }
@@ -136,8 +162,8 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex flex-col sm:flex-row items-end gap-4">
-            <div className="grid w-full max-w-sm items-center gap-1.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+            <div className="grid w-full items-center gap-1.5">
                 <Label htmlFor="total-payment">Total Monthly Debt Payment</Label>
                 <Input
                     id="total-payment"
@@ -147,7 +173,31 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
                     placeholder={formatCurrency(totalMinimumPayment)}
                 />
             </div>
-            <Button onClick={calculateSchedule}>Calculate Schedule</Button>
+             <div className="grid w-full items-center gap-1.5">
+                <Label htmlFor="extra-payment">Extra One-Time Payment</Label>
+                <Input
+                    id="extra-payment"
+                    type="number"
+                    value={extraPayment || ''}
+                    onChange={(e) => setExtraPayment(parseFloat(e.target.value) || 0)}
+                    placeholder="e.g., 500"
+                />
+            </div>
+             <div className="grid w-full items-center gap-1.5">
+                <Label htmlFor="extra-payment-target">Apply Extra Payment To</Label>
+                 <Select onValueChange={setExtraPaymentTarget} value={extraPaymentTarget}>
+                    <SelectTrigger id="extra-payment-target">
+                        <SelectValue placeholder="Select a debt" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="none">Smallest Debt (Default)</SelectItem>
+                        {debts.filter(d => d.balance > 0).map(debt => (
+                            <SelectItem key={debt.id} value={debt.id}>{debt.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+            <Button onClick={calculateSchedule} className="w-full lg:w-auto">Calculate Schedule</Button>
         </div>
         {error && <Alert variant="destructive">
             <AlertTitle>Error</AlertTitle>
@@ -160,7 +210,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
             <CardHeader>
                 <CardTitle>Repayment Schedule</CardTitle>
                  <div className="text-sm text-muted-foreground">
-                    Based on your inputs, it will take an estimated <Badge variant="secondary">{schedule.length} months</Badge> to become debt-free.
+                    <div>Based on your inputs, it will take an estimated <Badge variant="secondary">{schedule.length} months</Badge> to become debt-free.</div>
                 </div>
             </CardHeader>
             <CardContent>
