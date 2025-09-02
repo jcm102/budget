@@ -19,6 +19,7 @@ import {
 } from 'firebase/firestore';
 
 const CATEGORY_COLLECTION = 'budget-categories';
+const BUDGET_ITEMS_COLLECTION = 'monthly-budget-items';
 const defaultCategories = ['Groceries', 'Utilities', 'Rent/Mortgage', 'Transportation', 'Entertainment', 'Other', 'Credit Cards', 'Loans', 'Line of Credit'];
 
 async function seedDefaultCategories() {
@@ -54,39 +55,35 @@ export async function addCategory(name: string, parentId: string | null = null):
   return newCategory;
 }
 
-// Recursive function to find all descendant IDs
 const findAllDescendantIds = async (categoryId: string): Promise<string[]> => {
     let descendantIds: string[] = [];
     const q = query(collection(db, CATEGORY_COLLECTION), where('parentId', '==', categoryId));
     const childrenSnapshot = await getDocs(q);
-
-    if (childrenSnapshot.empty) {
-        return [];
-    }
 
     for (const childDoc of childrenSnapshot.docs) {
         descendantIds.push(childDoc.id);
         const grandChildrenIds = await findAllDescendantIds(childDoc.id);
         descendantIds = descendantIds.concat(grandChildrenIds);
     }
-
     return descendantIds;
 };
 
-
 export async function deleteCategory(id: string): Promise<void> {
   const batch = writeBatch(db);
+  const idsToDelete = [id, ...(await findAllDescendantIds(id))];
 
-  // Find all descendants and add them to the batch for deletion
-  const descendantIds = await findAllDescendantIds(id);
-  descendantIds.forEach(descendantId => {
-    const descendantRef = doc(db, CATEGORY_COLLECTION, descendantId);
-    batch.delete(descendantRef);
+  // Delete all categories and subcategories
+  idsToDelete.forEach(categoryId => {
+    const categoryRef = doc(db, CATEGORY_COLLECTION, categoryId);
+    batch.delete(categoryRef);
   });
 
-  // Delete the parent category itself
-  const categoryRef = doc(db, CATEGORY_COLLECTION, id);
-  batch.delete(categoryRef);
+  // Delete associated monthly budget items
+  const budgetItemsQuery = query(collection(db, BUDGET_ITEMS_COLLECTION), where('categoryId', 'in', idsToDelete));
+  const budgetItemsSnapshot = await getDocs(budgetItemsQuery);
+  budgetItemsSnapshot.forEach(doc => {
+      batch.delete(doc.ref);
+  });
 
   await batch.commit();
 }

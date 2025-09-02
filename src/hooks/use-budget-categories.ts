@@ -35,9 +35,7 @@ export function useBudgetCategories() {
 
   const addCategory = useCallback(async (name: string, parentId: string | null = null) => {
     try {
-      const newCategory = await BudgetCategoryService.addCategory(name, parentId);
-      // Optimistically add to state, then fetch to ensure consistency
-      setCategories((prev) => [...prev, newCategory]);
+      await BudgetCategoryService.addCategory(name, parentId);
       await fetchCategories();
     } catch (error) {
       console.error('Failed to add category:', error);
@@ -51,14 +49,24 @@ export function useBudgetCategories() {
 
   const deleteCategory = useCallback(async (id: string) => {
     const originalCategories = [...categories];
+
+    // Find all descendant IDs to remove them from the UI optimistically
+    const idsToDelete = [id];
+    const queue = [id];
+    while (queue.length > 0) {
+        const parentId = queue.shift();
+        const children = categories.filter(c => c.parentId === parentId);
+        for (const child of children) {
+            idsToDelete.push(child.id);
+            queue.push(child.id);
+        }
+    }
+    
     // Optimistically update the UI
-    setCategories(prev => prev.filter(c => c.id !== id));
+    setCategories(prev => prev.filter(c => !idsToDelete.includes(c.id)));
     
     try {
       await BudgetCategoryService.deleteCategory(id);
-      // The optimistic update is already done.
-      // A refetch can be done here for ultimate consistency if needed, but the optimistic update should suffice.
-      // await fetchCategories(); 
     } catch (error: any) {
       console.error('Failed to delete category:', error);
       // Revert on error
