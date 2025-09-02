@@ -48,36 +48,18 @@ export function useBudgetCategories() {
   }, [toast, fetchCategories]);
 
   const deleteCategory = useCallback(async (id: string) => {
-    const originalCategories = [...categories];
-
-    // Find all descendant IDs to remove them from the UI optimistically
-    const idsToDelete = [id];
-    const queue = [id];
-    while (queue.length > 0) {
-        const parentId = queue.shift();
-        const children = categories.filter(c => c.parentId === parentId);
-        for (const child of children) {
-            idsToDelete.push(child.id);
-            queue.push(child.id);
-        }
-    }
-    
-    // Optimistically update the UI
-    setCategories(prev => prev.filter(c => !idsToDelete.includes(c.id)));
-    
     try {
       await BudgetCategoryService.deleteCategory(id);
+      await fetchCategories();
     } catch (error: any) {
       console.error('Failed to delete category:', error);
-      // Revert on error
-      setCategories(originalCategories);
       toast({
         title: 'Error',
         description: error.message || 'Failed to delete the category.',
         variant: 'destructive',
       });
     }
-  }, [categories, toast]);
+  }, [fetchCategories, toast]);
 
   return { categories, addCategory, deleteCategory, isLoading, fetchCategories };
 }

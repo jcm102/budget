@@ -55,22 +55,24 @@ export async function addCategory(name: string, parentId: string | null = null):
   return newCategory;
 }
 
-const findAllDescendantIds = async (categoryId: string): Promise<string[]> => {
+const findAllDescendantIds = (categoryId: string, allCategories: Category[]): string[] => {
+    const children = allCategories.filter(c => c.parentId === categoryId);
     let descendantIds: string[] = [];
-    const q = query(collection(db, CATEGORY_COLLECTION), where('parentId', '==', categoryId));
-    const childrenSnapshot = await getDocs(q);
-
-    for (const childDoc of childrenSnapshot.docs) {
-        descendantIds.push(childDoc.id);
-        const grandChildrenIds = await findAllDescendantIds(childDoc.id);
-        descendantIds = descendantIds.concat(grandChildrenIds);
+    for (const child of children) {
+        descendantIds.push(child.id);
+        descendantIds = [...descendantIds, ...findAllDescendantIds(child.id, allCategories)];
     }
     return descendantIds;
 };
 
 export async function deleteCategory(id: string): Promise<void> {
   const batch = writeBatch(db);
-  const idsToDelete = [id, ...(await findAllDescendantIds(id))];
+  
+  // Fetch all categories to build the hierarchy in memory
+  const allCategoriesSnapshot = await getDocs(collection(db, CATEGORY_COLLECTION));
+  const allCategories = allCategoriesSnapshot.docs.map(d => ({id: d.id, ...d.data()}) as Category);
+  
+  const idsToDelete = [id, ...findAllDescendantIds(id, allCategories)];
 
   // Delete all categories and subcategories
   idsToDelete.forEach(categoryId => {
@@ -78,12 +80,18 @@ export async function deleteCategory(id: string): Promise<void> {
     batch.delete(categoryRef);
   });
 
-  // Delete associated monthly budget items
-  const budgetItemsQuery = query(collection(db, BUDGET_ITEMS_COLLECTION), where('categoryId', 'in', idsToDelete));
-  const budgetItemsSnapshot = await getDocs(budgetItemsQuery);
-  budgetItemsSnapshot.forEach(doc => {
-      batch.delete(doc.ref);
-  });
+  // Delete associated monthly budget items.
+  // Firestore `in` query is limited to 30 items, so we might need to batch this.
+  for (let i = 0; i < idsToDelete.length; i += 30) {
+    const chunk = idsToDelete.slice(i, i + 30);
+    if (chunk.length > 0) {
+        const budgetItemsQuery = query(collection(db, BUDGET_ITEMS_COLLECTION), where('categoryId', 'in', chunk));
+        const budgetItemsSnapshot = await getDocs(budgetItemsQuery);
+        budgetItemsSnapshot.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+    }
+  }
 
   await batch.commit();
 }
