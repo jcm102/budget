@@ -54,14 +54,39 @@ export async function addCategory(name: string, parentId: string | null = null):
   return newCategory;
 }
 
-export async function deleteCategory(id: string): Promise<void> {
-  // Check if this category is a parent to any other categories
-  const q = query(collection(db, CATEGORY_COLLECTION), where('parentId', '==', id), limit(1));
-  const childrenSnapshot = await getDocs(q);
-  if (!childrenSnapshot.empty) {
-    throw new Error('Cannot delete a category that has subcategories.');
-  }
+// Recursive function to find all descendant IDs
+const findAllDescendantIds = async (categoryId: string): Promise<string[]> => {
+    let descendantIds: string[] = [];
+    const q = query(collection(db, CATEGORY_COLLECTION), where('parentId', '==', categoryId));
+    const childrenSnapshot = await getDocs(q);
 
+    if (childrenSnapshot.empty) {
+        return [];
+    }
+
+    for (const childDoc of childrenSnapshot.docs) {
+        descendantIds.push(childDoc.id);
+        const grandChildrenIds = await findAllDescendantIds(childDoc.id);
+        descendantIds = descendantIds.concat(grandChildrenIds);
+    }
+
+    return descendantIds;
+};
+
+
+export async function deleteCategory(id: string): Promise<void> {
+  const batch = writeBatch(db);
+
+  // Find all descendants and add them to the batch for deletion
+  const descendantIds = await findAllDescendantIds(id);
+  descendantIds.forEach(descendantId => {
+    const descendantRef = doc(db, CATEGORY_COLLECTION, descendantId);
+    batch.delete(descendantRef);
+  });
+
+  // Delete the parent category itself
   const categoryRef = doc(db, CATEGORY_COLLECTION, id);
-  await deleteDoc(categoryRef);
+  batch.delete(categoryRef);
+
+  await batch.commit();
 }
