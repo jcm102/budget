@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { Debt } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,6 +32,12 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
   const totalMinimumPayment = useMemo(() => {
     return debts.reduce((sum, debt) => sum + debt.minimumPayment, 0);
   }, [debts]);
+
+  useEffect(() => {
+    if (totalMinimumPayment > 0) {
+      setTotalMonthlyPayment(totalMinimumPayment);
+    }
+  }, [totalMinimumPayment]);
   
   const calculateSchedule = () => {
     setError(null);
@@ -54,44 +60,47 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
 
     const newSchedule: ScheduleEntry[] = [];
     let month = 1;
-    
+    let snowball = totalMonthlyPayment - totalMinimumPayment;
+
     while (currentDebts.some(d => d.balance > 0) && month < 360) { // Limit to 30 years
-        let remainingMonthlyPayment = totalMonthlyPayment;
         const monthlyPayments: Record<string, number> = {};
         const monthlyBalances: Record<string, number> = {};
-
-        // Pay minimums on all debts except the target
-        const targetDebtIndex = currentDebts.findIndex(d => d.balance > 0);
-        if (targetDebtIndex === -1) break; // All debts paid
-
-        const targetDebt = currentDebts[targetDebtIndex];
-
-        currentDebts.forEach((debt, index) => {
-            if (debt.balance > 0 && debt.id !== targetDebt.id) {
-                const payment = Math.min(debt.minimumPayment, debt.balance);
-                monthlyPayments[debt.id] = payment;
-                remainingMonthlyPayment -= payment;
-            }
-        });
-        
-        // Pay the rest to the target debt
-        const targetPayment = Math.min(remainingMonthlyPayment, targetDebt.balance * (1 + (targetDebt.interestRate / 100) / 12) );
-        monthlyPayments[targetDebt.id] = targetPayment;
-        
         let totalMonthPayment = 0;
+        let freedUpPayment = 0;
+        
+        const targetDebtIndex = currentDebts.findIndex(d => d.balance > 0);
+        if (targetDebtIndex === -1) break;
+        const targetDebtId = currentDebts[targetDebtIndex].id;
 
-        // Apply payments and calculate new balances
+        // Apply interest first
+        currentDebts.forEach(debt => {
+            const interest = (debt.balance * (debt.interestRate / 100)) / 12;
+            debt.balance += interest;
+        });
+
+        // Distribute payments
         currentDebts.forEach(debt => {
             if (debt.balance > 0) {
-                const payment = monthlyPayments[debt.id] || 0;
-                const interest = (debt.balance * (debt.interestRate / 100)) / 12;
-                debt.balance += interest - payment;
-                if (debt.balance < 0) debt.balance = 0;
-                 totalMonthPayment += payment;
+                let payment = debt.minimumPayment;
+                if (debt.id === targetDebtId) {
+                    payment += snowball;
+                }
+
+                const actualPayment = Math.min(payment, debt.balance);
+                monthlyPayments[debt.id] = actualPayment;
+                debt.balance -= actualPayment;
+                totalMonthPayment += actualPayment;
+
+                if (debt.balance <= 0) {
+                   freedUpPayment += debt.minimumPayment;
+                }
             }
+        });
+        
+        currentDebts.forEach(debt => {
             monthlyBalances[debt.id] = debt.balance;
         });
-
+        
         newSchedule.push({
             month,
             payments: monthlyPayments,
@@ -99,7 +108,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
             totalPaid: totalMonthPayment
         });
 
-        // Remove paid-off debts from the active list
+        snowball += freedUpPayment;
         currentDebts = currentDebts.filter(d => d.balance > 0);
         month++;
     }
@@ -153,7 +162,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
                             <TableRow>
                                 <TableHead className="w-[80px]">Month</TableHead>
                                 {debts.map(debt => (
-                                    <TableHead key={debt.id} className="text-right">{debt.name}</TableHead>
+                                    <TableHead key={debt.id} className="text-right min-w-[120px]">{debt.name}</TableHead>
                                 ))}
                                 <TableHead className="text-right font-bold">Total Paid</TableHead>
                             </TableRow>
@@ -167,13 +176,15 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
                                         const balance = entry.balances[debt.id];
                                         return (
                                             <TableCell key={debt.id} className="text-right">
-                                                {payment !== undefined ? (
-                                                    <div className="flex flex-col">
-                                                        <span className="text-destructive font-medium">-{formatCurrency(payment)}</span>
-                                                        <span className="text-xs text-muted-foreground">{formatCurrency(balance)}</span>
-                                                    </div>
+                                                {balance !== undefined ? (
+                                                     balance > 0 || payment > 0 ? (
+                                                        <div className="flex flex-col">
+                                                            <span className="text-destructive font-medium">-{formatCurrency(payment || 0)}</span>
+                                                            <span className="text-xs text-muted-foreground">{formatCurrency(balance)}</span>
+                                                        </div>
+                                                     ) : <span className="text-green-600">Paid Off</span>
                                                 ) : (
-                                                    <span className="text-green-600">Paid Off</span>
+                                                    <span className="text-muted-foreground">-</span>
                                                 )}
                                             </TableCell>
                                         )

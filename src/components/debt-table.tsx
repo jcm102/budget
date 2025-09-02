@@ -213,12 +213,13 @@ export function DebtTable({ view, columnVisibility, columnConfig }: DebtTablePro
     let span = 0;
     if (columnVisibility.paid) span++;
     if (columnVisibility.name) span++;
+    if (columnVisibility.balance) span++;
+    if (columnVisibility.interestRate) span++;
     return span + 1; // +1 for the drag handle column
   }
 
   const getColSpanForSpacer = () => {
       let span = 0;
-      if (columnVisibility.interestRate) span++;
       if (columnVisibility.dueDate) span++;
       if (columnVisibility.actions) span++;
       // If it's not the current view, we have one less column (actualPayment)
@@ -290,8 +291,7 @@ export function DebtTable({ view, columnVisibility, columnConfig }: DebtTablePro
             </TableBody>
             <TableFooter>
               <TableRow>
-                <TableCell colSpan={getColSpanForTotals()} className="font-semibold">Totals</TableCell>
-                {columnVisibility.balance && <TableCell className="text-right font-semibold">{formatCurrency(totalBalance)}</TableCell>}
+                <TableCell colSpan={getColSpanForTotals()} className="font-semibold text-right">Totals</TableCell>
                 {columnVisibility.minimumPayment && <TableCell className="text-right font-semibold">{formatCurrency(totalMinimumPayment)}</TableCell>}
                 {columnVisibility.actualPayment && isCurrentView && <TableCell className="text-right font-bold">{formatCurrency(totalActualPayment)}</TableCell>}
                 <TableCell colSpan={getColSpanForSpacer()}></TableCell>
@@ -303,5 +303,3 @@ export function DebtTable({ view, columnVisibility, columnConfig }: DebtTablePro
     </>
   );
 }
-
-    
