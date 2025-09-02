@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -68,10 +67,11 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
     const newSchedule: ScheduleEntry[] = [];
     let month = 0;
     
-    while (currentDebts.some(d => d.balance > 0) && month < 360) { // Limit to 30 years
+     while (currentDebts.some(d => d.balance > 0) && month < 360) { // Limit to 30 years
         month++;
         
         let paymentForMonth = totalMonthlyPayment;
+        const monthlyPayments: Record<string, number> = {};
 
         // Apply interest
         currentDebts.forEach(debt => {
@@ -79,11 +79,6 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
             debt.balance += monthlyInterest;
         });
 
-        // Sort by balance (smallest first) for snowball payment
-        currentDebts.sort((a, b) => a.balance - b.balance);
-
-        const monthlyPayments: Record<string, number> = {};
-        
         // Pay minimums on all debts first
         for (const debt of currentDebts) {
             const paymentAmount = Math.min(debt.minimumPayment, debt.balance, paymentForMonth);
@@ -91,6 +86,9 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
             debt.balance -= paymentAmount;
             paymentForMonth -= paymentAmount;
         }
+        
+        // Sort by balance (smallest first) for snowball payment
+        currentDebts.sort((a, b) => a.balance - b.balance);
 
         // Apply extra payment (snowball) to the smallest debt
         if (paymentForMonth > 0) {
@@ -105,18 +103,11 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
             }
         }
         
-        // Update minimum payments for paid off debts
-        currentDebts.forEach(debt => {
-            if (debt.balance <= 0) {
-                debt.minimumPayment = 0;
-            }
-        });
-        
         const monthlyBalances: Record<string, number> = {};
         let totalMonthPayment = 0;
         debts.forEach(debt => {
             const currentDebtState = currentDebts.find(d => d.id === debt.id);
-            monthlyBalances[debt.id] = currentDebtState ? currentDebtState.balance : 0;
+            monthlyBalances[debt.id] = currentDebtState ? Math.max(0, currentDebtState.balance) : 0;
             totalMonthPayment += (monthlyPayments[debt.id] || 0);
         });
 
@@ -168,7 +159,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
             <Separator />
             <CardHeader>
                 <CardTitle>Repayment Schedule</CardTitle>
-                <div className="text-sm text-muted-foreground">
+                 <div className="text-sm text-muted-foreground">
                     Based on your inputs, it will take an estimated <Badge variant="secondary">{schedule.length} months</Badge> to become debt-free.
                 </div>
             </CardHeader>
