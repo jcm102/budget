@@ -30,6 +30,7 @@ import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { ColumnVisibility } from '@/components/debt-table';
+import { DebtSnowballCalculator } from '@/components/debt-snowball-calculator';
 
 export default function DebtPage() {
   const { debts, addDebt, updateDebt, deleteDebt, resetDebtValues, cycleToNextMonth, updateDebtOrder, toggleDebtPaid, isLoading } = useDebt();
@@ -39,6 +40,7 @@ export default function DebtPage() {
     paid: true,
     name: true,
     balance: true,
+    interestRate: true,
     minimumPayment: true,
     actualPayment: true,
     dueDate: true,
@@ -49,6 +51,7 @@ export default function DebtPage() {
     paid: { label: 'Paid' },
     name: { label: 'Debt Name' },
     balance: { label: 'Balance', isNumeric: true },
+    interestRate: { label: 'Rate', isNumeric: true },
     minimumPayment: { label: 'Min. Payment', isNumeric: true },
     actualPayment: { label: 'Actual Payment', isNumeric: true },
     dueDate: { label: 'Due Date' },
@@ -166,8 +169,10 @@ export default function DebtPage() {
             />
           </TabsContent>
         </Tabs>
+        <div className="mt-12">
+            <DebtSnowballCalculator debts={debts} />
+        </div>
       </main>
     </div>
   );
 }
-

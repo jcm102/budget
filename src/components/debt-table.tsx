@@ -86,6 +86,7 @@ function SortableDebtRow({ debt, view, onEdit, onDelete, onTogglePaid, formatCur
   const actualPayment = isCurrentView ? debt.actualPayment : undefined;
   const dueDate = isCurrentView ? debt.dueDate : debt.nextDueDate;
   const isPaid = isCurrentView ? debt.paid : debt.nextPaid;
+  const interestRate = debt.interestRate;
 
   return (
     <TableRow ref={setNodeRef} style={style} {...attributes} className={cn(isPaid && "bg-accent/30 text-muted-foreground")}>
@@ -104,6 +105,7 @@ function SortableDebtRow({ debt, view, onEdit, onDelete, onTogglePaid, formatCur
         </TableCell>}
         {columnVisibility.name && <TableCell className={cn("font-medium", isPaid && "line-through")}>{debt.name}</TableCell>}
         {columnVisibility.balance && <TableCell className="text-right">{formatCurrency(balance || 0)}</TableCell>}
+        {columnVisibility.interestRate && <TableCell className="text-right">{interestRate ? `${interestRate}%` : '-'}</TableCell>}
         {columnVisibility.minimumPayment && <TableCell className="text-right">{formatCurrency(minPayment || 0)}</TableCell>}
         {columnVisibility.actualPayment && isCurrentView && <TableCell className="text-right font-bold">{formatCurrency(actualPayment || 0)}</TableCell>}
         {columnVisibility.dueDate && <TableCell>{dueDate ? format(new Date(dueDate), 'PPP') : '-'}</TableCell>}
@@ -216,6 +218,7 @@ export function DebtTable({ view, columnVisibility, columnConfig }: DebtTablePro
 
   const getColSpanForSpacer = () => {
       let span = 0;
+      if (columnVisibility.interestRate) span++;
       if (columnVisibility.dueDate) span++;
       if (columnVisibility.actions) span++;
       // If it's not the current view, we have one less column (actualPayment)

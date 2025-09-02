@@ -34,6 +34,7 @@ export async function addDebt(debtData: Omit<Debt, 'id' | 'order'>): Promise<Deb
 
   const newDebt: Omit<Debt, 'id'> = { 
     ...debtData, 
+    interestRate: debtData.interestRate || 0,
     order: newOrder, 
     paid: false,
     nextBalance: debtData.nextBalance || 0,

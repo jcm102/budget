@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect } from 'react';
@@ -27,6 +28,7 @@ import { Separator } from './ui/separator';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.'),
+  interestRate: z.coerce.number().min(0, 'Interest rate must be a positive number.'),
   // Current month fields
   balance: z.coerce.number().min(0, 'Balance must be a positive number.'),
   minimumPayment: z.coerce.number().min(0, 'Minimum payment must be a positive number.'),
@@ -66,6 +68,7 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
+      interestRate: 0,
       balance: 0,
       minimumPayment: 0,
       actualPayment: 0,
@@ -81,6 +84,7 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
       if (editingDebt) {
         form.reset({
           name: editingDebt.name,
+          interestRate: editingDebt.interestRate || 0,
           balance: editingDebt.balance,
           minimumPayment: editingDebt.minimumPayment,
           actualPayment: editingDebt.actualPayment,
@@ -93,6 +97,7 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
         const today = new Date().toISOString().split('T')[0];
         form.reset({
           name: '',
+          interestRate: 0,
           balance: 0,
           minimumPayment: 0,
           actualPayment: 0,
@@ -140,16 +145,28 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField control={form.control} name="name" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Debt Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., Credit Card" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField control={form.control} name="name" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Debt Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Credit Card" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField control={form.control} name="interestRate" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Interest Rate (%)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <Separator />
             <h4 className="text-md font-medium text-center">Current Month</h4>

@@ -41,6 +41,7 @@ export interface Debt {
   id:string;
   name: string;
   order: number;
+  interestRate: number;
   // Current Month
   balance: number;
   minimumPayment: number;
@@ -143,6 +144,7 @@ export interface SavingsItem {
   savingsTarget?: number | null; // Optional personal savings goal if different from totalCost
   dueDate?: string | null; // Optional due date for the fund
   recurrence?: SavingsRecurrence | null;
+  parentId?: string | null;
   
   // These fields are calculated at runtime for display
   monthlyAmount?: number;
@@ -175,7 +177,7 @@ export interface SubscriptionItem {
   serviceName: string;
   billingFrequency: SubscriptionBillingFrequency;
   cost: number;
-  nextRenewalDate: string; // ISO string
+  nextRenewalDate: string; // ISO string;
 }
 
 export interface LinkGroup {
