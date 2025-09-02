@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -167,7 +168,6 @@ const getCategoryForDebt = (debtType: DebtType, budgetCategories: Category[]): C
 export async function applyPaymentsToBudget(payments: Record<string, number>): Promise<void> {
     const batch = writeBatch(db);
 
-    // 1. Get all debts and budget categories
     const debtsQuery = query(collection(db, DEBT_COLLECTION));
     const [debtsSnapshot, budgetCategories] = await Promise.all([
         getDocs(debtsQuery),
@@ -175,7 +175,6 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
     ]);
     const allDebts = debtsSnapshot.docs.map(d => ({id: d.id, ...d.data()} as Debt));
 
-    // 2. Process each payment
     for (const debtId in payments) {
         const paymentAmount = payments[debtId];
         const debt = allDebts.find(d => d.id === debtId);
@@ -185,11 +184,9 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
             continue;
         }
 
-        // 2a. Update the actual payment on the debt worksheet
         const debtRef = doc(db, DEBT_COLLECTION, debtId);
         batch.update(debtRef, { actualPayment: paymentAmount });
         
-        // 2b. Find the corresponding budget category for the debt type
         const debtCategory = debt.debtType 
             ? getCategoryForDebt(debt.debtType, budgetCategories)
             : undefined;
@@ -199,7 +196,6 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
             continue;
         }
         
-        // 2c. Create a new transaction in the monthly budget
         const transactionData: Omit<Transaction, 'id'> = {
             type: 'expense',
             description: `${debt.name} Payment`,
