@@ -3,7 +3,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import type { Debt, AccountDetails, BudgetItem, Category, Transaction, DebtType } from '@/types';
+import type { Debt, AccountDetails, BudgetItem, Category, DebtType, MonthlyBudgetItem } from '@/types';
 import { 
   collection, 
   getDocs, 
@@ -24,6 +24,7 @@ const ACCOUNT_DETAILS_COLLECTION = 'transferees';
 const TRANSACTIONS_COLLECTION = 'transactions';
 const BUDGET_CATEGORIES_COLLECTION = 'budget-categories';
 const BUDGET_ITEMS_COLLECTION = 'budget-items';
+const MONTHLY_BUDGET_ITEMS_COLLECTION = 'monthly-budget-items';
 
 
 export async function getDebts(): Promise<Debt[]> {
@@ -171,13 +172,15 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
     const batch = writeBatch(db);
     
     // Step 1: Read all necessary data
-    const [debtsSnapshot, accountsSnapshot, budgetCategories] = await Promise.all([
+    const [debtsSnapshot, accountsSnapshot, budgetCategories, monthlyBudgetSnapshot] = await Promise.all([
         getDocs(query(collection(db, DEBT_COLLECTION))),
         getDocs(query(collection(db, ACCOUNT_DETAILS_COLLECTION))),
-        getBudgetCategories()
+        getBudgetCategories(),
+        getDocs(query(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION), where('month', '==', new Date().toISOString().slice(0, 7))))
     ]);
     const allDebts = debtsSnapshot.docs.map(d => ({id: d.id, ...d.data()} as Debt));
     const allAccounts = accountsSnapshot.docs.map(a => ({id: a.id, ...a.data()} as AccountDetails));
+    const allMonthlyBudgetItems = monthlyBudgetSnapshot.docs.map(d => ({id: d.id, ...d.data()} as MonthlyBudgetItem));
 
     // Step 2: Clear existing debt payments from budget overview
     const existingBudgetPaymentsQuery = query(collection(db, BUDGET_ITEMS_COLLECTION), where('type', '==', 'Debt Payments'));
@@ -185,6 +188,10 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
     existingBudgetPaymentsSnapshot.forEach(doc => {
         batch.delete(doc.ref);
     });
+    
+    // This will hold the aggregated budget breakdown for each category.
+    const categoryBreakdowns: Record<string, { budgetItem: MonthlyBudgetItem | undefined, breakdown: { name: string, amount: number }[] }> = {};
+
 
     // Step 3: Process new payments
     for (const debtId in payments) {
@@ -199,7 +206,6 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
         const debtRef = doc(db, DEBT_COLLECTION, debtId);
         batch.update(debtRef, { actualPayment: paymentAmount });
         
-        // Find the linked account for the "from" field in the budget overview
         const linkedAccount = allAccounts.find(acc => acc.linkedDebtId === debt.id);
 
         // Create a new budget item for the budget overview
@@ -209,33 +215,48 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
             amount: paymentAmount,
             date: debt.dueDate,
             frequency: 'One-Time',
-            category: 'N/A', // Not applicable for this view
+            category: 'N/A',
             completed: false,
             transferFrom: linkedAccount ? linkedAccount.name : 'Unknown',
         };
         const newBudgetItemRef = doc(collection(db, BUDGET_ITEMS_COLLECTION));
         batch.set(newBudgetItemRef, budgetItemData);
 
-        // Create a transaction for the monthly budget
-        const debtCategory = debt.debtType 
-            ? getCategoryForDebt(debt.debtType, budgetCategories)
-            : undefined;
-
+        // Aggregate payments for the monthly budget
+        const debtCategory = debt.debtType ? getCategoryForDebt(debt.debtType, budgetCategories) : undefined;
         if (debtCategory) {
-            const transactionData: Omit<Transaction, 'id'> = {
-                type: 'expense',
-                description: `${debt.name} Payment`,
-                amount: paymentAmount,
-                date: new Date().toISOString(), // Use today's date for the transaction
-                categoryId: debtCategory.id,
-            };
-            const newTransactionRef = doc(collection(db, TRANSACTIONS_COLLECTION));
-            batch.set(newTransactionRef, transactionData);
+            if (!categoryBreakdowns[debtCategory.id]) {
+                 categoryBreakdowns[debtCategory.id] = {
+                    budgetItem: allMonthlyBudgetItems.find(item => item.categoryId === debtCategory.id),
+                    breakdown: []
+                };
+            }
+            categoryBreakdowns[debtCategory.id].breakdown.push({
+                name: debt.name,
+                amount: paymentAmount
+            });
+        }
+    }
+
+     // Step 4: Update the monthly budget items
+    for (const categoryId in categoryBreakdowns) {
+        const { budgetItem, breakdown } = categoryBreakdowns[categoryId];
+        const totalBudgeted = breakdown.reduce((sum, item) => sum + item.amount, 0);
+
+        if (budgetItem) {
+            const budgetItemRef = doc(db, MONTHLY_BUDGET_ITEMS_COLLECTION, budgetItem.id);
+            batch.update(budgetItemRef, { budgeted: totalBudgeted, breakdown: breakdown });
         } else {
-             console.warn(`No budget category found for debt type: ${debt.debtType} on debt: ${debt.name}`);
+            const newMonthlyBudgetItemRef = doc(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION));
+            batch.set(newMonthlyBudgetItemRef, {
+                categoryId: categoryId,
+                month: new Date().toISOString().slice(0, 7),
+                budgeted: totalBudgeted,
+                breakdown: breakdown
+            });
         }
     }
     
-    // Step 4: Commit all changes
+    // Step 5: Commit all changes
     await batch.commit();
 }
