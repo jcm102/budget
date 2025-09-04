@@ -110,28 +110,6 @@ export function useBudget() {
     }
   }, [budgetItems, toast]);
 
-  const syncDebtPayments = useCallback(async () => {
-    try {
-      await BudgetService.syncDebtPayments();
-      // After a successful sync, refetch all items to update the UI
-      await fetchBudgetItems();
-    } catch (error) {
-      console.error('Failed to sync debt payments:', error);
-      // The calling component will handle the toast
-      throw error;
-    }
-  }, [fetchBudgetItems]);
-
-  const clearDebtPayments = useCallback(async () => {
-    try {
-      await BudgetService.clearDebtPayments();
-      await fetchBudgetItems();
-    } catch (error) {
-      console.error('Failed to clear debt payments:', error);
-      throw error;
-    }
-  }, [fetchBudgetItems]);
-
   const resetPaPayments = useCallback(async () => {
     try {
       await BudgetService.resetPaPayments();
@@ -158,8 +136,6 @@ export function useBudget() {
     toggleBudgetItemCompleted, 
     resetPaPayments,
     isLoading,
-    syncDebtPayments,
-    clearDebtPayments,
     fetchBudgetItems,
   };
 }

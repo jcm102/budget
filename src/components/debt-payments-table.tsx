@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, Repeat, ArrowUpDown, RefreshCw, ArrowRightLeft } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, Repeat, ArrowUpDown, ArrowRightLeft } from 'lucide-react';
 import type { BudgetItem } from '@/types';
 import {
   Table,
@@ -32,7 +32,6 @@ import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
 import { Badge } from './ui/badge';
-import { useToast } from '@/hooks/use-toast';
 
 type SortConfig = {
     key: keyof BudgetItem;
@@ -54,12 +53,10 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
 }
 
 export function DebtPaymentsTable() {
-  const { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, syncDebtPayments, clearDebtPayments, isLoading } = useBudget();
+  const { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, isLoading } = useBudget();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<BudgetItem | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'ascending' });
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [isClearing, setIsClearing] = useState(false);
   const { toast } = useToast();
 
   const debtItems = useMemo(() => budgetItems.filter(item => item.type === 'Debt Payments'), [budgetItems]);
@@ -75,46 +72,6 @@ export function DebtPaymentsTable() {
       setEditingItem(null);
     }
   };
-  
-  const handleSync = async () => {
-    setIsSyncing(true);
-    try {
-      await syncDebtPayments();
-      toast({
-        title: 'Success!',
-        description: 'Your debt payments have been synced to the budget.',
-      });
-    } catch (error) {
-       toast({
-        title: 'Error',
-        description: 'Failed to sync debt payments.',
-        variant: 'destructive',
-      });
-      console.error('Failed to sync debt payments:', error);
-    } finally {
-      setIsSyncing(false);
-    }
-  }
-
-  const handleClear = async () => {
-    setIsClearing(true);
-    try {
-      await clearDebtPayments();
-      toast({
-        title: 'Success!',
-        description: 'Synced debt payments have been cleared from the budget.',
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to clear debt payments.',
-        variant: 'destructive',
-      });
-      console.error('Failed to clear debt payments:', error);
-    } finally {
-      setIsClearing(false);
-    }
-  }
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
@@ -172,36 +129,7 @@ export function DebtPaymentsTable() {
        <div className="flex justify-between items-center mb-6 gap-2 no-print">
          <h3 className="text-2xl font-bold font-headline text-primary">Debt Payments</h3>
         <div className="flex items-center gap-2">
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" disabled={isClearing}>
-                  <Trash2 className={`mr-2 h-4 w-4 ${isClearing ? 'animate-spin' : ''}`} />
-                   {isClearing ? 'Clearing...' : 'Clear Synced Debts'}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will permanently delete all synced debt payments from your budget overview. This will not affect your Debt Worksheet.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleClear} className={cn(buttonVariants({ variant: "destructive" }))}>
-                    Yes, Clear Debts
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-            <Button variant="outline" onClick={handleSync} disabled={isSyncing}>
-              <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-              {isSyncing ? 'Syncing...' : 'Sync Debts'}
-            </Button>
-            <Button onClick={() => setIsFormOpen(true)}>
-                <PlusCircle className="mr-2 h-5 w-5" />
-                Add Budget Item
-            </Button>
+            <p className="text-sm text-muted-foreground">Generated from the Debt Repayment Calculator.</p>
         </div>
       </div>
 
@@ -265,7 +193,7 @@ export function DebtPaymentsTable() {
                 ) : (
                     <TableRow>
                     <TableCell colSpan={5} className="h-24 text-center">
-                        No debt payment items added yet. Try syncing from the Debt Worksheet.
+                        No debt payment items found. Use the Debt Calculator to generate them.
                     </TableCell>
                     </TableRow>
                 )}
