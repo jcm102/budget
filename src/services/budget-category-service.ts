@@ -16,35 +16,49 @@ import {
   limit,
   where,
   Query,
+  setDoc,
 } from 'firebase/firestore';
 
 const CATEGORY_COLLECTION = 'budget-categories';
 const BUDGET_ITEMS_COLLECTION = 'monthly-budget-items';
 const defaultCategories = ['Groceries', 'Utilities', 'Rent/Mortgage', 'Transportation', 'Entertainment', 'Other', 'Credit Cards', 'Loans', 'Line of Credit'];
 
+// This function now uses a flag to ensure it only runs once.
 async function seedDefaultCategories() {
-  const categoryCollectionRef = collection(db, CATEGORY_COLLECTION);
-  const snapshot = await getDocs(query(categoryCollectionRef));
-  const existingNames = new Set(snapshot.docs.map(doc => doc.data().name));
+  const seedFlagRef = doc(db, CATEGORY_COLLECTION, '_seeded');
+  const seedFlagSnap = await getDoc(seedFlagRef);
 
-  const missingCategories = defaultCategories.filter(name => !existingNames.has(name));
-
-  if (missingCategories.length > 0) {
-    const batch = writeBatch(db);
-    missingCategories.forEach(categoryName => {
-      const newDocRef = doc(categoryCollectionRef);
-      batch.set(newDocRef, { name: categoryName, parentId: null });
-    });
-    await batch.commit();
+  if (seedFlagSnap.exists()) {
+    // The flag exists, so seeding has already been done.
+    return;
   }
+  
+  // Seeding has not been done. Proceed with seeding.
+  const categoryCollectionRef = collection(db, CATEGORY_COLLECTION);
+  const batch = writeBatch(db);
+
+  defaultCategories.forEach(categoryName => {
+    const newDocRef = doc(categoryCollectionRef);
+    batch.set(newDocRef, { name: categoryName, parentId: null });
+  });
+
+  // After adding the categories, set the flag so this doesn't run again.
+  batch.set(seedFlagRef, { seeded: true });
+
+  await batch.commit();
 }
+
 
 export async function getCategories(): Promise<Category[]> {
   await seedDefaultCategories();
   const categoryCollection = collection(db, CATEGORY_COLLECTION);
-  const q = query(categoryCollection, orderBy('name'));
+  // Exclude the seeding flag document from the results returned to the app.
+  const q = query(categoryCollection, where('__name__', '!=', '_seeded'), orderBy('__name__'));
   const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
+  
+  const categories = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
+  // We manually sort by name now since ordering by name and using a != filter on the name is not supported by Firestore.
+  return categories.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function addCategory(name: string, parentId: string | null = null): Promise<Category> {
