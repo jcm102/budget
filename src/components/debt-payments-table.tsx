@@ -57,7 +57,6 @@ export function DebtPaymentsTable() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<BudgetItem | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'ascending' });
-  const { toast } = useToast();
 
   const debtItems = useMemo(() => budgetItems.filter(item => item.type === 'Debt Payments'), [budgetItems]);
 
