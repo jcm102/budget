@@ -30,7 +30,7 @@ import { Separator } from './ui/separator';
 const formSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.'),
   interestRate: z.coerce.number().min(0, 'Interest rate must be a positive number.'),
-  debtType: z.enum(['Credit Card', 'Loan', 'Line of Credit']).optional(),
+  debtType: z.enum(['Credit Card', 'Loan', 'Line of Credit']),
   // Current month fields
   balance: z.coerce.number().min(0, 'Balance must be a positive number.'),
   minimumPayment: z.coerce.number().min(0, 'Minimum payment must be a positive number.'),
