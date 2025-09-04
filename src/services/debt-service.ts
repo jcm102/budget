@@ -170,13 +170,14 @@ const getCategoryForDebt = (debtType: DebtType, budgetCategories: Category[]): C
 
 export async function applyPaymentsToBudget(payments: Record<string, number>): Promise<void> {
     const batch = writeBatch(db);
+    const currentMonth = new Date().toISOString().slice(0, 7);
     
     // Step 1: Read all necessary data
     const [debtsSnapshot, accountsSnapshot, budgetCategories, monthlyBudgetSnapshot] = await Promise.all([
         getDocs(query(collection(db, DEBT_COLLECTION))),
         getDocs(query(collection(db, ACCOUNT_DETAILS_COLLECTION))),
         getBudgetCategories(),
-        getDocs(query(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION), where('month', '==', new Date().toISOString().slice(0, 7))))
+        getDocs(query(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION), where('month', '==', currentMonth)))
     ]);
     const allDebts = debtsSnapshot.docs.map(d => ({id: d.id, ...d.data()} as Debt));
     const allAccounts = accountsSnapshot.docs.map(a => ({id: a.id, ...a.data()} as AccountDetails));
@@ -189,9 +190,8 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
         batch.delete(doc.ref);
     });
     
-    // This will hold the aggregated budget breakdown for each category.
-    const categoryBreakdowns: Record<string, { budgetItem: MonthlyBudgetItem | undefined, breakdown: { name: string, amount: number }[] }> = {};
-
+    // Aggregate payments by category
+    const categoryTotals: Record<string, number> = {};
 
     // Step 3: Process new payments
     for (const debtId in payments) {
@@ -225,34 +225,30 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
         // Aggregate payments for the monthly budget
         const debtCategory = debt.debtType ? getCategoryForDebt(debt.debtType, budgetCategories) : undefined;
         if (debtCategory) {
-            if (!categoryBreakdowns[debtCategory.id]) {
-                 categoryBreakdowns[debtCategory.id] = {
-                    budgetItem: allMonthlyBudgetItems.find(item => item.categoryId === debtCategory.id),
-                    breakdown: []
-                };
+            if (!categoryTotals[debtCategory.id]) {
+                categoryTotals[debtCategory.id] = 0;
             }
-            categoryBreakdowns[debtCategory.id].breakdown.push({
-                name: debt.name,
-                amount: paymentAmount
-            });
+            categoryTotals[debtCategory.id] += paymentAmount;
         }
     }
 
-     // Step 4: Update the monthly budget items
-    for (const categoryId in categoryBreakdowns) {
-        const { budgetItem, breakdown } = categoryBreakdowns[categoryId];
-        const totalBudgeted = breakdown.reduce((sum, item) => sum + item.amount, 0);
+     // Step 4: Update the monthly budget items with aggregated totals
+    for (const categoryId in categoryTotals) {
+        const totalForCategory = categoryTotals[categoryId];
+        const budgetItem = allMonthlyBudgetItems.find(item => item.categoryId === categoryId);
 
         if (budgetItem) {
+            // If item exists, update its budget
             const budgetItemRef = doc(db, MONTHLY_BUDGET_ITEMS_COLLECTION, budgetItem.id);
-            batch.update(budgetItemRef, { budgeted: totalBudgeted, breakdown: breakdown });
+            batch.update(budgetItemRef, { budgeted: totalForCategory, breakdown: [] }); // Reset breakdown
         } else {
+            // If item doesn't exist, create it
             const newMonthlyBudgetItemRef = doc(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION));
             batch.set(newMonthlyBudgetItemRef, {
                 categoryId: categoryId,
-                month: new Date().toISOString().slice(0, 7),
-                budgeted: totalBudgeted,
-                breakdown: breakdown
+                month: currentMonth,
+                budgeted: totalForCategory,
+                breakdown: [] // Start with an empty breakdown
             });
         }
     }
