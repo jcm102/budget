@@ -56,93 +56,19 @@ export async function getTransactionsForMonth(month: string): Promise<Transactio
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
 }
 
-const updateBudgetSpent = async (transaction: FirebaseFirestore.Transaction, month: string, splits: TransactionSplit[], operation: 'add' | 'subtract') => {
-    if (!splits || splits.length === 0) return;
-
-    for (const split of splits) {
-        const q = query(
-            collection(db, BUDGET_ITEMS_COLLECTION),
-            where('month', '==', month),
-            where('categoryId', '==', split.categoryId)
-        );
-        const budgetSnapshot = await getDocs(q); // Must use getDocs inside transaction
-
-        if (!budgetSnapshot.empty) {
-            const budgetDoc = budgetSnapshot.docs[0];
-            const budgetItem = budgetDoc.data() as MonthlyBudgetItem;
-            const breakdown = budgetItem.breakdown || [];
-            
-            const updatedBreakdown = breakdown.map(item => {
-                if (item.name === split.budgetItemName) {
-                    const currentActual = (item as any).actual || 0;
-                    const newActual = operation === 'add'
-                        ? currentActual + split.amount
-                        : currentActual - split.amount;
-                    return { ...item, actual: newActual };
-                }
-                return item;
-            });
-            transaction.update(budgetDoc.ref, { breakdown: updatedBreakdown });
-        }
-    }
-};
 
 export async function addTransaction(transactionData: Omit<Transaction, 'id'>): Promise<Transaction> {
-  const month = new Date(transactionData.date).toISOString().slice(0, 7);
-
-  const docRef = await runTransaction(db, async (transaction) => {
-    if (transactionData.type === 'expense' && transactionData.splits) {
-        await updateBudgetSpent(transaction, month, transactionData.splits, 'add');
-    }
-    const newDocRef = doc(collection(db, TRANSACTIONS_COLLECTION));
-    transaction.set(newDocRef, transactionData);
-    return newDocRef;
-  });
-
-  const docSnap = await getDoc(docRef);
+  const newDocRef = await addDoc(collection(db, TRANSACTIONS_COLLECTION), transactionData);
+  const docSnap = await getDoc(newDocRef);
   return { id: docSnap.id, ...(docSnap.data() as Omit<Transaction, 'id'>) };
 }
 
 export async function updateTransaction(id: string, transactionData: Partial<Omit<Transaction, 'id'>>): Promise<void> {
     const transactionRef = doc(db, TRANSACTIONS_COLLECTION, id);
-    const month = new Date(transactionData.date!).toISOString().slice(0, 7);
-
-    await runTransaction(db, async (transaction) => {
-        const docSnap = await transaction.get(transactionRef);
-        if (!docSnap.exists()) {
-            throw new Error("Transaction not found");
-        }
-        const oldData = docSnap.data() as Transaction;
-
-        // Revert old transaction's impact
-        if (oldData.type === 'expense' && oldData.splits) {
-            await updateBudgetSpent(transaction, month, oldData.splits, 'subtract');
-        }
-
-        // Apply new transaction's impact
-        if (transactionData.type === 'expense' && transactionData.splits) {
-            await updateBudgetSpent(transaction, month, transactionData.splits, 'add');
-        }
-
-        transaction.update(transactionRef, transactionData);
-    });
+    await updateDoc(transactionRef, transactionData);
 }
 
 export async function deleteTransaction(id: string): Promise<void> {
   const transactionRef = doc(db, TRANSACTIONS_COLLECTION, id);
-  
-  await runTransaction(db, async (transaction) => {
-    const docSnap = await transaction.get(transactionRef);
-    if (!docSnap.exists()) {
-      throw new Error("Transaction not found");
-    }
-    const data = docSnap.data() as Transaction;
-    const month = new Date(data.date).toISOString().slice(0, 7);
-
-    if (data.type === 'expense' && data.splits) {
-        await updateBudgetSpent(transaction, month, data.splits, 'subtract');
-    }
-    
-    transaction.delete(transactionRef);
-  });
+  await deleteDoc(transactionRef);
 }
