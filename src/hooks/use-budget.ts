@@ -109,6 +109,26 @@ export function useBudget() {
       });
     }
   }, [budgetItems, toast]);
+  
+  const syncDebtPayments = useCallback(async () => {
+    try {
+      await BudgetService.syncDebtPayments();
+      await fetchBudgetItems();
+    } catch(error) {
+       console.error('Failed to sync debt payments:', error);
+       throw error;
+    }
+  }, [fetchBudgetItems]);
+  
+  const clearDebtPayments = useCallback(async () => {
+    try {
+      await BudgetService.clearDebtPayments();
+      await fetchBudgetItems();
+    } catch(error) {
+       console.error('Failed to clear debt payments:', error);
+       throw error;
+    }
+  }, [fetchBudgetItems]);
 
   const resetPaPayments = useCallback(async () => {
     try {
@@ -135,6 +155,8 @@ export function useBudget() {
     deleteBudgetItem, 
     toggleBudgetItemCompleted, 
     resetPaPayments,
+    syncDebtPayments,
+    clearDebtPayments,
     isLoading,
     fetchBudgetItems,
   };
