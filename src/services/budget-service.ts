@@ -1,5 +1,6 @@
 
 
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -147,9 +148,9 @@ async function updateMonthlyBudget(
     budgetItemRef = doc(collection(db, MONTHLY_BUDGET_COLLECTION));
     currentBudgeted = 0;
   } else {
-    const doc = querySnapshot.docs[0];
-    budgetItemRef = doc.ref;
-    currentBudgeted = (doc.data() as MonthlyBudgetItem).budgeted || 0;
+    const budgetDoc = querySnapshot.docs[0];
+    budgetItemRef = budgetDoc.ref;
+    currentBudgeted = (budgetDoc.data() as MonthlyBudgetItem).budgeted || 0;
   }
 
   const newBudgeted = operation === 'add' ? currentBudgeted + amount : currentBudgeted - amount;
@@ -272,9 +273,9 @@ export async function deleteBudgetItem(id: string): Promise<void> {
                 const originalItemSnap = await transaction.get(originalItemRef);
                 if (originalItemSnap.exists()) {
                     itemToDeleteData = originalItemSnap.data() as BudgetItem;
+                     // For a virtual instance, the date is encoded in the ID
+                    itemToDeleteData.date = new Date(parseInt(id.split('-')[1])).toISOString();
                 }
-                 // If no modified version exists, there's nothing in the DB to delete for this instance.
-                // But we still need to adjust the budget.
             }
         } else {
             itemToDeleteRef = doc(db, BUDGET_COLLECTION, id);
@@ -288,7 +289,7 @@ export async function deleteBudgetItem(id: string): Promise<void> {
             if (itemToDeleteData.type === 'Pre-Authorized Payments' && itemToDeleteData.budgetCategoryId) {
                 await updateMonthlyBudget(transaction, itemToDeleteData.budgetCategoryId, itemToDeleteData.amount, 'subtract');
             }
-            if (itemToDeleteRef) { // Should exist if data exists and not a virtual instance
+            if (itemToDeleteRef) {
                  transaction.delete(itemToDeleteRef);
             }
         }

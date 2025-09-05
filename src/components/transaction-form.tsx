@@ -15,6 +15,17 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
   Form,
   FormControl,
   FormField,
@@ -37,9 +48,10 @@ import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { ScrollArea } from './ui/scroll-area';
 import { Checkbox } from './ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
-import { ChevronRight, CornerDownRight } from 'lucide-react';
+import { ChevronRight, CornerDownRight, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Separator } from './ui/separator';
+import { buttonVariants } from './ui/button';
 
 const splitSchema = z.object({
     categoryId: z.string(),
@@ -92,6 +104,9 @@ type TransactionFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
+  updateTransaction: (id: string, transaction: Partial<Omit<Transaction, 'id'>>) => void;
+  deleteTransaction: (id: string) => void;
+  editingTransaction: Transaction | null;
 };
 
 type CategoryWithChildren = CategoryType & { 
@@ -125,6 +140,19 @@ const CategorySelectionRow = ({
     const isSingleItemCategory = !hasBudgetItems && (category.budgetItem?.budgeted ?? 0) > 0;
     const isCollapsible = hasChildren || hasBudgetItems;
 
+    const handleCheckboxChange = (checked: boolean, categoryId: string, budgetItemName: string, amount: number) => {
+         const splitIndex = splits.findIndex(s => s.categoryId === categoryId && s.budgetItemName === budgetItemName);
+         if (checked) {
+            if(splitIndex === -1) {
+                append({ categoryId, budgetItemName, amount });
+            }
+         } else {
+            if(splitIndex !== -1) {
+                remove(splitIndex);
+            }
+         }
+    };
+
     return (
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
             <div className="flex items-center gap-2 py-1">
@@ -144,14 +172,7 @@ const CategorySelectionRow = ({
                              <Checkbox
                                 id={`${category.id}-default`}
                                 checked={splits.some(s => s.categoryId === category.id && s.budgetItemName === 'Default')}
-                                onCheckedChange={(checked) => {
-                                    const splitIndex = splits.findIndex(s => s.categoryId === category.id && s.budgetItemName === 'Default');
-                                    if (checked) {
-                                        append({ categoryId: category.id, budgetItemName: 'Default', amount: category.budgetItem?.budgeted || 0 });
-                                    } else {
-                                        remove(splitIndex);
-                                    }
-                                }}
+                                onCheckedChange={(checked) => handleCheckboxChange(!!checked, category.id, 'Default', category.budgetItem?.budgeted || 0)}
                                 className="mr-2"
                             />
                             <label htmlFor={`${category.id}-default`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
@@ -192,13 +213,7 @@ const CategorySelectionRow = ({
                                 <Checkbox
                                     id={`${category.id}-${item.name}`}
                                     checked={isChecked}
-                                    onCheckedChange={(checked) => {
-                                        if (checked) {
-                                            append({ categoryId: category.id, budgetItemName: item.name, amount: item.amount });
-                                        } else {
-                                            remove(splitIndex);
-                                        }
-                                    }}
+                                    onCheckedChange={(checked) => handleCheckboxChange(!!checked, category.id, item.name, item.amount)}
                                     className="mr-2"
                                 />
                                 <label htmlFor={`${category.id}-${item.name}`} className="flex-grow text-sm font-normal">
@@ -241,7 +256,7 @@ const CategorySelectionRow = ({
     )
 }
 
-export function TransactionForm({ open, onOpenChange, addTransaction }: TransactionFormProps) {
+export function TransactionForm({ open, onOpenChange, addTransaction, updateTransaction, deleteTransaction, editingTransaction }: TransactionFormProps) {
   const { categories, budgetItems, isLoading: isLoadingCategories } = useMonthlyBudget();
   const { accounts, isLoading: isLoadingAccounts } = useAccountDetails();
 
@@ -288,17 +303,29 @@ export function TransactionForm({ open, onOpenChange, addTransaction }: Transact
 
   useEffect(() => {
     if (open) {
-      form.reset({
-        description: '',
-        amount: 0,
-        date: new Date().toISOString().split('T')[0],
-        type: 'expense',
-        transferFromId: '',
-        transferToId: '',
-        splits: [],
-      });
+      if (editingTransaction) {
+        form.reset({
+            description: editingTransaction.description,
+            amount: editingTransaction.amount,
+            date: new Date(editingTransaction.date).toISOString().split('T')[0],
+            type: editingTransaction.type,
+            transferFromId: editingTransaction.transferFromId || '',
+            transferToId: editingTransaction.transferToId || '',
+            splits: editingTransaction.splits || [],
+        });
+      } else {
+         form.reset({
+            description: '',
+            amount: 0,
+            date: new Date().toISOString().split('T')[0],
+            type: 'expense',
+            transferFromId: '',
+            transferToId: '',
+            splits: [],
+        });
+      }
     }
-  }, [open, form]);
+  }, [open, editingTransaction, form]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const [year, month, day] = values.date.split('-').map(Number);
@@ -314,17 +341,28 @@ export function TransactionForm({ open, onOpenChange, addTransaction }: Transact
         transferToId: values.type === 'transfer' ? values.transferToId : undefined,
     }
 
-    addTransaction(dataToSubmit);
+    if (editingTransaction) {
+        updateTransaction(editingTransaction.id, dataToSubmit);
+    } else {
+        addTransaction(dataToSubmit);
+    }
     onOpenChange(false);
+  }
+  
+  const handleDelete = () => {
+    if (editingTransaction) {
+      deleteTransaction(editingTransaction.id);
+      onOpenChange(false);
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Add Transaction</DialogTitle>
+          <DialogTitle>{editingTransaction ? 'Edit Transaction' : 'Add Transaction'}</DialogTitle>
           <DialogDescription>
-            Log a new expense or transfer to track it against your budget.
+            {editingTransaction ? 'Update the details for this transaction.' : 'Log a new expense or transfer to track it against your budget.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -340,6 +378,7 @@ export function TransactionForm({ open, onOpenChange, addTransaction }: Transact
                       onValueChange={field.onChange}
                       defaultValue={field.value}
                       className="flex space-x-4"
+                      disabled={!!editingTransaction}
                     >
                       <FormItem className="flex items-center space-x-2 space-y-0">
                         <FormControl><RadioGroupItem value="expense" /></FormControl>
@@ -449,8 +488,35 @@ export function TransactionForm({ open, onOpenChange, addTransaction }: Transact
                 </div>
             )}
 
-            <DialogFooter>
-              <Button type="submit">Add Transaction</Button>
+            <DialogFooter className="sm:justify-between">
+              {editingTransaction && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button type="button" variant="destructive">
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete this transaction.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleDelete}
+                          className={cn(buttonVariants({ variant: "destructive" }))}
+                        >
+                          Confirm Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+              )}
+              <Button type="submit">{editingTransaction ? 'Save Changes' : 'Add Transaction'}</Button>
             </DialogFooter>
           </form>
         </Form>
