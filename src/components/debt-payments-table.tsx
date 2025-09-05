@@ -33,11 +33,12 @@ import {
 } from '@/components/ui/popover';
 import { BudgetForm } from './budget-form';
 import { useBudget } from '@/hooks/use-budget';
-import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
 import { Checkbox } from './ui/checkbox';
+import * as BudgetService from '@/services/budget-service';
+import { useToast } from '@/hooks/use-toast';
 
 
 type SortConfig = {
@@ -60,11 +61,12 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
 }
 
 export function DebtPaymentsTable() {
-  const { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, toggleBudgetItemCompleted, syncDebtPayments, clearDebtPayments, isLoading } = useBudget();
+  const { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, toggleBudgetItemCompleted, fetchBudgetItems, isLoading } = useBudget();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<BudgetItem | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'ascending' });
   const { toast } = useToast();
+
 
   const debtItems = useMemo(() => budgetItems.filter(item => item.type === 'Debt Payments'), [budgetItems]);
 
@@ -124,7 +126,8 @@ export function DebtPaymentsTable() {
 
   const handleSync = async () => {
     try {
-      await syncDebtPayments();
+      await BudgetService.syncDebtPayments();
+      await fetchBudgetItems();
       toast({
         title: 'Success!',
         description: 'Debt payments have been synced from the Debt Worksheet.',

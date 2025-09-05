@@ -19,8 +19,6 @@ import {
 } from 'firebase/firestore';
 
 const DEBT_COLLECTION = 'debts';
-const ACCOUNT_DETAILS_COLLECTION = 'transferees';
-const BUDGET_ITEMS_COLLECTION = 'budget-items';
 const BUDGET_CATEGORIES_COLLECTION = 'budget-categories';
 const MONTHLY_BUDGET_ITEMS_COLLECTION = 'monthly-budget-items';
 
@@ -206,7 +204,7 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
 
         if (budgetItem) {
             const budgetItemRef = doc(db, MONTHLY_BUDGET_ITEMS_COLLECTION, budgetItem.id);
-            batch.update(budgetItemRef, { budgeted: totalForCategory, breakdown: [] });
+            batch.update(budgetItemRef, { budgeted: totalForCategory });
         } else {
             const newMonthlyBudgetItemRef = doc(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION));
             batch.set(newMonthlyBudgetItemRef, {
