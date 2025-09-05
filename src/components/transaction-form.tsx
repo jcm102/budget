@@ -118,7 +118,11 @@ const CategorySelectionRow = ({
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const hasChildren = category.children.length > 0;
-    const hasBudgetItems = category.budgetItem?.breakdown && category.budgetItem.breakdown.length > 0;
+    const breakdownItems = category.budgetItem?.breakdown?.filter(b => b.name !== 'Default');
+    const hasBudgetItems = breakdownItems && breakdownItems.length > 0;
+    
+    // Treat a category with a budget but no explicit breakdown as having a single 'Default' item for selection.
+    const isSingleItemCategory = !hasBudgetItems && (category.budgetItem?.budgeted ?? 0) > 0;
     const isCollapsible = hasChildren || hasBudgetItems;
 
     return (
@@ -133,15 +137,54 @@ const CategorySelectionRow = ({
                             </Button>
                         </CollapsibleTrigger>
                     )}
-                    {!isCollapsible && <div className="w-6 h-6"/>}
-                    <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                        {category.name}
-                    </label>
+                    {!isCollapsible && !isSingleItemCategory && <div className="w-6 h-6"/>}
+                    
+                    {isSingleItemCategory ? (
+                        <div className="flex items-center gap-2 flex-grow">
+                             <Checkbox
+                                id={`${category.id}-default`}
+                                checked={splits.some(s => s.categoryId === category.id && s.budgetItemName === 'Default')}
+                                onCheckedChange={(checked) => {
+                                    const splitIndex = splits.findIndex(s => s.categoryId === category.id && s.budgetItemName === 'Default');
+                                    if (checked) {
+                                        append({ categoryId: category.id, budgetItemName: 'Default', amount: category.budgetItem?.budgeted || 0 });
+                                    } else {
+                                        remove(splitIndex);
+                                    }
+                                }}
+                                className="mr-2"
+                            />
+                            <label htmlFor={`${category.id}-default`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                {category.name}
+                            </label>
+                             {splits.some(s => s.categoryId === category.id && s.budgetItemName === 'Default') && (
+                                <FormField
+                                    control={control}
+                                    name={`splits.${splits.findIndex(s => s.categoryId === category.id && s.budgetItemName === 'Default')}.amount`}
+                                    render={({ field }) => (
+                                        <FormControl>
+                                            <Input
+                                                {...field}
+                                                type="number"
+                                                step="0.01"
+                                                placeholder="0.00"
+                                                className="h-8 w-28 ml-auto text-right"
+                                            />
+                                        </FormControl>
+                                    )}
+                                />
+                            )}
+                        </div>
+                    ) : (
+                        <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                            {category.name}
+                        </label>
+                    )}
                 </div>
             </div>
             {isCollapsible && (
                 <CollapsibleContent className="pl-4">
-                    {hasBudgetItems && category.budgetItem?.breakdown?.map(item => {
+                    {hasBudgetItems && breakdownItems?.map(item => {
                          const splitIndex = splits.findIndex(s => s.categoryId === category.id && s.budgetItemName === item.name);
                          const isChecked = splitIndex !== -1;
                         return (
@@ -151,7 +194,7 @@ const CategorySelectionRow = ({
                                     checked={isChecked}
                                     onCheckedChange={(checked) => {
                                         if (checked) {
-                                            append({ categoryId: category.id, budgetItemName: item.name, amount: 0 });
+                                            append({ categoryId: category.id, budgetItemName: item.name, amount: item.amount });
                                         } else {
                                             remove(splitIndex);
                                         }
@@ -222,10 +265,10 @@ export function TransactionForm({ open, onOpenChange, addTransaction }: Transact
 
   const transactionType = form.watch('type');
   const transactionAmount = form.watch('amount');
-  const currentSplits = form.watch('splits');
+  const currentSplits = form.watch('splits') || [];
   
   const totalSplitAmount = useMemo(() => {
-    return currentSplits?.reduce((sum, split) => sum + (split.amount || 0), 0) || 0;
+    return currentSplits.reduce((sum, split) => sum + (split.amount || 0), 0);
   }, [currentSplits]);
 
   const remainingToSplit = transactionAmount - totalSplitAmount;
