@@ -41,7 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { Transaction, TransactionType, Category as CategoryType, TransactionSplit, MonthlyBudgetItem } from '@/types';
+import type { Transaction, TransactionType, Category as CategoryType, TransactionSplit, MonthlyBudgetItem, BudgetSubItem } from '@/types';
 import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
 import { useAccountDetails } from '@/hooks/use-transferees';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
@@ -52,7 +52,6 @@ import { ChevronRight, CornerDownRight, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Separator } from './ui/separator';
 import { buttonVariants } from './ui/button';
-import { useTransactions } from '@/hooks/use-transactions';
 
 const splitSchema = z.object({
     categoryId: z.string(),
@@ -134,12 +133,13 @@ const CategorySelectionRow = ({
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const hasChildren = category.children.length > 0;
-    const breakdownItems = category.budgetItem?.breakdown?.filter(b => b.name !== 'Default');
-    const hasBudgetItems = breakdownItems && breakdownItems.length > 0;
     
-    // Treat a category with a budget but no explicit breakdown as having a single 'Default' item for selection.
-    const isSingleItemCategory = !hasBudgetItems && (category.budgetItem?.budgeted ?? 0) > 0;
-    const isCollapsible = hasChildren || hasBudgetItems;
+    const breakdownItems = category.budgetItem?.breakdown?.filter(b => b.name !== 'Default');
+    const hasExplicitBreakdown = breakdownItems && breakdownItems.length > 0;
+
+    const isSelectable = !hasExplicitBreakdown && (category.budgetItem?.budgeted ?? 0) > 0;
+    
+    const isCollapsible = hasChildren || hasExplicitBreakdown;
 
     const handleCheckboxChange = (checked: boolean, categoryId: string, budgetItemName: string, amount: number) => {
          const splitIndex = splits.findIndex(s => s.categoryId === categoryId && s.budgetItemName === budgetItemName);
@@ -153,6 +153,8 @@ const CategorySelectionRow = ({
             }
          }
     };
+    
+    const singleItem = { name: 'Default', amount: category.budgetItem?.budgeted || 0 };
 
     return (
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -166,9 +168,8 @@ const CategorySelectionRow = ({
                             </Button>
                         </CollapsibleTrigger>
                     )}
-                    {!isCollapsible && !isSingleItemCategory && <div className="w-6 h-6"/>}
                     
-                    {isSingleItemCategory ? (
+                     {isSelectable ? (
                         <div className="flex items-center gap-2 flex-grow">
                              <Checkbox
                                 id={`${category.id}-default`}
@@ -198,15 +199,18 @@ const CategorySelectionRow = ({
                             )}
                         </div>
                     ) : (
-                        <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                            {category.name}
-                        </label>
+                         <>
+                            {!isCollapsible && <div className="w-6 h-6" />}
+                            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                {category.name}
+                            </label>
+                         </>
                     )}
                 </div>
             </div>
             {isCollapsible && (
                 <CollapsibleContent className="pl-4">
-                    {hasBudgetItems && breakdownItems?.map(item => {
+                    {hasExplicitBreakdown && breakdownItems?.map(item => {
                          const splitIndex = splits.findIndex(s => s.categoryId === category.id && s.budgetItemName === item.name);
                          const isChecked = splitIndex !== -1;
                         return (
@@ -257,7 +261,7 @@ const CategorySelectionRow = ({
     )
 }
 
-export function TransactionForm({ open, onOpenChange, addTransaction, updateTransaction, editingTransaction }: Omit<useTransactions, 'transactions' | 'isLoading' | 'fetchTransactions'> & { open: boolean; onOpenChange: (open: boolean) => void; editingTransaction: Transaction | null;}) {
+export function TransactionForm({ open, onOpenChange, addTransaction, updateTransaction, deleteTransaction, editingTransaction }: TransactionFormProps) {
   const { categories, budgetItems, isLoading: isLoadingCategories } = useMonthlyBudget();
   const { accounts, isLoading: isLoadingAccounts } = useAccountDetails();
 
@@ -490,36 +494,39 @@ export function TransactionForm({ open, onOpenChange, addTransaction, updateTran
             )}
 
             <DialogFooter className="sm:justify-between">
-              <div>
-                {editingTransaction && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button type="button" variant="destructive">
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete this transaction.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={handleDelete}
-                            className={cn(buttonVariants({ variant: "destructive" }))}
-                          >
-                            Confirm Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                )}
-              </div>
-              <Button type="submit">{editingTransaction ? 'Save Changes' : 'Add Transaction'}</Button>
+                <div>
+                    {editingTransaction && (
+                        <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button type="button" variant="destructive">
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete this transaction.
+                            </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                                onClick={handleDelete}
+                                className={cn(buttonVariants({ variant: "destructive" }))}
+                            >
+                                Confirm Delete
+                            </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                        </AlertDialog>
+                    )}
+                </div>
+                <div className="flex gap-2">
+                    <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button type="submit">{editingTransaction ? 'Save Changes' : 'Add Transaction'}</Button>
+                </div>
             </DialogFooter>
           </form>
         </Form>
