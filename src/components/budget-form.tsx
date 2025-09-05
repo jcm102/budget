@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -30,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { BudgetItem, BudgetItemType, BudgetItemFrequency } from '@/types';
+import type { BudgetItem, BudgetItemType, BudgetItemFrequency, Category, MonthlyBudgetItem } from '@/types';
 import { useIncomeCategories } from '@/hooks/use-income-categories';
 import { useAccountDetails } from '@/hooks/use-transferees';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -43,6 +43,9 @@ import { Loader2 } from 'lucide-react';
 import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Switch } from './ui/switch';
+import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
+
+type CategoryWithChildren = Category & { children: CategoryWithChildren[] };
 
 const formSchema = z.object({
     description: z.string().min(2, 'Description must be at least 2 characters.'),
@@ -54,6 +57,7 @@ const formSchema = z.object({
     transferTo: z.string().optional(),
     transferFrom: z.string().optional(),
     forNextMonth: z.boolean().optional(),
+    budgetCategoryId: z.string().optional(),
     // New fields for allocation
     allocationType: z.enum(['none', 'goal', 'debt']).default('none'),
     allocationTargetId: z.string().optional(),
@@ -78,6 +82,7 @@ type BudgetFormProps = {
 
 export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem, editingItem }: BudgetFormProps) {
   const { categories: incomeCategories } = useIncomeCategories();
+  const { categories: budgetCategories } = useMonthlyBudget();
   const { accounts: transferees } = useAccountDetails();
   const { goals, fetchGoals } = useGoals();
   const { debts, fetchDebts } = useDebt();
@@ -97,6 +102,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
       transferFrom: '',
       transferTo: '',
       forNextMonth: false,
+      budgetCategoryId: '',
       allocationType: 'none',
       allocationTargetId: '',
       allocationAmount: 0,
@@ -156,6 +162,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
           transferFrom: editingItem.transferFrom || '',
           transferTo: editingItem.transferTo || '',
           forNextMonth: editingItem.forNextMonth || false,
+          budgetCategoryId: editingItem.budgetCategoryId || '',
           allocationType: 'none',
           allocationTargetId: '',
           allocationAmount: 0,
@@ -171,6 +178,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
           transferFrom: '',
           transferTo: '',
           forNextMonth: false,
+          budgetCategoryId: '',
           allocationType: 'none',
           allocationTargetId: '',
           allocationAmount: 0,
@@ -191,6 +199,9 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
       form.setValue('transferFrom', undefined);
       form.setValue('transferTo', undefined);
     }
+     if (itemType !== 'Pre-Authorized Payments') {
+      form.setValue('budgetCategoryId', undefined);
+    }
   }, [itemType, form]);
 
 
@@ -204,6 +215,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
       date: toLocalISOString(localDate),
       type: values.type as BudgetItemType,
       frequency: values.frequency as BudgetItemFrequency,
+      budgetCategoryId: values.budgetCategoryId || null,
     };
     
     // Handle allocation logic
@@ -253,6 +265,33 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
   }
 
   const formatCurrency = (value: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+
+  const categoryTree = useMemo(() => {
+    const buildTree = (parentId: string | null = null): CategoryWithChildren[] => {
+        return budgetCategories
+            .filter(c => c.parentId === parentId)
+            .map(c => ({
+                ...c,
+                children: buildTree(c.id),
+            }));
+    }
+    return buildTree(null);
+  }, [budgetCategories]);
+
+  const renderCategoryOptions = (nodes: CategoryWithChildren[], level = 0) => {
+    let options: JSX.Element[] = [];
+    nodes.forEach(node => {
+        options.push(
+            <SelectItem key={node.id} value={node.id} style={{ paddingLeft: `${1 + level * 1}rem` }}>
+                {node.name}
+            </SelectItem>
+        );
+        if (node.children.length > 0) {
+            options = options.concat(renderCategoryOptions(node.children, level + 1));
+        }
+    });
+    return options;
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -471,6 +510,31 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                 />
               </>
             )}
+
+            {itemType === 'Pre-Authorized Payments' && (
+                <FormField
+                    control={form.control}
+                    name="budgetCategoryId"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Budget Category (Optional)</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value || ''}>
+                                <FormControl>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Link to a monthly budget category" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    <SelectItem value="">None</SelectItem>
+                                    {renderCategoryOptions(categoryTree)}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+            )}
+
             <FormField control={form.control} name="date" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Date</FormLabel>

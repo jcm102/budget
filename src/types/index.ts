@@ -78,6 +78,7 @@ export interface BudgetItem {
   allocationTargetId?: string;
   allocationAmount?: number;
   forNextMonth?: boolean;
+  budgetCategoryId?: string | null; // New field to link to a budget category
 }
 
 export interface Category {

@@ -1,10 +1,10 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Pencil, Trash2, PlusCircle, Repeat, Info, ChevronsUpDown, ArrowUpDown, RotateCcw } from 'lucide-react';
-import type { BudgetItem } from '@/types';
+import type { BudgetItem, Category } from '@/types';
 import {
   Table,
   TableBody,
@@ -38,6 +38,7 @@ import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
 import { Badge } from './ui/badge';
 import { Checkbox } from './ui/checkbox';
+import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
 
 type SortConfig = {
     key: keyof BudgetItem;
@@ -60,11 +61,19 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
 
 export function PaPaymentsTable() {
   const { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, toggleBudgetItemCompleted, resetPaPayments, isLoading } = useBudget();
+  const { categories: budgetCategories } = useMonthlyBudget();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<BudgetItem | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'ascending' });
 
   const paymentItems = useMemo(() => budgetItems.filter(item => item.type === 'Pre-Authorized Payments'), [budgetItems]);
+
+  const categoryMap = useMemo(() => {
+    return budgetCategories.reduce((map, category) => {
+        map[category.id] = category.name;
+        return map;
+    }, {} as Record<string, string>);
+  }, [budgetCategories]);
 
   const handleEdit = (item: BudgetItem) => {
     setEditingItem(item);
@@ -113,7 +122,7 @@ export function PaPaymentsTable() {
   const renderLoadingSkeleton = () => (
     Array.from({ length: 3 }).map((_, i) => (
       <TableRow key={`skeleton-pa-${i}`}>
-        <TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell>
+        <TableCell colSpan={7}><Skeleton className="h-8 w-full" /></TableCell>
       </TableRow>
     ))
   );
@@ -183,6 +192,7 @@ export function PaPaymentsTable() {
                         <TableHead className="w-[50px]">Paid</TableHead>
                         <SortableHeader column="description" label="Description" sortConfig={sortConfig} requestSort={requestSort} />
                         <SortableHeader column="date" label="Date" sortConfig={sortConfig} requestSort={requestSort} />
+                        <TableHead>Budget Category</TableHead>
                         <TableHead>Frequency</TableHead>
                         <SortableHeader column="amount" label="Amount" sortConfig={sortConfig} requestSort={requestSort} className="text-right" />
                         <TableHead className="w-[100px] text-right">Actions</TableHead>
@@ -203,6 +213,7 @@ export function PaPaymentsTable() {
                         </TableCell>
                         <TableCell className={cn("font-medium", item.completed && "line-through")}>{item.description}</TableCell>
                         <TableCell>{format(new Date(item.date), 'PPP')}</TableCell>
+                        <TableCell>{item.budgetCategoryId ? categoryMap[item.budgetCategoryId] : <span className="text-muted-foreground">N/A</span>}</TableCell>
                         <TableCell>
                         {item.frequency !== 'One-Time' ? (
                             <Badge variant="secondary" className="gap-1 items-center">
@@ -245,7 +256,7 @@ export function PaPaymentsTable() {
                     ))
                 ) : (
                     <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
+                    <TableCell colSpan={7} className="h-24 text-center">
                         No pre-authorized payments added yet.
                     </TableCell>
                     </TableRow>
@@ -254,12 +265,12 @@ export function PaPaymentsTable() {
                 {sortedItems.length > 0 && (
                     <TableFooter>
                             <TableRow>
-                                <TableCell colSpan={4} className="font-semibold text-right">Remaining</TableCell>
+                                <TableCell colSpan={5} className="font-semibold text-right">Remaining</TableCell>
                                 <TableCell className="text-right font-semibold">{formatCurrency(remainingTotal)}</TableCell>
                                 <TableCell />
                             </TableRow>
                             <TableRow>
-                                <TableCell colSpan={4} className="font-semibold text-right">Total</TableCell>
+                                <TableCell colSpan={5} className="font-semibold text-right">Total</TableCell>
                                 <TableCell className="text-right font-semibold">{formatCurrency(total)}</TableCell>
                                 <TableCell />
                             </TableRow>
