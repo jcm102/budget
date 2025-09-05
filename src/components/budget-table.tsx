@@ -89,6 +89,26 @@ const CategoryRow = ({
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
     };
+    
+    const breakdownTotals = useMemo(() => {
+        const totals: Record<string, number> = {};
+        if (budgetItem?.breakdown) {
+            budgetItem.breakdown.forEach(item => {
+                totals[item.name] = 0;
+            });
+        }
+        categoryTransactions.forEach(tx => {
+            // Simplified: for now, assume a transaction can be linked to a breakdown item by description.
+            // A more robust solution would involve storing breakdown item ID in the transaction.
+            const split = tx.splits?.find(s => s.categoryId === category.id);
+            if (split) {
+                // This logic is flawed as splits are on category, not breakdown.
+                // The display logic needs to be based on category totals.
+            }
+        });
+        return totals;
+    }, [budgetItem, categoryTransactions, category.id]);
+
 
     return (
         <>
@@ -96,9 +116,12 @@ const CategoryRow = ({
                 <TableCell style={{ paddingLeft: `${1 + level * 1.5}rem` }}>
                     <div className="flex items-center gap-2">
                         {level > 0 && <CornerDownRight className="h-4 w-4 text-muted-foreground" />}
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsOpen(!isOpen)} disabled={!isCollapsible}>
-                            <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isOpen && "-rotate-180")} />
-                        </Button>
+                        {isCollapsible && 
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsOpen(!isOpen)}>
+                                <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isOpen && "-rotate-180")} />
+                            </Button>
+                        }
+                        {!isCollapsible && <div className="w-8 h-8"/>}
                         <span>{category.name}</span>
                     </div>
                 </TableCell>
@@ -118,13 +141,14 @@ const CategoryRow = ({
                     </Button>
                 </TableCell>
             </TableRow>
+            {isCollapsible &&
             <TableRow>
                 <TableCell colSpan={5} className="p-0 border-none">
                     <Collapsible open={isOpen}>
                         <CollapsibleContent>
-                            <div className="p-4 pl-14 space-y-4">
+                            <div className="p-4 pl-14 space-y-4 bg-secondary/20">
                                 {hasBreakdown && (
-                                    <div className="p-3 border rounded-md bg-secondary/30">
+                                    <div className="p-3 border rounded-md bg-background/50">
                                         <h4 className="text-sm font-semibold mb-2">Budget Breakdown</h4>
                                         <div className="space-y-1">
                                             {budgetItem?.breakdown?.map((item, idx) => (
@@ -153,7 +177,7 @@ const CategoryRow = ({
                                                         {accountMap[tx.transferToId] || 'Unknown'}
                                                     </TableCell>
                                                     )}
-                                                    <TableCell className="py-2 text-right">{formatCurrency(tx.amount)}</TableCell>
+                                                     <TableCell className="py-2 text-right">{formatCurrency(tx.splits?.find(s => s.categoryId === category.id)?.amount || tx.amount)}</TableCell>
                                                 </TableRow>
                                             ))}
                                             </TableBody>
@@ -184,6 +208,7 @@ const CategoryRow = ({
                     </Collapsible>
                 </TableCell>
             </TableRow>
+           }
         </>
     )
 }
@@ -214,6 +239,7 @@ export function BudgetTable({ budgetItems, categories, transactions, isLoading, 
             // Create a pseudo-transaction for each split to display it
             byCategory[split.categoryId].push({
                 ...transaction,
+                id: `${transaction.id}-${split.categoryId}`,
                 amount: split.amount // The amount for this split
             });
         });
@@ -258,6 +284,9 @@ export function BudgetTable({ budgetItems, categories, transactions, isLoading, 
     if (category.children.length > 0) {
       category.children.forEach(child => {
         const childTotals = getCategoryTotals(child);
+        // A parent's budget is the sum of its children's budgets *if* it doesn't have one itself.
+        // Let's assume parent categories have their own budget fields for now, or are sums.
+        // For display, we sum them up.
         totals.budgeted += childTotals.budgeted;
         totals.actual += childTotals.actual;
       });

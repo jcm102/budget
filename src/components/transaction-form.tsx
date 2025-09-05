@@ -30,8 +30,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { Transaction, TransactionType, Category as CategoryType, TransactionSplit } from '@/types';
-import { useBudgetCategories } from '@/hooks/use-budget-categories';
+import type { Transaction, TransactionType, Category as CategoryType, TransactionSplit, MonthlyBudgetItem } from '@/types';
+import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
 import { useAccountDetails } from '@/hooks/use-transferees';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { ScrollArea } from './ui/scroll-area';
@@ -95,16 +95,21 @@ type TransactionFormProps = {
 
 type CategoryWithChildren = CategoryType & { children: CategoryWithChildren[] };
 
+
 const CategorySelectionRow = ({ 
     category,
     level,
     control,
     onSplitChange,
+    getValues,
+    setValue
 }: {
     category: CategoryWithChildren,
     level: number,
     control: any,
     onSplitChange: (categoryId: string, checked: boolean) => void,
+    getValues: any,
+    setValue: any,
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const hasChildren = category.children.length > 0;
@@ -156,6 +161,8 @@ const CategorySelectionRow = ({
                             level={level + 1}
                             control={control}
                             onSplitChange={onSplitChange}
+                            getValues={getValues}
+                            setValue={setValue}
                         />
                     ))}
                 </CollapsibleContent>
@@ -165,7 +172,7 @@ const CategorySelectionRow = ({
 }
 
 export function TransactionForm({ open, onOpenChange, addTransaction }: TransactionFormProps) {
-  const { categories, isLoading: isLoadingCategories } = useBudgetCategories();
+  const { categories, budgetItems, isLoading: isLoadingCategories } = useMonthlyBudget();
   const { accounts, isLoading: isLoadingAccounts } = useAccountDetails();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -323,6 +330,8 @@ export function TransactionForm({ open, onOpenChange, addTransaction }: Transact
                                 level={0}
                                 control={form.control}
                                 onSplitChange={handleSplitChange}
+                                getValues={form.getValues}
+                                setValue={form.setValue}
                             />
                         ))}
                     </ScrollArea>
