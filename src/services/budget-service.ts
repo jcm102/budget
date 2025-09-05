@@ -27,7 +27,7 @@ const ACCOUNT_DETAILS_COLLECTION = 'transferees';
 
 export async function getBudgetItems(): Promise<BudgetItem[]> {
   const budgetCollection = collection(db, BUDGET_COLLECTION);
-  const q = query(budgetCollection, where('type', '!=', 'Debt Payments'));
+  const q = query(budgetCollection);
   const querySnapshot = await getDocs(q);
   
   const today = new Date();
