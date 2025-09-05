@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -188,7 +189,9 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
             const debtRef = doc(db, DEBT_COLLECTION, debtId);
             transaction.update(debtRef, { plannedPayment: paymentAmount });
 
-            const debtCategory = debt.debtType ? getCategoryForDebt(debt.debtType, budgetCategories) : undefined;
+            if (!debt.debtType) continue;
+
+            const debtCategory = getCategoryForDebt(debt.debtType, budgetCategories);
             if (debtCategory) {
                 categoryPaymentTotals[debtCategory.id] = (categoryPaymentTotals[debtCategory.id] || 0) + paymentAmount;
                 
