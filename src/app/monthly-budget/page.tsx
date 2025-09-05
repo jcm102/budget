@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, PlusCircle, Pencil } from 'lucide-react';
+import { ArrowLeft, PlusCircle, Pencil, Smartphone } from 'lucide-react';
 import { BudgetTable } from '@/components/budget-table';
 import { TransactionForm } from '@/components/transaction-form';
 import { useTransactions } from '@/hooks/use-transactions';
@@ -69,10 +69,18 @@ export default function MonthlyBudgetPage() {
               Back to Home
             </Link>
           </Button>
-           <Button onClick={() => setIsTransactionFormOpen(true)}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add Transaction
+           <div className="flex items-center gap-2">
+            <Button asChild variant="outline" className="md:hidden">
+                <Link href="/monthly-budget/mobile">
+                    <Smartphone className="mr-2 h-4 w-4" />
+                    Mobile View
+                </Link>
             </Button>
+            <Button onClick={() => setIsTransactionFormOpen(true)}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add Transaction
+            </Button>
+           </div>
         </header>
         <main className="space-y-8">
             <div>
