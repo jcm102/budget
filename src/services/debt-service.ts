@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -171,28 +170,16 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
     const batch = writeBatch(db);
     const currentMonth = new Date().toISOString().slice(0, 7);
     
-    // Step 1: Read all necessary data
-    const [debtsSnapshot, accountsSnapshot, budgetCategories, monthlyBudgetSnapshot] = await Promise.all([
+    const [debtsSnapshot, monthlyBudgetSnapshot, budgetCategories] = await Promise.all([
         getDocs(query(collection(db, DEBT_COLLECTION))),
-        getDocs(query(collection(db, ACCOUNT_DETAILS_COLLECTION))),
+        getDocs(query(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION), where('month', '==', currentMonth))),
         getBudgetCategories(),
-        getDocs(query(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION), where('month', '==', currentMonth)))
     ]);
     const allDebts = debtsSnapshot.docs.map(d => ({id: d.id, ...d.data()} as Debt));
-    const allAccounts = accountsSnapshot.docs.map(a => ({id: a.id, ...a.data()} as AccountDetails));
     const allMonthlyBudgetItems = monthlyBudgetSnapshot.docs.map(d => ({id: d.id, ...d.data()} as MonthlyBudgetItem));
 
-    // Step 2: Clear existing debt payments from budget overview
-    const existingBudgetPaymentsQuery = query(collection(db, BUDGET_ITEMS_COLLECTION), where('type', '==', 'Debt Payments'));
-    const existingBudgetPaymentsSnapshot = await getDocs(existingBudgetPaymentsQuery);
-    existingBudgetPaymentsSnapshot.forEach(doc => {
-        batch.delete(doc.ref);
-    });
-    
-    // Aggregate payments by category
-    const categoryTotals: Record<string, number> = {};
+    const categoryPaymentTotals: Record<string, number> = {};
 
-    // Step 3: Process new payments
     for (const debtId in payments) {
         const paymentAmount = payments[debtId];
         const debt = allDebts.find(d => d.id === debtId);
@@ -201,56 +188,35 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
             continue;
         }
 
-        // Update the 'actualPayment' on the debt item
         const debtRef = doc(db, DEBT_COLLECTION, debtId);
         batch.update(debtRef, { actualPayment: paymentAmount });
         
-        const linkedAccount = allAccounts.find(acc => acc.linkedDebtId === debt.id);
-
-        // Create a new budget item for the budget overview
-        const budgetItemData: Omit<BudgetItem, 'id'> = {
-            type: 'Debt Payments',
-            description: debt.name,
-            amount: paymentAmount,
-            date: debt.dueDate,
-            frequency: 'One-Time',
-            category: 'N/A',
-            completed: false,
-            transferFrom: linkedAccount ? linkedAccount.name : 'Unknown',
-        };
-        const newBudgetItemRef = doc(collection(db, BUDGET_ITEMS_COLLECTION));
-        batch.set(newBudgetItemRef, budgetItemData);
-
-        // Aggregate payments for the monthly budget
         const debtCategory = debt.debtType ? getCategoryForDebt(debt.debtType, budgetCategories) : undefined;
         if (debtCategory) {
-            if (!categoryTotals[debtCategory.id]) {
-                categoryTotals[debtCategory.id] = 0;
+            if (!categoryPaymentTotals[debtCategory.id]) {
+                categoryPaymentTotals[debtCategory.id] = 0;
             }
-            categoryTotals[debtCategory.id] += paymentAmount;
+            categoryPaymentTotals[debtCategory.id] += paymentAmount;
         }
     }
 
-     // Step 4: Update the monthly budget items with aggregated totals
-    for (const categoryId in categoryTotals) {
-        const totalForCategory = categoryTotals[categoryId];
+    for (const categoryId in categoryPaymentTotals) {
+        const totalForCategory = categoryPaymentTotals[categoryId];
         const budgetItem = allMonthlyBudgetItems.find(item => item.categoryId === categoryId);
 
         if (budgetItem) {
-            // If item exists, update its budget
             const budgetItemRef = doc(db, MONTHLY_BUDGET_ITEMS_COLLECTION, budgetItem.id);
-            batch.update(budgetItemRef, { budgeted: totalForCategory });
+            batch.update(budgetItemRef, { budgeted: totalForCategory, breakdown: [] });
         } else {
-            // If item doesn't exist, create it
             const newMonthlyBudgetItemRef = doc(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION));
             batch.set(newMonthlyBudgetItemRef, {
                 categoryId: categoryId,
                 month: currentMonth,
                 budgeted: totalForCategory,
+                breakdown: [],
             });
         }
     }
     
-    // Step 5: Commit all changes
     await batch.commit();
 }
