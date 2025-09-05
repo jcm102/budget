@@ -104,12 +104,17 @@ const CategorySelectionRow = ({
     category,
     level,
     control,
-    onSplitChange,
+    splits,
+    append,
+    remove
 }: {
     category: CategoryWithChildren;
     level: number;
     control: any;
-    onSplitChange: (categoryId: string, budgetItemName: string, checked: boolean) => void;
+    splits: any[];
+    append: (value: any) => void;
+    remove: (index: number) => void;
+
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const hasChildren = category.children.length > 0;
@@ -136,41 +141,55 @@ const CategorySelectionRow = ({
             </div>
             {isCollapsible && (
                 <CollapsibleContent className="pl-4">
-                    {hasBudgetItems && category.budgetItem?.breakdown?.map(item => (
-                         <div key={item.name} className="flex items-center gap-2 py-1" style={{ paddingLeft: `${(level + 1) * 1.5}rem` }}>
-                             <Checkbox
-                                id={`${category.id}-${item.name}`}
-                                onCheckedChange={(checked) => onSplitChange(category.id, item.name, !!checked)}
-                                className="mr-2"
-                            />
-                            <label htmlFor={`${category.id}-${item.name}`} className="flex-grow text-sm font-normal">
-                                {item.name} ({new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(item.amount)})
-                            </label>
-                             <FormField
-                                control={control}
-                                name={`splits.${category.id}.${item.name}`}
-                                render={({ field }) => (
-                                     <FormControl>
-                                        <Input
-                                            {...field}
-                                            type="number"
-                                            step="0.01"
-                                            placeholder="0.00"
-                                            className="h-8 w-28 text-right"
-                                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                                        />
-                                    </FormControl>
+                    {hasBudgetItems && category.budgetItem?.breakdown?.map(item => {
+                         const splitIndex = splits.findIndex(s => s.categoryId === category.id && s.budgetItemName === item.name);
+                         const isChecked = splitIndex !== -1;
+                        return (
+                            <div key={item.name} className="flex items-center gap-2 py-1" style={{ paddingLeft: `${(level + 1) * 1.5}rem` }}>
+                                <Checkbox
+                                    id={`${category.id}-${item.name}`}
+                                    checked={isChecked}
+                                    onCheckedChange={(checked) => {
+                                        if (checked) {
+                                            append({ categoryId: category.id, budgetItemName: item.name, amount: 0 });
+                                        } else {
+                                            remove(splitIndex);
+                                        }
+                                    }}
+                                    className="mr-2"
+                                />
+                                <label htmlFor={`${category.id}-${item.name}`} className="flex-grow text-sm font-normal">
+                                    {item.name} ({new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(item.amount)})
+                                </label>
+                                {isChecked && (
+                                    <FormField
+                                        control={control}
+                                        name={`splits.${splitIndex}.amount`}
+                                        render={({ field }) => (
+                                            <FormControl>
+                                                <Input
+                                                    {...field}
+                                                    type="number"
+                                                    step="0.01"
+                                                    placeholder="0.00"
+                                                    className="h-8 w-28 text-right"
+                                                />
+                                            </FormControl>
+                                        )}
+                                    />
                                 )}
-                             />
-                         </div>
-                    ))}
+                            </div>
+                        )
+                    })}
                     {hasChildren && category.children.map(child => (
                          <CategorySelectionRow
                             key={child.id}
                             category={child}
                             level={level + 1}
                             control={control}
-                            onSplitChange={onSplitChange}
+                            splits={splits}
+                            append={append}
+                            remove={remove}
                         />
                     ))}
                 </CollapsibleContent>
@@ -195,14 +214,19 @@ export function TransactionForm({ open, onOpenChange, addTransaction }: Transact
       splits: [],
     },
   });
+  
+  const { fields: splitFields, append, remove } = useFieldArray({
+      control: form.control,
+      name: 'splits',
+  });
 
   const transactionType = form.watch('type');
   const transactionAmount = form.watch('amount');
-  const splits = form.watch('splits');
+  const currentSplits = form.watch('splits');
   
   const totalSplitAmount = useMemo(() => {
-    return splits?.reduce((sum, split) => sum + (split.amount || 0), 0) || 0;
-  }, [splits]);
+    return currentSplits?.reduce((sum, split) => sum + (split.amount || 0), 0) || 0;
+  }, [currentSplits]);
 
   const remainingToSplit = transactionAmount - totalSplitAmount;
   
@@ -232,17 +256,6 @@ export function TransactionForm({ open, onOpenChange, addTransaction }: Transact
       });
     }
   }, [open, form]);
-  
-  const handleSplitChange = (categoryId: string, budgetItemName: string, checked: boolean) => {
-    const currentSplits = form.getValues('splits') || [];
-    if (checked) {
-        if (!currentSplits.some(s => s.categoryId === categoryId && s.budgetItemName === budgetItemName)) {
-            form.setValue('splits', [...currentSplits, { categoryId, budgetItemName, amount: 0 }]);
-        }
-    } else {
-        form.setValue('splits', currentSplits.filter(s => s.categoryId !== categoryId || s.budgetItemName !== budgetItemName));
-    }
-  };
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const [year, month, day] = values.date.split('-').map(Number);
@@ -334,7 +347,9 @@ export function TransactionForm({ open, onOpenChange, addTransaction }: Transact
                                 category={cat}
                                 level={0}
                                 control={form.control}
-                                onSplitChange={handleSplitChange}
+                                splits={splitFields}
+                                append={append}
+                                remove={remove}
                             />
                         ))}
                     </ScrollArea>
