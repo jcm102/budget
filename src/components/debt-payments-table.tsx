@@ -113,7 +113,7 @@ export function DebtPaymentsTable() {
 
   const renderLoadingSkeleton = () => (
     Array.from({ length: 3 }).map((_, i) => (
-      <TableRow key={'skeleton-debt-${i}'}>
+      <TableRow key={`skeleton-debt-${i}`}>
         <TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell>
       </TableRow>
     ))
