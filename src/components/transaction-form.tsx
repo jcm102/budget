@@ -68,24 +68,23 @@ const formSchema = z.object({
   transferToId: z.string().optional(),
   splits: z.array(splitSchema).optional(),
 }).superRefine((data, ctx) => {
-    if (data.type === 'expense') {
-        if (!data.splits || data.splits.length === 0) {
-            ctx.addIssue({
+    if (data.splits && data.splits.length > 0) {
+        const totalSplitAmount = data.splits.reduce((sum, split) => sum + split.amount, 0);
+        if (Math.abs(totalSplitAmount - data.amount) > 0.001) { // Check for floating point differences
+                ctx.addIssue({
                 code: z.ZodIssueCode.custom,
-                path: ['splits'],
-                message: 'At least one category split is required for an expense.',
+                path: ['amount'],
+                message: `Split total (${totalSplitAmount.toFixed(2)}) must equal the transaction amount (${data.amount.toFixed(2)}).`,
             });
-        } else {
-            const totalSplitAmount = data.splits.reduce((sum, split) => sum + split.amount, 0);
-            if (Math.abs(totalSplitAmount - data.amount) > 0.001) { // Check for floating point differences
-                 ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    path: ['amount'],
-                    message: `Split total (${totalSplitAmount.toFixed(2)}) must equal the transaction amount (${data.amount.toFixed(2)}).`,
-                });
-            }
         }
+    } else if (data.type === 'expense') {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['splits'],
+            message: 'At least one category split is required for an expense.',
+        });
     }
+
     if (data.type === 'transfer') {
         if (!data.transferFromId) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['transferFromId'], message: 'Source account is required.' });
@@ -330,6 +329,16 @@ export function TransactionForm({ open, onOpenChange, addTransaction, updateTran
     }
   }, [open, editingTransaction, form]);
 
+  useEffect(() => {
+    const { getValues, setValue } = form;
+    if (transactionType === 'transfer') {
+      const splits = getValues('splits');
+      if (splits && splits.length > 0) {
+        // Don't clear splits if there are any
+      }
+    }
+  }, [transactionType, form]);
+
   function onSubmit(values: z.infer<typeof formSchema>) {
     const [year, month, day] = values.date.split('-').map(Number);
     const localDate = new Date(year, month - 1, day);
@@ -339,7 +348,7 @@ export function TransactionForm({ open, onOpenChange, addTransaction, updateTran
         amount: values.amount,
         date: localDate.toISOString(),
         type: values.type as TransactionType,
-        splits: values.type === 'expense' ? values.splits?.filter(s => s.amount > 0) : undefined,
+        splits: values.splits?.filter(s => s.amount > 0),
         transferFromId: values.type === 'transfer' ? values.transferFromId : undefined,
         transferToId: values.type === 'transfer' ? values.transferToId : undefined,
     }
@@ -422,36 +431,6 @@ export function TransactionForm({ open, onOpenChange, addTransaction, updateTran
               )}
             />
 
-            {transactionType === 'expense' && (
-                <div className="space-y-2">
-                    <FormLabel>Split Across Budget Items</FormLabel>
-                     <ScrollArea className="h-52 rounded-md border p-2">
-                        {categoryTree.map(cat => (
-                            <CategorySelectionRow
-                                key={cat.id}
-                                category={cat}
-                                level={0}
-                                control={form.control}
-                                splits={splitFields}
-                                append={append}
-                                remove={remove}
-                            />
-                        ))}
-                    </ScrollArea>
-                    <div className="p-3 bg-muted/50 rounded-md text-sm">
-                        <div className="flex justify-between">
-                            <span>Total Assigned:</span>
-                            <span className="font-medium">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalSplitAmount)}</span>
-                        </div>
-                        <Separator className="my-1.5"/>
-                         <div className={`flex justify-between font-semibold ${remainingToSplit < 0 ? 'text-destructive' : ''}`}>
-                            <span>Remaining:</span>
-                            <span>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(remainingToSplit)}</span>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {transactionType === 'transfer' && (
                 <div className="space-y-4">
                     <FormField control={form.control} name="transferFromId" render={({ field }) => (
@@ -490,6 +469,34 @@ export function TransactionForm({ open, onOpenChange, addTransaction, updateTran
                     />
                 </div>
             )}
+            
+            <div className="space-y-2">
+                <FormLabel>Split Across Budget Items (Optional for Transfers)</FormLabel>
+                    <ScrollArea className="h-52 rounded-md border p-2">
+                    {categoryTree.map(cat => (
+                        <CategorySelectionRow
+                            key={cat.id}
+                            category={cat}
+                            level={0}
+                            control={form.control}
+                            splits={splitFields}
+                            append={append}
+                            remove={remove}
+                        />
+                    ))}
+                </ScrollArea>
+                <div className="p-3 bg-muted/50 rounded-md text-sm">
+                    <div className="flex justify-between">
+                        <span>Total Assigned:</span>
+                        <span className="font-medium">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalSplitAmount)}</span>
+                    </div>
+                    <Separator className="my-1.5"/>
+                        <div className={`flex justify-between font-semibold ${remainingToSplit < 0 ? 'text-destructive' : ''}`}>
+                        <span>Remaining:</span>
+                        <span>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(remainingToSplit)}</span>
+                    </div>
+                </div>
+            </div>
 
             <DialogFooter className="sm:justify-between">
                 <div>
