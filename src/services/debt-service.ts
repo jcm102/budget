@@ -175,6 +175,7 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
         const allDebts = debtsSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as Debt));
 
         const categoryPaymentTotals: Record<string, number> = {};
+        const categoryBreakdowns: Record<string, { name: string, amount: number }[]> = {};
 
         // 2. Iterate through payments to update debt items and aggregate category totals
         for (const debtId in payments) {
@@ -190,30 +191,38 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
             const debtCategory = debt.debtType ? getCategoryForDebt(debt.debtType, budgetCategories) : undefined;
             if (debtCategory) {
                 categoryPaymentTotals[debtCategory.id] = (categoryPaymentTotals[debtCategory.id] || 0) + paymentAmount;
+                
+                if (!categoryBreakdowns[debtCategory.id]) {
+                    categoryBreakdowns[debtCategory.id] = [];
+                }
+                categoryBreakdowns[debtCategory.id].push({ name: debt.name, amount: paymentAmount });
             }
         }
 
         // 3. Update the monthly budget items
         for (const categoryId in categoryPaymentTotals) {
             const totalForCategory = categoryPaymentTotals[categoryId];
+            const breakdownForCategory = categoryBreakdowns[categoryId];
             
             const budgetItemsQuery = query(
                 collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION),
                 where('month', '==', currentMonth),
                 where('categoryId', '==', categoryId)
             );
-            const budgetItemsSnapshot = await getDocs(budgetItemsQuery); // This read is fine inside transaction
+            
+            // This needs to be a getDocs inside the transaction
+            const budgetItemsSnapshot = await getDocs(budgetItemsQuery);
 
             if (!budgetItemsSnapshot.empty) {
                 const budgetItemDoc = budgetItemsSnapshot.docs[0];
-                transaction.update(budgetItemDoc.ref, { budgeted: totalForCategory });
+                transaction.update(budgetItemDoc.ref, { budgeted: totalForCategory, breakdown: breakdownForCategory });
             } else {
                 const newBudgetItemRef = doc(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION));
                 transaction.set(newBudgetItemRef, {
                     categoryId: categoryId,
                     month: currentMonth,
                     budgeted: totalForCategory,
-                    breakdown: [],
+                    breakdown: breakdownForCategory,
                 });
             }
         }

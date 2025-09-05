@@ -27,6 +27,7 @@ import { IncomeTable } from '@/components/income-table';
 import { PaPaymentsTable } from '@/components/pa-payments-table';
 import { TransfersTable } from '@/components/transfers-table';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DebtPaymentsTable } from '@/components/debt-payments-table';
 
 
 export default function BudgetPage() {
@@ -105,22 +106,22 @@ export default function BudgetPage() {
              <Tabs defaultValue="income" className="w-full">
                 <TabsList className="grid w-full grid-cols-4 bg-secondary/50 mb-6 no-print h-auto">
                     <TabsTrigger value="income" className="py-2"><Banknote className="mr-2 h-4 w-4"/>Income</TabsTrigger>
+                    <TabsTrigger value="debt" className="py-2"><Wallet className="mr-2 h-4 w-4"/>Debt Payments</TabsTrigger>
                     <TabsTrigger value="pa" className="py-2"><Clock className="mr-2 h-4 w-4"/>PA Payments</TabsTrigger>
                     <TabsTrigger value="transfers" className="py-2"><ArrowRightLeft className="mr-2 h-4 w-4"/>Transfers</TabsTrigger>
-                    <TabsTrigger value="calendar" className="py-2"><Calendar className="mr-2 h-4 w-4"/>Payment Calendar</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="income">
                     <IncomeTable />
+                </TabsContent>
+                <TabsContent value="debt">
+                    <DebtPaymentsTable />
                 </TabsContent>
                 <TabsContent value="pa">
                     <PaPaymentsTable />
                 </TabsContent>
                 <TabsContent value="transfers">
                     <TransfersTable />
-                </TabsContent>
-                <TabsContent value="calendar">
-                   <PaymentCalendar />
                 </TabsContent>
             </Tabs>
         </div>

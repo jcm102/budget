@@ -27,7 +27,7 @@ const ACCOUNT_DETAILS_COLLECTION = 'transferees';
 
 export async function getBudgetItems(): Promise<BudgetItem[]> {
   const budgetCollection = collection(db, BUDGET_COLLECTION);
-  const q = query(budgetCollection);
+  const q = query(budgetCollection, where('type', 'in', ['Income', 'Pre-Authorized Payments', 'Transfers', 'Debt Payments']));
   const querySnapshot = await getDocs(q);
   
   const today = new Date();
@@ -61,13 +61,6 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
 
     const itemStartDate = new Date(item.date);
     
-    // For "Debt Payments" and "Transfers", we want to show all of them, regardless of date.
-    if (item.type === 'Transfers' || item.type === 'Debt Payments') { 
-        allGeneratedItems.push(item);
-        return; // Move to the next item
-    }
-
-    // Existing logic for other types (Income, PA Payments)
     if (getYear(itemStartDate) > getYear(today) || (getYear(itemStartDate) === getYear(today) && getMonth(itemStartDate) > getMonth(today))) {
         if (item.frequency === 'One-Time' && isSameMonth(itemStartDate, today)) {
             // allow
