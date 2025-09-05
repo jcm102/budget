@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { Backspace } from 'lucide-react';
+import { Delete } from 'lucide-react';
 
 export function Calculator() {
   const [input, setInput] = useState('');
@@ -90,7 +90,7 @@ export function Calculator() {
                 variant="outline"
                 className="h-16 text-2xl"
              >
-                <Backspace className="h-8 w-8"/>
+                <Delete className="h-8 w-8"/>
              </Button>
         </div>
       </CardContent>
