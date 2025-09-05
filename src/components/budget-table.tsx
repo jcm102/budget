@@ -240,19 +240,22 @@ export function BudgetTable({ budgetItems, categories, transactions, isLoading, 
 
   const categoryTree = useMemo(() => buildCategoryTree(categories), [categories]);
 
-  const getCategoryTotals = useCallback((category: CategoryWithChildren): { budgeted: number, actual: number, breakdown: Record<string, { budgeted: number, actual: number }> } => {
+ const getCategoryTotals = useCallback((category: CategoryWithChildren): { budgeted: number, actual: number, breakdown: Record<string, { budgeted: number, actual: number }> } => {
     const budgetItem = budgetItems.find(b => b.categoryId === category.id);
     let totals = {
       budgeted: 0,
       actual: 0,
       breakdown: {} as Record<string, { budgeted: number, actual: number }>
     };
-    
+
     // Initialize breakdown totals from budgetItem
-    if (budgetItem?.breakdown) {
+    if (budgetItem?.breakdown && budgetItem.breakdown.length > 0) {
         budgetItem.breakdown.forEach(item => {
             totals.breakdown[item.name] = { budgeted: item.amount, actual: 0 };
         });
+    } else if (budgetItem) {
+        // Handle categories that have a budget but no explicit breakdown (e.g. Mortgage)
+        totals.breakdown['Default'] = { budgeted: budgetItem.budgeted, actual: 0 };
     }
 
     // Sum up actuals from transactions

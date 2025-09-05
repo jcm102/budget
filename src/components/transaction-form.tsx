@@ -134,8 +134,8 @@ const CategorySelectionRow = ({
     const [isOpen, setIsOpen] = useState(false);
     const hasChildren = category.children.length > 0;
     
-    const breakdownItems = category.budgetItem?.breakdown?.filter(b => b.name !== 'Default');
-    const hasExplicitBreakdown = breakdownItems && breakdownItems.length > 0;
+    const breakdownItems = category.budgetItem?.breakdown;
+    const hasExplicitBreakdown = breakdownItems && breakdownItems.length > 0 && !(breakdownItems.length === 1 && breakdownItems[0].name === 'Default');
 
     const isSelectable = !hasExplicitBreakdown && (category.budgetItem?.budgeted ?? 0) > 0;
     
@@ -153,8 +153,6 @@ const CategorySelectionRow = ({
             }
          }
     };
-    
-    const singleItem = { name: 'Default', amount: category.budgetItem?.budgeted || 0 };
 
     return (
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
