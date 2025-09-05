@@ -165,56 +165,67 @@ const getCategoryForDebt = (debtType: DebtType, budgetCategories: Category[]): C
 
 
 export async function applyPaymentsToBudget(payments: Record<string, number>): Promise<void> {
-    const batch = writeBatch(db);
-    const currentMonth = new Date().toISOString().slice(0, 7);
-    
-    const [debtsSnapshot, monthlyBudgetSnapshot, budgetCategories] = await Promise.all([
-        getDocs(query(collection(db, DEBT_COLLECTION))),
-        getDocs(query(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION), where('month', '==', currentMonth))),
-        getBudgetCategories(),
-    ]);
-    const allDebts = debtsSnapshot.docs.map(d => ({id: d.id, ...d.data()} as Debt));
-    const allMonthlyBudgetItems = monthlyBudgetSnapshot.docs.map(d => ({id: d.id, ...d.data()} as MonthlyBudgetItem));
+  const batch = writeBatch(db);
+  const currentMonth = new Date().toISOString().slice(0, 7);
 
-    const categoryPaymentTotals: Record<string, number> = {};
+  // 1. Fetch all necessary data in parallel
+  const [debtsSnapshot, monthlyBudgetSnapshot, budgetCategories] = await Promise.all([
+    getDocs(query(collection(db, DEBT_COLLECTION))),
+    getDocs(query(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION), where('month', '==', currentMonth))),
+    getBudgetCategories(),
+  ]);
 
-    for (const debtId in payments) {
-        const paymentAmount = payments[debtId];
-        const debt = allDebts.find(d => d.id === debtId);
-        
-        if (!debt || paymentAmount <= 0) {
-            continue;
-        }
+  const allDebts = debtsSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as Debt));
+  const allMonthlyBudgetItems = monthlyBudgetSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as MonthlyBudgetItem));
 
-        const debtRef = doc(db, DEBT_COLLECTION, debtId);
-        batch.update(debtRef, { actualPayment: paymentAmount });
-        
-        const debtCategory = debt.debtType ? getCategoryForDebt(debt.debtType, budgetCategories) : undefined;
-        if (debtCategory) {
-            if (!categoryPaymentTotals[debtCategory.id]) {
-                categoryPaymentTotals[debtCategory.id] = 0;
-            }
-            categoryPaymentTotals[debtCategory.id] += paymentAmount;
-        }
+  // A map to hold the total planned payment for each budget category
+  const categoryPaymentTotals: Record<string, number> = {};
+
+  // 2. Iterate through the payments from the calculator
+  for (const debtId in payments) {
+    const paymentAmount = payments[debtId];
+    const debt = allDebts.find(d => d.id === debtId);
+
+    if (!debt || paymentAmount <= 0) {
+      continue;
     }
 
-    for (const categoryId in categoryPaymentTotals) {
-        const totalForCategory = categoryPaymentTotals[categoryId];
-        const budgetItem = allMonthlyBudgetItems.find(item => item.categoryId === categoryId);
+    // Update the 'actualPayment' on the debt worksheet item
+    const debtRef = doc(db, DEBT_COLLECTION, debtId);
+    batch.update(debtRef, { actualPayment: paymentAmount });
 
-        if (budgetItem) {
-            const budgetItemRef = doc(db, MONTHLY_BUDGET_ITEMS_COLLECTION, budgetItem.id);
-            batch.update(budgetItemRef, { budgeted: totalForCategory });
-        } else {
-            const newMonthlyBudgetItemRef = doc(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION));
-            batch.set(newMonthlyBudgetItemRef, {
-                categoryId: categoryId,
-                month: currentMonth,
-                budgeted: totalForCategory,
-                breakdown: [],
-            });
-        }
+    // Find the correct budget category for this debt
+    const debtCategory = debt.debtType ? getCategoryForDebt(debt.debtType, budgetCategories) : undefined;
+    if (debtCategory) {
+      // Aggregate the total payment for this category
+      if (!categoryPaymentTotals[debtCategory.id]) {
+        categoryPaymentTotals[debtCategory.id] = 0;
+      }
+      categoryPaymentTotals[debtCategory.id] += paymentAmount;
     }
-    
-    await batch.commit();
+  }
+
+  // 3. Update the monthly budget items with the aggregated totals
+  for (const categoryId in categoryPaymentTotals) {
+    const totalForCategory = categoryPaymentTotals[categoryId];
+    const budgetItem = allMonthlyBudgetItems.find(item => item.categoryId === categoryId);
+
+    if (budgetItem) {
+      // If a budget item for this category already exists, update its 'budgeted' amount
+      const budgetItemRef = doc(db, MONTHLY_BUDGET_ITEMS_COLLECTION, budgetItem.id);
+      batch.update(budgetItemRef, { budgeted: totalForCategory });
+    } else {
+      // If no budget item exists, create a new one
+      const newMonthlyBudgetItemRef = doc(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION));
+      batch.set(newMonthlyBudgetItemRef, {
+        categoryId: categoryId,
+        month: currentMonth,
+        budgeted: totalForCategory,
+        breakdown: [],
+      });
+    }
+  }
+
+  // 4. Commit all changes to the database at once
+  await batch.commit();
 }
