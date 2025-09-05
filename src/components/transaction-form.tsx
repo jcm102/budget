@@ -1,8 +1,9 @@
+
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,26 +30,48 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { Transaction, TransactionType } from '@/types';
+import type { Transaction, TransactionType, Category as CategoryType, TransactionSplit } from '@/types';
 import { useBudgetCategories } from '@/hooks/use-budget-categories';
 import { useAccountDetails } from '@/hooks/use-transferees';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
+import { ScrollArea } from './ui/scroll-area';
+import { Checkbox } from './ui/checkbox';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
+import { ChevronRight, CornerDownRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Separator } from './ui/separator';
+
+const splitSchema = z.object({
+    categoryId: z.string(),
+    amount: z.coerce.number().min(0.01, 'Amount must be positive.'),
+});
 
 const formSchema = z.object({
   description: z.string().min(2, 'Description must be at least 2 characters.'),
   amount: z.coerce.number().min(0.01, 'Amount must be greater than zero.'),
   date: z.string().min(1, 'A date is required.'),
   type: z.enum(['expense', 'transfer']),
-  categoryId: z.string().optional(),
   transferFromId: z.string().optional(),
   transferToId: z.string().optional(),
+  splits: z.array(splitSchema).optional(),
 }).superRefine((data, ctx) => {
-    if (data.type === 'expense' && !data.categoryId) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['categoryId'],
-            message: 'Category is required for an expense.',
-        });
+    if (data.type === 'expense') {
+        if (!data.splits || data.splits.length === 0) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['splits'],
+                message: 'At least one category split is required for an expense.',
+            });
+        } else {
+            const totalSplitAmount = data.splits.reduce((sum, split) => sum + split.amount, 0);
+            if (Math.abs(totalSplitAmount - data.amount) > 0.001) { // Check for floating point differences
+                 ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['amount'],
+                    message: `Split total (${totalSplitAmount.toFixed(2)}) must equal the transaction amount (${data.amount.toFixed(2)}).`,
+                });
+            }
+        }
     }
     if (data.type === 'transfer') {
         if (!data.transferFromId) {
@@ -63,11 +86,83 @@ const formSchema = z.object({
     }
 });
 
+
 type TransactionFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
 };
+
+type CategoryWithChildren = CategoryType & { children: CategoryWithChildren[] };
+
+const CategorySelectionRow = ({ 
+    category,
+    level,
+    control,
+    onSplitChange,
+}: {
+    category: CategoryWithChildren,
+    level: number,
+    control: any,
+    onSplitChange: (categoryId: string, checked: boolean) => void,
+}) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const hasChildren = category.children.length > 0;
+    
+    return (
+        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+            <div className="flex items-center gap-2 py-1">
+                <div style={{ paddingLeft: `${level * 1.5}rem` }} className="flex-grow flex items-center gap-1">
+                    {level > 0 && <CornerDownRight className="h-4 w-4 text-muted-foreground/70" />}
+                    {hasChildren && (
+                        <CollapsibleTrigger asChild>
+                             <Button variant="ghost" size="icon" className="h-6 w-6 -ml-1">
+                                <ChevronRight className={cn("h-4 w-4 transition-transform", isOpen && "rotate-90")} />
+                            </Button>
+                        </CollapsibleTrigger>
+                    )}
+                    <Checkbox
+                        id={category.id}
+                        onCheckedChange={(checked) => onSplitChange(category.id, !!checked)}
+                        className="mr-2"
+                    />
+                    <label htmlFor={category.id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                        {category.name}
+                    </label>
+                </div>
+                 <FormField
+                    control={control}
+                    name={`splits.${category.id}.amount`}
+                    render={({ field }) => (
+                         <FormControl>
+                            <Input
+                                {...field}
+                                type="number"
+                                step="0.01"
+                                placeholder="0.00"
+                                className="h-8 w-28 text-right"
+                                onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                            />
+                        </FormControl>
+                    )}
+                 />
+            </div>
+            {hasChildren && (
+                <CollapsibleContent>
+                    {category.children.map(child => (
+                         <CategorySelectionRow
+                            key={child.id}
+                            category={child}
+                            level={level + 1}
+                            control={control}
+                            onSplitChange={onSplitChange}
+                        />
+                    ))}
+                </CollapsibleContent>
+            )}
+        </Collapsible>
+    )
+}
 
 export function TransactionForm({ open, onOpenChange, addTransaction }: TransactionFormProps) {
   const { categories, isLoading: isLoadingCategories } = useBudgetCategories();
@@ -80,13 +175,35 @@ export function TransactionForm({ open, onOpenChange, addTransaction }: Transact
       amount: 0,
       date: new Date().toISOString().split('T')[0],
       type: 'expense',
-      categoryId: '',
       transferFromId: '',
       transferToId: '',
+      splits: [],
     },
   });
 
   const transactionType = form.watch('type');
+  const transactionAmount = form.watch('amount');
+  const splits = form.watch('splits');
+  
+  const totalSplitAmount = useMemo(() => {
+    return splits?.reduce((sum, split) => sum + (split.amount || 0), 0) || 0;
+  }, [splits]);
+
+  const remainingToSplit = transactionAmount - totalSplitAmount;
+  
+  const categoryTree = useMemo(() => {
+    const tree: CategoryWithChildren[] = [];
+    const map: { [key: string]: CategoryWithChildren } = {};
+    categories.forEach(cat => map[cat.id] = { ...cat, children: [] });
+    categories.forEach(cat => {
+      if (cat.parentId && map[cat.parentId]) {
+        map[cat.parentId].children.push(map[cat.id]);
+      } else {
+        tree.push(map[cat.id]);
+      }
+    });
+    return tree;
+  }, [categories]);
 
   useEffect(() => {
     if (open) {
@@ -95,12 +212,23 @@ export function TransactionForm({ open, onOpenChange, addTransaction }: Transact
         amount: 0,
         date: new Date().toISOString().split('T')[0],
         type: 'expense',
-        categoryId: '',
         transferFromId: '',
         transferToId: '',
+        splits: [],
       });
     }
   }, [open, form]);
+  
+  const handleSplitChange = (categoryId: string, checked: boolean) => {
+    const currentSplits = form.getValues('splits') || [];
+    if (checked) {
+        if (!currentSplits.some(s => s.categoryId === categoryId)) {
+            form.setValue('splits', [...currentSplits, { categoryId, amount: 0 }]);
+        }
+    } else {
+        form.setValue('splits', currentSplits.filter(s => s.categoryId !== categoryId));
+    }
+  };
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const [year, month, day] = values.date.split('-').map(Number);
@@ -111,7 +239,7 @@ export function TransactionForm({ open, onOpenChange, addTransaction }: Transact
         amount: values.amount,
         date: localDate.toISOString(),
         type: values.type as TransactionType,
-        categoryId: values.type === 'expense' ? values.categoryId : undefined,
+        splits: values.type === 'expense' ? values.splits?.filter(s => s.amount > 0) : undefined,
         transferFromId: values.type === 'transfer' ? values.transferFromId : undefined,
         transferToId: values.type === 'transfer' ? values.transferToId : undefined,
     }
@@ -119,10 +247,12 @@ export function TransactionForm({ open, onOpenChange, addTransaction }: Transact
     addTransaction(dataToSubmit);
     onOpenChange(false);
   }
+  
+  const activeSplitCategoryIds = useMemo(() => new Set(splits?.map(s => s.categoryId) || []), [splits]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Add Transaction</DialogTitle>
           <DialogDescription>
@@ -175,7 +305,7 @@ export function TransactionForm({ open, onOpenChange, addTransaction }: Transact
             />
             <FormField control={form.control} name="amount" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Amount</FormLabel>
+                  <FormLabel>Total Amount</FormLabel>
                   <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -183,25 +313,31 @@ export function TransactionForm({ open, onOpenChange, addTransaction }: Transact
             />
 
             {transactionType === 'expense' && (
-                <FormField control={form.control} name="categoryId" render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Category</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingCategories}>
-                        <FormControl>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Select a category" />
-                        </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                        {categories.map(cat => (
-                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                <div className="space-y-2">
+                    <FormLabel>Split Across Categories</FormLabel>
+                     <ScrollArea className="h-52 rounded-md border p-2">
+                        {categoryTree.map(cat => (
+                            <CategorySelectionRow
+                                key={cat.id}
+                                category={cat}
+                                level={0}
+                                control={form.control}
+                                onSplitChange={handleSplitChange}
+                            />
                         ))}
-                        </SelectContent>
-                    </Select>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
+                    </ScrollArea>
+                    <div className="p-3 bg-muted/50 rounded-md text-sm">
+                        <div className="flex justify-between">
+                            <span>Total Assigned:</span>
+                            <span className="font-medium">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalSplitAmount)}</span>
+                        </div>
+                        <Separator className="my-1.5"/>
+                         <div className={`flex justify-between font-semibold ${remainingToSplit < 0 ? 'text-destructive' : ''}`}>
+                            <span>Remaining:</span>
+                            <span>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(remainingToSplit)}</span>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {transactionType === 'transfer' && (

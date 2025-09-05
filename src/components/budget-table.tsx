@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useCallback } from 'react';
@@ -204,12 +205,18 @@ export function BudgetTable({ budgetItems, categories, transactions, isLoading, 
     const expenses: Transaction[] = [];
 
     transactions.forEach((transaction) => {
-      if (transaction.type === 'expense' && transaction.categoryId) {
+      if (transaction.type === 'expense' && transaction.splits) {
         expenses.push(transaction);
-        if (!byCategory[transaction.categoryId]) {
-          byCategory[transaction.categoryId] = [];
-        }
-        byCategory[transaction.categoryId].push(transaction);
+        transaction.splits.forEach(split => {
+            if (!byCategory[split.categoryId]) {
+                byCategory[split.categoryId] = [];
+            }
+            // Create a pseudo-transaction for each split to display it
+            byCategory[split.categoryId].push({
+                ...transaction,
+                amount: split.amount // The amount for this split
+            });
+        });
       }
     });
     return { expenseTransactions: expenses, transactionsByCategory: byCategory };
@@ -218,8 +225,10 @@ export function BudgetTable({ budgetItems, categories, transactions, isLoading, 
   const transactionTotals = useMemo(() => {
      const totals: Record<string, number> = {};
      expenseTransactions.forEach(tx => {
-         if (tx.categoryId) {
-            totals[tx.categoryId] = (totals[tx.categoryId] || 0) + tx.amount;
+         if (tx.splits) {
+            tx.splits.forEach(split => {
+                totals[split.categoryId] = (totals[split.categoryId] || 0) + split.amount;
+            });
          }
      });
      return totals;
