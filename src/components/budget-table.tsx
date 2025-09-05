@@ -20,7 +20,7 @@ import { Skeleton } from './ui/skeleton';
 import { Progress } from './ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
-import type { Transaction, Category, MonthlyBudgetItem } from '@/types';
+import type { Transaction, Category, MonthlyBudgetItem, BudgetSubItem } from '@/types';
 import { Separator } from './ui/separator';
 import { useAccountDetails } from '@/hooks/use-transferees';
 
@@ -57,8 +57,7 @@ const CategoryRow = ({
     category, 
     level, 
     budgetItems, 
-    transactionTotals, 
-    transactionsByCategory,
+    transactions,
     accountMap,
     onEditBreakdown,
     getCategoryTotals,
@@ -66,50 +65,35 @@ const CategoryRow = ({
     category: CategoryWithChildren, 
     level: number,
     budgetItems: MonthlyBudgetItem[],
-    transactionTotals: Record<string, number>,
-    transactionsByCategory: Record<string, Transaction[]>,
+    transactions: Transaction[],
     accountMap: Record<string, string>,
     onEditBreakdown: (category: Category) => void,
-    getCategoryTotals: (cat: CategoryWithChildren) => { budgeted: number, actual: number },
+    getCategoryTotals: (cat: CategoryWithChildren) => { budgeted: number, actual: number, breakdown: Record<string, { budgeted: number, actual: number }> },
 }) => {
     const [isOpen, setIsOpen] = useState(false);
 
-    const { budgeted, actual } = getCategoryTotals(category);
+    const { budgeted, actual, breakdown: breakdownTotals } = getCategoryTotals(category);
     
     const budgetItem = budgetItems.find(b => b.categoryId === category.id);
     const remaining = budgeted - actual;
     const progress = budgeted > 0 ? (actual / budgeted) * 100 : 0;
-    const categoryTransactions = transactionsByCategory[category.id] || [];
     
-    const hasBreakdown = budgetItem?.breakdown && budgetItem.breakdown.length > 0 && (budgetItem.breakdown.length > 1 || budgetItem.breakdown[0].name !== 'Default');
+    const hasBreakdown = Object.keys(breakdownTotals).length > 0;
     const hasChildren = category.children.length > 0;
-    const hasTransactions = categoryTransactions.length > 0;
+    
+    const relevantTransactions = useMemo(() => {
+        return transactions.filter(tx => 
+            tx.splits?.some(s => s.categoryId === category.id)
+        );
+    }, [transactions, category.id]);
+    
+    const hasTransactions = relevantTransactions.length > 0;
     const isCollapsible = hasTransactions || hasBreakdown || hasChildren;
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
     };
     
-    const breakdownTotals = useMemo(() => {
-        const totals: Record<string, number> = {};
-        if (budgetItem?.breakdown) {
-            budgetItem.breakdown.forEach(item => {
-                totals[item.name] = 0;
-            });
-        }
-        categoryTransactions.forEach(tx => {
-            // Simplified: for now, assume a transaction can be linked to a breakdown item by description.
-            // A more robust solution would involve storing breakdown item ID in the transaction.
-            const split = tx.splits?.find(s => s.categoryId === category.id);
-            if (split) {
-                // This logic is flawed as splits are on category, not breakdown.
-                // The display logic needs to be based on category totals.
-            }
-        });
-        return totals;
-    }, [budgetItem, categoryTransactions, category.id]);
-
-
     return (
         <>
             <TableRow className="font-medium" data-state={isOpen ? 'open' : 'closed'}>
@@ -150,14 +134,29 @@ const CategoryRow = ({
                                 {hasBreakdown && (
                                     <div className="p-3 border rounded-md bg-background/50">
                                         <h4 className="text-sm font-semibold mb-2">Budget Breakdown</h4>
-                                        <div className="space-y-1">
-                                            {budgetItem?.breakdown?.map((item, idx) => (
-                                                <div key={idx} className="flex justify-between text-sm">
-                                                    <span>{item.name}</span>
-                                                    <span>{formatCurrency(item.amount)}</span>
-                                                </div>
-                                            ))}
-                                        </div>
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow className="hover:bg-transparent">
+                                                    <TableHead>Item</TableHead>
+                                                    <TableHead className="text-right">Budgeted</TableHead>
+                                                    <TableHead className="text-right">Actual</TableHead>
+                                                    <TableHead className="text-right">Remaining</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                            {Object.entries(breakdownTotals).map(([name, totals]) => {
+                                                const itemRemaining = totals.budgeted - totals.actual;
+                                                return (
+                                                    <TableRow key={name} className="hover:bg-transparent border-b-0">
+                                                        <TableCell className="py-1">{name}</TableCell>
+                                                        <TableCell className="py-1 text-right">{formatCurrency(totals.budgeted)}</TableCell>
+                                                        <TableCell className="py-1 text-right">{formatCurrency(totals.actual)}</TableCell>
+                                                        <TableCell className={`py-1 text-right ${itemRemaining < 0 ? 'text-destructive' : ''}`}>{formatCurrency(itemRemaining)}</TableCell>
+                                                    </TableRow>
+                                                )
+                                            })}
+                                            </TableBody>
+                                        </Table>
                                     </div>
                                 )}
                                 {hasTransactions && (
@@ -166,7 +165,7 @@ const CategoryRow = ({
                                         <h4 className="text-sm font-semibold mb-2">Transactions</h4>
                                         <Table>
                                             <TableBody>
-                                            {categoryTransactions.map(tx => (
+                                            {relevantTransactions.map(tx => (
                                                 <TableRow key={tx.id} className="border-b-0 hover:bg-transparent">
                                                     <TableCell className="py-2">{format(new Date(tx.date), 'MMM dd')}</TableCell>
                                                     <TableCell className="py-2">{tx.description}</TableCell>
@@ -194,8 +193,7 @@ const CategoryRow = ({
                                             category={child}
                                             level={level + 1}
                                             budgetItems={budgetItems}
-                                            transactionTotals={transactionTotals}
-                                            transactionsByCategory={transactionsByCategory}
+                                            transactions={transactions}
                                             accountMap={accountMap}
                                             onEditBreakdown={onEditBreakdown}
                                             getCategoryTotals={getCategoryTotals}
@@ -225,41 +223,6 @@ export function BudgetTable({ budgetItems, categories, transactions, isLoading, 
   }, [allAccounts]);
 
 
-  const { expenseTransactions, transactionsByCategory } = useMemo(() => {
-    const byCategory: Record<string, Transaction[]> = {};
-    const expenses: Transaction[] = [];
-
-    transactions.forEach((transaction) => {
-      if (transaction.type === 'expense' && transaction.splits) {
-        expenses.push(transaction);
-        transaction.splits.forEach(split => {
-            if (!byCategory[split.categoryId]) {
-                byCategory[split.categoryId] = [];
-            }
-            // Create a pseudo-transaction for each split to display it
-            byCategory[split.categoryId].push({
-                ...transaction,
-                id: `${transaction.id}-${split.categoryId}`,
-                amount: split.amount // The amount for this split
-            });
-        });
-      }
-    });
-    return { expenseTransactions: expenses, transactionsByCategory: byCategory };
-  }, [transactions]);
-  
-  const transactionTotals = useMemo(() => {
-     const totals: Record<string, number> = {};
-     expenseTransactions.forEach(tx => {
-         if (tx.splits) {
-            tx.splits.forEach(split => {
-                totals[split.categoryId] = (totals[split.categoryId] || 0) + split.amount;
-            });
-         }
-     });
-     return totals;
-  }, [expenseTransactions]);
-
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
@@ -274,26 +237,44 @@ export function BudgetTable({ budgetItems, categories, transactions, isLoading, 
 
   const categoryTree = useMemo(() => buildCategoryTree(categories), [categories]);
 
-  const getCategoryTotals = useCallback((category: CategoryWithChildren): { budgeted: number, actual: number } => {
+  const getCategoryTotals = useCallback((category: CategoryWithChildren): { budgeted: number, actual: number, breakdown: Record<string, { budgeted: number, actual: number }> } => {
     const budgetItem = budgetItems.find(b => b.categoryId === category.id);
     let totals = {
-      budgeted: budgetItem?.budgeted || 0,
-      actual: transactionTotals[category.id] || 0,
+      budgeted: 0,
+      actual: 0,
+      breakdown: {} as Record<string, { budgeted: number, actual: number }>
     };
+    
+    // Initialize breakdown totals from budgetItem
+    if (budgetItem?.breakdown) {
+        budgetItem.breakdown.forEach(item => {
+            totals.breakdown[item.name] = { budgeted: item.amount, actual: 0 };
+        });
+    }
+
+    // Sum up actuals from transactions
+    transactions.forEach(tx => {
+        tx.splits?.forEach(split => {
+            if (split.categoryId === category.id && totals.breakdown[split.budgetItemName]) {
+                totals.breakdown[split.budgetItemName].actual += split.amount;
+            }
+        })
+    });
+    
+    totals.budgeted = budgetItem?.budgeted || 0;
+    totals.actual = Object.values(totals.breakdown).reduce((sum, item) => sum + item.actual, 0);
+
 
     if (category.children.length > 0) {
       category.children.forEach(child => {
         const childTotals = getCategoryTotals(child);
-        // A parent's budget is the sum of its children's budgets *if* it doesn't have one itself.
-        // Let's assume parent categories have their own budget fields for now, or are sums.
-        // For display, we sum them up.
         totals.budgeted += childTotals.budgeted;
         totals.actual += childTotals.actual;
       });
     }
 
     return totals;
-  }, [budgetItems, transactionTotals]);
+  }, [budgetItems, transactions]);
 
   const { totalBudgeted, totalSpent } = useMemo(() => {
     let budgeted = 0;
@@ -328,8 +309,7 @@ export function BudgetTable({ budgetItems, categories, transactions, isLoading, 
                     category={category} 
                     level={0} 
                     budgetItems={budgetItems} 
-                    transactionTotals={transactionTotals}
-                    transactionsByCategory={transactionsByCategory}
+                    transactions={transactions}
                     accountMap={accountMap}
                     onEditBreakdown={onEditBreakdown}
                     getCategoryTotals={getCategoryTotals}

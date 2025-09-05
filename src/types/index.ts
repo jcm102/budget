@@ -241,6 +241,7 @@ export type TransactionType = 'expense' | 'transfer';
 export interface TransactionSplit {
     categoryId: string;
     amount: number;
+    budgetItemName: string; // e.g. "London Hydro"
 }
 
 export interface Transaction {
