@@ -256,7 +256,7 @@ export async function deleteBudgetItem(id: string): Promise<void> {
     await runTransaction(db, async (transaction) => {
         const isRecurringInstance = id.includes('-');
         
-        let itemToDeleteRef: FirebaseFirestore.DocumentReference;
+        let itemToDeleteRef: FirebaseFirestore.DocumentReference | undefined;
         let itemToDeleteData: BudgetItem | null = null;
         
         if (isRecurringInstance) {
@@ -288,7 +288,7 @@ export async function deleteBudgetItem(id: string): Promise<void> {
             if (itemToDeleteData.type === 'Pre-Authorized Payments' && itemToDeleteData.budgetCategoryId) {
                 await updateMonthlyBudget(transaction, itemToDeleteData.budgetCategoryId, itemToDeleteData.amount, 'subtract');
             }
-            if (itemToDeleteRef!) { // Should exist if data exists and not a virtual instance
+            if (itemToDeleteRef) { // Should exist if data exists and not a virtual instance
                  transaction.delete(itemToDeleteRef);
             }
         }

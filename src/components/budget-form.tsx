@@ -215,7 +215,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
       date: toLocalISOString(localDate),
       type: values.type as BudgetItemType,
       frequency: values.frequency as BudgetItemFrequency,
-      budgetCategoryId: values.budgetCategoryId || null,
+      budgetCategoryId: values.budgetCategoryId === 'null-value' ? null : values.budgetCategoryId,
     };
     
     // Handle allocation logic
@@ -525,7 +525,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                                     </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                    <SelectItem value="">None</SelectItem>
+                                    <SelectItem value="null-value">None</SelectItem>
                                     {renderCategoryOptions(categoryTree)}
                                 </SelectContent>
                             </Select>
