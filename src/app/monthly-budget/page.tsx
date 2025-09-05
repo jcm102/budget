@@ -10,15 +10,16 @@ import { TransactionForm } from '@/components/transaction-form';
 import { useTransactions } from '@/hooks/use-transactions';
 import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
 import { BudgetBreakdownForm } from '@/components/budget-breakdown-form';
-import type { Category, MonthlyBudgetItem, BudgetSubItem } from '@/types';
+import type { Category, MonthlyBudgetItem, BudgetSubItem, Transaction } from '@/types';
 import { useBudget } from '@/hooks/use-budget';
 
 export default function MonthlyBudgetPage() {
   const [isTransactionFormOpen, setIsTransactionFormOpen] = useState(false);
   const [isBreakdownFormOpen, setIsBreakdownFormOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
-  const { transactions, addTransaction, isLoading: isLoadingTransactions } = useTransactions();
+  const { transactions, addTransaction, updateTransaction, deleteTransaction, isLoading: isLoadingTransactions } = useTransactions();
   const { budgetItems: monthlyBudgetItems, categories, updateBudgetItemWithBreakdown, isLoading: isLoadingBudget } = useMonthlyBudget();
   const { budgetItems, isLoading: isLoadingIncome } = useBudget();
 
@@ -40,6 +41,19 @@ export default function MonthlyBudgetPage() {
   const handleSaveBreakdown = (categoryId: string, breakdown: BudgetSubItem[]) => {
     updateBudgetItemWithBreakdown(categoryId, breakdown);
   }
+  
+  const handleOpenTransactionForm = (transaction: Transaction | null) => {
+    setEditingTransaction(transaction);
+    setIsTransactionFormOpen(true);
+  };
+  
+  const handleCloseTransactionForm = (isOpen: boolean) => {
+    if (!isOpen) {
+        setEditingTransaction(null);
+    }
+    setIsTransactionFormOpen(isOpen);
+  }
+
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
@@ -51,8 +65,11 @@ export default function MonthlyBudgetPage() {
     <>
       <TransactionForm
         open={isTransactionFormOpen}
-        onOpenChange={setIsTransactionFormOpen}
+        onOpenChange={handleCloseTransactionForm}
         addTransaction={addTransaction}
+        updateTransaction={updateTransaction}
+        deleteTransaction={deleteTransaction}
+        editingTransaction={editingTransaction}
       />
       <BudgetBreakdownForm
         open={isBreakdownFormOpen}
@@ -76,7 +93,7 @@ export default function MonthlyBudgetPage() {
                     Mobile View
                 </Link>
             </Button>
-            <Button onClick={() => setIsTransactionFormOpen(true)}>
+            <Button onClick={() => handleOpenTransactionForm(null)}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Add Transaction
             </Button>
@@ -119,6 +136,7 @@ export default function MonthlyBudgetPage() {
                 transactions={transactions}
                 isLoading={isLoadingBudget || isLoadingTransactions || isLoadingIncome}
                 onEditBreakdown={handleEditBreakdown}
+                onEditTransaction={handleOpenTransactionForm}
             />
         </main>
       </div>

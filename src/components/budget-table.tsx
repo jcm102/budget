@@ -30,6 +30,7 @@ type BudgetTableProps = {
     transactions: Transaction[];
     isLoading: boolean;
     onEditBreakdown: (category: Category) => void;
+    onEditTransaction: (transaction: Transaction) => void;
 }
 
 type CategoryWithChildren = Category & { children: CategoryWithChildren[] };
@@ -61,6 +62,7 @@ const CategoryRow = ({
     accountMap,
     onEditBreakdown,
     getCategoryTotals,
+    onEditTransaction,
 }: { 
     category: CategoryWithChildren, 
     level: number,
@@ -69,6 +71,7 @@ const CategoryRow = ({
     accountMap: Record<string, string>,
     onEditBreakdown: (category: Category) => void,
     getCategoryTotals: (cat: CategoryWithChildren) => { budgeted: number, actual: number, breakdown: Record<string, { budgeted: number, actual: number }> },
+    onEditTransaction: (transaction: Transaction) => void,
 }) => {
     const [isOpen, setIsOpen] = useState(false);
 
@@ -166,7 +169,7 @@ const CategoryRow = ({
                                         <Table>
                                             <TableBody>
                                             {relevantTransactions.map(tx => (
-                                                <TableRow key={tx.id} className="border-b-0 hover:bg-transparent">
+                                                <TableRow key={tx.id} className="border-b-0 hover:bg-background/50 cursor-pointer" onClick={() => onEditTransaction(tx)}>
                                                     <TableCell className="py-2">{format(new Date(tx.date), 'MMM dd')}</TableCell>
                                                     <TableCell className="py-2">{tx.description}</TableCell>
                                                     {tx.type === 'transfer' && tx.transferFromId && tx.transferToId && (
@@ -197,6 +200,7 @@ const CategoryRow = ({
                                             accountMap={accountMap}
                                             onEditBreakdown={onEditBreakdown}
                                             getCategoryTotals={getCategoryTotals}
+                                            onEditTransaction={onEditTransaction}
                                         />
                                     ))}
                                     </TableBody>
@@ -212,7 +216,7 @@ const CategoryRow = ({
 }
 
 
-export function BudgetTable({ budgetItems, categories, transactions, isLoading, onEditBreakdown }: BudgetTableProps) {
+export function BudgetTable({ budgetItems, categories, transactions, isLoading, onEditBreakdown, onEditTransaction }: BudgetTableProps) {
   const { accounts: allAccounts } = useAccountDetails();
 
   const accountMap = useMemo(() => {
@@ -313,6 +317,7 @@ export function BudgetTable({ budgetItems, categories, transactions, isLoading, 
                     accountMap={accountMap}
                     onEditBreakdown={onEditBreakdown}
                     getCategoryTotals={getCategoryTotals}
+                    onEditTransaction={onEditTransaction}
                 />
             ))
           ) : (

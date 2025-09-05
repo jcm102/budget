@@ -52,6 +52,7 @@ import { ChevronRight, CornerDownRight, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Separator } from './ui/separator';
 import { buttonVariants } from './ui/button';
+import { useTransactions } from '@/hooks/use-transactions';
 
 const splitSchema = z.object({
     categoryId: z.string(),
@@ -256,7 +257,7 @@ const CategorySelectionRow = ({
     )
 }
 
-export function TransactionForm({ open, onOpenChange, addTransaction, updateTransaction, deleteTransaction, editingTransaction }: TransactionFormProps) {
+export function TransactionForm({ open, onOpenChange, addTransaction, updateTransaction, editingTransaction }: Omit<useTransactions, 'transactions' | 'isLoading' | 'fetchTransactions'> & { open: boolean; onOpenChange: (open: boolean) => void; editingTransaction: Transaction | null;}) {
   const { categories, budgetItems, isLoading: isLoadingCategories } = useMonthlyBudget();
   const { accounts, isLoading: isLoadingAccounts } = useAccountDetails();
 
@@ -489,33 +490,35 @@ export function TransactionForm({ open, onOpenChange, addTransaction, updateTran
             )}
 
             <DialogFooter className="sm:justify-between">
-              {editingTransaction && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button type="button" variant="destructive">
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This action cannot be undone. This will permanently delete this transaction.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={handleDelete}
-                          className={cn(buttonVariants({ variant: "destructive" }))}
-                        >
-                          Confirm Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-              )}
+              <div>
+                {editingTransaction && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button type="button" variant="destructive">
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete this transaction.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={handleDelete}
+                            className={cn(buttonVariants({ variant: "destructive" }))}
+                          >
+                            Confirm Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                )}
+              </div>
               <Button type="submit">{editingTransaction ? 'Save Changes' : 'Add Transaction'}</Button>
             </DialogFooter>
           </form>
