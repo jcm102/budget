@@ -30,14 +30,14 @@ export default function MobileBudgetPage() {
           </Button>
         </header>
         <main className="flex-grow flex flex-col gap-4">
-            <div className="flex-grow">
-                <Calculator />
-            </div>
-            <div className="py-2">
+             <div className="py-2">
                 <Button size="lg" className="w-full h-14 text-lg" onClick={() => setIsTransactionFormOpen(true)}>
                     <PlusCircle className="mr-2 h-6 w-6" />
                     Add Transaction
                 </Button>
+            </div>
+            <div className="flex-grow">
+                <Calculator />
             </div>
         </main>
       </div>
