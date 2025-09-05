@@ -27,7 +27,7 @@ const ACCOUNT_DETAILS_COLLECTION = 'transferees';
 
 export async function getBudgetItems(): Promise<BudgetItem[]> {
   const budgetCollection = collection(db, BUDGET_COLLECTION);
-  const q = query(budgetCollection);
+  const q = query(budgetCollection, where('type', '!=', 'Debt Payments'));
   const querySnapshot = await getDocs(q);
   
   const today = new Date();
@@ -227,69 +227,6 @@ export async function deleteBudgetItem(id: string): Promise<void> {
   await batch.commit();
 }
 
-
-export async function syncDebtPayments(): Promise<void> {
-  const debtCollectionRef = collection(db, DEBT_COLLECTION);
-  const budgetCollectionRef = collection(db, BUDGET_COLLECTION);
-  const accountsCollectionRef = collection(db, ACCOUNT_DETAILS_COLLECTION);
-  const batch = writeBatch(db);
-
-  // 1. Get all debts from the debt worksheet
-  const debtSnapshot = await getDocs(query(debtCollectionRef, orderBy('order')));
-  const debts = debtSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Debt));
-
-  // Get all accounts to find linked ones
-  const accountsSnapshot = await getDocs(accountsCollectionRef);
-  const accounts = accountsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccountDetails));
-  const accountMap = new Map(accounts.map(acc => [acc.id, acc]));
-
-  // 2. Get all existing debt payments from the budget to delete them
-  const existingBudgetPaymentsQuery = query(budgetCollectionRef, where('type', '==', 'Debt Payments'));
-  const existingBudgetPaymentsSnapshot = await getDocs(existingBudgetPaymentsQuery);
-
-  existingBudgetPaymentsSnapshot.forEach(doc => {
-    batch.delete(doc.ref);
-  });
-
-  // 3. Create new budget items for each debt
-  debts.forEach(debt => {
-    if (debt.actualPayment > 0) {
-      const linkedAccount = accounts.find(acc => acc.linkedDebtId === debt.id);
-      
-      const budgetItemData: Omit<BudgetItem, 'id'> = {
-        type: 'Debt Payments',
-        description: debt.name,
-        amount: debt.actualPayment,
-        date: debt.dueDate,
-        frequency: 'One-Time',
-        category: 'N/A',
-        completed: false,
-        transferFrom: linkedAccount ? linkedAccount.name : 'Unknown', // Use linked account name as source
-      };
-      const newDocRef = doc(budgetCollectionRef);
-      batch.set(newDocRef, budgetItemData);
-    }
-  });
-
-  // 4. Commit all the changes at once
-  await batch.commit();
-}
-
-export async function clearDebtPayments(): Promise<void> {
-  const budgetCollectionRef = collection(db, BUDGET_COLLECTION);
-  const batch = writeBatch(db);
-
-  // Get all existing debt payments from the budget to delete them
-  const existingBudgetPaymentsQuery = query(budgetCollectionRef, where('type', '==', 'Debt Payments'));
-  const existingBudgetPaymentsSnapshot = await getDocs(existingBudgetPaymentsQuery);
-  
-  existingBudgetPaymentsSnapshot.forEach(doc => {
-    batch.delete(doc.ref);
-  });
-
-  await batch.commit();
-}
-
 export async function resetPaPayments(): Promise<void> {
   const batch = writeBatch(db);
   
@@ -346,5 +283,3 @@ export async function resetPaPayments(): Promise<void> {
 
   await batch.commit();
 }
-
-    
