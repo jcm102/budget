@@ -21,9 +21,8 @@ import {
 
 const DEBT_COLLECTION = 'debts';
 const ACCOUNT_DETAILS_COLLECTION = 'transferees';
-const TRANSACTIONS_COLLECTION = 'transactions';
-const BUDGET_CATEGORIES_COLLECTION = 'budget-categories';
 const BUDGET_ITEMS_COLLECTION = 'budget-items';
+const BUDGET_CATEGORIES_COLLECTION = 'budget-categories';
 const MONTHLY_BUDGET_ITEMS_COLLECTION = 'monthly-budget-items';
 
 
@@ -240,7 +239,7 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
         if (budgetItem) {
             // If item exists, update its budget
             const budgetItemRef = doc(db, MONTHLY_BUDGET_ITEMS_COLLECTION, budgetItem.id);
-            batch.update(budgetItemRef, { budgeted: totalForCategory, breakdown: [] }); // Reset breakdown
+            batch.update(budgetItemRef, { budgeted: totalForCategory });
         } else {
             // If item doesn't exist, create it
             const newMonthlyBudgetItemRef = doc(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION));
@@ -248,7 +247,6 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
                 categoryId: categoryId,
                 month: currentMonth,
                 budgeted: totalForCategory,
-                breakdown: [] // Start with an empty breakdown
             });
         }
     }
