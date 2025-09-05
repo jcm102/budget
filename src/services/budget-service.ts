@@ -62,7 +62,7 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
     const itemStartDate = new Date(item.date);
     
     // For "Debt Payments" and "Transfers", we want to show all of them, regardless of date.
-    if (item.type === 'Debt Payments' || item.type === 'Transfers') {
+    if (item.type === 'Transfers') { // No longer include Debt Payments here
         allGeneratedItems.push(item);
         return; // Move to the next item
     }
