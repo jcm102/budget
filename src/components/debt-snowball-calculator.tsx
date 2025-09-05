@@ -172,7 +172,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
       await fetchDebts(); // Refetch debts to update the table UI
       toast({
         title: "Success!",
-        description: "Actual payments have been updated and budget items have been created.",
+        description: "Planned payments have been updated and budgeted amounts have been set.",
       });
     } catch (error: any) {
       toast({
@@ -253,7 +253,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
                     </div>
                     <Button onClick={handleApplySchedule} disabled={isApplying}>
                         {isApplying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Create Budget Items for this Month
+                        Apply Plan to Budget
                     </Button>
                 </div>
             </CardHeader>

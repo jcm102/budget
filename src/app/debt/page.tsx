@@ -43,7 +43,7 @@ export default function DebtPage() {
     balance: true,
     interestRate: true,
     minimumPayment: true,
-    actualPayment: true,
+    plannedPayment: true,
     dueDate: true,
     actions: true,
   });
@@ -55,7 +55,7 @@ export default function DebtPage() {
     balance: { label: 'Balance', isNumeric: true },
     interestRate: { label: 'Rate', isNumeric: true },
     minimumPayment: { label: 'Min. Payment', isNumeric: true },
-    actualPayment: { label: 'Actual Payment', isNumeric: true },
+    plannedPayment: { label: 'Planned Payment', isNumeric: true },
     dueDate: { label: 'Due Date' },
     actions: { label: 'Actions', isAction: true },
   };

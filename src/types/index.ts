@@ -49,7 +49,7 @@ export interface Debt {
   // Current Month
   balance: number;
   minimumPayment: number;
-  actualPayment: number;
+  plannedPayment: number;
   dueDate: string; // Should be a date string
   paid?: boolean;
   // Next Month

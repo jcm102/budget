@@ -83,7 +83,7 @@ function SortableDebtRow({ debt, view, onEdit, onDelete, onTogglePaid, formatCur
   const isCurrentView = view === 'current';
   const balance = isCurrentView ? debt.balance : debt.nextBalance;
   const minPayment = isCurrentView ? debt.minimumPayment : debt.nextMinimumPayment;
-  const actualPayment = isCurrentView ? debt.actualPayment : undefined;
+  const plannedPayment = isCurrentView ? debt.plannedPayment : undefined;
   const dueDate = isCurrentView ? debt.dueDate : debt.nextDueDate;
   const isPaid = isCurrentView ? debt.paid : debt.nextPaid;
   const interestRate = debt.interestRate;
@@ -108,7 +108,7 @@ function SortableDebtRow({ debt, view, onEdit, onDelete, onTogglePaid, formatCur
         {columnVisibility.balance && <TableCell className="text-right">{formatCurrency(balance || 0)}</TableCell>}
         {columnVisibility.interestRate && <TableCell className="text-right">{interestRate ? `${interestRate}%` : '-'}</TableCell>}
         {columnVisibility.minimumPayment && <TableCell className="text-right">{formatCurrency(minPayment || 0)}</TableCell>}
-        {columnVisibility.actualPayment && isCurrentView && <TableCell className="text-right font-bold">{formatCurrency(actualPayment || 0)}</TableCell>}
+        {columnVisibility.plannedPayment && isCurrentView && <TableCell className="text-right font-bold">{formatCurrency(plannedPayment || 0)}</TableCell>}
         {columnVisibility.dueDate && <TableCell>{dueDate ? format(new Date(dueDate), 'PPP') : '-'}</TableCell>}
         {columnVisibility.actions && <TableCell className="text-right">
         <div className="flex justify-end gap-2">
@@ -194,7 +194,7 @@ export function DebtTable({ view, columnVisibility, columnConfig }: DebtTablePro
   const isCurrentView = view === 'current';
 
   const visibleColumns = Object.keys(columnConfig).filter(key => {
-    if (!isCurrentView && key === 'actualPayment') return false;
+    if (!isCurrentView && key === 'plannedPayment') return false;
     return columnVisibility[key as keyof ColumnVisibility];
   });
 
@@ -208,7 +208,7 @@ export function DebtTable({ view, columnVisibility, columnConfig }: DebtTablePro
 
   const totalBalance = debts.reduce((acc, debt) => acc + (isCurrentView ? debt.balance : debt.nextBalance || 0), 0);
   const totalMinimumPayment = debts.reduce((acc, debt) => acc + (isCurrentView ? debt.minimumPayment : debt.nextMinimumPayment || 0), 0);
-  const totalActualPayment = isCurrentView ? debts.reduce((acc, debt) => acc + debt.actualPayment, 0) : 0;
+  const totalPlannedPayment = isCurrentView ? debts.reduce((acc, debt) => acc + debt.plannedPayment, 0) : 0;
   
   const getColSpanForTotalsLabel = () => {
     let span = 0;
@@ -249,8 +249,8 @@ export function DebtTable({ view, columnVisibility, columnConfig }: DebtTablePro
                 <TableHead className="w-[24px] p-0"></TableHead>
                 {Object.entries(columnConfig).map(([key, { label, isNumeric, isAction }]) => (
                     columnVisibility[key as keyof ColumnVisibility] && (
-                        // Hide 'Actual Payment' for next month view
-                        !(key === 'actualPayment' && !isCurrentView) &&
+                        // Hide 'plannedPayment' for next month view
+                        !(key === 'plannedPayment' && !isCurrentView) &&
                         <TableHead key={key} className={cn(
                             isNumeric && "text-right",
                             isAction && "w-[100px] text-right",
@@ -292,7 +292,7 @@ export function DebtTable({ view, columnVisibility, columnConfig }: DebtTablePro
                 {columnVisibility.balance && <TableCell className="text-right font-semibold">{formatCurrency(totalBalance)}</TableCell>}
                 {columnVisibility.interestRate && <TableCell></TableCell>}
                 {columnVisibility.minimumPayment && <TableCell className="text-right font-semibold">{formatCurrency(totalMinimumPayment)}</TableCell>}
-                {columnVisibility.actualPayment && isCurrentView && <TableCell className="text-right font-bold">{formatCurrency(totalActualPayment)}</TableCell>}
+                {columnVisibility.plannedPayment && isCurrentView && <TableCell className="text-right font-bold">{formatCurrency(totalPlannedPayment)}</TableCell>}
                 <TableCell colSpan={getColSpanForTotalsSpacer()}></TableCell>
               </TableRow>
             </TableFooter>

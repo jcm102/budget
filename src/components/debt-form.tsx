@@ -34,7 +34,7 @@ const formSchema = z.object({
   // Current month fields
   balance: z.coerce.number().min(0, 'Balance must be a positive number.'),
   minimumPayment: z.coerce.number().min(0, 'Minimum payment must be a positive number.'),
-  actualPayment: z.coerce.number().min(0, 'Actual payment must be a positive number.'),
+  plannedPayment: z.coerce.number().min(0, 'Planned payment must be a positive number.'),
   dueDate: z.string().min(1, 'A due date is required.'),
   // Next month fields
   nextBalance: z.coerce.number().optional(),
@@ -74,7 +74,7 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
       debtType: 'Credit Card',
       balance: 0,
       minimumPayment: 0,
-      actualPayment: 0,
+      plannedPayment: 0,
       dueDate: '',
       nextBalance: 0,
       nextMinimumPayment: 0,
@@ -91,7 +91,7 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
           debtType: editingDebt.debtType || 'Credit Card',
           balance: editingDebt.balance,
           minimumPayment: editingDebt.minimumPayment,
-          actualPayment: editingDebt.actualPayment,
+          plannedPayment: editingDebt.plannedPayment,
           dueDate: new Date(editingDebt.dueDate).toISOString().split('T')[0],
           nextBalance: editingDebt.nextBalance || 0,
           nextMinimumPayment: editingDebt.nextMinimumPayment || 0,
@@ -105,7 +105,7 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
           debtType: 'Credit Card',
           balance: 0,
           minimumPayment: 0,
-          actualPayment: 0,
+          plannedPayment: 0,
           dueDate: today,
           nextBalance: 0,
           nextMinimumPayment: 0,
@@ -215,9 +215,9 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
                 </FormItem>
               )}
             />
-            <FormField control={form.control} name="actualPayment" render={({ field }) => (
+            <FormField control={form.control} name="plannedPayment" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Actual Payment</FormLabel>
+                  <FormLabel>Planned Payment</FormLabel>
                   <FormControl>
                     <Input type="number" step="0.01" {...field} />
                   </FormControl>

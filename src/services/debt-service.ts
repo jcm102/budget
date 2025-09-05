@@ -46,7 +46,7 @@ export async function addDebt(debtData: Omit<Debt, 'id' | 'order'>): Promise<Deb
     nextMinimumPayment: debtData.nextMinimumPayment || 0,
     nextDueDate: debtData.nextDueDate,
     nextPaid: false,
-    actualPayment: debtData.actualPayment || 0,
+    plannedPayment: debtData.plannedPayment || 0,
    };
   const docRef = doc(collection(db, DEBT_COLLECTION));
   await setDoc(docRef, newDebt);
@@ -71,9 +71,9 @@ export async function addExtraPayment(id: string, amount: number): Promise<void>
     if (!debtDoc.exists()) {
       throw "Debt document does not exist!";
     }
-    const currentPayment = debtDoc.data().actualPayment || 0;
-    const newActualPayment = currentPayment + amount;
-    transaction.update(debtRef, { actualPayment: newActualPayment });
+    const currentPayment = debtDoc.data().plannedPayment || 0;
+    const newPlannedPayment = currentPayment + amount;
+    transaction.update(debtRef, { plannedPayment: newPlannedPayment });
   });
 }
 
@@ -102,7 +102,7 @@ export async function resetDebtValues(): Promise<void> {
     const updatedData = {
         balance: 0,
         minimumPayment: 0,
-        actualPayment: 0,
+        plannedPayment: 0,
         dueDate: new Date().toISOString(),
         paid: false,
         nextBalance: 0,
@@ -131,7 +131,7 @@ export async function cycleToNextMonth(): Promise<void> {
             // Move next month's data to current month
             balance: debt.nextBalance || 0,
             minimumPayment: debt.nextMinimumPayment || 0,
-            actualPayment: 0, // Reset actual payment for the new month
+            plannedPayment: 0, // Reset planned payment for the new month
             dueDate: debt.nextDueDate || new Date().toISOString(),
             paid: false,
 
@@ -190,9 +190,9 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
       continue;
     }
 
-    // Update the 'actualPayment' on the debt worksheet item
+    // Update the 'plannedPayment' on the debt worksheet item
     const debtRef = doc(db, DEBT_COLLECTION, debtId);
-    batch.update(debtRef, { actualPayment: paymentAmount });
+    batch.update(debtRef, { plannedPayment: paymentAmount });
 
     // Find the correct budget category for this debt
     const debtCategory = debt.debtType ? getCategoryForDebt(debt.debtType, budgetCategories) : undefined;
@@ -229,5 +229,3 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
   // 4. Commit all changes to the database at once
   await batch.commit();
 }
-
-    
