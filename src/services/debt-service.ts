@@ -229,3 +229,5 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
   // 4. Commit all changes to the database at once
   await batch.commit();
 }
+
+    
