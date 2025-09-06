@@ -126,68 +126,49 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
   return allGeneratedItems.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 }
 
-async function updateMonthlyBudget(
-  transaction: FirebaseFirestore.Transaction | FirebaseFirestore.WriteBatch,
-  categoryId: string,
-  paymentItem: { description: string, amount: number },
-  operation: 'add' | 'subtract'
-) {
-  if (!categoryId) return;
-  const currentMonth = new Date().toISOString().slice(0, 7);
-  const q = query(
-    collection(db, MONTHLY_BUDGET_COLLECTION),
-    where('categoryId', '==', categoryId),
-    where('month', '==', currentMonth)
-  );
-
-  const querySnapshot = await getDocs(q); 
-  let budgetItemRef, currentBreakdown, currentBudgeted;
-  
-  if (querySnapshot.empty) {
-    if (operation === 'subtract') return; // Cannot subtract from a non-existent budget
-    budgetItemRef = doc(collection(db, MONTHLY_BUDGET_COLLECTION));
-    currentBreakdown = [];
-  } else {
-    const budgetDoc = querySnapshot.docs[0];
-    budgetItemRef = budgetDoc.ref;
-    const data = budgetDoc.data() as MonthlyBudgetItem;
-    currentBreakdown = data.breakdown || [];
-  }
-
-  let newBreakdown;
-  if (operation === 'add') {
-    // Remove any existing item with the same name before adding/updating
-    const filteredBreakdown = currentBreakdown.filter(item => item.name !== paymentItem.description);
-    newBreakdown = [...filteredBreakdown, { name: paymentItem.description, amount: paymentItem.amount }];
-  } else { // subtract
-    newBreakdown = currentBreakdown.filter(item => item.name !== paymentItem.description);
-  }
-
-  const newBudgeted = newBreakdown.reduce((sum, item) => sum + item.amount, 0);
-
-  const dataToSet = {
-    categoryId,
-    month: currentMonth,
-    budgeted: newBudgeted,
-    breakdown: newBreakdown,
-  };
-
-  if (querySnapshot.empty) {
-    transaction.set(budgetItemRef, dataToSet);
-  } else {
-    transaction.update(budgetItemRef, dataToSet);
-  }
-}
-
 export async function addBudgetItem(itemData: Omit<BudgetItem, 'id'>): Promise<BudgetItem> {
   const dataWithCompleted = { ...itemData, completed: false, forNextMonth: itemData.forNextMonth || false };
+  const currentMonth = new Date().toISOString().slice(0, 7);
   
   await runTransaction(db, async (transaction) => {
+    // --- READS FIRST ---
+    let budgetItemRef: FirebaseFirestore.DocumentReference;
+    let currentBudgetItem: MonthlyBudgetItem | null = null;
+    
     if (itemData.type === 'Pre-Authorized Payments' && itemData.budgetCategoryId) {
-      await updateMonthlyBudget(transaction, itemData.budgetCategoryId, { description: itemData.description, amount: itemData.amount }, 'add');
+      const q = query(
+        collection(db, MONTHLY_BUDGET_COLLECTION),
+        where('categoryId', '==', itemData.budgetCategoryId),
+        where('month', '==', currentMonth)
+      );
+      const budgetSnapshot = await getDocs(q);
+      if (budgetSnapshot.empty) {
+        budgetItemRef = doc(collection(db, MONTHLY_BUDGET_COLLECTION));
+      } else {
+        budgetItemRef = budgetSnapshot.docs[0].ref;
+        currentBudgetItem = budgetSnapshot.docs[0].data() as MonthlyBudgetItem;
+      }
     }
+    
+    // --- WRITES SECOND ---
     const newDocRef = doc(collection(db, BUDGET_COLLECTION));
     transaction.set(newDocRef, dataWithCompleted);
+
+    if (itemData.type === 'Pre-Authorized Payments' && itemData.budgetCategoryId) {
+      const currentBreakdown = currentBudgetItem?.breakdown || [];
+      const newBreakdown = [...currentBreakdown.filter(item => item.name !== itemData.description), { name: itemData.description, amount: itemData.amount }];
+      const newBudgeted = newBreakdown.reduce((sum, item) => sum + item.amount, 0);
+
+      const dataToSet = {
+        categoryId: itemData.budgetCategoryId,
+        month: currentMonth,
+        budgeted: newBudgeted,
+        breakdown: newBreakdown,
+      };
+      
+      // Use set with merge option true for both new and existing docs to simplify
+      transaction.set(budgetItemRef!, dataToSet, { merge: true });
+    }
   });
 
   return { id: 'refetch-to-get-id', ...dataWithCompleted };
@@ -196,38 +177,30 @@ export async function addBudgetItem(itemData: Omit<BudgetItem, 'id'>): Promise<B
 
 export async function updateBudgetItem(id: string, itemData: Partial<Omit<BudgetItem, 'id' | 'originalId'>>): Promise<void> {
     await runTransaction(db, async (transaction) => {
+        // --- READS FIRST ---
+        const currentMonth = new Date().toISOString().slice(0, 7);
         const isRecurringInstance = id.includes('-');
         let oldItemData: BudgetItem | null = null;
-        let itemRef;
-        
+        let itemRef: FirebaseFirestore.DocumentReference;
+        let originalItemSnap: FirebaseFirestore.DocumentSnapshot | null = null;
+        let existingOverrideSnap: FirebaseFirestore.QuerySnapshot | null = null;
+        let oldBudgetItemSnap: FirebaseFirestore.QuerySnapshot | null = null;
+        let newBudgetItemSnap: FirebaseFirestore.QuerySnapshot | null = null;
+
         if (isRecurringInstance) {
             const [baseId] = id.split('-');
-            const originalItemRef = doc(db, BUDGET_COLLECTION, baseId);
-            const originalItemSnap = await transaction.get(originalItemRef);
+            itemRef = doc(db, BUDGET_COLLECTION, baseId);
+            originalItemSnap = await transaction.get(itemRef);
 
             if (originalItemSnap.exists()) {
                 const overrideQuery = query(collection(db, BUDGET_COLLECTION), where('originalId', '==', id));
-                const existingOverrideSnap = await getDocs(overrideQuery);
-
+                existingOverrideSnap = await getDocs(overrideQuery);
                 if (!existingOverrideSnap.empty) {
                     itemRef = existingOverrideSnap.docs[0].ref;
                     oldItemData = { ...originalItemSnap.data(), ...existingOverrideSnap.docs[0].data(), id: itemRef.id } as BudgetItem;
                 } else {
-                    itemRef = doc(collection(db, BUDGET_COLLECTION));
+                    itemRef = doc(collection(db, BUDGET_COLLECTION)); // Ref for a new override document
                     oldItemData = { ...originalItemSnap.data(), id: baseId } as BudgetItem;
-                    
-                    const newDocData: Omit<BudgetItem, 'id'> & { originalId: string } = {
-                        ...(originalItemSnap.data() as Omit<BudgetItem, 'id'>),
-                        ...itemData,
-                        frequency: 'One-Time',
-                        originalId: id,
-                        date: new Date(parseInt(id.split('-')[1])).toISOString(),
-                        completed: itemData.completed ?? false,
-                    };
-                    if (itemData.date) newDocData.date = itemData.date;
-                    
-                    // This is a write, so it should be done after all reads
-                    // We'll set it at the end
                 }
             }
         } else {
@@ -237,22 +210,35 @@ export async function updateBudgetItem(id: string, itemData: Partial<Omit<Budget
                 oldItemData = docSnap.data() as BudgetItem;
             }
         }
-
+        
         if (!oldItemData) throw new Error(`Budget item with id ${id} not found.`);
 
-        // --- All reads are done, now writes ---
-        const newData = { ...oldItemData, ...itemData };
-        
-        if (isRecurringInstance && !itemRef.path.includes('override')) {
-             const newDocData: Omit<BudgetItem, 'id'> & { originalId: string } = {
-                ...(oldItemData as Omit<BudgetItem, 'id'>),
+        const newData = { ...oldItemData, ...itemData, id: itemRef.id } as BudgetItem;
+
+        if (oldItemData.type === 'Pre-Authorized Payments') {
+            const oldCategoryId = oldItemData.budgetCategoryId;
+            const newCategoryId = newData.budgetCategoryId;
+            if (oldCategoryId) {
+                oldBudgetItemSnap = await getDocs(query(collection(db, MONTHLY_BUDGET_COLLECTION), where('categoryId', '==', oldCategoryId), where('month', '==', currentMonth)));
+            }
+            if (newCategoryId && newCategoryId !== oldCategoryId) {
+                newBudgetItemSnap = await getDocs(query(collection(db, MONTHLY_BUDGET_COLLECTION), where('categoryId', '==', newCategoryId), where('month', '==', currentMonth)));
+            } else if (newCategoryId) {
+                newBudgetItemSnap = oldBudgetItemSnap; // Same category, use the same snapshot
+            }
+        }
+
+        // --- WRITES SECOND ---
+        if (isRecurringInstance && (existingOverrideSnap?.empty ?? true)) {
+            const newDocData: Omit<BudgetItem, 'id'> & { originalId: string } = {
+                ...(originalItemSnap!.data() as Omit<BudgetItem, 'id'>),
                 ...itemData,
                 frequency: 'One-Time',
                 originalId: id,
                 date: new Date(parseInt(id.split('-')[1])).toISOString(),
                 completed: itemData.completed ?? false,
             };
-            if (itemData.date) newDocData.date = itemData.date;
+             if (itemData.date) newDocData.date = itemData.date;
             transaction.set(itemRef, newDocData);
         } else {
              transaction.update(itemRef, itemData);
@@ -260,15 +246,35 @@ export async function updateBudgetItem(id: string, itemData: Partial<Omit<Budget
 
         if (oldItemData.type === 'Pre-Authorized Payments') {
             const oldAmount = oldItemData.amount;
-            const newAmount = itemData.amount ?? oldAmount;
+            const newAmount = newData.amount;
             const oldCategoryId = oldItemData.budgetCategoryId;
-            const newCategoryId = itemData.budgetCategoryId === undefined ? oldCategoryId : itemData.budgetCategoryId;
+            const newCategoryId = newData.budgetCategoryId;
             const oldDescription = oldItemData.description;
-            const newDescription = itemData.description || oldDescription;
+            const newDescription = newData.description;
 
-            if (oldCategoryId !== newCategoryId || oldAmount !== newAmount || oldDescription !== newDescription) {
-                if (oldCategoryId) await updateMonthlyBudget(transaction, oldCategoryId, {description: oldDescription, amount: oldAmount}, 'subtract');
-                if (newCategoryId) await updateMonthlyBudget(transaction, newCategoryId, {description: newDescription, amount: newAmount}, 'add');
+            // Subtract from old budget category if it exists
+            if (oldCategoryId && oldBudgetItemSnap && !oldBudgetItemSnap.empty) {
+                const budgetDoc = oldBudgetItemSnap.docs[0];
+                const budgetData = budgetDoc.data() as MonthlyBudgetItem;
+                const filteredBreakdown = budgetData.breakdown?.filter(item => item.name !== oldDescription) || [];
+                const newBudgeted = filteredBreakdown.reduce((sum, item) => sum + item.amount, 0);
+                transaction.update(budgetDoc.ref, { budgeted: newBudgeted, breakdown: filteredBreakdown });
+            }
+
+            // Add to new budget category
+            if (newCategoryId) {
+                let budgetItemRef: FirebaseFirestore.DocumentReference;
+                let currentBreakdown: any[] = [];
+                if(newBudgetItemSnap && !newBudgetItemSnap.empty) {
+                    budgetItemRef = newBudgetItemSnap.docs[0].ref;
+                    currentBreakdown = (newBudgetItemSnap.docs[0].data() as MonthlyBudgetItem).breakdown?.filter(item => item.name !== oldDescription) || [];
+                } else {
+                    budgetItemRef = doc(collection(db, MONTHLY_BUDGET_COLLECTION));
+                }
+
+                const finalBreakdown = [...currentBreakdown, { name: newDescription, amount: newAmount }];
+                const finalBudgeted = finalBreakdown.reduce((sum, item) => sum + item.amount, 0);
+                transaction.set(budgetItemRef, { categoryId: newCategoryId, month: currentMonth, budgeted: finalBudgeted, breakdown: finalBreakdown }, { merge: true });
             }
         }
     });
@@ -278,7 +284,7 @@ export async function deleteBudgetItem(id: string): Promise<void> {
     const batch = writeBatch(db);
     
     // --- Step 1: READ all necessary data first ---
-    let itemToDeleteRef;
+    let itemToDeleteRef: FirebaseFirestore.DocumentReference | undefined;
     let itemToDelete: BudgetItem | null = null;
     let isOverride = false;
     
@@ -297,7 +303,6 @@ export async function deleteBudgetItem(id: string): Promise<void> {
             const baseItemSnap = await getDoc(baseItemRef);
             if (baseItemSnap.exists()) {
                 itemToDelete = { ...baseItemSnap.data(), id: baseId } as BudgetItem;
-                itemToDeleteRef = baseItemRef; // Will be used to create a "deleted" override
             }
         }
     } else {
@@ -315,16 +320,11 @@ export async function deleteBudgetItem(id: string): Promise<void> {
 
     // --- Step 2: Prepare WRITES using a batch ---
     if (isRecurringInstance && !isOverride) {
-        // This is a "virtual" instance. Create an override to mark it as deleted for this instance.
-        // But for our app's logic, we'll just delete the base recurring item to avoid complexity.
-        // A more robust app might create a "deleted instance" document. Let's delete the base.
         const baseId = id.split('-')[0];
         const baseRef = doc(db, BUDGET_COLLECTION, baseId);
         batch.delete(baseRef);
-
-    } else {
-        // It's a one-time item or an override, just delete it.
-         batch.delete(itemToDeleteRef);
+    } else if (itemToDeleteRef) {
+        batch.delete(itemToDeleteRef);
     }
     
     if (itemToDelete.type === 'Pre-Authorized Payments' && itemToDelete.budgetCategoryId) {
@@ -402,4 +402,5 @@ export async function resetPaPayments(): Promise<void> {
 
   await batch.commit();
 }
+
 
