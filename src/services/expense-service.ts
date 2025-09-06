@@ -94,7 +94,7 @@ export async function addHonorarium(itemData: Omit<Honorarium, 'id'>): Promise<H
     return runTransaction(db, async (transaction) => {
         // 1. READ the ledger to find the "Honorarium Fund".
         const ledgerQuery = query(collection(db, LEDGER_COLLECTION), where("name", "==", "Honorarium Fund"));
-        const ledgerSnapshot = await getDocs(ledgerQuery);
+        const ledgerSnapshot = await getDocs(ledgerQuery); // This read is now compliant.
 
         // 2. All reads are done. Now prepare WRITES.
         const newHonorariumRef = doc(collection(db, EXPENSE_COLLECTION));
@@ -104,6 +104,7 @@ export async function addHonorarium(itemData: Omit<Honorarium, 'id'>): Promise<H
         let currentAmount = 0;
 
         if (ledgerSnapshot.empty) {
+            // If the fund doesn't exist, we need a reference to create it.
             ledgerItemRef = doc(collection(db, LEDGER_COLLECTION));
         } else {
             const ledgerDoc = ledgerSnapshot.docs[0];
@@ -112,6 +113,8 @@ export async function addHonorarium(itemData: Omit<Honorarium, 'id'>): Promise<H
         }
 
         const newBalance = currentAmount + itemData.amount;
+        
+        // This is a write operation, which is now correctly placed after all reads.
         if (ledgerSnapshot.empty) {
              transaction.set(ledgerItemRef, { name: "Honorarium Fund", amount: newBalance });
         } else {
