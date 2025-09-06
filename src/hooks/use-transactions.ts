@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -11,6 +12,7 @@ import { useBudget } from './use-budget';
 
 export function useTransactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [accountTransactions, setAccountTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { fetchBudget } = useMonthlyBudget();
@@ -35,6 +37,23 @@ export function useTransactions() {
       setIsLoading(false);
     }
   }, [currentMonth, toast]);
+
+  const fetchTransactionsForAccount = useCallback(async (accountId: string) => {
+    try {
+        setIsLoading(true);
+        const fetched = await MonthlyBudgetService.getTransactionsForAccount(accountId);
+        setAccountTransactions(fetched);
+    } catch (error) {
+        console.error('Failed to load account transactions:', error);
+         toast({
+            title: 'Error',
+            description: 'Failed to load transactions for this account.',
+            variant: 'destructive',
+        });
+    } finally {
+        setIsLoading(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
     fetchTransactions();
@@ -85,5 +104,5 @@ export function useTransactions() {
     }
   }, [toast, fetchTransactions, fetchBudget, fetchAccounts, fetchBudgetItems]);
 
-  return { transactions, accounts, addTransaction, updateTransaction, deleteTransaction, isLoading, fetchTransactions };
+  return { transactions, accountTransactions, accounts, addTransaction, updateTransaction, deleteTransaction, isLoading, fetchTransactions, fetchTransactionsForAccount };
 }

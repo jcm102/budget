@@ -22,16 +22,18 @@ function AccountCard({ account }: { account: AccountDetailsType & { debtBalance?
     const isNegative = balance > 0 && account.type === 'Credit';
 
     return (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{account.name}</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <div className={`text-2xl font-bold ${isNegative ? 'text-destructive' : ''}`}>
-                    {formatCurrency(balance)}
-                </div>
-            </CardContent>
-        </Card>
+        <Link href={`/accounts/${account.id}`} className="block">
+            <Card className="hover:bg-accent transition-colors">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">{account.name}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className={`text-2xl font-bold ${isNegative ? 'text-destructive' : ''}`}>
+                        {formatCurrency(balance)}
+                    </div>
+                </CardContent>
+            </Card>
+        </Link>
     );
 }
 

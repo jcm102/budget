@@ -60,6 +60,45 @@ export async function getTransactionsForMonth(month: string): Promise<Transactio
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
 }
 
+export async function getTransactionsForAccount(accountId: string): Promise<Transaction[]> {
+    const expenseQuery = query(
+        collection(db, TRANSACTIONS_COLLECTION),
+        where('accountId', '==', accountId)
+    );
+    const transferFromQuery = query(
+        collection(db, TRANSACTIONS_COLLECTION),
+        where('transferFromId', '==', accountId)
+    );
+    const transferToQuery = query(
+        collection(db, TRANSACTIONS_COLLECTION),
+        where('transferToId', '==', accountId)
+    );
+
+    const [expenseSnap, fromSnap, toSnap] = await Promise.all([
+        getDocs(expenseQuery),
+        getDocs(transferFromQuery),
+        getDocs(transferToQuery),
+    ]);
+
+    const transactionsMap = new Map<string, Transaction>();
+    
+    const processSnapshot = (snapshot: FirebaseFirestore.QuerySnapshot) => {
+        snapshot.docs.forEach(doc => {
+            if (!transactionsMap.has(doc.id)) {
+                transactionsMap.set(doc.id, { id: doc.id, ...doc.data() } as Transaction);
+            }
+        });
+    }
+
+    processSnapshot(expenseSnap);
+    processSnapshot(fromSnap);
+    processSnapshot(toSnap);
+
+    const allTransactions = Array.from(transactionsMap.values());
+
+    return allTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+}
+
 
 export async function addTransaction(transactionData: Omit<Transaction, 'id'>): Promise<Transaction> {
     const newDocRef = await runTransaction(db, async (transaction) => {
@@ -94,26 +133,7 @@ export async function addTransaction(transactionData: Omit<Transaction, 'id'>): 
             transaction.update(fromAccountRef, { balance: fromBalance - amount });
             transaction.update(toAccountRef, { balance: toBalance + amount });
         }
-
-        // Now, find and mark linked PA payments as completed
-        if (type === 'expense' && splits) {
-            const categoryIds = splits.map(s => s.categoryId);
-            const paPaymentsQuery = query(
-                collection(db, PA_PAYMENTS_COLLECTION),
-                where('type', '==', 'Pre-Authorized Payments'),
-                where('budgetCategoryId', 'in', categoryIds),
-                where('completed', '==', false)
-            );
-            
-            // This read is inside the transaction, but it happens after the account reads and before any writes to the PA payments.
-            // This is complex. A better approach might be to get ALL PA payments first, but let's see if this works.
-            // For simplicity, we'll assume this is acceptable for now. In a real-world high-contention scenario, this would be refactored.
-            const paPaymentsSnapshot = await getDocs(paPaymentsQuery); // Firestore doesn't allow this read inside a transaction if other writes happened.
-                                                                    // Let's refactor this to be safe. It will be less efficient but correct.
-                                                                    // The correct way is to run a separate transaction or do this logic on the client.
-                                                                    // For now, let's just update without the transaction for this part.
-        }
-
+        
         return newTransactionRef;
     });
 
