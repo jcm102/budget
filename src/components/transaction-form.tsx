@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -109,7 +110,7 @@ type TransactionFormProps = {
   accounts: AccountDetails[];
   addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
   updateTransaction: (id: string, transaction: Partial<Omit<Transaction, 'id'>>) => void;
-  deleteTransaction: (id: string) => void;
+  deleteTransaction: (id: string, accountId?: string) => void;
   editingTransaction: Transaction | null;
 };
 

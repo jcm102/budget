@@ -90,10 +90,19 @@ export function useTransactions() {
     }
   }, [toast, fetchTransactions, fetchBudget, fetchAccounts, fetchBudgetItems]);
 
-  const deleteTransaction = useCallback(async (id: string) => {
+  const deleteTransaction = useCallback(async (id: string, accountId?: string) => {
     try {
       await MonthlyBudgetService.deleteTransaction(id);
-      await Promise.all([fetchTransactions(), fetchBudget(), fetchAccounts(), fetchBudgetItems()]); // Refetch all
+      const refetchPromises = [
+        fetchTransactions(),
+        fetchBudget(),
+        fetchAccounts(),
+        fetchBudgetItems()
+      ];
+      if (accountId) {
+        refetchPromises.push(fetchTransactionsForAccount(accountId));
+      }
+      await Promise.all(refetchPromises);
     } catch (error) {
       console.error('Failed to delete transaction:', error);
       toast({
@@ -102,7 +111,7 @@ export function useTransactions() {
         variant: 'destructive',
       });
     }
-  }, [toast, fetchTransactions, fetchBudget, fetchAccounts, fetchBudgetItems]);
+  }, [toast, fetchTransactions, fetchBudget, fetchAccounts, fetchBudgetItems, fetchTransactionsForAccount]);
 
   return { transactions, accountTransactions, accounts, addTransaction, updateTransaction, deleteTransaction, isLoading, fetchTransactions, fetchTransactionsForAccount };
 }

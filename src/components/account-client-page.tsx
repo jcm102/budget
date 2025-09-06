@@ -109,7 +109,7 @@ export function AccountClientPage({
         accounts={allAccounts}
         addTransaction={() => {}} // Not used here, but required by the component
         updateTransaction={updateTransaction}
-        deleteTransaction={deleteTransaction}
+        deleteTransaction={(id) => deleteTransaction(id, account.id)}
         editingTransaction={editingTransaction}
       />
       <div className="container mx-auto max-w-4xl p-4 md:p-8">
@@ -185,7 +185,7 @@ export function AccountClientPage({
                                     <AlertDialogFooter>
                                     <AlertDialogCancel>Cancel</AlertDialogCancel>
                                     <AlertDialogAction
-                                        onClick={() => deleteTransaction(tx.id)}
+                                        onClick={() => deleteTransaction(tx.id, account.id)}
                                         className={cn(buttonVariants({ variant: "destructive" }))}
                                     >
                                         Delete
