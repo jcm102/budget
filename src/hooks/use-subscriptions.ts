@@ -6,12 +6,14 @@ import type { SubscriptionItem } from '@/types';
 import { useToast } from './use-toast';
 import * as SubscriptionService from '@/services/subscription-service';
 import { useSelectedAccount } from './use-selected-account';
+import { useMonthlyBudget } from './use-monthly-budget';
 
 export function useSubscriptions() {
   const [subscriptions, setSubscriptions] = useState<SubscriptionItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { selectedAccountId } = useSelectedAccount();
+  const { fetchBudget } = useMonthlyBudget();
 
   const fetchSubscriptions = useCallback(async (accountId: string | null) => {
     if (!accountId) {
@@ -41,8 +43,9 @@ export function useSubscriptions() {
 
   const addSubscription = useCallback(async (itemData: Omit<SubscriptionItem, 'id'>) => {
     try {
-      const newItem = await SubscriptionService.addSubscription(itemData);
-      setSubscriptions(prev => [...prev, newItem].sort((a, b) => a.serviceName.localeCompare(b.serviceName)));
+      await SubscriptionService.addSubscription(itemData);
+      await fetchSubscriptions(selectedAccountId);
+      await fetchBudget(); // Refetch budget to see changes
     } catch (error) {
       console.error('Failed to add subscription:', error);
       toast({
@@ -51,40 +54,37 @@ export function useSubscriptions() {
         variant: 'destructive',
       });
     }
-  }, [toast]);
+  }, [toast, selectedAccountId, fetchSubscriptions, fetchBudget]);
 
   const updateSubscription = useCallback(async (id: string, itemData: Partial<Omit<SubscriptionItem, 'id'>>) => {
-    const originalItems = subscriptions;
-    setSubscriptions(prev => prev.map(item => (item.id === id ? { ...item, ...itemData } as SubscriptionItem : item)));
     try {
       await SubscriptionService.updateSubscription(id, itemData);
       await fetchSubscriptions(selectedAccountId);
+      await fetchBudget(); // Refetch budget to see changes
     } catch (error) {
       console.error('Failed to update subscription:', error);
-      setSubscriptions(originalItems);
       toast({
         title: 'Error',
         description: 'Failed to update the subscription.',
         variant: 'destructive',
       });
     }
-  }, [subscriptions, toast, selectedAccountId, fetchSubscriptions]);
+  }, [toast, selectedAccountId, fetchSubscriptions, fetchBudget]);
 
   const deleteSubscription = useCallback(async (id: string) => {
-    const originalItems = subscriptions;
-    setSubscriptions(prev => prev.filter(item => item.id !== id));
     try {
       await SubscriptionService.deleteSubscription(id);
+      await fetchSubscriptions(selectedAccountId);
+      await fetchBudget(); // Refetch budget to see changes
     } catch (error) {
       console.error('Failed to delete subscription:', error);
-      setSubscriptions(originalItems);
       toast({
         title: 'Error',
         description: 'Failed to delete the subscription.',
         variant: 'destructive',
       });
     }
-  }, [subscriptions, toast]);
+  }, [toast, selectedAccountId, fetchSubscriptions, fetchBudget]);
 
   return { subscriptions, isLoading, addSubscription, updateSubscription, deleteSubscription, fetchSubscriptions: () => fetchSubscriptions(selectedAccountId) };
 }

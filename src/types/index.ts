@@ -185,6 +185,7 @@ export interface SubscriptionItem {
   cost: number;
   nextRenewalDate: string; // ISO string;
   type: 'Subscription'; // To distinguish for dialog
+  budgetCategoryId?: string;
 }
 
 export interface LinkGroup {

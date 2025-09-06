@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Pencil, Trash2, PlusCircle, ArrowUpDown, PiggyBank } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, ArrowUpDown } from 'lucide-react';
 import { format } from 'date-fns';
 import type { SubscriptionItem } from '@/types';
 
@@ -62,13 +62,18 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: S
 
 export function SubscriptionTable() {
   const { subscriptions, addSubscription, updateSubscription, deleteSubscription, isLoading } = useSubscriptions();
-  const { addSavingsItem, savingsItems } = useSavings();
-  const { categories: budgetCategories, budgetItems, updateBudgetItemWithBreakdown } = useMonthlyBudget();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<SubscriptionItem | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: keyof SubscriptionItem | 'monthlyCost'; direction: 'ascending' | 'descending' }>({ key: 'serviceName', direction: 'ascending' });
   const { toast } = useToast();
-  const [sinkingFundCandidate, setSinkingFundCandidate] = useState<SubscriptionItem | null>(null);
+  
+  const { categories } = useMonthlyBudget();
+  const categoryMap = useMemo(() => {
+      return categories.reduce((map, cat) => {
+          map[cat.id] = cat.name;
+          return map;
+      }, {} as Record<string, string>);
+  }, [categories]);
 
 
   const requestSort = (key: keyof SubscriptionItem | 'monthlyCost' | 'nextRenewalDate') => {
@@ -133,39 +138,7 @@ export function SubscriptionTable() {
       setEditingItem(null);
     }
   };
-
-  const handleCreateSinkingFund = (item: SubscriptionItem, categoryId: string) => {
-    const fundExists = savingsItems.some(fund => fund.name.toLowerCase() === item.serviceName.toLowerCase());
-    const monthlyCost = getMonthlyCost(item);
-
-    if (!fundExists) {
-        addSavingsItem({ 
-            name: item.serviceName, 
-            amount: 0, 
-            goal: monthlyCost,
-            totalCost: item.cost,
-            dueDate: item.nextRenewalDate,
-            accountId: item.accountId,
-            currency: 'CAD', // Assuming CAD, adjust as needed
-            type: 'Subscription',
-        } as any);
-    }
-    
-    // Add it to the monthly budget
-    const budgetCategory = budgetCategories.find(c => c.id === categoryId);
-    if (budgetCategory) {
-        const budgetItem = budgetItems.find(b => b.categoryId === budgetCategory.id);
-        const newBreakdownItem = { name: item.serviceName, amount: monthlyCost };
-        const existingBreakdown = budgetItem?.breakdown?.filter(b => b.name !== 'Default') || [];
-        const newBreakdown = [...existingBreakdown, newBreakdownItem];
-        updateBudgetItemWithBreakdown(budgetCategory.id, newBreakdown);
-    }
-
-    toast({ title: 'Sinking Fund Linked', description: `"${item.serviceName}" has been added to your monthly budget.` });
-    setSinkingFundCandidate(null);
-  };
-
-
+  
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
@@ -173,7 +146,7 @@ export function SubscriptionTable() {
   const renderLoadingSkeleton = () => (
     Array.from({ length: 3 }).map((_, i) => (
       <TableRow key={`skeleton-subscription-${i}`}>
-        <TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell>
+        <TableCell colSpan={7}><Skeleton className="h-8 w-full" /></TableCell>
       </TableRow>
     ))
   );
@@ -196,15 +169,6 @@ export function SubscriptionTable() {
         updateSubscription={updateSubscription}
         editingItem={editingItem}
       />
-      {sinkingFundCandidate && (
-        <CreateSinkingFundDialog
-          open={!!sinkingFundCandidate}
-          onOpenChange={() => setSinkingFundCandidate(null)}
-          item={sinkingFundCandidate}
-          itemType="Subscription"
-          onConfirm={(categoryId) => handleCreateSinkingFund(sinkingFundCandidate, categoryId)}
-        />
-      )}
       <div className="flex justify-end items-center mb-6 gap-2">
           <Button onClick={() => setIsFormOpen(true)}>
             <PlusCircle className="mr-2 h-5 w-5" />
@@ -216,11 +180,12 @@ export function SubscriptionTable() {
             <TableHeader>
               <TableRow className="group">
                 <SortableHeader column="serviceName" label="Service" sortConfig={sortConfig} requestSort={requestSort} />
+                <TableHead>Budget Category</TableHead>
                 <SortableHeader column="billingFrequency" label="Billing Frequency" sortConfig={sortConfig} requestSort={requestSort} />
                 <SortableHeader column="nextRenewalDate" label="Next Renewal" sortConfig={sortConfig} requestSort={requestSort} />
                 <SortableHeader column="cost" label="Cost" sortConfig={sortConfig} requestSort={requestSort} className="text-right" />
                 <SortableHeader column="monthlyCost" label="Monthly Cost" sortConfig={sortConfig} requestSort={requestSort} className="text-right" />
-                <TableHead className="w-[140px] text-right">Actions</TableHead>
+                <TableHead className="w-[100px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -230,15 +195,13 @@ export function SubscriptionTable() {
                     sortedItems.map((item) => (
                         <TableRow key={item.id}>
                             <TableCell className="font-medium">{item.serviceName}</TableCell>
+                            <TableCell>{item.budgetCategoryId ? categoryMap[item.budgetCategoryId] : <span className="text-muted-foreground">-</span>}</TableCell>
                             <TableCell><Badge variant="secondary">{item.billingFrequency}</Badge></TableCell>
                             <TableCell>{item.nextRenewalDate ? format(new Date(item.nextRenewalDate), 'PPP') : '-'}</TableCell>
                             <TableCell className="text-right">{formatCurrency(item.cost)}</TableCell>
                             <TableCell className="text-right">{formatCurrency(getMonthlyCost(item))}</TableCell>
                             <TableCell className="text-right">
                                 <div className="flex justify-end gap-1">
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" title="Create Sinking Fund" onClick={() => setSinkingFundCandidate(item)}>
-                                        <PiggyBank className="h-4 w-4" />
-                                    </Button>
                                     <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit Item" onClick={() => handleEdit(item)}>
                                         <Pencil className="h-4 w-4" />
                                     </Button>
@@ -269,7 +232,7 @@ export function SubscriptionTable() {
                     ))
                 ) : (
                     <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
+                    <TableCell colSpan={7} className="h-24 text-center">
                         No subscriptions entered yet. Add one to get started!
                     </TableCell>
                     </TableRow>
@@ -278,12 +241,12 @@ export function SubscriptionTable() {
             {subscriptions.length > 0 && (
                 <TableFooter>
                     <TableRow>
-                        <TableCell colSpan={4} className="font-semibold text-right">Total Monthly Cost</TableCell>
+                        <TableCell colSpan={5} className="font-semibold text-right">Total Monthly Cost</TableCell>
                         <TableCell className="text-right font-semibold">{formatCurrency(totalMonthlyCost)}</TableCell>
                         <TableCell></TableCell>
                     </TableRow>
                     <TableRow>
-                        <TableCell colSpan={4} className="font-semibold text-right">Total Annual Cost</TableCell>
+                        <TableCell colSpan={5} className="font-semibold text-right">Total Annual Cost</TableCell>
                         <TableCell className="text-right font-semibold">{formatCurrency(totalAnnualCost)}</TableCell>
                         <TableCell></TableCell>
                     </TableRow>

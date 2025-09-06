@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -30,8 +30,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { SubscriptionItem, SubscriptionBillingFrequency } from '@/types';
+import type { SubscriptionItem, SubscriptionBillingFrequency, Category } from '@/types';
 import { useAccounts } from '@/hooks/use-accounts';
+import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
+
+type CategoryWithChildren = Category & { children: CategoryWithChildren[] };
+
 
 const formSchema = z.object({
   accountId: z.string().min(1, 'An account is required.'),
@@ -39,6 +43,7 @@ const formSchema = z.object({
   billingFrequency: z.enum(['Monthly', 'Quarterly', 'Annually']),
   cost: z.coerce.number().min(0, 'Cost must be a positive number.'),
   nextRenewalDate: z.string().min(1, 'A renewal date is required.'),
+  budgetCategoryId: z.string().optional(),
 });
 
 type SubscriptionFormProps = {
@@ -51,6 +56,7 @@ type SubscriptionFormProps = {
 
 export function SubscriptionForm({ open, onOpenChange, addSubscription, updateSubscription, editingItem }: SubscriptionFormProps) {
   const { accounts, isLoading: isLoadingAccounts } = useAccounts();
+  const { categories: budgetCategories, isLoading: isLoadingCategories } = useMonthlyBudget();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -59,8 +65,37 @@ export function SubscriptionForm({ open, onOpenChange, addSubscription, updateSu
       billingFrequency: 'Monthly',
       cost: 0,
       nextRenewalDate: '',
+      budgetCategoryId: '',
     },
   });
+
+  const categoryTree = useMemo(() => {
+    const buildTree = (parentId: string | null = null): CategoryWithChildren[] => {
+        return budgetCategories
+            .filter(c => c.parentId === parentId)
+            .map(c => ({
+                ...c,
+                children: buildTree(c.id),
+            }));
+    }
+    return buildTree(null);
+  }, [budgetCategories]);
+
+  const renderCategoryOptions = (nodes: CategoryWithChildren[], level = 0) => {
+    let options: JSX.Element[] = [];
+    nodes.forEach(node => {
+        options.push(
+            <SelectItem key={node.id} value={node.id} style={{ paddingLeft: `${1 + level * 1}rem` }}>
+                {node.name}
+            </SelectItem>
+        );
+        if (node.children.length > 0) {
+            options = options.concat(renderCategoryOptions(node.children, level + 1));
+        }
+    });
+    return options;
+  };
+
 
   useEffect(() => {
     if (open) {
@@ -71,6 +106,7 @@ export function SubscriptionForm({ open, onOpenChange, addSubscription, updateSu
           billingFrequency: editingItem.billingFrequency,
           cost: editingItem.cost,
           nextRenewalDate: editingItem.nextRenewalDate ? new Date(editingItem.nextRenewalDate).toISOString().split('T')[0] : '',
+          budgetCategoryId: editingItem.budgetCategoryId || '',
         });
       } else {
         form.reset({
@@ -79,6 +115,7 @@ export function SubscriptionForm({ open, onOpenChange, addSubscription, updateSu
           billingFrequency: 'Monthly',
           cost: 0,
           nextRenewalDate: new Date().toISOString().split('T')[0],
+          budgetCategoryId: '',
         });
       }
     }
@@ -92,6 +129,7 @@ export function SubscriptionForm({ open, onOpenChange, addSubscription, updateSu
         ...values,
         billingFrequency: values.billingFrequency as SubscriptionBillingFrequency,
         nextRenewalDate: localDate.toISOString(),
+        budgetCategoryId: values.budgetCategoryId === 'null' ? undefined : values.budgetCategoryId,
     };
 
     if (editingItem) {
@@ -170,6 +208,27 @@ export function SubscriptionForm({ open, onOpenChange, addSubscription, updateSu
                 <FormItem>
                   <FormLabel>Next Renewal Date</FormLabel>
                   <FormControl><Input type="date" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+              control={form.control}
+              name="budgetCategoryId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Budget Category (Optional)</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value} disabled={isLoadingCategories}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Link to a budget category" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="null">None</SelectItem>
+                      {renderCategoryOptions(categoryTree)}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
