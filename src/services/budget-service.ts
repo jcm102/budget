@@ -1,6 +1,5 @@
 
 
-
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -254,54 +253,60 @@ export async function updateBudgetItem(id: string, itemData: Partial<Omit<Budget
 
 
 export async function deleteBudgetItem(id: string): Promise<void> {
-    await runTransaction(db, async (transaction) => {
-        const isRecurringInstance = id.includes('-');
-        
-        let itemToDeleteRef: FirebaseFirestore.DocumentReference | undefined;
-        let itemToDeleteData: BudgetItem | null = null;
-        
-        if (isRecurringInstance) {
-            const q = query(collection(db, BUDGET_COLLECTION), where('originalId', '==', id));
-            const querySnapshot = await getDocs(q); // getDocs needed for transaction
-            if (!querySnapshot.empty) {
-                const docToDelete = querySnapshot.docs[0];
-                itemToDeleteRef = docToDelete.ref;
-                itemToDeleteData = docToDelete.data() as BudgetItem;
-            } else {
-                const baseId = id.split('-')[0];
-                const originalItemRef = doc(db, BUDGET_COLLECTION, baseId);
-                const originalItemSnap = await transaction.get(originalItemRef);
-                if (originalItemSnap.exists()) {
-                    itemToDeleteData = originalItemSnap.data() as BudgetItem;
-                     // For a virtual instance, the date is encoded in the ID
-                    itemToDeleteData.date = new Date(parseInt(id.split('-')[1])).toISOString();
-                }
-            }
+    const isRecurringInstance = id.includes('-');
+    let itemToDeleteData: BudgetItem | null = null;
+    let itemToDeleteRef: FirebaseFirestore.DocumentReference | undefined;
+    let originalIdToDelete: string | null = null;
+
+    // Perform all reads outside the transaction
+    if (isRecurringInstance) {
+        const q = query(collection(db, BUDGET_COLLECTION), where('originalId', '==', id));
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+            const docToDelete = querySnapshot.docs[0];
+            itemToDeleteRef = docToDelete.ref;
+            itemToDeleteData = docToDelete.data() as BudgetItem;
         } else {
-            itemToDeleteRef = doc(db, BUDGET_COLLECTION, id);
-            const docSnap = await transaction.get(itemToDeleteRef);
-            if (docSnap.exists()) {
-                itemToDeleteData = docSnap.data() as BudgetItem;
+            const baseId = id.split('-')[0];
+            const originalItemRef = doc(db, BUDGET_COLLECTION, baseId);
+            const originalItemSnap = await getDoc(originalItemRef);
+            if (originalItemSnap.exists()) {
+                itemToDeleteData = originalItemSnap.data() as BudgetItem;
+                itemToDeleteData.date = new Date(parseInt(id.split('-')[1])).toISOString();
             }
         }
+    } else {
+        itemToDeleteRef = doc(db, BUDGET_COLLECTION, id);
+        const docSnap = await getDoc(itemToDeleteRef);
+        if (docSnap.exists()) {
+            itemToDeleteData = docSnap.data() as BudgetItem;
+        }
+        originalIdToDelete = id;
+    }
 
-        if (itemToDeleteData) {
-            if (itemToDeleteData.type === 'Pre-Authorized Payments' && itemToDeleteData.budgetCategoryId) {
-                await updateMonthlyBudget(transaction, itemToDeleteData.budgetCategoryId, itemToDeleteData.amount, 'subtract');
-            }
-            if (itemToDeleteRef) {
-                 transaction.delete(itemToDeleteRef);
-            }
+    if (!itemToDeleteData) {
+        // Item might have already been deleted or never existed.
+        return;
+    }
+    
+    // Now run the transaction with only writes
+    await runTransaction(db, async (transaction) => {
+        if (itemToDeleteData?.type === 'Pre-Authorized Payments' && itemToDeleteData.budgetCategoryId) {
+            await updateMonthlyBudget(transaction, itemToDeleteData.budgetCategoryId, itemToDeleteData.amount, 'subtract');
         }
 
+        if (itemToDeleteRef) {
+            transaction.delete(itemToDeleteRef);
+        }
+        
         // Handle deleting base item and its modified instances
-        if (!isRecurringInstance) {
-            const baseId = id;
-            const q = query(collection(db, BUDGET_COLLECTION), where('originalId', '>=', baseId + '-'), where('originalId', '<', baseId + '-z'));
-            const querySnapshot = await getDocs(q);
-            querySnapshot.forEach(doc => {
-                transaction.delete(doc.ref);
-            });
+        if (originalIdToDelete) {
+             const baseId = originalIdToDelete;
+             const q = query(collection(db, BUDGET_COLLECTION), where('originalId', '>=', baseId + '-'), where('originalId', '<', baseId + '-z'));
+             const querySnapshot = await getDocs(q);
+             querySnapshot.forEach(doc => {
+                 transaction.delete(doc.ref);
+             });
         }
     });
 }
