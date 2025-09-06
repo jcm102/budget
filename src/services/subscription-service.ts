@@ -71,18 +71,20 @@ async function updateMonthlyBudget(
     const currentMonth = new Date().toISOString().slice(0, 7);
     const newMonthlyCost = getMonthlyCost(subscription);
     
-    // Remove from old category if it exists and has changed
+    // Handle removal from the old category first
     if (oldBudgetItemsSnapshot && !oldBudgetItemsSnapshot.empty && oldSubscriptionData) {
-        const budgetDoc = oldBudgetItemsSnapshot.docs[0];
-        const budgetData = budgetDoc.data() as MonthlyBudgetItem;
-        const newBreakdown = budgetData.breakdown?.filter(b => b.name !== oldSubscriptionData.serviceName) || [];
+        const oldBudgetDoc = oldBudgetItemsSnapshot.docs[0];
+        const oldBudgetData = oldBudgetDoc.data() as MonthlyBudgetItem;
+        // Filter out the old item from the breakdown
+        const newBreakdown = oldBudgetData.breakdown?.filter(b => b.name !== oldSubscriptionData.serviceName) || [];
         const newBudgeted = newBreakdown.reduce((sum, item) => sum + item.amount, 0);
-        transaction.update(budgetDoc.ref, { breakdown: newBreakdown, budgeted: newBudgeted });
+        transaction.update(oldBudgetDoc.ref, { breakdown: newBreakdown, budgeted: newBudgeted });
     }
 
-    // Add to new category if it exists
+    // Handle adding to the new category
     if (subscription.budgetCategoryId && budgetItemsSnapshot) {
         if (budgetItemsSnapshot.empty) {
+            // Category has no budget item for this month yet, create a new one.
             const newBudgetItemRef = doc(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION));
             transaction.set(newBudgetItemRef, {
                 categoryId: subscription.budgetCategoryId,
@@ -91,10 +93,14 @@ async function updateMonthlyBudget(
                 breakdown: [{ name: subscription.serviceName, amount: newMonthlyCost }],
             });
         } else {
+            // Category already has a budget item, update its breakdown and total.
             const budgetDoc = budgetItemsSnapshot.docs[0];
             const budgetData = budgetDoc.data() as MonthlyBudgetItem;
+            // Get existing breakdown, but remove any old entry for this specific subscription in case its cost changed.
             const existingBreakdown = budgetData.breakdown?.filter(b => b.name !== subscription.serviceName) || [];
+            // Add the new/updated subscription to the breakdown
             const newBreakdown = [...existingBreakdown, { name: subscription.serviceName, amount: newMonthlyCost }];
+            // Recalculate the total budgeted amount from the full, correct breakdown.
             const newBudgeted = newBreakdown.reduce((sum, item) => sum + item.amount, 0);
             transaction.update(budgetDoc.ref, { breakdown: newBreakdown, budgeted: newBudgeted });
         }
@@ -175,6 +181,9 @@ export async function updateSubscription(id: string, itemData: Partial<Omit<Subs
                 where('month', '==', currentMonth),
                 where('categoryId', '==', oldData.budgetCategoryId)
             );
+        } else if (oldData && oldData.budgetCategoryId && oldData.budgetCategoryId === newData.budgetCategoryId) {
+            // If category is the same, the old snapshot is the same as the new one
+            oldBudgetItemsQuery = budgetItemsQuery;
         }
         
         // Perform all reads first

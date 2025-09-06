@@ -75,18 +75,20 @@ async function updateMonthlyBudget(
     const currentMonth = new Date().toISOString().slice(0, 7);
     const newMonthlyCost = getMonthlyCost(autoShipItem);
     
-    // Remove from old category if it exists and has changed
+    // Handle removal from the old category first
     if (oldBudgetItemsSnapshot && !oldBudgetItemsSnapshot.empty && oldAutoShipData) {
-        const budgetDoc = oldBudgetItemsSnapshot.docs[0];
-        const budgetData = budgetDoc.data() as MonthlyBudgetItem;
-        const newBreakdown = budgetData.breakdown?.filter(b => b.name !== oldAutoShipData!.item) || [];
+        const oldBudgetDoc = oldBudgetItemsSnapshot.docs[0];
+        const oldBudgetData = oldBudgetDoc.data() as MonthlyBudgetItem;
+        // Filter out the old item from the breakdown
+        const newBreakdown = oldBudgetData.breakdown?.filter(b => b.name !== oldAutoShipData.item) || [];
         const newBudgeted = newBreakdown.reduce((sum, item) => sum + item.amount, 0);
-        transaction.update(budgetDoc.ref, { breakdown: newBreakdown, budgeted: newBudgeted });
+        transaction.update(oldBudgetDoc.ref, { breakdown: newBreakdown, budgeted: newBudgeted });
     }
 
-    // Add to new category if it exists
+    // Handle adding to the new category
     if (autoShipItem.budgetCategoryId && budgetItemsSnapshot) {
-        if (budgetItemsSnapshot.empty) {
+         if (budgetItemsSnapshot.empty) {
+            // Category has no budget item for this month yet, create a new one.
             const newBudgetItemRef = doc(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION));
             transaction.set(newBudgetItemRef, {
                 categoryId: autoShipItem.budgetCategoryId,
@@ -95,10 +97,14 @@ async function updateMonthlyBudget(
                 breakdown: [{ name: autoShipItem.item, amount: newMonthlyCost }],
             });
         } else {
+            // Category already has a budget item, update its breakdown and total.
             const budgetDoc = budgetItemsSnapshot.docs[0];
             const budgetData = budgetDoc.data() as MonthlyBudgetItem;
+            // Get existing breakdown, but remove any old entry for this specific item in case its cost changed.
             const existingBreakdown = budgetData.breakdown?.filter(b => b.name !== autoShipItem.item) || [];
+             // Add the new/updated item to the breakdown
             const newBreakdown = [...existingBreakdown, { name: autoShipItem.item, amount: newMonthlyCost }];
+            // Recalculate the total budgeted amount from the full, correct breakdown.
             const newBudgeted = newBreakdown.reduce((sum, item) => sum + item.amount, 0);
             transaction.update(budgetDoc.ref, { breakdown: newBreakdown, budgeted: newBudgeted });
         }
@@ -179,6 +185,8 @@ export async function updateAutoShipItem(id: string, itemData: Partial<Omit<Auto
                 where('month', '==', currentMonth),
                 where('categoryId', '==', oldData.budgetCategoryId)
             );
+        } else if (oldData && oldData.budgetCategoryId && oldData.budgetCategoryId === newData.budgetCategoryId) {
+             oldBudgetItemsQuery = budgetItemsQuery;
         }
         
         // Execute all reads first
