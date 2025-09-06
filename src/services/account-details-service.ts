@@ -18,7 +18,7 @@ import {
 
 const ACCOUNT_DETAILS_COLLECTION = 'transferees'; // Keeping the old collection name to avoid data loss
 const defaultAccounts = [
-    { name: 'Checking Account', type: 'Chequing', balance: 0 },
+    { name: 'Chequing Account', type: 'Chequing', balance: 0 },
     { name: 'Savings Account', type: 'Savings', balance: 0 },
     { name: 'Credit Card', type: 'Credit', balance: 0 }
 ];

@@ -1,5 +1,4 @@
 
-
 export type TaskFrequency = "daily" | "weekly" | "monthly";
 
 export const internalPages = [
@@ -253,6 +252,7 @@ export interface Transaction {
     amount: number;
     date: string; // ISO string
     type: TransactionType;
+    accountId?: string; // For expenses, the source account
     splits?: TransactionSplit[];
     transferFromId?: string;
     transferToId?: string;

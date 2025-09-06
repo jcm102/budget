@@ -6,12 +6,14 @@ import type { Transaction } from '@/types';
 import { useToast } from './use-toast';
 import * as MonthlyBudgetService from '@/services/monthly-budget-service';
 import { useMonthlyBudget } from './use-monthly-budget';
+import { useAccountDetails } from './use-transferees';
 
 export function useTransactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { fetchBudget } = useMonthlyBudget();
+  const { fetchAccounts } = useAccountDetails();
   
   const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
 
@@ -39,7 +41,7 @@ export function useTransactions() {
   const addTransaction = useCallback(async (transactionData: Omit<Transaction, 'id'>) => {
     try {
       await MonthlyBudgetService.addTransaction(transactionData);
-      await Promise.all([fetchTransactions(), fetchBudget()]); // Refetch both
+      await Promise.all([fetchTransactions(), fetchBudget(), fetchAccounts()]); // Refetch all
     } catch (error) {
       console.error('Failed to add transaction:', error);
       toast({
@@ -48,12 +50,12 @@ export function useTransactions() {
         variant: 'destructive',
       });
     }
-  }, [toast, fetchTransactions, fetchBudget]);
+  }, [toast, fetchTransactions, fetchBudget, fetchAccounts]);
 
   const updateTransaction = useCallback(async (id: string, transactionData: Partial<Omit<Transaction, 'id'>>) => {
     try {
       await MonthlyBudgetService.updateTransaction(id, transactionData);
-      await Promise.all([fetchTransactions(), fetchBudget()]); // Refetch both
+      await Promise.all([fetchTransactions(), fetchBudget(), fetchAccounts()]); // Refetch all
     } catch (error) {
       console.error('Failed to update transaction:', error);
       toast({
@@ -62,12 +64,12 @@ export function useTransactions() {
         variant: 'destructive',
       });
     }
-  }, [toast, fetchTransactions, fetchBudget]);
+  }, [toast, fetchTransactions, fetchBudget, fetchAccounts]);
 
   const deleteTransaction = useCallback(async (id: string) => {
     try {
       await MonthlyBudgetService.deleteTransaction(id);
-      await Promise.all([fetchTransactions(), fetchBudget()]); // Refetch both
+      await Promise.all([fetchTransactions(), fetchBudget(), fetchAccounts()]); // Refetch all
     } catch (error) {
       console.error('Failed to delete transaction:', error);
       toast({
@@ -76,7 +78,7 @@ export function useTransactions() {
         variant: 'destructive',
       });
     }
-  }, [toast, fetchTransactions, fetchBudget]);
+  }, [toast, fetchTransactions, fetchBudget, fetchAccounts]);
 
   return { transactions, addTransaction, updateTransaction, deleteTransaction, isLoading, fetchTransactions };
 }

@@ -64,6 +64,7 @@ const formSchema = z.object({
   amount: z.coerce.number().min(0.01, 'Amount must be greater than zero.'),
   date: z.string().min(1, 'A date is required.'),
   type: z.enum(['expense', 'transfer']),
+  accountId: z.string().optional(),
   transferFromId: z.string().optional(),
   transferToId: z.string().optional(),
   splits: z.array(splitSchema).optional(),
@@ -83,6 +84,10 @@ const formSchema = z.object({
             path: ['splits'],
             message: 'At least one category split is required for an expense.',
         });
+    }
+    
+    if (data.type === 'expense' && !data.accountId) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['accountId'], message: 'Payment account is required.' });
     }
 
     if (data.type === 'transfer') {
@@ -136,7 +141,7 @@ const CategorySelectionRow = ({
     const breakdownItems = category.budgetItem?.breakdown;
     const hasExplicitBreakdown = breakdownItems && breakdownItems.length > 0 && !(breakdownItems.length === 1 && breakdownItems[0].name === 'Default');
 
-    const isSelectable = !hasExplicitBreakdown && (category.budgetItem?.budgeted ?? 0) > 0;
+    const isSelectable = (category.budgetItem?.budgeted ?? 0) > 0;
     
     const isCollapsible = hasChildren || hasExplicitBreakdown;
 
@@ -166,7 +171,7 @@ const CategorySelectionRow = ({
                         </CollapsibleTrigger>
                     )}
                     
-                     {isSelectable ? (
+                     {isSelectable && !hasExplicitBreakdown ? (
                         <div className="flex items-center gap-2 flex-grow">
                              <Checkbox
                                 id={`${category.id}-default`}
@@ -269,6 +274,7 @@ export function TransactionForm({ open, onOpenChange, addTransaction, updateTran
       amount: 0,
       date: new Date().toISOString().split('T')[0],
       type: 'expense',
+      accountId: '',
       transferFromId: '',
       transferToId: '',
       splits: [],
@@ -311,6 +317,7 @@ export function TransactionForm({ open, onOpenChange, addTransaction, updateTran
             amount: editingTransaction.amount,
             date: new Date(editingTransaction.date).toISOString().split('T')[0],
             type: editingTransaction.type,
+            accountId: editingTransaction.accountId || '',
             transferFromId: editingTransaction.transferFromId || '',
             transferToId: editingTransaction.transferToId || '',
             splits: editingTransaction.splits || [],
@@ -321,6 +328,7 @@ export function TransactionForm({ open, onOpenChange, addTransaction, updateTran
             amount: 0,
             date: new Date().toISOString().split('T')[0],
             type: 'expense',
+            accountId: '',
             transferFromId: '',
             transferToId: '',
             splits: [],
@@ -328,16 +336,6 @@ export function TransactionForm({ open, onOpenChange, addTransaction, updateTran
       }
     }
   }, [open, editingTransaction, form]);
-
-  useEffect(() => {
-    const { getValues, setValue } = form;
-    if (transactionType === 'transfer') {
-      const splits = getValues('splits');
-      if (splits && splits.length > 0) {
-        // Don't clear splits if there are any
-      }
-    }
-  }, [transactionType, form]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const [year, month, day] = values.date.split('-').map(Number);
@@ -349,6 +347,7 @@ export function TransactionForm({ open, onOpenChange, addTransaction, updateTran
         date: localDate.toISOString(),
         type: values.type as TransactionType,
         splits: values.splits?.filter(s => s.amount > 0),
+        accountId: values.type === 'expense' ? values.accountId : undefined,
         transferFromId: values.type === 'transfer' ? values.transferFromId : undefined,
         transferToId: values.type === 'transfer' ? values.transferToId : undefined,
     }
@@ -430,6 +429,26 @@ export function TransactionForm({ open, onOpenChange, addTransaction, updateTran
                 </FormItem>
               )}
             />
+            
+            {transactionType === 'expense' && (
+                 <FormField control={form.control} name="accountId" render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Payment Account</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingAccounts}>
+                        <FormControl>
+                        <SelectTrigger><SelectValue placeholder="Select payment account" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                        {accounts.map(acc => (
+                            <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            )}
 
             {transactionType === 'transfer' && (
                 <div className="space-y-4">
@@ -471,7 +490,7 @@ export function TransactionForm({ open, onOpenChange, addTransaction, updateTran
             )}
             
             <div className="space-y-2">
-                <FormLabel>Split Across Budget Items (Optional for Transfers)</FormLabel>
+                <FormLabel>Split Across Budget Items</FormLabel>
                     <ScrollArea className="h-52 rounded-md border p-2">
                     {categoryTree.map(cat => (
                         <CategorySelectionRow
