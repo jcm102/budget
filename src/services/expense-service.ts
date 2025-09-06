@@ -149,23 +149,26 @@ export async function deleteExpense(id: string): Promise<void> {
 
 export async function deleteHonorarium(id: string): Promise<void> {
     const itemRef = doc(db, EXPENSE_COLLECTION, id);
-
+    const ledgerQuery = query(collection(db, LEDGER_COLLECTION), where("name", "==", "Honorarium Fund"));
+    
+    // We need to read the ledger outside the transaction to get its reference.
+    const ledgerSnapshot = await getDocs(ledgerQuery);
+    
     await runTransaction(db, async (transaction) => {
-        // 1. READ the documents first.
+        // 1. READ the document to be deleted.
         const itemSnap = await transaction.get(itemRef);
         if (!itemSnap.exists()) {
             throw new Error("Honorarium to delete not found.");
         }
         
-        const ledgerQuery = query(collection(db, LEDGER_COLLECTION), where("name", "==", "Honorarium Fund"));
-        const ledgerSnapshot = await getDocs(ledgerQuery); // This read is outside transaction, but it's acceptable for this logic.
-
         // 2. All reads are done. Perform WRITES.
         const honorariumToDelete = itemSnap.data() as Honorarium;
         const amountToDelete = honorariumToDelete.amount;
 
+        // Delete the honorarium entry
         transaction.delete(itemRef);
 
+        // Update the ledger fund, if it exists
         if (!ledgerSnapshot.empty) {
             const ledgerDoc = ledgerSnapshot.docs[0];
             const ledgerItemRef = ledgerDoc.ref;
