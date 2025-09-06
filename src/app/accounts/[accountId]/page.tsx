@@ -1,7 +1,7 @@
 
 import { getAccountDetails, getTransactionsForAccount } from '@/services/monthly-budget-service';
 import { getAccounts } from '@/services/account-details-service';
-import { getBudgetCategories } from '@/services/budget-category-service';
+import { getCategories } from '@/services/budget-category-service';
 import { AccountClientPage } from '@/components/account-client-page';
 import { notFound } from 'next/navigation';
 
@@ -12,7 +12,7 @@ export default async function AccountDetailPage({ params }: { params: { accountI
     getAccountDetails(accountId),
     getTransactionsForAccount(accountId),
     getAccounts(),
-    getBudgetCategories()
+    getCategories()
   ]);
 
   if (!account) {
