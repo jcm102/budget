@@ -96,12 +96,15 @@ async function updateMonthlyBudget(
             // Category already has a budget item, update its breakdown and total.
             const budgetDoc = budgetItemsSnapshot.docs[0];
             const budgetData = budgetDoc.data() as MonthlyBudgetItem;
-            // Get existing breakdown, but remove any old entry for this specific subscription in case its cost changed.
-            const existingBreakdown = budgetData.breakdown?.filter(b => b.name !== subscription.serviceName) || [];
-            // Add the new/updated subscription to the breakdown
+            
+            const nameToFilter = oldSubscriptionData ? oldSubscriptionData.serviceName : subscription.serviceName;
+            
+            const existingBreakdown = budgetData.breakdown?.filter(b => b.name !== nameToFilter) || [];
+            
             const newBreakdown = [...existingBreakdown, { name: subscription.serviceName, amount: newMonthlyCost }];
-            // Recalculate the total budgeted amount from the full, correct breakdown.
+            
             const newBudgeted = newBreakdown.reduce((sum, item) => sum + item.amount, 0);
+
             transaction.update(budgetDoc.ref, { breakdown: newBreakdown, budgeted: newBudgeted });
         }
     }
