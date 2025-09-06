@@ -13,6 +13,7 @@ export function useTransactions() {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { fetchBudget } = useMonthlyBudget();
+  // We get the fetchAccounts function from the hook, not the accounts directly.
   const { fetchAccounts } = useAccountDetails();
   
   const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
