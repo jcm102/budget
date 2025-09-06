@@ -40,7 +40,7 @@ export function useTransactions() {
     fetchTransactions();
     fetchAccounts();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchTransactions]);
+  }, []);
 
   const addTransaction = useCallback(async (transactionData: Omit<Transaction, 'id'>) => {
     try {
