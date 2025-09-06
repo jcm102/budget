@@ -121,21 +121,10 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
             }
         }
         
-        // Determine snowball amount from paid-off debts' minimums for this month
-        let snowball = 0;
-        debts.forEach(originalDebt => {
-            const currentDebt = currentDebts.find(d => d.id === originalDebt.id);
-            if (!currentDebt || currentDebt.balance <= 0) {
-                snowball += originalDebt.minimumPayment;
-            }
-        });
-        
-        paymentForMonth += snowball;
-        
         // Sort by highest interest rate (avalanche method)
         currentDebts.sort((a, b) => b.interestRate - a.interestRate);
 
-        // Apply extra payment + snowball to the highest interest rate debt
+        // Apply extra payment to the highest interest rate debt
         if (paymentForMonth > 0) {
             for (const debt of currentDebts) {
                 if (debt.balance > 0) {
