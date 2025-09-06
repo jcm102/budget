@@ -18,6 +18,7 @@ import {
   updateDoc,
   orderBy,
   runTransaction,
+  limit,
 } from 'firebase/firestore';
 import { isSameMonth, startOfMonth, getDate, getMonth, getYear, set, addWeeks, isAfter, isBefore, isLastDayOfMonth, lastDayOfMonth, addMonths, startOfDay } from 'date-fns';
 
@@ -128,21 +129,26 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
 
 export async function addBudgetItem(itemData: Omit<BudgetItem, 'id'>): Promise<BudgetItem> {
   const dataWithCompleted = { ...itemData, completed: false, forNextMonth: itemData.forNextMonth || false };
-  const currentMonth = new Date().toISOString().slice(0, 7);
-
+  
   await runTransaction(db, async (transaction) => {
-    // ---- READ PHASE ----
-    let budgetItemRef: FirebaseFirestore.DocumentReference;
-    let currentBudgetItem: MonthlyBudgetItem | null = null;
-    
-    // Only query if we need to update the monthly budget
+    // ---- WRITE PHASE ----
+    const newDocRef = doc(collection(db, BUDGET_COLLECTION));
+    transaction.set(newDocRef, dataWithCompleted);
+
+    // If it's a PA payment with a budget link, update the monthly budget
     if (itemData.type === 'Pre-Authorized Payments' && itemData.budgetCategoryId) {
-      const q = query(
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const budgetItemQuery = query(
         collection(db, MONTHLY_BUDGET_COLLECTION),
+        where('month', '==', currentMonth),
         where('categoryId', '==', itemData.budgetCategoryId),
-        where('month', '==', currentMonth)
+        limit(1)
       );
-      const budgetSnapshot = await getDocs(q); // This is now a pre-transaction read
+      
+      const budgetSnapshot = await getDocs(budgetItemQuery);
+      
+      let budgetItemRef: FirebaseFirestore.DocumentReference;
+      let currentBudgetItem: MonthlyBudgetItem | null = null;
       if (!budgetSnapshot.empty) {
         budgetItemRef = budgetSnapshot.docs[0].ref;
         currentBudgetItem = budgetSnapshot.docs[0].data() as MonthlyBudgetItem;
@@ -150,11 +156,6 @@ export async function addBudgetItem(itemData: Omit<BudgetItem, 'id'>): Promise<B
         budgetItemRef = doc(collection(db, MONTHLY_BUDGET_COLLECTION));
       }
 
-      // ---- WRITE PHASE ----
-      const newDocRef = doc(collection(db, BUDGET_COLLECTION));
-      transaction.set(newDocRef, dataWithCompleted);
-
-      // Now update the monthly budget item using the data we read earlier
       const currentBreakdown = currentBudgetItem?.breakdown || [];
       const newBreakdown = [...currentBreakdown, { name: itemData.description, amount: itemData.amount }];
       const newBudgeted = newBreakdown.reduce((sum, item) => sum + item.amount, 0);
@@ -167,11 +168,6 @@ export async function addBudgetItem(itemData: Omit<BudgetItem, 'id'>): Promise<B
       };
       
       transaction.set(budgetItemRef, dataToSet, { merge: true });
-
-    } else {
-      // If no budget link, just add the item
-      const newDocRef = doc(collection(db, BUDGET_COLLECTION));
-      transaction.set(newDocRef, dataWithCompleted);
     }
   });
 
@@ -182,7 +178,7 @@ export async function addBudgetItem(itemData: Omit<BudgetItem, 'id'>): Promise<B
 export async function updateBudgetItem(id: string, itemData: Partial<Omit<BudgetItem, 'id' | 'originalId'>>): Promise<void> {
     const currentMonth = new Date().toISOString().slice(0, 7);
     
-    // --- READ PHASE ---
+    // --- Step 1: READ all necessary data first ---
     let oldItemData: BudgetItem | null = null;
     let originalItemRef: FirebaseFirestore.DocumentReference;
     let isOverride = false;
@@ -191,7 +187,7 @@ export async function updateBudgetItem(id: string, itemData: Partial<Omit<Budget
     const isRecurringInstance = id.includes('-');
     if (isRecurringInstance) {
         baseId = id.split('-')[0];
-        const overrideQuery = query(collection(db, BUDGET_COLLECTION), where('originalId', '==', id));
+        const overrideQuery = query(collection(db, BUDGET_COLLECTION), where('originalId', '==', id), limit(1));
         const existingOverrideSnap = await getDocs(overrideQuery);
         if (!existingOverrideSnap.empty) {
             originalItemRef = existingOverrideSnap.docs[0].ref;
@@ -233,7 +229,7 @@ export async function updateBudgetItem(id: string, itemData: Partial<Omit<Budget
         newBudgetItemSnap = oldBudgetItemSnap;
     }
 
-    // --- WRITE PHASE (TRANSACTION) ---
+    // --- Step 2: WRITE PHASE (TRANSACTION) ---
     await runTransaction(db, async (transaction) => {
         // Update or create the main budget item
         if (isRecurringInstance && !isOverride) {
@@ -289,7 +285,7 @@ export async function deleteBudgetItem(id: string): Promise<void> {
     const isRecurringInstance = id.includes('-');
     
     if (isRecurringInstance) {
-        const overrideQuery = query(collection(db, BUDGET_COLLECTION), where('originalId', '==', id));
+        const overrideQuery = query(collection(db, BUDGET_COLLECTION), where('originalId', '==', id), limit(1));
         const overrideSnapshot = await getDocs(overrideQuery);
         if (!overrideSnapshot.empty) {
             isOverride = true;
@@ -329,7 +325,7 @@ export async function deleteBudgetItem(id: string): Promise<void> {
     
     if (itemToDelete.type === 'Pre-Authorized Payments' && itemToDelete.budgetCategoryId) {
         const currentMonth = new Date().toISOString().slice(0, 7);
-        const budgetQuery = query(collection(db, MONTHLY_BUDGET_COLLECTION), where('month', '==', currentMonth), where('categoryId', '==', itemToDelete.budgetCategoryId));
+        const budgetQuery = query(collection(db, MONTHLY_BUDGET_COLLECTION), where('month', '==', currentMonth), where('categoryId', '==', itemToDelete.budgetCategoryId), limit(1));
         const budgetSnapshot = await getDocs(budgetQuery);
         
         if (!budgetSnapshot.empty) {
