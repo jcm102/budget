@@ -28,7 +28,8 @@ import {
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
 
-export default function AccountDetailPage({ params: { accountId } }: { params: { accountId: string } }) {
+export default function AccountDetailPage({ params }: { params: { accountId: string } }) {
+  const accountId = params.accountId;
   const { accounts, isLoading: isLoadingAccounts } = useAccountDetails();
   const { 
     transactions, 
