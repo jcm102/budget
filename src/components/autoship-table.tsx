@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, RotateCw, ArrowUpDown, PiggyBank } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, RotateCw, ArrowUpDown } from 'lucide-react';
 import type { AutoShipItem } from '@/types';
 
 import {
@@ -36,7 +36,6 @@ import { Badge } from './ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useSavings } from '@/hooks/use-savings';
 import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
-import { CreateSinkingFundDialog } from './create-sinking-fund-dialog';
 
 
 type SortConfig = {
@@ -72,14 +71,18 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
 
 export function AutoShipTable() {
   const { autoShipItems, addAutoShipItem, updateAutoShipItem, deleteAutoShipItem, shipItem, isLoading } = useAutoShip();
-  const { addSavingsItem, savingsItems } = useSavings();
-  const { categories: budgetCategories, budgetItems, updateBudgetItemWithBreakdown } = useMonthlyBudget();
+  const { categories } = useMonthlyBudget();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<AutoShipItem | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'nextShipmentDate', direction: 'ascending' });
   const { toast } = useToast();
-  const [sinkingFundCandidate, setSinkingFundCandidate] = useState<AutoShipItem | null>(null);
-
+  
+  const categoryMap = useMemo(() => {
+    return categories.reduce((map, cat) => {
+        map[cat.id] = cat.name;
+        return map;
+    }, {} as Record<string, string>);
+  }, [categories]);
 
   const handleEdit = (item: AutoShipItem) => {
     setEditingItem(item);
@@ -129,35 +132,6 @@ export function AutoShipTable() {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
 
-  const handleCreateSinkingFund = (item: AutoShipItem, categoryId: string) => {
-    const fundExists = savingsItems.some(fund => fund.name.toLowerCase() === item.item.toLowerCase());
-    const monthlyCost = getMonthlyCost(item);
-
-    if (!fundExists) {
-        addSavingsItem({ 
-            name: item.item, 
-            amount: 0, 
-            goal: monthlyCost,
-            totalCost: item.estimatedCost,
-            dueDate: item.nextShipmentDate,
-            accountId: item.accountId,
-            currency: 'CAD', // Assuming CAD
-        });
-    }
-
-    const budgetCategory = budgetCategories.find(c => c.id === categoryId);
-    if (budgetCategory) {
-        const budgetItem = budgetItems.find(b => b.categoryId === budgetCategory.id);
-        const newBreakdownItem = { name: item.item, amount: monthlyCost };
-        const existingBreakdown = budgetItem?.breakdown?.filter(b => b.name !== 'Default') || [];
-        const newBreakdown = [...existingBreakdown, newBreakdownItem];
-        updateBudgetItemWithBreakdown(budgetCategory.id, newBreakdown);
-    }
-
-    toast({ title: 'Sinking Fund Linked', description: `"${item.item}" has been added to your monthly budget.` });
-    setSinkingFundCandidate(null);
-  };
-
   const handleShipItem = async (item: AutoShipItem) => {
     try {
         await shipItem(item.id);
@@ -177,7 +151,7 @@ export function AutoShipTable() {
   const renderLoadingSkeleton = () => (
     Array.from({ length: 3 }).map((_, i) => (
       <TableRow key={`skeleton-autoship-${i}`}>
-        <TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell>
+        <TableCell colSpan={7}><Skeleton className="h-8 w-full" /></TableCell>
       </TableRow>
     ))
   );
@@ -191,15 +165,6 @@ export function AutoShipTable() {
         updateAutoShipItem={updateAutoShipItem}
         editingItem={editingItem}
       />
-      {sinkingFundCandidate && (
-        <CreateSinkingFundDialog
-          open={!!sinkingFundCandidate}
-          onOpenChange={() => setSinkingFundCandidate(null)}
-          item={sinkingFundCandidate}
-          itemType="Auto-Shipment"
-          onConfirm={(categoryId) => handleCreateSinkingFund(sinkingFundCandidate, categoryId)}
-        />
-      )}
       <div className="flex justify-end items-center mb-6 gap-2">
           <Button onClick={() => setIsFormOpen(true)}>
             <PlusCircle className="mr-2 h-5 w-5" />
@@ -211,11 +176,12 @@ export function AutoShipTable() {
             <TableHeader>
               <TableRow className="group">
                 <SortableHeader column="item" label="Item" sortConfig={sortConfig} requestSort={requestSort} />
+                <TableHead>Budget Category</TableHead>
                 <SortableHeader column="nextShipmentDate" label="Next Shipment" sortConfig={sortConfig} requestSort={requestSort} />
                 <TableHead>Frequency</TableHead>
                 <SortableHeader column="estimatedCost" label="Estimated Cost" sortConfig={sortConfig} requestSort={requestSort} className="text-right" />
                 <SortableHeader column="monthlyCost" label="Monthly Cost" sortConfig={sortConfig} requestSort={requestSort} className="text-right" />
-                <TableHead className="w-[180px] text-right">Actions</TableHead>
+                <TableHead className="w-[140px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -225,15 +191,13 @@ export function AutoShipTable() {
                     sortedItems.map((item) => (
                         <TableRow key={item.id}>
                             <TableCell className="font-medium">{item.item}</TableCell>
+                            <TableCell>{item.budgetCategoryId ? categoryMap[item.budgetCategoryId] : <span className="text-muted-foreground">-</span>}</TableCell>
                             <TableCell>{format(new Date(item.nextShipmentDate), 'PPP')}</TableCell>
                             <TableCell><Badge variant="secondary">{item.frequency}</Badge></TableCell>
                             <TableCell className="text-right">{formatCurrency(item.estimatedCost)}</TableCell>
                             <TableCell className="text-right">{formatCurrency(getMonthlyCost(item))}</TableCell>
                             <TableCell className="text-right">
                                 <div className="flex justify-end gap-1">
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" title="Create Sinking Fund" onClick={() => setSinkingFundCandidate(item)}>
-                                        <PiggyBank className="h-4 w-4" />
-                                    </Button>
                                     <Button variant="ghost" size="icon" className="h-8 w-8" title="Ship Item" onClick={() => handleShipItem(item)}>
                                         <RotateCw className="h-4 w-4" />
                                     </Button>
@@ -267,7 +231,7 @@ export function AutoShipTable() {
                     ))
                 ) : (
                     <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
+                    <TableCell colSpan={7} className="h-24 text-center">
                         No auto-ship items entered yet. Add one to get started!
                     </TableCell>
                     </TableRow>

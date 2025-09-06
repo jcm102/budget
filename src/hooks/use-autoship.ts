@@ -6,12 +6,14 @@ import type { AutoShipItem } from '@/types';
 import { useToast } from './use-toast';
 import * as AutoShipService from '@/services/autoship-service';
 import { useSelectedAccount } from './use-selected-account';
+import { useMonthlyBudget } from './use-monthly-budget';
 
 export function useAutoShip() {
   const [autoShipItems, setAutoShipItems] = useState<AutoShipItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { selectedAccountId } = useSelectedAccount();
+  const { fetchBudget } = useMonthlyBudget();
 
   const fetchAutoShipItems = useCallback(async (accountId: string | null) => {
     if (!accountId) {
@@ -41,8 +43,9 @@ export function useAutoShip() {
 
   const addAutoShipItem = useCallback(async (itemData: Omit<AutoShipItem, 'id'>) => {
     try {
-      const newItem = await AutoShipService.addAutoShipItem(itemData);
-      setAutoShipItems(prev => [...prev, newItem].sort((a, b) => new Date(a.nextShipmentDate).getTime() - new Date(b.nextShipmentDate).getTime()));
+      await AutoShipService.addAutoShipItem(itemData);
+      await fetchAutoShipItems(selectedAccountId);
+      await fetchBudget(); // Refetch budget to see changes
     } catch (error) {
       console.error('Failed to add auto-ship item:', error);
       toast({
@@ -51,40 +54,37 @@ export function useAutoShip() {
         variant: 'destructive',
       });
     }
-  }, [toast]);
+  }, [toast, selectedAccountId, fetchAutoShipItems, fetchBudget]);
 
   const updateAutoShipItem = useCallback(async (id: string, itemData: Partial<Omit<AutoShipItem, 'id'>>) => {
-    const originalItems = autoShipItems;
-    setAutoShipItems(prev => prev.map(item => (item.id === id ? { ...item, ...itemData } as AutoShipItem : item)));
     try {
       await AutoShipService.updateAutoShipItem(id, itemData);
       await fetchAutoShipItems(selectedAccountId);
+      await fetchBudget(); // Refetch budget to see changes
     } catch (error) {
       console.error('Failed to update auto-ship item:', error);
-      setAutoShipItems(originalItems);
       toast({
         title: 'Error',
         description: 'Failed to update the auto-ship item.',
         variant: 'destructive',
       });
     }
-  }, [autoShipItems, toast, selectedAccountId, fetchAutoShipItems]);
+  }, [toast, selectedAccountId, fetchAutoShipItems, fetchBudget]);
 
   const deleteAutoShipItem = useCallback(async (id: string) => {
-    const originalItems = autoShipItems;
-    setAutoShipItems(prev => prev.filter(item => item.id !== id));
     try {
       await AutoShipService.deleteAutoShipItem(id);
+      await fetchAutoShipItems(selectedAccountId);
+      await fetchBudget(); // Refetch budget to see changes
     } catch (error) {
       console.error('Failed to delete auto-ship item:', error);
-      setAutoShipItems(originalItems);
       toast({
         title: 'Error',
         description: 'Failed to delete the auto-ship item.',
         variant: 'destructive',
       });
     }
-  }, [autoShipItems, toast]);
+  }, [toast, selectedAccountId, fetchAutoShipItems, fetchBudget]);
 
   const shipItem = useCallback(async (id: string) => {
     try {

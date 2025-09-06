@@ -173,6 +173,7 @@ export interface AutoShipItem {
     frequency: AutoShipFrequency;
     estimatedCost: number;
     type: 'Auto-Shipment'; // To distinguish for dialog
+    budgetCategoryId?: string;
 }
 
 export type SubscriptionBillingFrequency = 'Monthly' | 'Quarterly' | 'Annually';
@@ -243,7 +244,7 @@ export type TransactionType = 'expense' | 'transfer';
 export interface TransactionSplit {
     categoryId: string;
     amount: number;
-    budgetItemName: string; // e.g. "London Hydro"
+    budgetItemName: string; // e.g. "Default" or "London Hydro"
 }
 
 export interface Transaction {
