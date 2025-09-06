@@ -3,7 +3,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import type { MonthlyBudgetItem, Transaction, TransactionSplit, BudgetItem } from '@/types';
+import type { MonthlyBudgetItem, Transaction, TransactionSplit, BudgetItem, AccountDetails } from '@/types';
 import {
   collection,
   getDocs,
@@ -44,7 +44,16 @@ export async function updateBudgetItem(id: string, itemData: Partial<Omit<Monthl
   await updateDoc(itemRef, itemData);
 }
 
-// ===== Transactions =====
+// ===== Transactions & Accounts =====
+
+export async function getAccountDetails(accountId: string): Promise<AccountDetails | null> {
+    const accountRef = doc(db, ACCOUNTS_COLLECTION, accountId);
+    const docSnap = await getDoc(accountRef);
+    if (!docSnap.exists()) {
+        return null;
+    }
+    return { id: docSnap.id, ...docSnap.data() } as AccountDetails;
+}
 
 export async function getTransactionsForMonth(month: string): Promise<Transaction[]> {
   const startDate = new Date(`${month}-01T00:00:00.000Z`);
