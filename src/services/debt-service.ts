@@ -168,7 +168,7 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
     await runTransaction(db, async (transaction) => {
         const currentMonth = new Date().toISOString().slice(0, 7);
 
-        // 1. Fetch all necessary data inside the transaction
+        // 1. Fetch all necessary data first
         const [debtsSnapshot, budgetCategories] = await Promise.all([
             getDocs(query(collection(db, DEBT_COLLECTION))),
             getBudgetCategories(),
@@ -178,6 +178,23 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
         const categoryPaymentTotals: Record<string, number> = {};
         const categoryBreakdowns: Record<string, { name: string, amount: number }[]> = {};
 
+        // Prepare queries for budget items.
+        const budgetItemQueries = budgetCategories.map(cat => 
+            query(
+                collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION),
+                where('month', '==', currentMonth),
+                where('categoryId', '==', cat.id)
+            )
+        );
+        const budgetItemSnapshots = await Promise.all(budgetItemQueries.map(q => getDocs(q)));
+        const budgetItemsMap = new Map<string, FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>>();
+        budgetItemSnapshots.forEach((snap, index) => {
+            if (!snap.empty) {
+                budgetItemsMap.set(budgetCategories[index].id, snap.docs[0]);
+            }
+        });
+
+
         // 2. Iterate through payments to update debt items and aggregate category totals
         for (const debtId in payments) {
             const paymentAmount = payments[debtId];
@@ -185,7 +202,6 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
 
             if (!debt || paymentAmount <= 0) continue;
 
-            // Update plannedPayment on the debt item
             const debtRef = doc(db, DEBT_COLLECTION, debtId);
             transaction.update(debtRef, { plannedPayment: paymentAmount });
 
@@ -202,22 +218,14 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
             }
         }
 
-        // 3. Update the monthly budget items
+        // 3. Update the monthly budget items using the pre-fetched data
         for (const categoryId in categoryPaymentTotals) {
             const totalForCategory = categoryPaymentTotals[categoryId];
             const breakdownForCategory = categoryBreakdowns[categoryId];
             
-            const budgetItemsQuery = query(
-                collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION),
-                where('month', '==', currentMonth),
-                where('categoryId', '==', categoryId)
-            );
+            const budgetItemDoc = budgetItemsMap.get(categoryId);
             
-            // This needs to be a getDocs inside the transaction
-            const budgetItemsSnapshot = await getDocs(budgetItemsQuery);
-
-            if (!budgetItemsSnapshot.empty) {
-                const budgetItemDoc = budgetItemsSnapshot.docs[0];
+            if (budgetItemDoc) {
                 transaction.update(budgetItemDoc.ref, { budgeted: totalForCategory, breakdown: breakdownForCategory });
             } else {
                 const newBudgetItemRef = doc(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION));

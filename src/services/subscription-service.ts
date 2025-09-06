@@ -32,12 +32,11 @@ const getMonthlyCost = (item: Pick<SubscriptionItem, 'cost' | 'billingFrequency'
 
 async function updateLinkedSinkingFund(
     transaction: FirebaseFirestore.Transaction,
+    sinkingFundSnapshot: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>,
     subscription: SubscriptionItem,
     oldSubscriptionData?: SubscriptionItem
 ) {
     const monthlyCost = getMonthlyCost(subscription);
-    const sinkingFundQuery = query(collection(db, SINKING_FUNDS_COLLECTION), where('name', '==', subscription.serviceName), where('accountId', '==', subscription.accountId));
-    const sinkingFundSnapshot = await getDocs(sinkingFundQuery);
 
     const fundData = {
         name: subscription.serviceName,
@@ -64,39 +63,32 @@ async function updateLinkedSinkingFund(
 
 async function updateMonthlyBudget(
     transaction: FirebaseFirestore.Transaction,
+    budgetItemsQuery: FirebaseFirestore.Query | null,
+    oldBudgetItemsQuery: FirebaseFirestore.Query | null,
     subscription: SubscriptionItem,
     oldSubscriptionData?: SubscriptionItem
 ) {
     const currentMonth = new Date().toISOString().slice(0, 7);
     const newMonthlyCost = getMonthlyCost(subscription);
+    
+    // Perform all reads first
+    const [budgetItemsSnapshot, oldBudgetItemsSnapshot] = await Promise.all([
+        budgetItemsQuery ? getDocs(budgetItemsQuery) : Promise.resolve(null),
+        oldBudgetItemsQuery ? getDocs(oldBudgetItemsQuery) : Promise.resolve(null),
+    ]);
+
 
     // Remove from old category if it exists and has changed
-    if (oldSubscriptionData && oldSubscriptionData.budgetCategoryId && oldSubscriptionData.budgetCategoryId !== subscription.budgetCategoryId) {
-        const oldMonthlyCost = getMonthlyCost(oldSubscriptionData);
-        const oldBudgetItemsQuery = query(
-            collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION),
-            where('month', '==', currentMonth),
-            where('categoryId', '==', oldSubscriptionData.budgetCategoryId)
-        );
-        const oldBudgetItemsSnapshot = await getDocs(oldBudgetItemsQuery);
-        if (!oldBudgetItemsSnapshot.empty) {
-            const budgetDoc = oldBudgetItemsSnapshot.docs[0];
-            const budgetData = budgetDoc.data() as MonthlyBudgetItem;
-            const newBreakdown = budgetData.breakdown?.filter(b => b.name !== oldSubscriptionData.serviceName) || [];
-            const newBudgeted = newBreakdown.reduce((sum, item) => sum + item.amount, 0);
-            transaction.update(budgetDoc.ref, { breakdown: newBreakdown, budgeted: newBudgeted });
-        }
+    if (oldBudgetItemsSnapshot && !oldBudgetItemsSnapshot.empty && oldSubscriptionData) {
+        const budgetDoc = oldBudgetItemsSnapshot.docs[0];
+        const budgetData = budgetDoc.data() as MonthlyBudgetItem;
+        const newBreakdown = budgetData.breakdown?.filter(b => b.name !== oldSubscriptionData.serviceName) || [];
+        const newBudgeted = newBreakdown.reduce((sum, item) => sum + item.amount, 0);
+        transaction.update(budgetDoc.ref, { breakdown: newBreakdown, budgeted: newBudgeted });
     }
 
     // Add to new category if it exists
-    if (subscription.budgetCategoryId) {
-        const budgetItemsQuery = query(
-            collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION),
-            where('month', '==', currentMonth),
-            where('categoryId', '==', subscription.budgetCategoryId)
-        );
-        const budgetItemsSnapshot = await getDocs(budgetItemsQuery);
-
+    if (subscription.budgetCategoryId && budgetItemsSnapshot) {
         if (budgetItemsSnapshot.empty) {
             const newBudgetItemRef = doc(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION));
             transaction.set(newBudgetItemRef, {
@@ -129,11 +121,27 @@ export async function addSubscription(itemData: Omit<SubscriptionItem, 'id'>): P
     const docRef = await runTransaction(db, async (transaction) => {
         const newDocRef = doc(collection(db, SUBSCRIPTION_COLLECTION));
         const newSubscription = { id: newDocRef.id, ...itemData };
-        transaction.set(newDocRef, itemData);
-
-        await updateLinkedSinkingFund(transaction, newSubscription);
+        
+        // Prepare queries for reads
+        const sinkingFundQuery = query(collection(db, SINKING_FUNDS_COLLECTION), where('name', '==', newSubscription.serviceName), where('accountId', '==', newSubscription.accountId));
+        let budgetItemsQuery = null;
         if (newSubscription.budgetCategoryId) {
-            await updateMonthlyBudget(transaction, newSubscription);
+            const currentMonth = new Date().toISOString().slice(0, 7);
+            budgetItemsQuery = query(
+                collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION),
+                where('month', '==', currentMonth),
+                where('categoryId', '==', newSubscription.budgetCategoryId)
+            );
+        }
+        
+        // Perform reads
+        const sinkingFundSnapshot = await getDocs(sinkingFundQuery);
+
+        // Perform writes
+        transaction.set(newDocRef, itemData);
+        await updateLinkedSinkingFund(transaction, sinkingFundSnapshot, newSubscription);
+        if (newSubscription.budgetCategoryId && budgetItemsQuery) {
+            await updateMonthlyBudget(transaction, budgetItemsQuery, null, newSubscription);
         }
         
         return newDocRef;
@@ -153,10 +161,37 @@ export async function updateSubscription(id: string, itemData: Partial<Omit<Subs
         const oldData = itemSnap.data() as SubscriptionItem;
         const newData = { ...oldData, ...itemData, id };
         
-        transaction.update(itemRef, itemData);
+        // Prepare queries for reads
+        const sinkingFundQuery = query(collection(db, SINKING_FUNDS_COLLECTION), where('name', '==', newData.serviceName), where('accountId', '==', newData.accountId));
         
-        await updateLinkedSinkingFund(transaction, newData, oldData);
-        await updateMonthlyBudget(transaction, newData, oldData);
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        let budgetItemsQuery = null;
+        if (newData.budgetCategoryId) {
+            budgetItemsQuery = query(
+                collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION),
+                where('month', '==', currentMonth),
+                where('categoryId', '==', newData.budgetCategoryId)
+            );
+        }
+
+        let oldBudgetItemsQuery = null;
+        if (oldData && oldData.budgetCategoryId && oldData.budgetCategoryId !== newData.budgetCategoryId) {
+            oldBudgetItemsQuery = query(
+                collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION),
+                where('month', '==', currentMonth),
+                where('categoryId', '==', oldData.budgetCategoryId)
+            );
+        }
+        
+        // Perform reads
+        const sinkingFundSnapshot = await getDocs(sinkingFundQuery);
+
+        // Perform writes
+        transaction.update(itemRef, itemData);
+        await updateLinkedSinkingFund(transaction, sinkingFundSnapshot, newData, oldData);
+        if (budgetItemsQuery || oldBudgetItemsQuery) {
+             await updateMonthlyBudget(transaction, budgetItemsQuery, oldBudgetItemsQuery, newData, oldData);
+        }
     });
 }
 
@@ -167,21 +202,31 @@ export async function deleteSubscription(id: string): Promise<void> {
         if (!itemSnap.exists()) {
             throw new Error("Subscription not found");
         }
-        const subscriptionToDelete = itemSnap.data() as SubscriptionItem;
+        const subscriptionToDelete = {id, ...itemSnap.data()} as SubscriptionItem;
         
-        // Delete the subscription
-        transaction.delete(itemRef);
-
-        // Delete the linked sinking fund
+        // Prepare reads
         const sinkingFundQuery = query(collection(db, SINKING_FUNDS_COLLECTION), where('name', '==', subscriptionToDelete.serviceName), where('accountId', '==', subscriptionToDelete.accountId));
         const sinkingFundSnapshot = await getDocs(sinkingFundQuery);
+
+        let oldBudgetItemsQuery = null;
+        if (subscriptionToDelete.budgetCategoryId) {
+            const currentMonth = new Date().toISOString().slice(0, 7);
+            oldBudgetItemsQuery = query(
+                collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION),
+                where('month', '==', currentMonth),
+                where('categoryId', '==', subscriptionToDelete.budgetCategoryId)
+            );
+        }
+        
+        // Writes
+        transaction.delete(itemRef);
+
         if (!sinkingFundSnapshot.empty) {
             transaction.delete(sinkingFundSnapshot.docs[0].ref);
         }
 
-        // Remove from monthly budget
-        if (subscriptionToDelete.budgetCategoryId) {
-            await updateMonthlyBudget(transaction, { ...subscriptionToDelete, budgetCategoryId: undefined }, subscriptionToDelete);
+        if (oldBudgetItemsQuery) {
+            await updateMonthlyBudget(transaction, null, oldBudgetItemsQuery, {} as SubscriptionItem, subscriptionToDelete);
         }
     });
 }
