@@ -366,6 +366,11 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
     }
   }
 
+  const formatCurrency = (amount: number | undefined) => {
+    if (amount === undefined) return '';
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
@@ -439,7 +444,9 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                         </FormControl>
                         <SelectContent>
                         {accounts.map(acc => (
-                            <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
+                            <SelectItem key={acc.id} value={acc.id}>
+                                {acc.name} ({formatCurrency(acc.balance)})
+                            </SelectItem>
                         ))}
                         </SelectContent>
                     </Select>
@@ -460,7 +467,9 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                             </FormControl>
                             <SelectContent>
                             {accounts.map(acc => (
-                                <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
+                                <SelectItem key={acc.id} value={acc.id}>
+                                    {acc.name} ({formatCurrency(acc.balance)})
+                                </SelectItem>
                             ))}
                             </SelectContent>
                         </Select>
@@ -477,7 +486,9 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                             </FormControl>
                             <SelectContent>
                             {accounts.map(acc => (
-                                <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
+                                <SelectItem key={acc.id} value={acc.id}>
+                                    {acc.name} ({formatCurrency(acc.balance)})
+                                </SelectItem>
                             ))}
                             </SelectContent>
                         </Select>
