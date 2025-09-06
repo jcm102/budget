@@ -41,9 +41,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { Transaction, TransactionType, Category as CategoryType, TransactionSplit, MonthlyBudgetItem, BudgetSubItem } from '@/types';
+import type { Transaction, TransactionType, Category as CategoryType, TransactionSplit, MonthlyBudgetItem, BudgetSubItem, AccountDetails } from '@/types';
 import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
-import { useAccountDetails } from '@/hooks/use-transferees';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { ScrollArea } from './ui/scroll-area';
 import { Checkbox } from './ui/checkbox';
@@ -69,7 +68,7 @@ const formSchema = z.object({
   transferToId: z.string().optional(),
   splits: z.array(splitSchema).optional(),
 }).superRefine((data, ctx) => {
-    if (data.splits && data.splits.length > 0) {
+    if (data.type === 'expense' && data.splits && data.splits.length > 0) {
         const totalSplitAmount = data.splits.reduce((sum, split) => sum + split.amount, 0);
         if (Math.abs(totalSplitAmount - data.amount) > 0.001) { // Check for floating point differences
                 ctx.addIssue({
@@ -78,7 +77,7 @@ const formSchema = z.object({
                 message: `Split total (${totalSplitAmount.toFixed(2)}) must equal the transaction amount (${data.amount.toFixed(2)}).`,
             });
         }
-    } else if (data.type === 'expense') {
+    } else if (data.type === 'expense' && (!data.splits || data.splits.length === 0)) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: ['splits'],
@@ -107,6 +106,7 @@ const formSchema = z.object({
 type TransactionFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  accounts: AccountDetails[];
   addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
   updateTransaction: (id: string, transaction: Partial<Omit<Transaction, 'id'>>) => void;
   deleteTransaction: (id: string) => void;
@@ -263,9 +263,8 @@ const CategorySelectionRow = ({
     )
 }
 
-export function TransactionForm({ open, onOpenChange, addTransaction, updateTransaction, deleteTransaction, editingTransaction }: TransactionFormProps) {
+export function TransactionForm({ open, onOpenChange, accounts, addTransaction, updateTransaction, deleteTransaction, editingTransaction }: TransactionFormProps) {
   const { categories, budgetItems, isLoading: isLoadingCategories } = useMonthlyBudget();
-  const { accounts, isLoading: isLoadingAccounts } = useAccountDetails();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -434,7 +433,7 @@ export function TransactionForm({ open, onOpenChange, addTransaction, updateTran
                  <FormField control={form.control} name="accountId" render={({ field }) => (
                     <FormItem>
                     <FormLabel>Payment Account</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingAccounts}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                         <SelectTrigger><SelectValue placeholder="Select payment account" /></SelectTrigger>
                         </FormControl>
@@ -455,7 +454,7 @@ export function TransactionForm({ open, onOpenChange, addTransaction, updateTran
                     <FormField control={form.control} name="transferFromId" render={({ field }) => (
                         <FormItem>
                         <FormLabel>From Account</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingAccounts}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                             <SelectTrigger><SelectValue placeholder="Select source account" /></SelectTrigger>
                             </FormControl>
@@ -472,7 +471,7 @@ export function TransactionForm({ open, onOpenChange, addTransaction, updateTran
                      <FormField control={form.control} name="transferToId" render={({ field }) => (
                         <FormItem>
                         <FormLabel>To Account</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingAccounts}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                             <SelectTrigger><SelectValue placeholder="Select destination account" /></SelectTrigger>
                             </FormControl>
@@ -489,8 +488,9 @@ export function TransactionForm({ open, onOpenChange, addTransaction, updateTran
                 </div>
             )}
             
+            {(transactionType === 'expense' || transactionType === 'transfer') && (
             <div className="space-y-2">
-                <FormLabel>Split Across Budget Items</FormLabel>
+                <FormLabel>Split Across Budget Items (Optional for transfers)</FormLabel>
                     <ScrollArea className="h-52 rounded-md border p-2">
                     {categoryTree.map(cat => (
                         <CategorySelectionRow
@@ -516,6 +516,8 @@ export function TransactionForm({ open, onOpenChange, addTransaction, updateTran
                     </div>
                 </div>
             </div>
+            )}
+
 
             <DialogFooter className="sm:justify-between">
                 <div>

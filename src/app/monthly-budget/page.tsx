@@ -19,7 +19,7 @@ export default function MonthlyBudgetPage() {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
-  const { transactions, addTransaction, updateTransaction, deleteTransaction, isLoading: isLoadingTransactions } = useTransactions();
+  const { transactions, accounts, addTransaction, updateTransaction, deleteTransaction, isLoading: isLoadingTransactions } = useTransactions();
   const { budgetItems: monthlyBudgetItems, categories, updateBudgetItemWithBreakdown, isLoading: isLoadingBudget } = useMonthlyBudget();
   const { budgetItems, isLoading: isLoadingIncome } = useBudget();
 
@@ -66,6 +66,7 @@ export default function MonthlyBudgetPage() {
       <TransactionForm
         open={isTransactionFormOpen}
         onOpenChange={handleCloseTransactionForm}
+        accounts={accounts}
         addTransaction={addTransaction}
         updateTransaction={updateTransaction}
         deleteTransaction={deleteTransaction}

@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import type { Transaction } from '@/types';
+import type { Transaction, AccountDetails } from '@/types';
 import { useToast } from './use-toast';
 import * as MonthlyBudgetService from '@/services/monthly-budget-service';
 import { useMonthlyBudget } from './use-monthly-budget';
@@ -13,8 +13,7 @@ export function useTransactions() {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { fetchBudget } = useMonthlyBudget();
-  // We get the fetchAccounts function from the hook, not the accounts directly.
-  const { fetchAccounts } = useAccountDetails();
+  const { accounts, fetchAccounts } = useAccountDetails();
   
   const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
 
@@ -37,6 +36,8 @@ export function useTransactions() {
 
   useEffect(() => {
     fetchTransactions();
+    fetchAccounts();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchTransactions]);
 
   const addTransaction = useCallback(async (transactionData: Omit<Transaction, 'id'>) => {
@@ -81,5 +82,5 @@ export function useTransactions() {
     }
   }, [toast, fetchTransactions, fetchBudget, fetchAccounts]);
 
-  return { transactions, addTransaction, updateTransaction, deleteTransaction, isLoading, fetchTransactions };
+  return { transactions, accounts, addTransaction, updateTransaction, deleteTransaction, isLoading, fetchTransactions };
 }
