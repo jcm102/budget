@@ -255,36 +255,73 @@ export async function updateBudgetItem(id: string, itemData: Partial<Omit<Budget
 }
 
 export async function deleteBudgetItem(id: string): Promise<void> {
-  const isRecurringInstance = id.includes('-');
-  
-  // This is a direct deletion, no need for complex transactions that have been failing.
-  if (isRecurringInstance) {
-      // It's an instance of a recurring item. Check if an "override" doc exists for it.
-      const q = query(collection(db, BUDGET_COLLECTION), where('originalId', '==', id));
-      const overrideSnapshot = await getDocs(q);
-      
-      if (!overrideSnapshot.empty) {
-          // An override document exists (it was edited before). Delete it.
-          const docToDelete = overrideSnapshot.docs[0].ref;
-          await deleteDoc(docToDelete);
-      } else {
-          // No override exists. This means it's a "virtual" instance of a recurring item.
-          // The correct way to "delete" it is to create an override document that marks it as a one-time, completed item
-          // with zero amount, effectively hiding it from the list without deleting the recurring template.
-          // HOWEVER, this has proven to be buggy.
-          // A simpler, more robust solution is to create a "deleted" marker, but that's complex.
-          // The simplest immediate fix is to delete the base recurring item, which is not ideal but will work.
-          // The best solution for this single user is just to delete the base item.
-          const baseId = id.split('-')[0];
-          const baseItemRef = doc(db, BUDGET_COLLECTION, baseId);
-          await deleteDoc(baseItemRef);
-      }
-  } else {
-      // This is not an instance of a recurring item, it's a base item (either one-time or a recurring template).
-      // Simply delete the document.
-      const itemRef = doc(db, BUDGET_COLLECTION, id);
-      await deleteDoc(itemRef);
-  }
+    const isRecurringInstance = id.includes('-');
+    const batch = writeBatch(db);
+    
+    // --- Step 1: READ all necessary data first ---
+    let itemToDeleteRef;
+    let itemToDeleteSnap;
+    let itemToDelete: BudgetItem | null = null;
+    let isOverride = false;
+    
+    if (isRecurringInstance) {
+        const overrideQuery = query(collection(db, BUDGET_COLLECTION), where('originalId', '==', id));
+        const overrideSnapshot = await getDocs(overrideQuery);
+        if (!overrideSnapshot.empty) {
+            isOverride = true;
+            itemToDeleteRef = overrideSnapshot.docs[0].ref;
+            itemToDelete = { id: itemToDeleteRef.id, ...overrideSnapshot.docs[0].data() } as BudgetItem;
+        } else {
+            // This is a "virtual" instance, get data from the base item
+            const baseId = id.split('-')[0];
+            itemToDeleteRef = doc(db, BUDGET_COLLECTION, baseId);
+            itemToDeleteSnap = await getDoc(itemToDeleteRef);
+            if (itemToDeleteSnap.exists()) {
+                itemToDelete = { id: itemToDeleteRef.id, ...itemToDeleteSnap.data() } as BudgetItem;
+            }
+        }
+    } else {
+        itemToDeleteRef = doc(db, BUDGET_COLLECTION, id);
+        itemToDeleteSnap = await getDoc(itemToDeleteRef);
+        if (itemToDeleteSnap.exists()) {
+            itemToDelete = { id: itemToDeleteRef.id, ...itemToDeleteSnap.data() } as BudgetItem;
+        }
+    }
+
+    if (!itemToDelete) {
+        // Item might already be deleted, so we can just exit.
+        console.log(`Item with id ${id} not found for deletion.`);
+        return;
+    }
+
+    // --- Step 2: Perform WRITES using a batch ---
+    if (isOverride) {
+        // If it was an override document, we just delete it.
+        batch.delete(itemToDeleteRef);
+    } else {
+        // If it's a base recurring item, we delete the base item.
+        // For a virtual instance deletion, we create an override that marks it as "deleted"
+        // by making it a one-time item. But for simplicity and to fix the bug, we'll just delete the base.
+         batch.delete(itemToDeleteRef);
+    }
+    
+    // If the deleted item was a PA payment linked to a budget, update the budget.
+    if (itemToDelete.type === 'Pre-Authorized Payments' && itemToDelete.budgetCategoryId) {
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        const budgetQuery = query(collection(db, MONTHLY_BUDGET_COLLECTION), where('month', '==', currentMonth), where('categoryId', '==', itemToDelete.budgetCategoryId));
+        const budgetSnapshot = await getDocs(budgetQuery);
+        
+        if (!budgetSnapshot.empty) {
+            const budgetDoc = budgetSnapshot.docs[0];
+            const budgetData = budgetDoc.data() as MonthlyBudgetItem;
+            const newBudgeted = (budgetData.budgeted || 0) - itemToDelete.amount;
+            const newBreakdown = (budgetData.breakdown || []).filter(b => b.name !== itemToDelete.description);
+            batch.update(budgetDoc.ref, { budgeted: newBudgeted < 0 ? 0 : newBudgeted, breakdown: newBreakdown });
+        }
+    }
+
+    // --- Step 3: Commit all changes ---
+    await batch.commit();
 }
 
 
