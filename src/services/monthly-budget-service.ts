@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -102,6 +103,7 @@ export async function updateTransaction(id: string, transactionData: Partial<Omi
         }
         const oldData = transactionSnap.data() as Transaction;
         
+        // All reads are now complete. Start writes.
         transaction.update(transactionRef, transactionData);
 
         // Handle balance adjustments if amount or accounts change
