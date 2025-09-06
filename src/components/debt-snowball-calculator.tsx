@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { useDebt } from '@/hooks/use-debt';
 import { useToast } from '@/hooks/use-toast';
 import * as DebtService from '@/services/debt-service';
+import { useDebounce } from '@/hooks/use-debounce';
 
 
 interface ScheduleEntry {
@@ -39,6 +40,11 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
   const [isApplying, setIsApplying] = useState(false);
   const { toast } = useToast();
 
+  const debouncedTotalMonthlyPayment = useDebounce(totalMonthlyPayment, 500);
+  const debouncedExtraPayment = useDebounce(extraPayment, 500);
+  const debouncedExtraPaymentTarget = useDebounce(extraPaymentTarget, 500);
+
+
   const totalMinimumPayment = useMemo(() => {
     return debts.reduce((sum, debt) => sum + debt.minimumPayment, 0);
   }, [debts]);
@@ -53,10 +59,10 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
   
   const calculateSchedule = () => {
     setError(null);
-    setSchedule([]);
 
     if (totalMonthlyPayment < totalMinimumPayment) {
         setError(`Total monthly payment must be at least the sum of minimum payments (${formatCurrency(totalMinimumPayment)}).`);
+        setSchedule([]);
         return;
     }
     
@@ -71,13 +77,19 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
         }));
 
     if (currentDebts.length === 0) {
-        setError("No debts with a positive balance to calculate.");
+        setSchedule([]); // Clear schedule if no debts to calculate
         return;
     }
     
     // Apply one-time extra payment
     if (extraPayment > 0 && extraPaymentTarget !== 'none') {
-        const targetDebt = currentDebts.find(d => d.id === extraPaymentTarget);
+        let targetDebt;
+        if (extraPaymentTarget === 'highest_interest') {
+            targetDebt = currentDebts.sort((a,b) => b.interestRate - a.interestRate)[0];
+        } else {
+            targetDebt = currentDebts.find(d => d.id === extraPaymentTarget);
+        }
+
         if (targetDebt) {
             targetDebt.balance -= extraPayment;
         }
@@ -156,6 +168,12 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
     setSchedule(newSchedule);
   };
   
+  useEffect(() => {
+    // Automatically recalculate when debounced values change
+    calculateSchedule();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedTotalMonthlyPayment, debouncedExtraPayment, debouncedExtraPaymentTarget, debts]);
+  
   const handleApplySchedule = async () => {
     if (schedule.length === 0) {
       toast({
@@ -194,11 +212,11 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
             Debt Repayment Calculator
         </CardTitle>
         <CardDescription>
-          Enter your total monthly debt payment to see a projected repayment schedule using the debt avalanche (highest interest rate) method.
+          Enter your total monthly debt payment to see a projected repayment schedule using the debt avalanche (highest interest rate) method. The schedule will update as you type.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
             <div className="grid w-full items-center gap-1.5">
                 <Label htmlFor="total-payment">Total Monthly Debt Payment</Label>
                 <Input
@@ -226,14 +244,13 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
                         <SelectValue placeholder="Select a debt" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="none">Highest Interest Rate (Default)</SelectItem>
+                        <SelectItem value="highest_interest">Highest Interest Rate (Default)</SelectItem>
                         {debts.filter(d => d.balance > 0).map(debt => (
                             <SelectItem key={debt.id} value={debt.id}>{debt.name}</SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
             </div>
-            <Button onClick={calculateSchedule} className="w-full lg:w-auto">Calculate Schedule</Button>
         </div>
         {error && <Alert variant="destructive">
             <AlertTitle>Error</AlertTitle>
