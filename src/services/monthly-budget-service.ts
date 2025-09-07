@@ -232,8 +232,17 @@ export async function updateTransaction(id: string, transactionData: Partial<Omi
             throw new Error("Transaction not found.");
         }
         const oldData = transactionSnap.data() as Transaction;
-        const newData = { ...oldData, ...transactionData, id };
         
+        // Construct the full newData object
+        const newData: Transaction = {
+            id: id,
+            description: transactionData.description ?? oldData.description,
+            amount: transactionData.amount ?? oldData.amount,
+            date: transactionData.date ?? oldData.date,
+            sourceAccountId: transactionData.sourceAccountId ?? oldData.sourceAccountId,
+            splits: transactionData.splits ?? oldData.splits,
+        };
+
         // --- ALL WRITES AFTER READS ---
         await revertTransaction(transaction, oldData);
         await applyTransaction(transaction, newData);
@@ -247,13 +256,31 @@ export async function deleteTransaction(id: string): Promise<void> {
         const transactionRef = doc(db, TRANSACTIONS_COLLECTION, id);
         const transactionSnap = await transaction.get(transactionRef);
         if (!transactionSnap.exists()) {
-            // If it doesn't exist, there's nothing to do.
             console.warn(`Transaction with id ${id} not found for deletion.`);
             return;
         }
         const oldData = transactionSnap.data() as Transaction;
 
-        await revertTransaction(transaction, oldData);
+        // Revert source account debit
+        const sourceRef = doc(db, ACCOUNTS_COLLECTION, oldData.sourceAccountId);
+        const sourceSnap = await transaction.get(sourceRef);
+        if (sourceSnap.exists()) {
+            const sourceBalance = sourceSnap.data()?.balance || 0;
+            transaction.update(sourceRef, { balance: sourceBalance + oldData.amount });
+        }
+
+        // Revert transfer credits
+        for (const split of oldData.splits) {
+            if (split.type === 'transfer' && split.destinationAccountId) {
+                const destRef = doc(db, ACCOUNTS_COLLECTION, split.destinationAccountId);
+                const destSnap = await transaction.get(destRef);
+                if (destSnap.exists()) {
+                    const destBalance = destSnap.data()?.balance || 0;
+                    transaction.update(destRef, { balance: destBalance - split.amount });
+                }
+            }
+        }
+        
         transaction.delete(transactionRef);
     });
 }
