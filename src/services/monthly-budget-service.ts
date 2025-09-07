@@ -178,16 +178,20 @@ async function revertTransaction(transaction: FirebaseFirestore.Transaction, old
     // Revert source account debit
     const sourceRef = doc(db, ACCOUNTS_COLLECTION, oldData.sourceAccountId);
     const sourceSnap = await transaction.get(sourceRef);
-    const sourceBalance = sourceSnap.data()?.balance || 0;
-    transaction.update(sourceRef, { balance: sourceBalance + oldData.amount });
+    if (sourceSnap.exists()) {
+        const sourceBalance = sourceSnap.data()?.balance || 0;
+        transaction.update(sourceRef, { balance: sourceBalance + oldData.amount });
+    }
 
     // Revert transfer credits
     for (const split of oldData.splits) {
         if (split.type === 'transfer' && split.destinationAccountId) {
             const destRef = doc(db, ACCOUNTS_COLLECTION, split.destinationAccountId);
             const destSnap = await transaction.get(destRef);
-            const destBalance = destSnap.data()?.balance || 0;
-            transaction.update(destRef, { balance: destBalance - split.amount });
+            if(destSnap.exists()) {
+                const destBalance = destSnap.data()?.balance || 0;
+                transaction.update(destRef, { balance: destBalance - split.amount });
+            }
         }
     }
 }
@@ -196,16 +200,24 @@ async function applyTransaction(transaction: FirebaseFirestore.Transaction, newD
     // Apply source account debit
     const sourceRef = doc(db, ACCOUNTS_COLLECTION, newData.sourceAccountId);
     const sourceSnap = await transaction.get(sourceRef);
-    const sourceBalance = sourceSnap.data()?.balance || 0;
-    transaction.update(sourceRef, { balance: sourceBalance - newData.amount });
+    if (sourceSnap.exists()) {
+        const sourceBalance = sourceSnap.data()?.balance || 0;
+        transaction.update(sourceRef, { balance: sourceBalance - newData.amount });
+    } else {
+        throw new Error(`Source account with ID ${newData.sourceAccountId} not found.`);
+    }
 
     // Apply transfer credits
     for (const split of newData.splits) {
         if (split.type === 'transfer' && split.destinationAccountId) {
             const destRef = doc(db, ACCOUNTS_COLLECTION, split.destinationAccountId);
             const destSnap = await transaction.get(destRef);
-            const destBalance = destSnap.data()?.balance || 0;
-            transaction.update(destRef, { balance: destBalance + split.amount });
+            if (destSnap.exists()) {
+                const destBalance = destSnap.data()?.balance || 0;
+                transaction.update(destRef, { balance: destBalance + split.amount });
+            } else {
+                 throw new Error(`Destination account with ID ${split.destinationAccountId} not found.`);
+            }
         }
     }
 }
@@ -235,7 +247,9 @@ export async function deleteTransaction(id: string): Promise<void> {
         const transactionRef = doc(db, TRANSACTIONS_COLLECTION, id);
         const transactionSnap = await transaction.get(transactionRef);
         if (!transactionSnap.exists()) {
-            throw new Error("Transaction not found.");
+            // If it doesn't exist, there's nothing to do.
+            console.warn(`Transaction with id ${id} not found for deletion.`);
+            return;
         }
         const oldData = transactionSnap.data() as Transaction;
 
