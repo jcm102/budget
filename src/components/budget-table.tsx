@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useCallback } from 'react';
@@ -172,17 +173,9 @@ const CategoryRow = ({
                                                 <TableRow key={tx.id} className="border-b-0 hover:bg-background/50 cursor-pointer" onClick={() => onEditTransaction(tx)}>
                                                     <TableCell className="py-2">{format(new Date(tx.date), 'MMM dd')}</TableCell>
                                                     <TableCell className="py-2">{tx.description}</TableCell>
-                                                    {tx.type === 'transfer' && tx.transferFromId && tx.transferToId ? (
-                                                    <TableCell className="py-2 text-muted-foreground flex items-center gap-1">
-                                                        {accountMap[tx.transferFromId] || 'Unknown'} 
-                                                        <ArrowRightLeft className="h-3 w-3"/>
-                                                        {accountMap[tx.transferToId] || 'Unknown'}
+                                                     <TableCell className="py-2 text-muted-foreground">
+                                                        {accountMap[tx.sourceAccountId] || 'Unknown'}
                                                     </TableCell>
-                                                    ) : (
-                                                    <TableCell className="py-2 text-muted-foreground">
-                                                        {accountMap[tx.accountId || ''] || 'Unknown'}
-                                                    </TableCell>
-                                                    )}
                                                      <TableCell className="py-2 text-right">{formatCurrency(tx.splits?.find(s => s.categoryId === category.id)?.amount || tx.amount)}</TableCell>
                                                 </TableRow>
                                             ))}
@@ -266,9 +259,10 @@ export function BudgetTable({ budgetItems, categories, transactions, isLoading, 
     // Sum up actuals from transactions
     transactions.forEach(tx => {
         tx.splits?.forEach(split => {
-            if (split.categoryId === category.id) {
-                if(totals.breakdown[split.budgetItemName]) {
-                    totals.breakdown[split.budgetItemName].actual += split.amount;
+            if (split.type === 'expense' && split.categoryId === category.id) {
+                const budgetItemName = split.budgetItemName || 'Default';
+                if(totals.breakdown[budgetItemName]) {
+                    totals.breakdown[budgetItemName].actual += split.amount;
                 } else if (totals.breakdown['Default']) {
                     // If the split item doesn't exist, attribute it to the default
                     totals.breakdown['Default'].actual += split.amount;

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -42,6 +43,7 @@ export function AccountClientPage({
     accountTransactions,
     isLoading: isLoadingTransactions, 
     fetchTransactionsForAccount,
+    addTransaction,
     updateTransaction,
     deleteTransaction,
   } = useTransactions();
@@ -107,7 +109,7 @@ export function AccountClientPage({
         open={isFormOpen}
         onOpenChange={handleFormOpenChange}
         accounts={allAccounts}
-        addTransaction={() => {}} // Not used here, but required by the component
+        addTransaction={addTransaction}
         updateTransaction={updateTransaction}
         deleteTransaction={(id) => deleteTransaction(id, account.id)}
         editingTransaction={editingTransaction}
@@ -150,53 +152,64 @@ export function AccountClientPage({
                     </TableHeader>
                     <TableBody>
                     {accountTransactions.length > 0 ? (
-                        accountTransactions.map(tx => (
-                        <TableRow key={tx.id}>
-                            <TableCell>{format(new Date(tx.date), 'PPP')}</TableCell>
-                            <TableCell className="font-medium">{tx.description}</TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                            {tx.splits && tx.splits.length > 1 ? (
-                                <span>Multiple ({tx.splits.length})</span>
-                            ) : tx.splits && tx.splits.length === 1 ? (
-                                categoryMap[tx.splits[0].categoryId] || 'Uncategorized'
-                            ) : tx.type === 'transfer' ? (
-                                'Transfer'
-                            ) : 'Uncategorized'}
-                            </TableCell>
-                            <TableCell className="text-right">{formatCurrency(tx.amount)}</TableCell>
-                            <TableCell className="text-right">
-                            <div className="flex justify-end gap-1">
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditTransaction(tx)}>
-                                <Pencil className="h-4 w-4" />
-                                </Button>
-                                <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive">
-                                    <Trash2 className="h-4 w-4" />
+                        accountTransactions.map(tx => {
+                            const expenseSplits = tx.splits.filter(s => s.type === 'expense');
+                            const transferSplits = tx.splits.filter(s => s.type === 'transfer');
+
+                            const isCredit = tx.sourceAccountId !== account.id;
+                            const displayAmount = isCredit 
+                                ? transferSplits.find(s => s.destinationAccountId === account.id)?.amount || tx.amount
+                                : tx.amount;
+
+
+                            return (
+                            <TableRow key={tx.id}>
+                                <TableCell>{format(new Date(tx.date), 'PPP')}</TableCell>
+                                <TableCell className="font-medium">{tx.description}</TableCell>
+                                <TableCell className="text-sm text-muted-foreground">
+                                    {expenseSplits.length > 0 && transferSplits.length > 0
+                                        ? 'Split'
+                                        : expenseSplits.length > 1
+                                        ? `Multiple (${expenseSplits.length})`
+                                        : expenseSplits.length === 1
+                                        ? categoryMap[expenseSplits[0].categoryId || ''] || 'Uncategorized'
+                                        : 'Transfer'}
+                                </TableCell>
+                                <TableCell className={cn("text-right", isCredit ? "text-green-600" : "")}>{isCredit ? '+' : '-'} {formatCurrency(displayAmount)}</TableCell>
+                                <TableCell className="text-right">
+                                <div className="flex justify-end gap-1">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditTransaction(tx)}>
+                                    <Pencil className="h-4 w-4" />
                                     </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        This will permanently delete this transaction. This cannot be undone.
-                                    </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction
-                                        onClick={() => deleteTransaction(tx.id, account.id)}
-                                        className={cn(buttonVariants({ variant: "destructive" }))}
-                                    >
-                                        Delete
-                                    </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                                </AlertDialog>
-                            </div>
-                            </TableCell>
-                        </TableRow>
-                        ))
+                                    <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive">
+                                        <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This will permanently delete this transaction. This cannot be undone.
+                                        </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction
+                                            onClick={() => deleteTransaction(tx.id, account.id)}
+                                            className={cn(buttonVariants({ variant: "destructive" }))}
+                                        >
+                                            Delete
+                                        </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                    </AlertDialog>
+                                </div>
+                                </TableCell>
+                            </TableRow>
+                            )
+                        })
                     ) : (
                         <TableRow>
                         <TableCell colSpan={5} className="h-24 text-center">

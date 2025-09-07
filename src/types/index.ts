@@ -1,4 +1,5 @@
 
+
 export type TaskFrequency = "daily" | "weekly" | "monthly";
 
 export const internalPages = [
@@ -238,25 +239,30 @@ export interface MonthlyBudgetItem {
     breakdown?: BudgetSubItem[];
 }
 
-export type TransactionType = 'expense' | 'transfer';
+export type SplitType = 'expense' | 'transfer';
 
 export interface TransactionSplit {
-    categoryId: string;
+    id: string; // A unique ID for the split itself
+    type: SplitType;
     amount: number;
-    budgetItemName: string; // e.g. "Default" or "London Hydro"
+    
+    // For 'expense' type
+    categoryId?: string;
+    budgetItemName?: string;
+    
+    // For 'transfer' type
+    destinationAccountId?: string;
 }
 
 export interface Transaction {
     id: string;
     description: string;
-    amount: number;
+    amount: number; // The total amount of the transaction
     date: string; // ISO string
-    type: TransactionType;
-    accountId?: string; // For expenses, the source account
-    splits?: TransactionSplit[];
-    transferFromId?: string;
-    transferToId?: string;
+    sourceAccountId: string; // The account the money came from
+    splits: TransactionSplit[];
 }
+
 
 export interface Income {
     id: string; // Will be the month string 'YYYY-MM'

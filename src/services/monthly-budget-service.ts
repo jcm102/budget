@@ -72,20 +72,17 @@ export async function getTransactionsForMonth(month: string): Promise<Transactio
 export async function getTransactionsForAccount(accountId: string): Promise<Transaction[]> {
     const expenseQuery = query(
         collection(db, TRANSACTIONS_COLLECTION),
-        where('accountId', '==', accountId)
-    );
-    const transferFromQuery = query(
-        collection(db, TRANSACTIONS_COLLECTION),
-        where('transferFromId', '==', accountId)
-    );
-    const transferToQuery = query(
-        collection(db, TRANSACTIONS_COLLECTION),
-        where('transferToId', '==', accountId)
+        where('sourceAccountId', '==', accountId)
     );
 
-    const [expenseSnap, fromSnap, toSnap] = await Promise.all([
+    // We also need to find transfers *to* this account
+    const transferToQuery = query(
+        collection(db, TRANSACTIONS_COLLECTION),
+        where('splits', 'array-contains', { type: 'transfer', destinationAccountId: accountId })
+    );
+
+    const [expenseSnap, toSnap] = await Promise.all([
         getDocs(expenseQuery),
-        getDocs(transferFromQuery),
         getDocs(transferToQuery),
     ]);
 
@@ -100,73 +97,119 @@ export async function getTransactionsForAccount(accountId: string): Promise<Tran
     }
 
     processSnapshot(expenseSnap);
-    processSnapshot(fromSnap);
     processSnapshot(toSnap);
-
+    
     const allTransactions = Array.from(transactionsMap.values());
+    
+    // Final filter to ensure we only include relevant transactions
+    const relevantTransactions = allTransactions.filter(tx => 
+        tx.sourceAccountId === accountId || tx.splits.some(s => s.type === 'transfer' && s.destinationAccountId === accountId)
+    );
 
-    return allTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return relevantTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
 
 export async function addTransaction(transactionData: Omit<Transaction, 'id'>): Promise<Transaction> {
     const newDocRef = await runTransaction(db, async (transaction) => {
-        const { type, accountId, transferFromId, transferToId, amount, splits } = transactionData;
+        const { sourceAccountId, amount, splits } = transactionData;
 
         // --- ALL READS FIRST ---
         const newTransactionRef = doc(collection(db, TRANSACTIONS_COLLECTION));
 
-        let fromAccountRef, toAccountRef, fromAccountSnap, toAccountSnap;
-        if (type === 'expense' && accountId) {
-            fromAccountRef = doc(db, ACCOUNTS_COLLECTION, accountId);
-            fromAccountSnap = await transaction.get(fromAccountRef);
-            if (!fromAccountSnap.exists()) throw new Error(`Account with ID ${accountId} not found.`);
-        } else if (type === 'transfer' && transferFromId && transferToId) {
-            fromAccountRef = doc(db, ACCOUNTS_COLLECTION, transferFromId);
-            toAccountRef = doc(db, ACCOUNTS_COLLECTION, transferToId);
-            fromAccountSnap = await transaction.get(fromAccountRef);
-            toAccountSnap = await transaction.get(toAccountRef);
-            if (!fromAccountSnap.exists()) throw new Error(`Account with ID ${transferFromId} not found.`);
-            if (!toAccountSnap.exists()) throw new Error(`Account with ID ${transferToId} not found.`);
+        const sourceAccountRef = doc(db, ACCOUNTS_COLLECTION, sourceAccountId);
+        const sourceAccountSnap = await transaction.get(sourceAccountRef);
+        if (!sourceAccountSnap.exists()) throw new Error(`Source account with ID ${sourceAccountId} not found.`);
+
+        const transferDestinationRefs = splits
+            .filter(s => s.type === 'transfer' && s.destinationAccountId)
+            .map(s => doc(db, ACCOUNTS_COLLECTION, s.destinationAccountId!));
+        
+        const transferDestinationSnaps = await Promise.all(transferDestinationRefs.map(ref => transaction.get(ref)));
+
+        for(const snap of transferDestinationSnaps) {
+            if (!snap.exists()) throw new Error(`One of the destination accounts was not found.`);
         }
 
         // --- ALL WRITES AFTER READS ---
         transaction.set(newTransactionRef, transactionData);
 
-        if (type === 'expense' && fromAccountRef && fromAccountSnap) {
-            const currentBalance = fromAccountSnap.data()?.balance || 0;
-            transaction.update(fromAccountRef, { balance: currentBalance - amount });
-        } else if (type === 'transfer' && fromAccountRef && toAccountRef && fromAccountSnap && toAccountSnap) {
-            const fromBalance = fromAccountSnap.data()?.balance || 0;
-            const toBalance = toAccountSnap.data()?.balance || 0;
-            transaction.update(fromAccountRef, { balance: fromBalance - amount });
-            transaction.update(toAccountRef, { balance: toBalance + amount });
-        }
+        // Debit source account
+        const sourceBalance = sourceAccountSnap.data()?.balance || 0;
+        transaction.update(sourceAccountRef, { balance: sourceBalance - amount });
+
+        // Credit destination accounts for transfers
+        splits.forEach((split, index) => {
+            if (split.type === 'transfer') {
+                const destSnap = transferDestinationSnaps[index];
+                const destBalance = destSnap.data()?.balance || 0;
+                transaction.update(destSnap.ref, { balance: destBalance + split.amount });
+            }
+        });
         
         return newTransactionRef;
     });
 
     // Post-transaction: Mark PA payments as complete. This is not atomic with the transaction, but it's safer.
-     if (transactionData.type === 'expense' && transactionData.splits) {
-        const categoryIds = transactionData.splits.map(s => s.categoryId);
-        const paPaymentsQuery = query(
-            collection(db, PA_PAYMENTS_COLLECTION),
-            where('type', '==', 'Pre-Authorized Payments'),
-            where('budgetCategoryId', 'in', categoryIds),
-            where('completed', '==', false)
-        );
-        const paPaymentsSnapshot = await getDocs(paPaymentsQuery);
-        const batch = writeBatch(db);
-        paPaymentsSnapshot.forEach(doc => {
-            batch.update(doc.ref, { completed: true });
-        });
-        await batch.commit();
+     if (transactionData.splits) {
+        const categoryIds = transactionData.splits.filter(s => s.type === 'expense').map(s => s.categoryId);
+        if (categoryIds.length > 0) {
+            const paPaymentsQuery = query(
+                collection(db, PA_PAYMENTS_COLLECTION),
+                where('type', '==', 'Pre-Authorized Payments'),
+                where('budgetCategoryId', 'in', categoryIds),
+                where('completed', '==', false)
+            );
+            const paPaymentsSnapshot = await getDocs(paPaymentsQuery);
+            const batch = writeBatch(db);
+            paPaymentsSnapshot.forEach(doc => {
+                batch.update(doc.ref, { completed: true });
+            });
+            await batch.commit();
+        }
     }
 
 
     const docSnap = await getDoc(newDocRef);
     return { id: docSnap.id, ...(docSnap.data() as Omit<Transaction, 'id'>) };
 }
+
+async function revertTransaction(transaction: FirebaseFirestore.Transaction, oldData: Transaction) {
+    // Revert source account debit
+    const sourceRef = doc(db, ACCOUNTS_COLLECTION, oldData.sourceAccountId);
+    const sourceSnap = await transaction.get(sourceRef);
+    const sourceBalance = sourceSnap.data()?.balance || 0;
+    transaction.update(sourceRef, { balance: sourceBalance + oldData.amount });
+
+    // Revert transfer credits
+    for (const split of oldData.splits) {
+        if (split.type === 'transfer' && split.destinationAccountId) {
+            const destRef = doc(db, ACCOUNTS_COLLECTION, split.destinationAccountId);
+            const destSnap = await transaction.get(destRef);
+            const destBalance = destSnap.data()?.balance || 0;
+            transaction.update(destRef, { balance: destBalance - split.amount });
+        }
+    }
+}
+
+async function applyTransaction(transaction: FirebaseFirestore.Transaction, newData: Transaction) {
+    // Apply source account debit
+    const sourceRef = doc(db, ACCOUNTS_COLLECTION, newData.sourceAccountId);
+    const sourceSnap = await transaction.get(sourceRef);
+    const sourceBalance = sourceSnap.data()?.balance || 0;
+    transaction.update(sourceRef, { balance: sourceBalance - newData.amount });
+
+    // Apply transfer credits
+    for (const split of newData.splits) {
+        if (split.type === 'transfer' && split.destinationAccountId) {
+            const destRef = doc(db, ACCOUNTS_COLLECTION, split.destinationAccountId);
+            const destSnap = await transaction.get(destRef);
+            const destBalance = destSnap.data()?.balance || 0;
+            transaction.update(destRef, { balance: destBalance + split.amount });
+        }
+    }
+}
+
 
 export async function updateTransaction(id: string, transactionData: Partial<Omit<Transaction, 'id'>>): Promise<void> {
     await runTransaction(db, async (transaction) => {
@@ -177,33 +220,18 @@ export async function updateTransaction(id: string, transactionData: Partial<Omi
             throw new Error("Transaction not found.");
         }
         const oldData = transactionSnap.data() as Transaction;
+        const newData = { ...oldData, ...transactionData, id };
         
         // --- ALL WRITES AFTER READS ---
-        // Revert old transaction balances first
-        if (oldData.type === 'expense' && oldData.accountId) {
-             const oldAccountRef = doc(db, ACCOUNTS_COLLECTION, oldData.accountId);
-             const oldAccountSnap = await transaction.get(oldAccountRef);
-             const oldBalance = oldAccountSnap.data()?.balance || 0;
-             transaction.update(oldAccountRef, {balance: oldBalance + oldData.amount});
-        }
+        await revertTransaction(transaction, oldData);
+        await applyTransaction(transaction, newData);
         
-        // Apply new transaction balances
-        const newData = { ...oldData, ...transactionData };
-        if(newData.type === 'expense' && newData.accountId) {
-             const newAccountRef = doc(db, ACCOUNTS_COLLECTION, newData.accountId);
-             const newAccountSnap = await transaction.get(newAccountRef);
-             const newBalance = newAccountSnap.data()?.balance || 0;
-             transaction.update(newAccountRef, {balance: newBalance - newData.amount});
-        }
-        
-        // Update the transaction document
         transaction.update(transactionRef, transactionData);
     });
 }
 
 export async function deleteTransaction(id: string): Promise<void> {
    await runTransaction(db, async (transaction) => {
-        // --- ALL READS FIRST ---
         const transactionRef = doc(db, TRANSACTIONS_COLLECTION, id);
         const transactionSnap = await transaction.get(transactionRef);
         if (!transactionSnap.exists()) {
@@ -211,28 +239,7 @@ export async function deleteTransaction(id: string): Promise<void> {
         }
         const oldData = transactionSnap.data() as Transaction;
 
-        let fromAccountRef, toAccountRef, fromAccountSnap, toAccountSnap;
-        if (oldData.type === 'expense' && oldData.accountId) {
-            fromAccountRef = doc(db, ACCOUNTS_COLLECTION, oldData.accountId);
-            fromAccountSnap = await transaction.get(fromAccountRef);
-        } else if (oldData.type === 'transfer' && oldData.transferFromId && oldData.transferToId) {
-            fromAccountRef = doc(db, ACCOUNTS_COLLECTION, oldData.transferFromId);
-            toAccountRef = doc(db, ACCOUNTS_COLLECTION, oldData.transferToId);
-            fromAccountSnap = await transaction.get(fromAccountRef);
-            toAccountSnap = await transaction.get(toAccountRef);
-        }
-
-        // --- ALL WRITES AFTER READS ---
+        await revertTransaction(transaction, oldData);
         transaction.delete(transactionRef);
-
-        if (oldData.type === 'expense' && fromAccountRef && fromAccountSnap) {
-            const currentBalance = fromAccountSnap.data()?.balance || 0;
-            transaction.update(fromAccountRef, { balance: currentBalance + oldData.amount });
-        } else if (oldData.type === 'transfer' && fromAccountRef && toAccountRef && fromAccountSnap && toAccountSnap) {
-            const fromBalance = fromAccountSnap.data()?.balance || 0;
-            const toBalance = toAccountSnap.data()?.balance || 0;
-            transaction.update(fromAccountRef, { balance: fromBalance + oldData.amount });
-            transaction.update(toAccountRef, { balance: toBalance - oldData.amount });
-        }
     });
 }

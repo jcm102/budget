@@ -42,64 +42,46 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { Transaction, TransactionType, Category as CategoryType, TransactionSplit, MonthlyBudgetItem, BudgetSubItem, AccountDetails } from '@/types';
+import type { Transaction, Category as CategoryType, AccountDetails, SplitType } from '@/types';
 import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
-import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { ScrollArea } from './ui/scroll-area';
-import { Checkbox } from './ui/checkbox';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
-import { ChevronRight, CornerDownRight, Trash2 } from 'lucide-react';
+import { CornerDownRight, Trash2, PlusCircle, ArrowRightLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Separator } from './ui/separator';
 import { buttonVariants } from './ui/button';
+import { RadioGroup, RadioGroupItem } from './ui/radio-group';
+import { Label } from './ui/label';
 
 const splitSchema = z.object({
-    categoryId: z.string(),
-    budgetItemName: z.string(),
+    id: z.string(),
+    type: z.enum(['expense', 'transfer']),
     amount: z.coerce.number().min(0.01, 'Amount must be positive.'),
+    categoryId: z.string().optional(),
+    budgetItemName: z.string().optional(),
+    destinationAccountId: z.string().optional(),
+}).superRefine((data, ctx) => {
+    if (data.type === 'expense' && !data.categoryId) {
+        ctx.addIssue({ code: 'custom', path: ['categoryId'], message: 'Category is required for expense splits.' });
+    }
+    if (data.type === 'transfer' && !data.destinationAccountId) {
+        ctx.addIssue({ code: 'custom', path: ['destinationAccountId'], message: 'Destination account is required for transfers.' });
+    }
 });
 
 const formSchema = z.object({
   description: z.string().min(2, 'Description must be at least 2 characters.'),
   amount: z.coerce.number().min(0.01, 'Amount must be greater than zero.'),
   date: z.string().min(1, 'A date is required.'),
-  type: z.enum(['expense', 'transfer']),
-  accountId: z.string().optional(),
-  transferFromId: z.string().optional(),
-  transferToId: z.string().optional(),
-  splits: z.array(splitSchema).optional(),
+  sourceAccountId: z.string().min(1, 'Source account is required.'),
+  splits: z.array(splitSchema).min(1, 'At least one split is required.'),
 }).superRefine((data, ctx) => {
-    if (data.type === 'expense' && data.splits && data.splits.length > 0) {
-        const totalSplitAmount = data.splits.reduce((sum, split) => sum + split.amount, 0);
-        if (Math.abs(totalSplitAmount - data.amount) > 0.001) { // Check for floating point differences
-                ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['amount'],
-                message: `Split total (${totalSplitAmount.toFixed(2)}) must equal the transaction amount (${data.amount.toFixed(2)}).`,
-            });
-        }
-    } else if (data.type === 'expense' && (!data.splits || data.splits.length === 0)) {
-        ctx.addIssue({
+    const totalSplitAmount = data.splits.reduce((sum, split) => sum + split.amount, 0);
+    if (Math.abs(totalSplitAmount - data.amount) > 0.001) { // Check for floating point differences
+            ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            path: ['splits'],
-            message: 'At least one category split is required for an expense.',
+            path: ['amount'],
+            message: `Split total (${totalSplitAmount.toFixed(2)}) must equal the transaction amount (${data.amount.toFixed(2)}).`,
         });
-    }
-    
-    if (data.type === 'expense' && !data.accountId) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['accountId'], message: 'Payment account is required.' });
-    }
-
-    if (data.type === 'transfer') {
-        if (!data.transferFromId) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['transferFromId'], message: 'Source account is required.' });
-        }
-        if (!data.transferToId) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['transferToId'], message: 'Destination account is required.' });
-        }
-        if (data.transferFromId && data.transferToId && data.transferFromId === data.transferToId) {
-             ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['transferToId'], message: 'Accounts cannot be the same.' });
-        }
     }
 });
 
@@ -114,155 +96,6 @@ type TransactionFormProps = {
   editingTransaction: Transaction | null;
 };
 
-type CategoryWithChildren = CategoryType & { 
-    children: CategoryWithChildren[];
-    budgetItem: MonthlyBudgetItem | undefined;
-};
-
-
-const CategorySelectionRow = ({
-    category,
-    level,
-    control,
-    splits,
-    append,
-    remove
-}: {
-    category: CategoryWithChildren;
-    level: number;
-    control: any;
-    splits: any[];
-    append: (value: any) => void;
-    remove: (index: number) => void;
-
-}) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const hasChildren = category.children.length > 0;
-    
-    const breakdownItems = category.budgetItem?.breakdown;
-    const hasExplicitBreakdown = breakdownItems && breakdownItems.length > 0 && !(breakdownItems.length === 1 && breakdownItems[0].name === 'Default');
-
-    const isSelectable = (category.budgetItem?.budgeted ?? 0) > 0;
-    
-    const isCollapsible = hasChildren || hasExplicitBreakdown;
-
-    const handleCheckboxChange = (checked: boolean, categoryId: string, budgetItemName: string, amount: number) => {
-         const splitIndex = splits.findIndex(s => s.categoryId === categoryId && s.budgetItemName === budgetItemName);
-         if (checked) {
-            if(splitIndex === -1) {
-                append({ categoryId, budgetItemName, amount });
-            }
-         } else {
-            if(splitIndex !== -1) {
-                remove(splitIndex);
-            }
-         }
-    };
-
-    return (
-        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-            <div className="flex items-center gap-2 py-1">
-                <div style={{ paddingLeft: `${level * 1.5}rem` }} className="flex-grow flex items-center gap-1">
-                    {level > 0 && <CornerDownRight className="h-4 w-4 text-muted-foreground/70" />}
-                     {isCollapsible && (
-                        <CollapsibleTrigger asChild>
-                             <Button variant="ghost" size="icon" className="h-6 w-6 -ml-1">
-                                <ChevronRight className={cn("h-4 w-4 transition-transform", isOpen && "rotate-90")} />
-                            </Button>
-                        </CollapsibleTrigger>
-                    )}
-                    
-                     {isSelectable && !hasExplicitBreakdown ? (
-                        <div className="flex items-center gap-2 flex-grow">
-                             <Checkbox
-                                id={`${category.id}-default`}
-                                checked={splits.some(s => s.categoryId === category.id && s.budgetItemName === 'Default')}
-                                onCheckedChange={(checked) => handleCheckboxChange(!!checked, category.id, 'Default', category.budgetItem?.budgeted || 0)}
-                                className="mr-2"
-                            />
-                            <label htmlFor={`${category.id}-default`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                {category.name}
-                            </label>
-                             {splits.some(s => s.categoryId === category.id && s.budgetItemName === 'Default') && (
-                                <FormField
-                                    control={control}
-                                    name={`splits.${splits.findIndex(s => s.categoryId === category.id && s.budgetItemName === 'Default')}.amount`}
-                                    render={({ field }) => (
-                                        <FormControl>
-                                            <Input
-                                                {...field}
-                                                type="number"
-                                                step="0.01"
-                                                placeholder="0.00"
-                                                className="h-8 w-28 ml-auto text-right"
-                                            />
-                                        </FormControl>
-                                    )}
-                                />
-                            )}
-                        </div>
-                    ) : (
-                         <>
-                            {!isCollapsible && <div className="w-6 h-6" />}
-                            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                {category.name}
-                            </label>
-                         </>
-                    )}
-                </div>
-            </div>
-            {isCollapsible && (
-                <CollapsibleContent className="pl-4">
-                    {hasExplicitBreakdown && breakdownItems?.map(item => {
-                         const splitIndex = splits.findIndex(s => s.categoryId === category.id && s.budgetItemName === item.name);
-                         const isChecked = splitIndex !== -1;
-                        return (
-                            <div key={item.name} className="flex items-center gap-2 py-1" style={{ paddingLeft: `${(level + 1) * 1.5}rem` }}>
-                                <Checkbox
-                                    id={`${category.id}-${item.name}`}
-                                    checked={isChecked}
-                                    onCheckedChange={(checked) => handleCheckboxChange(!!checked, category.id, item.name, item.amount)}
-                                    className="mr-2"
-                                />
-                                <label htmlFor={`${category.id}-${item.name}`} className="flex-grow text-sm font-normal">
-                                    {item.name} ({new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(item.amount)})
-                                </label>
-                                {isChecked && (
-                                    <FormField
-                                        control={control}
-                                        name={`splits.${splitIndex}.amount`}
-                                        render={({ field }) => (
-                                            <FormControl>
-                                                <Input
-                                                    {...field}
-                                                    type="number"
-                                                    step="0.01"
-                                                    placeholder="0.00"
-                                                    className="h-8 w-28 text-right"
-                                                />
-                                            </FormControl>
-                                        )}
-                                    />
-                                )}
-                            </div>
-                        )
-                    })}
-                    {hasChildren && category.children.map(child => (
-                         <CategorySelectionRow
-                            key={child.id}
-                            category={child}
-                            level={level + 1}
-                            control={control}
-                            splits={splits}
-                            append={append}
-                            remove={remove}
-                        />
-                    ))}
-                </CollapsibleContent>
-            )}
-        </Collapsible>
-    )
-}
 
 export function TransactionForm({ open, onOpenChange, accounts, addTransaction, updateTransaction, deleteTransaction, editingTransaction }: TransactionFormProps) {
   const { categories, budgetItems, isLoading: isLoadingCategories } = useMonthlyBudget();
@@ -273,20 +106,16 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
       description: '',
       amount: 0,
       date: new Date().toISOString().split('T')[0],
-      type: 'expense',
-      accountId: '',
-      transferFromId: '',
-      transferToId: '',
+      sourceAccountId: '',
       splits: [],
     },
   });
   
-  const { fields: splitFields, append, remove } = useFieldArray({
+  const { fields: splitFields, append, remove, update } = useFieldArray({
       control: form.control,
       name: 'splits',
   });
 
-  const transactionType = form.watch('type');
   const transactionAmount = form.watch('amount');
   const currentSplits = form.watch('splits') || [];
   
@@ -296,19 +125,6 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
 
   const remainingToSplit = transactionAmount - totalSplitAmount;
   
-  const categoryTree = useMemo(() => {
-    const buildTree = (parentId: string | null = null): CategoryWithChildren[] => {
-        return categories
-            .filter(c => c.parentId === parentId)
-            .map(c => ({
-                ...c,
-                children: buildTree(c.id),
-                budgetItem: budgetItems.find(b => b.categoryId === c.id)
-            }));
-    }
-    return buildTree(null);
-  }, [categories, budgetItems]);
-
   useEffect(() => {
     if (open) {
       if (editingTransaction) {
@@ -316,10 +132,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
             description: editingTransaction.description,
             amount: editingTransaction.amount,
             date: new Date(editingTransaction.date).toISOString().split('T')[0],
-            type: editingTransaction.type,
-            accountId: editingTransaction.accountId || '',
-            transferFromId: editingTransaction.transferFromId || '',
-            transferToId: editingTransaction.transferToId || '',
+            sourceAccountId: editingTransaction.sourceAccountId,
             splits: editingTransaction.splits || [],
         });
       } else {
@@ -327,11 +140,8 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
             description: '',
             amount: 0,
             date: new Date().toISOString().split('T')[0],
-            type: 'expense',
-            accountId: '',
-            transferFromId: '',
-            transferToId: '',
-            splits: [],
+            sourceAccountId: '',
+            splits: [{ id: crypto.randomUUID(), type: 'expense', amount: 0, categoryId: '' }],
         });
       }
     }
@@ -345,11 +155,15 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
         description: values.description,
         amount: values.amount,
         date: localDate.toISOString(),
-        type: values.type as TransactionType,
-        splits: values.splits?.filter(s => s.amount > 0),
-        accountId: values.type === 'expense' ? values.accountId : undefined,
-        transferFromId: values.type === 'transfer' ? values.transferFromId : undefined,
-        transferToId: values.type === 'transfer' ? values.transferToId : undefined,
+        sourceAccountId: values.sourceAccountId,
+        splits: values.splits.map(s => ({
+            id: s.id,
+            type: s.type,
+            amount: s.amount,
+            categoryId: s.type === 'expense' ? s.categoryId : undefined,
+            budgetItemName: s.type === 'expense' ? 'Default' : undefined,
+            destinationAccountId: s.type === 'transfer' ? s.destinationAccountId : undefined,
+        })),
     }
 
     if (editingTransaction) {
@@ -371,53 +185,75 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
     if (amount === undefined) return '';
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
+  
+  const categoryTree = useMemo(() => {
+      const buildTree = (parentId: string | null = null) => {
+          return categories
+              .filter(c => c.parentId === parentId)
+              .map(c => ({
+                  ...c,
+                  children: buildTree(c.id),
+              }));
+      }
+      return buildTree(null);
+  }, [categories]);
+
+  const renderCategoryOptions = (nodes: any[], level = 0) => {
+    let options: JSX.Element[] = [];
+    nodes.forEach(node => {
+        options.push(
+            <SelectItem key={node.id} value={node.id} style={{ paddingLeft: `${1 + level * 1}rem` }}>
+                {node.name}
+            </SelectItem>
+        );
+        if (node.children.length > 0) {
+            options = options.concat(renderCategoryOptions(node.children, level + 1));
+        }
+    });
+    return options;
+  };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{editingTransaction ? 'Edit Transaction' : 'Add Transaction'}</DialogTitle>
           <DialogDescription>
-            {editingTransaction ? 'Update the details for this transaction.' : 'Log a new expense or transfer to track it against your budget.'}
+            {editingTransaction ? 'Update the details for this transaction.' : 'Log a new transaction to track it against your budget.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-             <FormField
-              control={form.control}
-              name="type"
-              render={({ field }) => (
-                <FormItem className="space-y-3">
-                  <FormLabel>Type</FormLabel>
-                  <FormControl>
-                    <RadioGroup
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                      className="flex space-x-4"
-                      disabled={!!editingTransaction}
-                    >
-                      <FormItem className="flex items-center space-x-2 space-y-0">
-                        <FormControl><RadioGroupItem value="expense" /></FormControl>
-                        <FormLabel className="font-normal">Expense</FormLabel>
-                      </FormItem>
-                      <FormItem className="flex items-center space-x-2 space-y-0">
-                        <FormControl><RadioGroupItem value="transfer" /></FormControl>
-                        <FormLabel className="font-normal">Transfer</FormLabel>
-                      </FormItem>
-                    </RadioGroup>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField control={form.control} name="date" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Date</FormLabel>
-                  <FormControl><Input type="date" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-2 gap-4">
+                 <FormField control={form.control} name="date" render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Date</FormLabel>
+                    <FormControl><Input type="date" {...field} /></FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                 <FormField control={form.control} name="sourceAccountId" render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Source Account</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                        <SelectTrigger><SelectValue placeholder="Select payment source" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                        {accounts.map(acc => (
+                            <SelectItem key={acc.id} value={acc.id}>
+                                {acc.name} ({formatCurrency(acc.balance)})
+                            </SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            </div>
              <FormField control={form.control} name="description" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Description</FormLabel>
@@ -435,101 +271,111 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
               )}
             />
             
-            {transactionType === 'expense' && (
-                 <FormField control={form.control} name="accountId" render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Payment Account</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                        <SelectTrigger><SelectValue placeholder="Select payment account" /></SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                        {accounts.map(acc => (
-                            <SelectItem key={acc.id} value={acc.id}>
-                                {acc.name} ({formatCurrency(acc.balance)})
-                            </SelectItem>
-                        ))}
-                        </SelectContent>
-                    </Select>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
-            )}
-
-            {transactionType === 'transfer' && (
-                <div className="space-y-4">
-                    <FormField control={form.control} name="transferFromId" render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>From Account</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                            <SelectTrigger><SelectValue placeholder="Select source account" /></SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                            {accounts.map(acc => (
-                                <SelectItem key={acc.id} value={acc.id}>
-                                    {acc.name} ({formatCurrency(acc.balance)})
-                                </SelectItem>
-                            ))}
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-                     <FormField control={form.control} name="transferToId" render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>To Account</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                            <SelectTrigger><SelectValue placeholder="Select destination account" /></SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                            {accounts.map(acc => (
-                                <SelectItem key={acc.id} value={acc.id}>
-                                    {acc.name} ({formatCurrency(acc.balance)})
-                                </SelectItem>
-                            ))}
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-                </div>
-            )}
+            <Separator />
             
-            {(transactionType === 'expense' || transactionType === 'transfer') && (
             <div className="space-y-2">
-                <FormLabel>Split Across Budget Items (Optional for transfers)</FormLabel>
-                    <ScrollArea className="h-52 rounded-md border p-2">
-                    {categoryTree.map(cat => (
-                        <CategorySelectionRow
-                            key={cat.id}
-                            category={cat}
-                            level={0}
-                            control={form.control}
-                            splits={splitFields}
-                            append={append}
-                            remove={remove}
-                        />
+                <FormLabel>Transaction Splits</FormLabel>
+                <div className="space-y-3">
+                    {splitFields.map((field, index) => (
+                        <div key={field.id} className="p-3 border rounded-lg space-y-3">
+                            <FormField
+                                control={form.control}
+                                name={`splits.${index}.type`}
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormControl>
+                                            <RadioGroup
+                                            onValueChange={field.onChange}
+                                            value={field.value}
+                                            className="flex gap-4"
+                                            >
+                                                <FormItem className="flex items-center space-x-2 space-y-0">
+                                                    <FormControl><RadioGroupItem value="expense" /></FormControl>
+                                                    <Label className="font-normal">Expense</Label>
+                                                </FormItem>
+                                                <FormItem className="flex items-center space-x-2 space-y-0">
+                                                    <FormControl><RadioGroupItem value="transfer" /></FormControl>
+                                                    <Label className="font-normal">Transfer</Label>
+                                                </FormItem>
+                                            </RadioGroup>
+                                        </FormControl>
+                                    </FormItem>
+                                )}
+                            />
+                            <div className="flex items-end gap-2">
+                                <div className="flex-grow">
+                                  {currentSplits[index]?.type === 'expense' ? (
+                                     <FormField
+                                        control={form.control}
+                                        name={`splits.${index}.categoryId`}
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="sr-only">Category</FormLabel>
+                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                    <FormControl><SelectTrigger><SelectValue placeholder="Select a category"/></SelectTrigger></FormControl>
+                                                    <SelectContent>{renderCategoryOptions(categoryTree)}</SelectContent>
+                                                </Select>
+                                            </FormItem>
+                                        )}
+                                     />
+                                  ) : (
+                                    <FormField
+                                        control={form.control}
+                                        name={`splits.${index}.destinationAccountId`}
+                                        render={({ field }) => (
+                                             <FormItem>
+                                                <FormLabel className="sr-only">Destination Account</FormLabel>
+                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                    <FormControl><SelectTrigger><SelectValue placeholder="Select destination account"/></SelectTrigger></FormControl>
+                                                    <SelectContent>
+                                                        {accounts.map(acc => (
+                                                            <SelectItem key={acc.id} value={acc.id} disabled={acc.id === form.getValues('sourceAccountId')}>
+                                                                {acc.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                             </FormItem>
+                                        )}
+                                    />
+                                  )}
+                                </div>
+                                 <FormField
+                                    control={form.control}
+                                    name={`splits.${index}.amount`}
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="sr-only">Amount</FormLabel>
+                                            <FormControl><Input type="number" step="0.01" className="w-32" placeholder="Amount" {...field} /></FormControl>
+                                        </FormItem>
+                                    )}
+                                />
+                                <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => remove(index)} disabled={splitFields.length <= 1}>
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                            </div>
+                        </div>
                     ))}
-                </ScrollArea>
+                </div>
+                 <Button type="button" variant="outline" size="sm" onClick={() => append({ id: crypto.randomUUID(), type: 'expense', amount: 0, categoryId: '' })}>
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add Split
+                </Button>
+
                 <div className="p-3 bg-muted/50 rounded-md text-sm">
                     <div className="flex justify-between">
-                        <span>Total Assigned:</span>
-                        <span className="font-medium">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalSplitAmount)}</span>
+                        <span>Total Split:</span>
+                        <span className="font-medium">{formatCurrency(totalSplitAmount)}</span>
                     </div>
                     <Separator className="my-1.5"/>
                         <div className={`flex justify-between font-semibold ${remainingToSplit < 0 ? 'text-destructive' : ''}`}>
                         <span>Remaining:</span>
-                        <span>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(remainingToSplit)}</span>
+                        <span>{formatCurrency(remainingToSplit)}</span>
                     </div>
                 </div>
+                 <FormMessage>
+                    {form.formState.errors.amount?.message}
+                </FormMessage>
             </div>
-            )}
-
 
             <DialogFooter className="sm:justify-between">
                 <div>
