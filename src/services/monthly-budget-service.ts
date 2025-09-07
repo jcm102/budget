@@ -93,7 +93,7 @@ export async function getTransactionsForAccount(accountId: string): Promise<Tran
 
     const relevantTransactions = Array.from(transactionsMap.values());
 
-    return relevantTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(b.date).getTime());
+    return relevantTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
 
@@ -167,44 +167,40 @@ export async function addTransaction(transactionData: Omit<Transaction, 'id'>): 
     return { id: docSnap.id, ...(docSnap.data() as Omit<Transaction, 'id'>) };
 }
 
-async function revertTransaction(transaction: FirebaseFirestore.Transaction, oldData: Transaction) {
-    const sourceRef = doc(db, ACCOUNTS_COLLECTION, oldData.sourceAccountId);
-    const sourceSnap = await transaction.get(sourceRef);
-    if (sourceSnap.exists()) {
+async function revertTransaction(transaction: FirebaseFirestore.Transaction, oldData: Transaction, accountSnaps: Map<string, FirebaseFirestore.DocumentSnapshot>) {
+    const sourceSnap = accountSnaps.get(oldData.sourceAccountId);
+    if (sourceSnap?.exists()) {
         const sourceBalance = sourceSnap.data()?.balance || 0;
-        transaction.update(sourceRef, { balance: sourceBalance + oldData.amount });
+        transaction.update(sourceSnap.ref, { balance: sourceBalance + oldData.amount });
     }
 
     for (const split of (oldData.splits || [])) {
         if (split.type === 'transfer' && split.destinationAccountId) {
-            const destRef = doc(db, ACCOUNTS_COLLECTION, split.destinationAccountId);
-            const destSnap = await transaction.get(destRef);
-            if(destSnap.exists()) {
+            const destSnap = accountSnaps.get(split.destinationAccountId);
+            if(destSnap?.exists()) {
                 const destBalance = destSnap.data()?.balance || 0;
-                transaction.update(destRef, { balance: destBalance - split.amount });
+                transaction.update(destSnap.ref, { balance: destBalance - split.amount });
             }
         }
     }
 }
 
-async function applyTransaction(transaction: FirebaseFirestore.Transaction, newData: Transaction) {
-    const sourceRef = doc(db, ACCOUNTS_COLLECTION, newData.sourceAccountId);
-    const sourceSnap = await transaction.get(sourceRef);
-    if (!sourceSnap.exists()) {
+async function applyTransaction(transaction: FirebaseFirestore.Transaction, newData: Transaction, accountSnaps: Map<string, FirebaseFirestore.DocumentSnapshot>) {
+    const sourceSnap = accountSnaps.get(newData.sourceAccountId);
+    if (!sourceSnap?.exists()) {
         throw new Error(`Source account with ID ${newData.sourceAccountId} not found.`);
     }
     const sourceBalance = sourceSnap.data()?.balance || 0;
-    transaction.update(sourceRef, { balance: sourceBalance - newData.amount });
+    transaction.update(sourceSnap.ref, { balance: sourceBalance - newData.amount });
 
     for (const split of (newData.splits || [])) {
         if (split.type === 'transfer' && split.destinationAccountId) {
-            const destRef = doc(db, ACCOUNTS_COLLECTION, split.destinationAccountId);
-            const destSnap = await transaction.get(destRef);
-            if (!destSnap.exists()) {
+            const destSnap = accountSnaps.get(split.destinationAccountId);
+            if (!destSnap?.exists()) {
                  throw new Error(`Destination account with ID ${split.destinationAccountId} not found.`);
             }
             const destBalance = destSnap.data()?.balance || 0;
-            transaction.update(destRef, { balance: destBalance + split.amount });
+            transaction.update(destSnap.ref, { balance: destBalance + split.amount });
         }
     }
 }
@@ -212,6 +208,7 @@ async function applyTransaction(transaction: FirebaseFirestore.Transaction, newD
 
 export async function updateTransaction(id: string, transactionData: Partial<Omit<Transaction, 'id'>>): Promise<void> {
     await runTransaction(db, async (transaction) => {
+        // --- Start READS ---
         const transactionRef = doc(db, TRANSACTIONS_COLLECTION, id);
         const transactionSnap = await transaction.get(transactionRef);
         if (!transactionSnap.exists()) {
@@ -227,19 +224,33 @@ export async function updateTransaction(id: string, transactionData: Partial<Omi
             sourceAccountId: transactionData.sourceAccountId ?? oldData.sourceAccountId,
             splits: transactionData.splits ?? oldData.splits,
         };
-
-        // Revert and apply operations require reading account documents.
-        // We'll pass the transaction object to them to use for reads.
-        await revertTransaction(transaction, oldData);
-        await applyTransaction(transaction, newData);
         
-        // This is the final write operation.
+        const accountIds = new Set<string>();
+        accountIds.add(oldData.sourceAccountId);
+        accountIds.add(newData.sourceAccountId);
+        [...(oldData.splits || []), ...(newData.splits || [])].forEach(s => {
+            if (s.type === 'transfer' && s.destinationAccountId) {
+                accountIds.add(s.destinationAccountId);
+            }
+        });
+
+        const accountRefs = Array.from(accountIds).map(accId => doc(db, ACCOUNTS_COLLECTION, accId));
+        const accountSnaps = await Promise.all(accountRefs.map(ref => transaction.get(ref)));
+        const accountSnapsMap = new Map(accountSnaps.map(snap => [snap.id, snap]));
+        // --- End READS ---
+
+
+        // --- Start WRITES ---
+        await revertTransaction(transaction, oldData, accountSnapsMap);
+        await applyTransaction(transaction, newData, accountSnapsMap);
+        
         transaction.update(transactionRef, transactionData);
     });
 }
 
 export async function deleteTransaction(id: string): Promise<void> {
    await runTransaction(db, async (transaction) => {
+        // --- Start READS ---
         const transactionRef = doc(db, TRANSACTIONS_COLLECTION, id);
         const transactionSnap = await transaction.get(transactionRef);
         if (!transactionSnap.exists()) {
@@ -247,35 +258,22 @@ export async function deleteTransaction(id: string): Promise<void> {
             return;
         }
         const oldData = transactionSnap.data() as Transaction;
-
-        const sourceRef = doc(db, ACCOUNTS_COLLECTION, oldData.sourceAccountId);
-        const sourceSnap = await transaction.get(sourceRef);
         
-        const destinationRefs = (oldData.splits || [])
-            .filter(s => s.type === 'transfer' && s.destinationAccountId)
-            .map(s => doc(db, ACCOUNTS_COLLECTION, s.destinationAccountId!));
-
-        let destinationSnaps: FirebaseFirestore.DocumentSnapshot[] = [];
-        if (destinationRefs.length > 0) {
-            destinationSnaps = await Promise.all(destinationRefs.map(ref => transaction.get(ref)));
-        }
-
-        // All reads are done. Start writes.
-        if (sourceSnap.exists()) {
-            const sourceBalance = sourceSnap.data()?.balance || 0;
-            transaction.update(sourceRef, { balance: sourceBalance + oldData.amount });
-        }
-
-        (oldData.splits || []).forEach((split, index) => {
-            if (split.type === 'transfer' && split.destinationAccountId) {
-                const destSnap = destinationSnaps.find(snap => snap.id === split.destinationAccountId);
-                if (destSnap && destSnap.exists()) {
-                    const destBalance = destSnap.data()?.balance || 0;
-                    transaction.update(destSnap.ref, { balance: destBalance - split.amount });
-                }
+        const accountIds = new Set<string>();
+        accountIds.add(oldData.sourceAccountId);
+        (oldData.splits || []).forEach(s => {
+            if (s.type === 'transfer' && s.destinationAccountId) {
+                accountIds.add(s.destinationAccountId);
             }
         });
+
+        const accountRefs = Array.from(accountIds).map(accId => doc(db, ACCOUNTS_COLLECTION, accId));
+        const accountSnaps = await Promise.all(accountRefs.map(ref => transaction.get(ref)));
+        const accountSnapsMap = new Map(accountSnaps.map(snap => [snap.id, snap]));
+        // --- End READS ---
         
+        // --- Start WRITES ---
+        await revertTransaction(transaction, oldData, accountSnapsMap);
         transaction.delete(transactionRef);
     });
 }

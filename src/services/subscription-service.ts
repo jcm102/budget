@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -121,10 +122,10 @@ export async function getSubscriptions(accountId: string): Promise<SubscriptionI
 
 export async function addSubscription(itemData: Omit<SubscriptionItem, 'id'>): Promise<SubscriptionItem> {
     const docRef = await runTransaction(db, async (transaction) => {
+        // --- Start READS ---
         const newDocRef = doc(collection(db, SUBSCRIPTION_COLLECTION));
         const newSubscription = { id: newDocRef.id, ...itemData };
         
-        // --- Start READS ---
         const sinkingFundQuery = query(collection(db, SINKING_FUNDS_COLLECTION), where('name', '==', newSubscription.serviceName), where('accountId', '==', newSubscription.accountId));
         let budgetItemsQuery = null;
         if (newSubscription.budgetCategoryId) {
@@ -156,9 +157,8 @@ export async function addSubscription(itemData: Omit<SubscriptionItem, 'id'>): P
 
 export async function updateSubscription(id: string, itemData: Partial<Omit<SubscriptionItem, 'id'>>): Promise<void> {
      await runTransaction(db, async (transaction) => {
-        const itemRef = doc(db, SUBSCRIPTION_COLLECTION, id);
-        
         // --- Start READS ---
+        const itemRef = doc(db, SUBSCRIPTION_COLLECTION, id);
         const itemSnap = await transaction.get(itemRef);
         if (!itemSnap.exists()) {
             throw new Error("Subscription not found");
@@ -167,6 +167,7 @@ export async function updateSubscription(id: string, itemData: Partial<Omit<Subs
         const newData = { ...oldData, ...itemData, id };
         
         const sinkingFundQuery = query(collection(db, SINKING_FUNDS_COLLECTION), where('name', '==', newData.serviceName), where('accountId', '==', newData.accountId));
+        const sinkingFundSnapshot = await getDocs(sinkingFundQuery);
         
         const currentMonth = new Date().toISOString().slice(0, 7);
         let budgetItemsQuery = null;
@@ -179,17 +180,16 @@ export async function updateSubscription(id: string, itemData: Partial<Omit<Subs
         }
 
         let oldBudgetItemsQuery = null;
-        if (oldData && oldData.budgetCategoryId && oldData.budgetCategoryId !== newData.budgetCategoryId) {
+        if (oldData?.budgetCategoryId && oldData.budgetCategoryId !== newData.budgetCategoryId) {
             oldBudgetItemsQuery = query(
                 collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION),
                 where('month', '==', currentMonth),
                 where('categoryId', '==', oldData.budgetCategoryId)
             );
-        } else if (oldData && oldData.budgetCategoryId && oldData.budgetCategoryId === newData.budgetCategoryId) {
+        } else if (oldData?.budgetCategoryId && oldData.budgetCategoryId === newData.budgetCategoryId) {
             oldBudgetItemsQuery = budgetItemsQuery;
         }
         
-        const sinkingFundSnapshot = await getDocs(sinkingFundQuery);
         const [budgetItemsSnapshot, oldBudgetItemsSnapshot] = await Promise.all([
             budgetItemsQuery ? getDocs(budgetItemsQuery) : Promise.resolve(null),
             oldBudgetItemsQuery ? getDocs(oldBudgetItemsQuery) : Promise.resolve(null),
@@ -200,7 +200,7 @@ export async function updateSubscription(id: string, itemData: Partial<Omit<Subs
         // --- Start WRITES ---
         transaction.update(itemRef, itemData);
         await updateLinkedSinkingFund(transaction, sinkingFundSnapshot, newData, oldData);
-        if (newData.budgetCategoryId || oldData.budgetCategoryId) {
+        if (newData.budgetCategoryId || oldData?.budgetCategoryId) {
              await updateMonthlyBudget(transaction, budgetItemsSnapshot, oldBudgetItemsSnapshot, newData, oldData);
         }
     });
@@ -208,9 +208,8 @@ export async function updateSubscription(id: string, itemData: Partial<Omit<Subs
 
 export async function deleteSubscription(id: string): Promise<void> {
     await runTransaction(db, async (transaction) => {
-        const itemRef = doc(db, SUBSCRIPTION_COLLECTION, id);
-        
         // --- Start READS ---
+        const itemRef = doc(db, SUBSCRIPTION_COLLECTION, id);
         const itemSnap = await transaction.get(itemRef);
         if (!itemSnap.exists()) {
             throw new Error("Subscription not found");
@@ -218,6 +217,7 @@ export async function deleteSubscription(id: string): Promise<void> {
         const subscriptionToDelete = {id, ...itemSnap.data()} as SubscriptionItem;
         
         const sinkingFundQuery = query(collection(db, SINKING_FUNDS_COLLECTION), where('name', '==', subscriptionToDelete.serviceName), where('accountId', '==', subscriptionToDelete.accountId));
+        const sinkingFundSnapshot = await getDocs(sinkingFundQuery);
         
         let oldBudgetItemsQuery = null;
         if (subscriptionToDelete.budgetCategoryId) {
@@ -229,7 +229,6 @@ export async function deleteSubscription(id: string): Promise<void> {
             );
         }
         
-        const sinkingFundSnapshot = await getDocs(sinkingFundQuery);
         const oldBudgetItemsSnapshot = oldBudgetItemsQuery ? await getDocs(oldBudgetItemsQuery) : null;
         // --- End READS ---
         

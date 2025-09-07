@@ -93,34 +93,34 @@ export async function addHonorarium(itemData: Omit<Honorarium, 'id'>): Promise<H
     const dataWithStatus = { ...itemData, status: 'active' };
 
     return runTransaction(db, async (transaction) => {
-        // 1. READ the ledger to find the "Honorarium Fund".
+        // --- Start READS ---
         const ledgerQuery = query(collection(db, LEDGER_COLLECTION), where("name", "==", "Honorarium Fund"));
-        const ledgerSnapshot = await getDocs(ledgerQuery); // This read is now compliant.
-
-        // 2. All reads are done. Now prepare WRITES.
-        const newHonorariumRef = doc(collection(db, EXPENSE_COLLECTION));
-        transaction.set(newHonorariumRef, dataWithStatus);
-
+        const ledgerSnapshot = await getDocs(ledgerQuery); 
+        
         let ledgerItemRef;
         let currentAmount = 0;
-
-        if (ledgerSnapshot.empty) {
-            // If the fund doesn't exist, we need a reference to create it.
-            ledgerItemRef = doc(collection(db, LEDGER_COLLECTION));
-        } else {
+        if (!ledgerSnapshot.empty) {
             const ledgerDoc = ledgerSnapshot.docs[0];
             ledgerItemRef = ledgerDoc.ref;
             currentAmount = (ledgerDoc.data() as AccountLedgerItem).amount || 0;
+        } else {
+            ledgerItemRef = doc(collection(db, LEDGER_COLLECTION));
         }
+        // --- End READS ---
 
+
+        // --- Start WRITES ---
+        const newHonorariumRef = doc(collection(db, EXPENSE_COLLECTION));
+        transaction.set(newHonorariumRef, dataWithStatus);
+        
         const newBalance = currentAmount + itemData.amount;
         
-        // This is a write operation, which is now correctly placed after all reads.
         if (ledgerSnapshot.empty) {
              transaction.set(ledgerItemRef, { name: "Honorarium Fund", amount: newBalance });
         } else {
              transaction.update(ledgerItemRef, { amount: newBalance });
         }
+        // --- End WRITES ---
         
         return { id: newHonorariumRef.id, ...dataWithStatus } as Honorarium;
     });
@@ -147,24 +147,23 @@ export async function deleteHonorarium(id: string): Promise<void> {
     const itemRef = doc(db, EXPENSE_COLLECTION, id);
     
     await runTransaction(db, async (transaction) => {
-        // 1. READ the documents to be deleted/updated.
+        // --- Start READS ---
         const itemSnap = await transaction.get(itemRef);
         if (!itemSnap.exists()) {
             throw new Error("Honorarium to delete not found.");
         }
-        
-        const ledgerQuery = query(collection(db, LEDGER_COLLECTION), where("name", "==", "Honorarium Fund"));
-        const ledgerSnapshot = await getDocs(ledgerQuery); // This is a read inside a transaction, but it's before any writes.
-        const ledgerDoc = ledgerSnapshot.docs[0]; // Assume it exists
-        
-        // 2. All reads are done. Perform WRITES.
         const honorariumToDelete = itemSnap.data() as Honorarium;
         const amountToDelete = honorariumToDelete.amount;
 
-        // Delete the honorarium entry
+        const ledgerQuery = query(collection(db, LEDGER_COLLECTION), where("name", "==", "Honorarium Fund"));
+        const ledgerSnapshot = await getDocs(ledgerQuery);
+        const ledgerDoc = ledgerSnapshot.docs[0];
+        // --- End READS ---
+
+
+        // --- Start WRITES ---
         transaction.delete(itemRef);
 
-        // Update the ledger fund, if it exists
         if (ledgerDoc) {
             const ledgerItemRef = ledgerDoc.ref;
             const currentAmount = (ledgerDoc.data() as AccountLedgerItem).amount || 0;
