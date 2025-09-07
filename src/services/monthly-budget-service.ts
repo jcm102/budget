@@ -86,7 +86,7 @@ export async function getTransactionsForAccount(accountId: string): Promise<Tran
     allTransactionsSnapshot.docs.forEach(doc => {
         const tx = { id: doc.id, ...doc.data() } as Transaction;
         const isSource = tx.sourceAccountId === accountId;
-        const isDestination = tx.splits.some(s => s.type === 'transfer' && s.destinationAccountId === accountId);
+        const isDestination = (tx.splits || []).some(s => s.type === 'transfer' && s.destinationAccountId === accountId);
         
         if (isSource || isDestination) {
             if (!transactionsMap.has(doc.id)) {
@@ -180,7 +180,7 @@ async function revertTransaction(transaction: FirebaseFirestore.Transaction, old
         transaction.update(sourceRef, { balance: sourceBalance + oldData.amount });
     }
 
-    for (const split of oldData.splits) {
+    for (const split of (oldData.splits || [])) {
         if (split.type === 'transfer' && split.destinationAccountId) {
             const destRef = doc(db, ACCOUNTS_COLLECTION, split.destinationAccountId);
             const destSnap = await transaction.get(destRef);
@@ -201,7 +201,7 @@ async function applyTransaction(transaction: FirebaseFirestore.Transaction, newD
     const sourceBalance = sourceSnap.data()?.balance || 0;
     transaction.update(sourceRef, { balance: sourceBalance - newData.amount });
 
-    for (const split of newData.splits) {
+    for (const split of (newData.splits || [])) {
         if (split.type === 'transfer' && split.destinationAccountId) {
             const destRef = doc(db, ACCOUNTS_COLLECTION, split.destinationAccountId);
             const destSnap = await transaction.get(destRef);
@@ -257,7 +257,7 @@ export async function deleteTransaction(id: string): Promise<void> {
             transaction.update(sourceRef, { balance: sourceBalance + oldData.amount });
         }
 
-        for (const split of oldData.splits) {
+        for (const split of (oldData.splits || [])) {
             if (split.type === 'transfer' && split.destinationAccountId) {
                 const destRef = doc(db, ACCOUNTS_COLLECTION, split.destinationAccountId);
                 const destSnap = await transaction.get(destRef);
@@ -271,3 +271,5 @@ export async function deleteTransaction(id: string): Promise<void> {
         transaction.delete(transactionRef);
     });
 }
+
+    
