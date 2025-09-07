@@ -42,7 +42,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { Transaction, Category as CategoryType, AccountDetails, SplitType } from '@/types';
+import type { Transaction, Category as CategoryType, AccountDetails, SplitType, MonthlyBudgetItem } from '@/types';
 import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
 import { ScrollArea } from './ui/scroll-area';
 import { CornerDownRight, Trash2, PlusCircle, ArrowRightLeft } from 'lucide-react';
@@ -141,7 +141,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
             amount: 0,
             date: new Date().toISOString().split('T')[0],
             sourceAccountId: '',
-            splits: [{ id: crypto.randomUUID(), type: 'expense', amount: 0, categoryId: '' }],
+            splits: [{ id: crypto.randomUUID(), type: 'expense', amount: 0, categoryId: '', budgetItemName: 'Default' }],
         });
       }
     }
@@ -161,7 +161,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
             type: s.type,
             amount: s.amount,
             categoryId: s.type === 'expense' ? s.categoryId : undefined,
-            budgetItemName: s.type === 'expense' ? 'Default' : undefined,
+            budgetItemName: s.type === 'expense' ? s.budgetItemName || 'Default' : undefined,
             destinationAccountId: s.type === 'transfer' ? s.destinationAccountId : undefined,
         })),
     }
@@ -212,6 +212,12 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
     });
     return options;
   };
+
+  const getBreakdownForCategory = (categoryId?: string): MonthlyBudgetItem['breakdown'] => {
+      if (!categoryId) return undefined;
+      const budgetItem = budgetItems.find(item => item.categoryId === categoryId);
+      return budgetItem?.breakdown;
+  }
 
 
   return (
@@ -276,34 +282,38 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
             <div className="space-y-2">
                 <FormLabel>Transaction Splits</FormLabel>
                 <div className="space-y-3">
-                    {splitFields.map((field, index) => (
-                        <div key={field.id} className="p-3 border rounded-lg space-y-3">
-                            <FormField
-                                control={form.control}
-                                name={`splits.${index}.type`}
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormControl>
-                                            <RadioGroup
-                                            onValueChange={field.onChange}
-                                            value={field.value}
-                                            className="flex gap-4"
-                                            >
-                                                <FormItem className="flex items-center space-x-2 space-y-0">
-                                                    <FormControl><RadioGroupItem value="expense" /></FormControl>
-                                                    <Label className="font-normal">Expense</Label>
-                                                </FormItem>
-                                                <FormItem className="flex items-center space-x-2 space-y-0">
-                                                    <FormControl><RadioGroupItem value="transfer" /></FormControl>
-                                                    <Label className="font-normal">Transfer</Label>
-                                                </FormItem>
-                                            </RadioGroup>
-                                        </FormControl>
-                                    </FormItem>
-                                )}
-                            />
-                            <div className="flex items-end gap-2">
-                                <div className="flex-grow">
+                    {splitFields.map((field, index) => {
+                        const selectedCategoryId = currentSplits[index]?.categoryId;
+                        const categoryBreakdown = getBreakdownForCategory(selectedCategoryId);
+                        const showBreakdown = currentSplits[index]?.type === 'expense' && categoryBreakdown && categoryBreakdown.length > 1;
+
+                        return (
+                            <div key={field.id} className="p-3 border rounded-lg space-y-3">
+                                <FormField
+                                    control={form.control}
+                                    name={`splits.${index}.type`}
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormControl>
+                                                <RadioGroup
+                                                onValueChange={field.onChange}
+                                                value={field.value}
+                                                className="flex gap-4"
+                                                >
+                                                    <FormItem className="flex items-center space-x-2 space-y-0">
+                                                        <FormControl><RadioGroupItem value="expense" /></FormControl>
+                                                        <Label className="font-normal">Expense</Label>
+                                                    </FormItem>
+                                                    <FormItem className="flex items-center space-x-2 space-y-0">
+                                                        <FormControl><RadioGroupItem value="transfer" /></FormControl>
+                                                        <Label className="font-normal">Transfer</Label>
+                                                    </FormItem>
+                                                </RadioGroup>
+                                            </FormControl>
+                                        </FormItem>
+                                    )}
+                                />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                   {currentSplits[index]?.type === 'expense' ? (
                                      <FormField
                                         control={form.control}
@@ -339,23 +349,44 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                                         )}
                                     />
                                   )}
+                                    <div className="flex items-center gap-2">
+                                     <FormField
+                                        control={form.control}
+                                        name={`splits.${index}.amount`}
+                                        render={({ field }) => (
+                                            <FormItem className="flex-grow">
+                                                <FormLabel className="sr-only">Amount</FormLabel>
+                                                <FormControl><Input type="number" step="0.01" placeholder="Amount" {...field} /></FormControl>
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => remove(index)} disabled={splitFields.length <= 1}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                   </div>
                                 </div>
-                                 <FormField
-                                    control={form.control}
-                                    name={`splits.${index}.amount`}
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="sr-only">Amount</FormLabel>
-                                            <FormControl><Input type="number" step="0.01" className="w-32" placeholder="Amount" {...field} /></FormControl>
-                                        </FormItem>
-                                    )}
-                                />
-                                <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => remove(index)} disabled={splitFields.length <= 1}>
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
+                                 {showBreakdown && (
+                                    <FormField
+                                        control={form.control}
+                                        name={`splits.${index}.budgetItemName`}
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-xs">Budget Item</FormLabel>
+                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                    <FormControl><SelectTrigger><SelectValue placeholder="Select a budget item"/></SelectTrigger></FormControl>
+                                                    <SelectContent>
+                                                        {categoryBreakdown?.map(item => (
+                                                            <SelectItem key={item.name} value={item.name}>{item.name}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </FormItem>
+                                        )}
+                                     />
+                                )}
                             </div>
-                        </div>
-                    ))}
+                        )
+                    })}
                 </div>
                  <Button type="button" variant="outline" size="sm" onClick={() => append({ id: crypto.randomUUID(), type: 'expense', amount: 0, categoryId: '' })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Split

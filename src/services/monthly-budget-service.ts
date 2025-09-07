@@ -71,11 +71,6 @@ export async function getTransactionsForMonth(month: string): Promise<Transactio
 }
 
 export async function getTransactionsForAccount(accountId: string): Promise<Transaction[]> {
-    const expenseQuery = query(
-        collection(db, TRANSACTIONS_COLLECTION),
-        where('sourceAccountId', '==', accountId)
-    );
-
     // This query is difficult because Firestore cannot query for a specific element in an array of objects.
     // A better approach is to fetch all transactions for the month and filter client-side, 
     // but for now we will fetch all and filter here.
@@ -97,7 +92,7 @@ export async function getTransactionsForAccount(accountId: string): Promise<Tran
 
     const relevantTransactions = Array.from(transactionsMap.values());
 
-    return relevantTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return relevantTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(b.date).getTime());
 }
 
 
@@ -271,5 +266,3 @@ export async function deleteTransaction(id: string): Promise<void> {
         transaction.delete(transactionRef);
     });
 }
-
-    

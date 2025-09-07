@@ -81,7 +81,8 @@ const CategoryRow = ({
     const remaining = budgeted - actual;
     const progress = budgeted > 0 ? (actual / budgeted) * 100 : 0;
     
-    const hasBreakdown = Object.keys(breakdownTotals).length > 1 || (Object.keys(breakdownTotals).length === 1 && !breakdownTotals['Default']);
+    const budgetItem = budgetItems.find(b => b.categoryId === category.id);
+    const hasBreakdown = budgetItem && budgetItem.breakdown && budgetItem.breakdown.length > 0 && !(budgetItem.breakdown.length === 1 && budgetItem.breakdown[0].name === 'Default');
     const hasChildren = category.children.length > 0;
     
     const relevantTransactions = useMemo(() => {
