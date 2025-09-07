@@ -15,7 +15,8 @@ import {
   where,
   orderBy,
   runTransaction,
-  deleteDoc
+  deleteDoc,
+  writeBatch
 } from 'firebase/firestore';
 import { getBudgetItems } from './budget-service';
 
@@ -115,7 +116,10 @@ export async function addTransaction(transactionData: Omit<Transaction, 'id'>): 
             .filter(s => s.type === 'transfer' && s.destinationAccountId)
             .map(s => doc(db, ACCOUNTS_COLLECTION, s.destinationAccountId!));
         
-        const transferDestinationSnaps = await Promise.all(transferDestinationRefs.map(ref => transaction.get(ref)));
+        let transferDestinationSnaps: FirebaseFirestore.DocumentSnapshot<FirebaseFirestore.DocumentData>[] = [];
+        if (transferDestinationRefs.length > 0) {
+            transferDestinationSnaps = await Promise.all(transferDestinationRefs.map(ref => transaction.get(ref)));
+        }
 
         for(const snap of transferDestinationSnaps) {
             if (!snap.exists()) throw new Error(`One of the destination accounts was not found.`);
