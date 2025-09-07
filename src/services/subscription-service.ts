@@ -124,7 +124,7 @@ export async function addSubscription(itemData: Omit<SubscriptionItem, 'id'>): P
         const newDocRef = doc(collection(db, SUBSCRIPTION_COLLECTION));
         const newSubscription = { id: newDocRef.id, ...itemData };
         
-        // Prepare queries for reads
+        // --- Start READS ---
         const sinkingFundQuery = query(collection(db, SINKING_FUNDS_COLLECTION), where('name', '==', newSubscription.serviceName), where('accountId', '==', newSubscription.accountId));
         let budgetItemsQuery = null;
         if (newSubscription.budgetCategoryId) {
@@ -136,11 +136,11 @@ export async function addSubscription(itemData: Omit<SubscriptionItem, 'id'>): P
             );
         }
         
-        // Perform reads
         const sinkingFundSnapshot = await getDocs(sinkingFundQuery);
         const budgetItemsSnapshot = budgetItemsQuery ? await getDocs(budgetItemsQuery) : null;
+        // --- End READS ---
 
-        // Perform writes
+        // --- Start WRITES ---
         transaction.set(newDocRef, itemData);
         await updateLinkedSinkingFund(transaction, sinkingFundSnapshot, newSubscription);
         if (newSubscription.budgetCategoryId) {
@@ -157,6 +157,8 @@ export async function addSubscription(itemData: Omit<SubscriptionItem, 'id'>): P
 export async function updateSubscription(id: string, itemData: Partial<Omit<SubscriptionItem, 'id'>>): Promise<void> {
      await runTransaction(db, async (transaction) => {
         const itemRef = doc(db, SUBSCRIPTION_COLLECTION, id);
+        
+        // --- Start READS ---
         const itemSnap = await transaction.get(itemRef);
         if (!itemSnap.exists()) {
             throw new Error("Subscription not found");
@@ -164,7 +166,6 @@ export async function updateSubscription(id: string, itemData: Partial<Omit<Subs
         const oldData = itemSnap.data() as SubscriptionItem;
         const newData = { ...oldData, ...itemData, id };
         
-        // Prepare queries for all potential reads
         const sinkingFundQuery = query(collection(db, SINKING_FUNDS_COLLECTION), where('name', '==', newData.serviceName), where('accountId', '==', newData.accountId));
         
         const currentMonth = new Date().toISOString().slice(0, 7);
@@ -185,19 +186,18 @@ export async function updateSubscription(id: string, itemData: Partial<Omit<Subs
                 where('categoryId', '==', oldData.budgetCategoryId)
             );
         } else if (oldData && oldData.budgetCategoryId && oldData.budgetCategoryId === newData.budgetCategoryId) {
-            // If category is the same, the old snapshot is the same as the new one
             oldBudgetItemsQuery = budgetItemsQuery;
         }
         
-        // Perform all reads first
         const sinkingFundSnapshot = await getDocs(sinkingFundQuery);
         const [budgetItemsSnapshot, oldBudgetItemsSnapshot] = await Promise.all([
             budgetItemsQuery ? getDocs(budgetItemsQuery) : Promise.resolve(null),
             oldBudgetItemsQuery ? getDocs(oldBudgetItemsQuery) : Promise.resolve(null),
         ]);
+        // --- End READS ---
 
 
-        // Perform all writes
+        // --- Start WRITES ---
         transaction.update(itemRef, itemData);
         await updateLinkedSinkingFund(transaction, sinkingFundSnapshot, newData, oldData);
         if (newData.budgetCategoryId || oldData.budgetCategoryId) {
@@ -209,16 +209,16 @@ export async function updateSubscription(id: string, itemData: Partial<Omit<Subs
 export async function deleteSubscription(id: string): Promise<void> {
     await runTransaction(db, async (transaction) => {
         const itemRef = doc(db, SUBSCRIPTION_COLLECTION, id);
+        
+        // --- Start READS ---
         const itemSnap = await transaction.get(itemRef);
         if (!itemSnap.exists()) {
             throw new Error("Subscription not found");
         }
         const subscriptionToDelete = {id, ...itemSnap.data()} as SubscriptionItem;
         
-        // Prepare reads
         const sinkingFundQuery = query(collection(db, SINKING_FUNDS_COLLECTION), where('name', '==', subscriptionToDelete.serviceName), where('accountId', '==', subscriptionToDelete.accountId));
-        const sinkingFundSnapshot = await getDocs(sinkingFundQuery);
-
+        
         let oldBudgetItemsQuery = null;
         if (subscriptionToDelete.budgetCategoryId) {
             const currentMonth = new Date().toISOString().slice(0, 7);
@@ -228,9 +228,12 @@ export async function deleteSubscription(id: string): Promise<void> {
                 where('categoryId', '==', subscriptionToDelete.budgetCategoryId)
             );
         }
-        const oldBudgetItemsSnapshot = oldBudgetItemsQuery ? await getDocs(oldBudgetItemsQuery) : null;
         
-        // Writes
+        const sinkingFundSnapshot = await getDocs(sinkingFundQuery);
+        const oldBudgetItemsSnapshot = oldBudgetItemsQuery ? await getDocs(oldBudgetItemsQuery) : null;
+        // --- End READS ---
+        
+        // --- Start WRITES ---
         transaction.delete(itemRef);
 
         if (!sinkingFundSnapshot.empty) {

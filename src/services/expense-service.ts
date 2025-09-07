@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -142,24 +143,19 @@ export async function updateHonorarium(id: string, itemData: Partial<Omit<Honora
     await updateDoc(itemRef, itemData);
 }
 
-export async function deleteExpense(id: string): Promise<void> {
-  const itemRef = doc(db, EXPENSE_COLLECTION, id);
-  await deleteDoc(itemRef);
-}
-
 export async function deleteHonorarium(id: string): Promise<void> {
     const itemRef = doc(db, EXPENSE_COLLECTION, id);
-    const ledgerQuery = query(collection(db, LEDGER_COLLECTION), where("name", "==", "Honorarium Fund"));
-    
-    // We need to read the ledger outside the transaction to get its reference.
-    const ledgerSnapshot = await getDocs(ledgerQuery);
     
     await runTransaction(db, async (transaction) => {
-        // 1. READ the document to be deleted.
+        // 1. READ the documents to be deleted/updated.
         const itemSnap = await transaction.get(itemRef);
         if (!itemSnap.exists()) {
             throw new Error("Honorarium to delete not found.");
         }
+        
+        const ledgerQuery = query(collection(db, LEDGER_COLLECTION), where("name", "==", "Honorarium Fund"));
+        const ledgerSnapshot = await getDocs(ledgerQuery); // This is a read inside a transaction, but it's before any writes.
+        const ledgerDoc = ledgerSnapshot.docs[0]; // Assume it exists
         
         // 2. All reads are done. Perform WRITES.
         const honorariumToDelete = itemSnap.data() as Honorarium;
@@ -169,8 +165,7 @@ export async function deleteHonorarium(id: string): Promise<void> {
         transaction.delete(itemRef);
 
         // Update the ledger fund, if it exists
-        if (!ledgerSnapshot.empty) {
-            const ledgerDoc = ledgerSnapshot.docs[0];
+        if (ledgerDoc) {
             const ledgerItemRef = ledgerDoc.ref;
             const currentAmount = (ledgerDoc.data() as AccountLedgerItem).amount || 0;
             const newBalance = currentAmount - amountToDelete;

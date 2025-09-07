@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -127,7 +128,8 @@ export async function addAutoShipItem(itemData: Omit<AutoShipItem, 'id'>): Promi
   const docRef = await runTransaction(db, async (transaction) => {
         const newItemRef = doc(collection(db, AUTOSHIP_COLLECTION));
         const newItem = { id: newItemRef.id, ...itemData };
-
+        
+        // --- Start READS ---
         const sinkingFundQuery = query(collection(db, SINKING_FUNDS_COLLECTION), where('name', '==', newItem.item), where('accountId', '==', newItem.accountId));
         
         let budgetItemsQuery = null;
@@ -142,8 +144,9 @@ export async function addAutoShipItem(itemData: Omit<AutoShipItem, 'id'>): Promi
 
         const sinkingFundSnapshot = await getDocs(sinkingFundQuery);
         const budgetItemsSnapshot = budgetItemsQuery ? await getDocs(budgetItemsQuery) : null;
+        // --- End READS ---
         
-        // All reads done, now writes
+        // --- Start WRITES ---
         transaction.set(newItemRef, itemData);
 
         await updateLinkedSinkingFund(transaction, sinkingFundSnapshot, newItem);
@@ -161,6 +164,8 @@ export async function addAutoShipItem(itemData: Omit<AutoShipItem, 'id'>): Promi
 export async function updateAutoShipItem(id: string, itemData: Partial<Omit<AutoShipItem, 'id'>>): Promise<void> {
    await runTransaction(db, async (transaction) => {
         const itemRef = doc(db, AUTOSHIP_COLLECTION, id);
+
+        // --- Start READS ---
         const itemSnap = await transaction.get(itemRef);
         if (!itemSnap.exists()) {
             throw new Error("Auto-ship item not found");
@@ -168,7 +173,6 @@ export async function updateAutoShipItem(id: string, itemData: Partial<Omit<Auto
         const oldData = itemSnap.data() as AutoShipItem;
         const newData = { ...oldData, ...itemData, id };
         
-        // Prepare queries for all potential reads
         const sinkingFundQuery = query(collection(db, SINKING_FUNDS_COLLECTION), where('name', '==', newData.item), where('accountId', '==', newData.accountId));
         
         const currentMonth = new Date().toISOString().slice(0, 7);
@@ -192,15 +196,15 @@ export async function updateAutoShipItem(id: string, itemData: Partial<Omit<Auto
              oldBudgetItemsQuery = budgetItemsQuery;
         }
         
-        // Execute all reads first
         const sinkingFundSnapshot = await getDocs(sinkingFundQuery);
         const [budgetItemsSnapshot, oldBudgetItemsSnapshot] = await Promise.all([
           budgetItemsQuery ? getDocs(budgetItemsQuery) : Promise.resolve(null),
           oldBudgetItemsQuery ? getDocs(oldBudgetItemsQuery) : Promise.resolve(null),
         ]);
+        // --- End READS ---
 
 
-        // Execute all writes
+        // --- Start WRITES ---
         transaction.update(itemRef, itemData);
         await updateLinkedSinkingFund(transaction, sinkingFundSnapshot, newData, oldData);
         if (newData.budgetCategoryId || oldData.budgetCategoryId) {
@@ -212,6 +216,8 @@ export async function updateAutoShipItem(id: string, itemData: Partial<Omit<Auto
 export async function deleteAutoShipItem(id: string): Promise<void> {
    await runTransaction(db, async (transaction) => {
         const itemRef = doc(db, AUTOSHIP_COLLECTION, id);
+        
+        // --- Start READS ---
         const itemSnap = await transaction.get(itemRef);
         if (!itemSnap.exists()) {
             throw new Error("Auto-ship item not found");
@@ -219,8 +225,7 @@ export async function deleteAutoShipItem(id: string): Promise<void> {
         const itemToDelete = {id, ...itemSnap.data()} as AutoShipItem;
         
         const sinkingFundQuery = query(collection(db, SINKING_FUNDS_COLLECTION), where('name', '==', itemToDelete.item), where('accountId', '==', itemToDelete.accountId));
-        const sinkingFundSnapshot = await getDocs(sinkingFundQuery);
-
+        
         let oldBudgetItemsQuery = null;
         if (itemToDelete.budgetCategoryId) {
             const currentMonth = new Date().toISOString().slice(0, 7);
@@ -230,9 +235,11 @@ export async function deleteAutoShipItem(id: string): Promise<void> {
                 where('categoryId', '==', itemToDelete.budgetCategoryId)
             );
         }
+        const sinkingFundSnapshot = await getDocs(sinkingFundQuery);
         const oldBudgetItemsSnapshot = oldBudgetItemsQuery ? await getDocs(oldBudgetItemsQuery) : null;
+        // --- End READS ---
 
-        // All reads done
+        // --- Start WRITES ---
         transaction.delete(itemRef);
 
         if (!sinkingFundSnapshot.empty) {

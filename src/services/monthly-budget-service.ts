@@ -16,7 +16,8 @@ import {
   orderBy,
   runTransaction,
   deleteDoc,
-  writeBatch
+  writeBatch,
+  limit
 } from 'firebase/firestore';
 import { getBudgetItems } from './budget-service';
 
@@ -100,8 +101,6 @@ export async function addTransaction(transactionData: Omit<Transaction, 'id'>): 
     const newDocRef = await runTransaction(db, async (transaction) => {
         const { sourceAccountId, amount, splits } = transactionData;
 
-        const newTransactionRef = doc(collection(db, TRANSACTIONS_COLLECTION));
-
         // --- Start READS ---
         const sourceAccountRef = doc(db, ACCOUNTS_COLLECTION, sourceAccountId);
         const sourceAccountSnap = await transaction.get(sourceAccountRef);
@@ -122,6 +121,7 @@ export async function addTransaction(transactionData: Omit<Transaction, 'id'>): 
         // --- End READS ---
 
         // --- Start WRITES ---
+        const newTransactionRef = doc(collection(db, TRANSACTIONS_COLLECTION));
         transaction.set(newTransactionRef, transactionData);
 
         // Debit source account
@@ -228,9 +228,12 @@ export async function updateTransaction(id: string, transactionData: Partial<Omi
             splits: transactionData.splits ?? oldData.splits,
         };
 
+        // Revert and apply operations require reading account documents.
+        // We'll pass the transaction object to them to use for reads.
         await revertTransaction(transaction, oldData);
         await applyTransaction(transaction, newData);
         
+        // This is the final write operation.
         transaction.update(transactionRef, transactionData);
     });
 }
@@ -247,21 +250,31 @@ export async function deleteTransaction(id: string): Promise<void> {
 
         const sourceRef = doc(db, ACCOUNTS_COLLECTION, oldData.sourceAccountId);
         const sourceSnap = await transaction.get(sourceRef);
+        
+        const destinationRefs = (oldData.splits || [])
+            .filter(s => s.type === 'transfer' && s.destinationAccountId)
+            .map(s => doc(db, ACCOUNTS_COLLECTION, s.destinationAccountId!));
+
+        let destinationSnaps: FirebaseFirestore.DocumentSnapshot[] = [];
+        if (destinationRefs.length > 0) {
+            destinationSnaps = await Promise.all(destinationRefs.map(ref => transaction.get(ref)));
+        }
+
+        // All reads are done. Start writes.
         if (sourceSnap.exists()) {
             const sourceBalance = sourceSnap.data()?.balance || 0;
             transaction.update(sourceRef, { balance: sourceBalance + oldData.amount });
         }
 
-        for (const split of (oldData.splits || [])) {
+        (oldData.splits || []).forEach((split, index) => {
             if (split.type === 'transfer' && split.destinationAccountId) {
-                const destRef = doc(db, ACCOUNTS_COLLECTION, split.destinationAccountId);
-                const destSnap = await transaction.get(destRef);
-                if (destSnap.exists()) {
+                const destSnap = destinationSnaps.find(snap => snap.id === split.destinationAccountId);
+                if (destSnap && destSnap.exists()) {
                     const destBalance = destSnap.data()?.balance || 0;
-                    transaction.update(destRef, { balance: destBalance - split.amount });
+                    transaction.update(destSnap.ref, { balance: destBalance - split.amount });
                 }
             }
-        }
+        });
         
         transaction.delete(transactionRef);
     });
