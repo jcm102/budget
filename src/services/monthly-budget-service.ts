@@ -75,36 +75,26 @@ export async function getTransactionsForAccount(accountId: string): Promise<Tran
         where('sourceAccountId', '==', accountId)
     );
 
-    // We also need to find transfers *to* this account
-    const transferToQuery = query(
-        collection(db, TRANSACTIONS_COLLECTION),
-        where('splits', 'array-contains', { type: 'transfer', destinationAccountId: accountId })
-    );
-
-    const [expenseSnap, toSnap] = await Promise.all([
-        getDocs(expenseQuery),
-        getDocs(transferToQuery),
-    ]);
+    // This query is difficult because Firestore cannot query for a specific element in an array of objects.
+    // A better approach is to fetch all transactions for the month and filter client-side, 
+    // but for now we will fetch all and filter here.
+    const allTransactionsSnapshot = await getDocs(collection(db, TRANSACTIONS_COLLECTION));
 
     const transactionsMap = new Map<string, Transaction>();
     
-    const processSnapshot = (snapshot: FirebaseFirestore.QuerySnapshot) => {
-        snapshot.docs.forEach(doc => {
+    allTransactionsSnapshot.docs.forEach(doc => {
+        const tx = { id: doc.id, ...doc.data() } as Transaction;
+        const isSource = tx.sourceAccountId === accountId;
+        const isDestination = tx.splits.some(s => s.type === 'transfer' && s.destinationAccountId === accountId);
+        
+        if (isSource || isDestination) {
             if (!transactionsMap.has(doc.id)) {
-                transactionsMap.set(doc.id, { id: doc.id, ...doc.data() } as Transaction);
+                transactionsMap.set(doc.id, tx);
             }
-        });
-    }
+        }
+    });
 
-    processSnapshot(expenseSnap);
-    processSnapshot(toSnap);
-    
-    const allTransactions = Array.from(transactionsMap.values());
-    
-    // Final filter to ensure we only include relevant transactions
-    const relevantTransactions = allTransactions.filter(tx => 
-        tx.sourceAccountId === accountId || tx.splits.some(s => s.type === 'transfer' && s.destinationAccountId === accountId)
-    );
+    const relevantTransactions = Array.from(transactionsMap.values());
 
     return relevantTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
@@ -114,9 +104,9 @@ export async function addTransaction(transactionData: Omit<Transaction, 'id'>): 
     const newDocRef = await runTransaction(db, async (transaction) => {
         const { sourceAccountId, amount, splits } = transactionData;
 
-        // --- ALL READS FIRST ---
         const newTransactionRef = doc(collection(db, TRANSACTIONS_COLLECTION));
 
+        // --- Start READS ---
         const sourceAccountRef = doc(db, ACCOUNTS_COLLECTION, sourceAccountId);
         const sourceAccountSnap = await transaction.get(sourceAccountRef);
         if (!sourceAccountSnap.exists()) throw new Error(`Source account with ID ${sourceAccountId} not found.`);
@@ -130,8 +120,9 @@ export async function addTransaction(transactionData: Omit<Transaction, 'id'>): 
         for(const snap of transferDestinationSnaps) {
             if (!snap.exists()) throw new Error(`One of the destination accounts was not found.`);
         }
+        // --- End READS ---
 
-        // --- ALL WRITES AFTER READS ---
+        // --- Start WRITES ---
         transaction.set(newTransactionRef, transactionData);
 
         // Debit source account
@@ -141,11 +132,14 @@ export async function addTransaction(transactionData: Omit<Transaction, 'id'>): 
         // Credit destination accounts for transfers
         splits.forEach((split, index) => {
             if (split.type === 'transfer') {
-                const destSnap = transferDestinationSnaps[index];
-                const destBalance = destSnap.data()?.balance || 0;
-                transaction.update(destSnap.ref, { balance: destBalance + split.amount });
+                const destSnap = transferDestinationSnaps.find(snap => snap.id === split.destinationAccountId);
+                if (destSnap) {
+                     const destBalance = destSnap.data()?.balance || 0;
+                     transaction.update(destSnap.ref, { balance: destBalance + split.amount });
+                }
             }
         });
+        // --- End WRITES ---
         
         return newTransactionRef;
     });
@@ -175,7 +169,6 @@ export async function addTransaction(transactionData: Omit<Transaction, 'id'>): 
 }
 
 async function revertTransaction(transaction: FirebaseFirestore.Transaction, oldData: Transaction) {
-    // Revert source account debit
     const sourceRef = doc(db, ACCOUNTS_COLLECTION, oldData.sourceAccountId);
     const sourceSnap = await transaction.get(sourceRef);
     if (sourceSnap.exists()) {
@@ -183,7 +176,6 @@ async function revertTransaction(transaction: FirebaseFirestore.Transaction, old
         transaction.update(sourceRef, { balance: sourceBalance + oldData.amount });
     }
 
-    // Revert transfer credits
     for (const split of oldData.splits) {
         if (split.type === 'transfer' && split.destinationAccountId) {
             const destRef = doc(db, ACCOUNTS_COLLECTION, split.destinationAccountId);
@@ -197,27 +189,23 @@ async function revertTransaction(transaction: FirebaseFirestore.Transaction, old
 }
 
 async function applyTransaction(transaction: FirebaseFirestore.Transaction, newData: Transaction) {
-    // Apply source account debit
     const sourceRef = doc(db, ACCOUNTS_COLLECTION, newData.sourceAccountId);
     const sourceSnap = await transaction.get(sourceRef);
-    if (sourceSnap.exists()) {
-        const sourceBalance = sourceSnap.data()?.balance || 0;
-        transaction.update(sourceRef, { balance: sourceBalance - newData.amount });
-    } else {
+    if (!sourceSnap.exists()) {
         throw new Error(`Source account with ID ${newData.sourceAccountId} not found.`);
     }
+    const sourceBalance = sourceSnap.data()?.balance || 0;
+    transaction.update(sourceRef, { balance: sourceBalance - newData.amount });
 
-    // Apply transfer credits
     for (const split of newData.splits) {
         if (split.type === 'transfer' && split.destinationAccountId) {
             const destRef = doc(db, ACCOUNTS_COLLECTION, split.destinationAccountId);
             const destSnap = await transaction.get(destRef);
-            if (destSnap.exists()) {
-                const destBalance = destSnap.data()?.balance || 0;
-                transaction.update(destRef, { balance: destBalance + split.amount });
-            } else {
+            if (!destSnap.exists()) {
                  throw new Error(`Destination account with ID ${split.destinationAccountId} not found.`);
             }
+            const destBalance = destSnap.data()?.balance || 0;
+            transaction.update(destRef, { balance: destBalance + split.amount });
         }
     }
 }
@@ -225,15 +213,13 @@ async function applyTransaction(transaction: FirebaseFirestore.Transaction, newD
 
 export async function updateTransaction(id: string, transactionData: Partial<Omit<Transaction, 'id'>>): Promise<void> {
     await runTransaction(db, async (transaction) => {
-        // --- ALL READS FIRST ---
         const transactionRef = doc(db, TRANSACTIONS_COLLECTION, id);
         const transactionSnap = await transaction.get(transactionRef);
         if (!transactionSnap.exists()) {
             throw new Error("Transaction not found.");
         }
-        const oldData = transactionSnap.data() as Transaction;
+        const oldData = { id, ...transactionSnap.data() } as Transaction;
         
-        // Construct the full newData object
         const newData: Transaction = {
             id: id,
             description: transactionData.description ?? oldData.description,
@@ -243,7 +229,6 @@ export async function updateTransaction(id: string, transactionData: Partial<Omi
             splits: transactionData.splits ?? oldData.splits,
         };
 
-        // --- ALL WRITES AFTER READS ---
         await revertTransaction(transaction, oldData);
         await applyTransaction(transaction, newData);
         
@@ -261,7 +246,6 @@ export async function deleteTransaction(id: string): Promise<void> {
         }
         const oldData = transactionSnap.data() as Transaction;
 
-        // Revert source account debit
         const sourceRef = doc(db, ACCOUNTS_COLLECTION, oldData.sourceAccountId);
         const sourceSnap = await transaction.get(sourceRef);
         if (sourceSnap.exists()) {
@@ -269,7 +253,6 @@ export async function deleteTransaction(id: string): Promise<void> {
             transaction.update(sourceRef, { balance: sourceBalance + oldData.amount });
         }
 
-        // Revert transfer credits
         for (const split of oldData.splits) {
             if (split.type === 'transfer' && split.destinationAccountId) {
                 const destRef = doc(db, ACCOUNTS_COLLECTION, split.destinationAccountId);
