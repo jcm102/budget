@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { differenceInMonths } from 'date-fns';
+import { differenceInMonths, set, getYear, getMonth, getDate } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -90,16 +90,37 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
   const dueDate = form.watch('dueDate');
   const amountSaved = form.watch('amount');
   const recurrence = form.watch('recurrence');
+  const primaryPaymentMonth = form.watch('primaryPaymentMonth');
+  const secondaryPaymentMonth = form.watch('secondaryPaymentMonth');
 
   useEffect(() => {
     const costToUse = (savingsTarget && savingsTarget > 0) ? savingsTarget : (totalCost || 0);
 
-    if (costToUse > 0 && dueDate) {
-      const today = new Date();
-      const due = new Date(dueDate);
+    if (costToUse > 0) {
+      let effectiveDueDate: Date | null = null;
       
-      if (due > today) {
-        const monthsRemaining = differenceInMonths(due, today);
+      if (recurrence === 'Semi-Annually (Custom)' && primaryPaymentMonth && secondaryPaymentMonth) {
+        const today = new Date();
+        const currentYear = getYear(today);
+        const currentMonth = getMonth(today) + 1; // 1-indexed month
+        const currentDate = getDate(today);
+
+        const p1 = { month: primaryPaymentMonth - 1, day: 15 }; // Assume mid-month
+        const p2 = { month: secondaryPaymentMonth - 1, day: 15 };
+
+        let date1 = set(today, { month: p1.month, date: p1.day });
+        let date2 = set(today, { month: p2.month, date: p2.day });
+        
+        if (date1 < today) date1 = set(date1, { year: currentYear + 1 });
+        if (date2 < today) date2 = set(date2, { year: currentYear + 1 });
+
+        effectiveDueDate = date1 < date2 ? date1 : date2;
+      } else if (dueDate) {
+        effectiveDueDate = new Date(dueDate);
+      }
+
+      if (effectiveDueDate && effectiveDueDate > new Date()) {
+        const monthsRemaining = differenceInMonths(effectiveDueDate, new Date());
         const planningMonths = monthsRemaining > 0 ? monthsRemaining : 1;
         const remainingAmount = costToUse - amountSaved;
         
@@ -109,9 +130,14 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
         } else {
           form.setValue('goal', 0);
         }
+      } else {
+        form.setValue('goal', 0);
       }
+    } else {
+        form.setValue('goal', 0);
     }
-  }, [totalCost, savingsTarget, dueDate, amountSaved, form]);
+  }, [totalCost, savingsTarget, dueDate, amountSaved, recurrence, primaryPaymentMonth, secondaryPaymentMonth, form]);
+
 
   useEffect(() => {
     if (open) {
