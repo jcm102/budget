@@ -85,15 +85,11 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
     },
   });
   
-  const totalCost = form.watch('totalCost');
-  const savingsTarget = form.watch('savingsTarget');
-  const dueDateString = form.watch('dueDate');
-  const amountSaved = form.watch('amount');
-  const recurrence = form.watch('recurrence');
-  const primaryPaymentMonth = form.watch('primaryPaymentMonth');
-  const secondaryPaymentMonth = form.watch('secondaryPaymentMonth');
+  const watchedValues = form.watch();
 
   useEffect(() => {
+    const { totalCost, savingsTarget, dueDate: dueDateString, amount: amountSaved, recurrence, primaryPaymentMonth, secondaryPaymentMonth } = watchedValues;
+
     const costToUse = (savingsTarget && savingsTarget > 0) ? savingsTarget : (totalCost || 0);
 
     if (costToUse <= 0) {
@@ -104,21 +100,21 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
     let effectiveDueDate: Date | null = null;
 
     if (recurrence === 'Semi-Annually (Custom)' && primaryPaymentMonth && secondaryPaymentMonth) {
-      const today = new Date();
-      const currentYear = getYear(today);
-      
-      let date1 = set(today, { month: primaryPaymentMonth - 1, date: 15 });
-      let date2 = set(today, { month: secondaryPaymentMonth - 1, date: 15 });
-      
-      if (date1 < today) date1 = set(date1, { year: currentYear + 1 });
-      if (date2 < today) date2 = set(date2, { year: currentYear + 1 });
+        const today = new Date();
+        const currentYear = getYear(today);
+        
+        let date1 = set(new Date(), { month: primaryPaymentMonth - 1, date: 15 });
+        let date2 = set(new Date(), { month: secondaryPaymentMonth - 1, date: 15 });
 
-      effectiveDueDate = date1 < date2 ? date1 : date2;
+        if (date1 < today) date1 = set(date1, { year: currentYear + 1 });
+        if (date2 < today) date2 = set(date2, { year: currentYear + 1 });
+
+        effectiveDueDate = date1 < date2 ? date1 : date2;
     } else if (dueDateString) {
-      const [year, month, day] = dueDateString.split('-').map(Number);
-      if(year && month && day) {
-        effectiveDueDate = new Date(year, month - 1, day);
-      }
+        const parts = dueDateString.split('-').map(Number);
+        if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+            effectiveDueDate = new Date(parts[0], parts[1] - 1, parts[2]);
+        }
     }
     
     if (effectiveDueDate && effectiveDueDate > new Date()) {
@@ -136,7 +132,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
       form.setValue('goal', 0);
     }
     
-  }, [totalCost, savingsTarget, dueDateString, amountSaved, recurrence, primaryPaymentMonth, secondaryPaymentMonth, form]);
+  }, [watchedValues, form]);
 
 
   useEffect(() => {
@@ -197,8 +193,9 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
   }
 
   const setSavingsTargetPercentage = (percentage: number) => {
-    if (totalCost && totalCost > 0) {
-      const target = (totalCost * percentage) / 100;
+    const totalCostValue = form.getValues('totalCost')
+    if (totalCostValue && totalCostValue > 0) {
+      const target = (totalCostValue * percentage) / 100;
       form.setValue('savingsTarget', parseFloat(target.toFixed(2)), { shouldValidate: true });
     }
   }
@@ -290,7 +287,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
                     variant="outline" 
                     size="sm"
                     onClick={() => setSavingsTargetPercentage(p)}
-                    disabled={!totalCost || totalCost <= 0}
+                    disabled={!watchedValues.totalCost || watchedValues.totalCost <= 0}
                     className="flex-1"
                   >
                     {p}%
@@ -323,7 +320,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
                 </FormItem>
               )}
             />
-            {recurrence === 'Semi-Annually (Custom)' && (
+            {watchedValues.recurrence === 'Semi-Annually (Custom)' && (
               <div className="grid grid-cols-2 gap-4">
                 <FormField control={form.control} name="primaryPaymentMonth" render={({ field }) => (
                   <FormItem>
