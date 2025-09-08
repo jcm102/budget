@@ -3,7 +3,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import type { MonthlyBudgetItem, Transaction, TransactionSplit, BudgetItem, AccountDetails } from '@/types';
+import type { MonthlyBudgetItem, Transaction, TransactionSplit, BudgetItem, AccountDetails, Debt } from '@/types';
 import {
   collection,
   getDocs,
@@ -25,6 +25,8 @@ const BUDGET_ITEMS_COLLECTION = 'monthly-budget-items';
 const TRANSACTIONS_COLLECTION = 'transactions';
 const ACCOUNTS_COLLECTION = 'transferees';
 const PA_PAYMENTS_COLLECTION = 'budget-items';
+const DEBT_COLLECTION = 'debts';
+
 
 // ===== Budget Items =====
 
@@ -54,7 +56,19 @@ export async function getAccountDetails(accountId: string): Promise<AccountDetai
     if (!docSnap.exists()) {
         return null;
     }
-    return { id: docSnap.id, ...docSnap.data() } as AccountDetails;
+    const accountData = { id: docSnap.id, ...docSnap.data() } as AccountDetails;
+
+    // If it's a credit account with a linked debt, fetch the debt balance.
+    if (accountData.type === 'Credit' && accountData.linkedDebtId) {
+        const debtRef = doc(db, DEBT_COLLECTION, accountData.linkedDebtId);
+        const debtSnap = await getDoc(debtRef);
+        if (debtSnap.exists()) {
+            const debtData = debtSnap.data() as Debt;
+            accountData.balance = debtData.balance;
+        }
+    }
+
+    return accountData;
 }
 
 export async function getTransactionsForMonth(month: string): Promise<Transaction[]> {
@@ -129,7 +143,7 @@ export async function addTransaction(transactionData: Omit<Transaction, 'id'>): 
         transaction.update(sourceAccountRef, { balance: sourceBalance - amount });
 
         // Credit destination accounts for transfers
-        splits.forEach((split, index) => {
+        splits.forEach((split) => {
             if (split.type === 'transfer') {
                 const destSnap = transferDestinationSnaps.find(snap => snap.id === split.destinationAccountId);
                 if (destSnap) {
