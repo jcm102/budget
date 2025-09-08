@@ -87,10 +87,11 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
   
   const watchedValues = form.watch();
   
-    // Watch specific fields for changes to recalculate the goal
-  const { totalCost, savingsTarget, dueDate, amount, recurrence, primaryPaymentMonth, secondaryPaymentMonth, goal: currentGoal } = watchedValues;
+  // Watch specific fields for changes to recalculate the goal
+  const { totalCost, savingsTarget, dueDate, amount, recurrence, primaryPaymentMonth, secondaryPaymentMonth } = watchedValues;
+  const currentGoal = form.getValues('goal');
 
-  useEffect(() => {
+   useEffect(() => {
     const costToUse = (savingsTarget && savingsTarget > 0) ? savingsTarget : (totalCost || 0);
 
     if (costToUse <= 0) {
@@ -99,29 +100,29 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
     }
 
     let effectiveDueDate: Date | null = null;
+    const today = new Date();
 
     if (recurrence === 'Semi-Annually (Custom)' && primaryPaymentMonth && secondaryPaymentMonth) {
-      const today = new Date();
       const currentYear = getYear(today);
       
-      let date1 = set(new Date(), { month: primaryPaymentMonth - 1, date: 15 });
-      let date2 = set(new Date(), { month: secondaryPaymentMonth - 1, date: 15 });
+      let date1 = set(new Date(0), { year: currentYear, month: primaryPaymentMonth - 1, date: 15 });
+      let date2 = set(new Date(0), { year: currentYear, month: secondaryPaymentMonth - 1, date: 15 });
 
       if (date1 < today) date1 = set(date1, { year: currentYear + 1 });
       if (date2 < today) date2 = set(date2, { year: currentYear + 1 });
 
       effectiveDueDate = date1 < date2 ? date1 : date2;
     } else if (dueDate) {
-      const parts = dueDate.split('-').map(Number);
-      if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
-          // Create date in a way that avoids timezone issues from simple new Date(string) constructor
-          effectiveDueDate = new Date(parts[0], parts[1] - 1, parts[2]);
-      }
+        // Create date in a way that avoids timezone issues from simple new Date(string) constructor
+        const [year, month, day] = dueDate.split('-').map(Number);
+        if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+            effectiveDueDate = new Date(year, month - 1, day);
+        }
     }
     
     let newMonthlyGoal = 0;
-    if (effectiveDueDate && effectiveDueDate > new Date()) {
-      const monthsRemaining = differenceInMonths(effectiveDueDate, new Date());
+    if (effectiveDueDate && effectiveDueDate > today) {
+      const monthsRemaining = differenceInMonths(effectiveDueDate, today);
       const planningMonths = monthsRemaining >= 0 ? monthsRemaining + 1 : 1;
       const remainingAmount = costToUse - amount;
       
@@ -129,11 +130,10 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
         newMonthlyGoal = parseFloat((remainingAmount / planningMonths).toFixed(2));
       }
     }
-
-    if (newMonthlyGoal !== currentGoal) {
-        form.setValue('goal', newMonthlyGoal);
-    }
     
+    if (newMonthlyGoal !== currentGoal) {
+      form.setValue('goal', newMonthlyGoal);
+    }
   }, [totalCost, savingsTarget, dueDate, amount, recurrence, primaryPaymentMonth, secondaryPaymentMonth, form, currentGoal]);
 
 
