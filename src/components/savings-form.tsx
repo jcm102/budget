@@ -87,7 +87,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
   
   const totalCost = form.watch('totalCost');
   const savingsTarget = form.watch('savingsTarget');
-  const dueDate = form.watch('dueDate');
+  const dueDateString = form.watch('dueDate');
   const amountSaved = form.watch('amount');
   const recurrence = form.watch('recurrence');
   const primaryPaymentMonth = form.watch('primaryPaymentMonth');
@@ -96,47 +96,47 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
   useEffect(() => {
     const costToUse = (savingsTarget && savingsTarget > 0) ? savingsTarget : (totalCost || 0);
 
-    if (costToUse > 0) {
-      let effectiveDueDate: Date | null = null;
-      
-      if (recurrence === 'Semi-Annually (Custom)' && primaryPaymentMonth && secondaryPaymentMonth) {
-        const today = new Date();
-        const currentYear = getYear(today);
-        
-        // Use a fixed day like the 15th to avoid month-end issues
-        let date1 = set(today, { month: primaryPaymentMonth - 1, date: 15 });
-        let date2 = set(today, { month: secondaryPaymentMonth - 1, date: 15 });
-        
-        // If a payment date for this year has already passed, move it to next year
-        if (date1 < today) date1 = set(date1, { year: currentYear + 1 });
-        if (date2 < today) date2 = set(date2, { year: currentYear + 1 });
+    if (costToUse <= 0) {
+      form.setValue('goal', 0);
+      return;
+    }
 
-        // The effective due date is the sooner of the two future dates
-        effectiveDueDate = date1 < date2 ? date1 : date2;
-      } else if (dueDate) {
-        // Create a date object from the string, ensuring it's treated as local time
-        const [year, month, day] = dueDate.split('-').map(Number);
+    let effectiveDueDate: Date | null = null;
+
+    if (recurrence === 'Semi-Annually (Custom)' && primaryPaymentMonth && secondaryPaymentMonth) {
+      const today = new Date();
+      const currentYear = getYear(today);
+      
+      let date1 = set(today, { month: primaryPaymentMonth - 1, date: 15 });
+      let date2 = set(today, { month: secondaryPaymentMonth - 1, date: 15 });
+      
+      if (date1 < today) date1 = set(date1, { year: currentYear + 1 });
+      if (date2 < today) date2 = set(date2, { year: currentYear + 1 });
+
+      effectiveDueDate = date1 < date2 ? date1 : date2;
+    } else if (dueDateString) {
+      const [year, month, day] = dueDateString.split('-').map(Number);
+      if(year && month && day) {
         effectiveDueDate = new Date(year, month - 1, day);
       }
-
-      if (effectiveDueDate && effectiveDueDate > new Date()) {
-        const monthsRemaining = differenceInMonths(effectiveDueDate, new Date());
-        const planningMonths = monthsRemaining > 0 ? monthsRemaining : 1;
-        const remainingAmount = costToUse - amountSaved;
-        
-        if (remainingAmount > 0) {
-          const monthlyGoal = remainingAmount / planningMonths;
-          form.setValue('goal', parseFloat(monthlyGoal.toFixed(2)));
-        } else {
-          form.setValue('goal', 0);
-        }
+    }
+    
+    if (effectiveDueDate && effectiveDueDate > new Date()) {
+      const monthsRemaining = differenceInMonths(effectiveDueDate, new Date());
+      const planningMonths = monthsRemaining >= 0 ? monthsRemaining + 1 : 1;
+      const remainingAmount = costToUse - amountSaved;
+      
+      if (remainingAmount > 0) {
+        const monthlyGoal = remainingAmount / planningMonths;
+        form.setValue('goal', parseFloat(monthlyGoal.toFixed(2)));
       } else {
         form.setValue('goal', 0);
       }
     } else {
-        form.setValue('goal', 0);
+      form.setValue('goal', 0);
     }
-  }, [totalCost, savingsTarget, dueDate, amountSaved, recurrence, primaryPaymentMonth, secondaryPaymentMonth, form]);
+    
+  }, [totalCost, savingsTarget, dueDateString, amountSaved, recurrence, primaryPaymentMonth, secondaryPaymentMonth, form]);
 
 
   useEffect(() => {
