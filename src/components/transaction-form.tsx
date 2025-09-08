@@ -202,34 +202,47 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
       return buildTree(null);
   }, [categories]);
 
-  const renderCategoryOptions = (nodes: CategoryWithChildren[]) => {
-    return nodes.map(node => {
-      if (node.children.length > 0) {
-        return (
-          <SelectGroup key={node.id}>
-            <SelectLabel>{node.name}</SelectLabel>
-            {node.children.map(child => (
-              <SelectItem key={child.id} value={child.id} style={{ paddingLeft: '2rem' }}>
-                {child.name}
-              </SelectItem>
-            ))}
-          </SelectGroup>
-        );
-      } else {
-        return (
-          <SelectItem key={node.id} value={node.id}>
-            {node.name}
-          </SelectItem>
-        );
-      }
-    });
+  const renderCategoryOptions = (nodes: CategoryWithChildren[], level = 0): JSX.Element[] => {
+      let options: JSX.Element[] = [];
+      nodes.forEach(node => {
+          const budgetItem = budgetItems.find(b => b.categoryId === node.id);
+          const hasBreakdown = budgetItem && budgetItem.breakdown && budgetItem.breakdown.length > 0 && !(budgetItem.breakdown.length === 1 && budgetItem.breakdown[0].name === 'Default');
+
+          if (hasBreakdown && budgetItem.breakdown) {
+              options.push(
+                  <SelectGroup key={node.id}>
+                      <SelectLabel style={{ paddingLeft: `${level * 1}rem` }}>{node.name}</SelectLabel>
+                      {budgetItem.breakdown.map(subItem => (
+                          <SelectItem key={`${node.id}-${subItem.name}`} value={`${node.id}::${subItem.name}`} style={{ paddingLeft: `${1 + (level + 1) * 1}rem` }}>
+                              {subItem.name}
+                          </SelectItem>
+                      ))}
+                  </SelectGroup>
+              );
+          } else {
+              options.push(
+                  <SelectItem key={node.id} value={`${node.id}::Default`} style={{ paddingLeft: `${1 + level * 1}rem` }}>
+                      {node.name}
+                  </SelectItem>
+              );
+          }
+
+          if (node.children.length > 0) {
+              options = options.concat(renderCategoryOptions(node.children, level + 1));
+          }
+      });
+      return options;
   };
 
-  const getBreakdownForCategory = (categoryId?: string): MonthlyBudgetItem['breakdown'] => {
-      if (!categoryId) return undefined;
-      const budgetItem = budgetItems.find(item => item.categoryId === categoryId);
-      return budgetItem?.breakdown;
-  }
+
+  const handleCategoryChange = (value: string, index: number) => {
+      const [categoryId, budgetItemName] = value.split('::');
+      update(index, {
+          ...currentSplits[index],
+          categoryId: categoryId,
+          budgetItemName: budgetItemName
+      });
+  };
 
 
   return (
@@ -295,9 +308,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                 <FormLabel>Transaction Splits</FormLabel>
                 <div className="space-y-3">
                     {splitFields.map((field, index) => {
-                        const selectedCategoryId = currentSplits[index]?.categoryId;
-                        const categoryBreakdown = getBreakdownForCategory(selectedCategoryId);
-                        const showBreakdown = currentSplits[index]?.type === 'expense' && categoryBreakdown && categoryBreakdown.length > 1;
+                         const selectedValue = `${currentSplits[index]?.categoryId}::${currentSplits[index]?.budgetItemName}`;
 
                         return (
                             <div key={field.id} className="p-3 border rounded-lg space-y-3">
@@ -333,7 +344,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel className="sr-only">Category</FormLabel>
-                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                <Select onValueChange={(value) => handleCategoryChange(value, index)} value={selectedValue}>
                                                     <FormControl><SelectTrigger><SelectValue placeholder="Select a category"/></SelectTrigger></FormControl>
                                                     <SelectContent>{renderCategoryOptions(categoryTree)}</SelectContent>
                                                 </Select>
@@ -377,25 +388,6 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                                     </Button>
                                    </div>
                                 </div>
-                                 {showBreakdown && (
-                                    <FormField
-                                        control={form.control}
-                                        name={`splits.${index}.budgetItemName`}
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="text-xs">Budget Item</FormLabel>
-                                                <Select onValueChange={field.onChange} value={field.value}>
-                                                    <FormControl><SelectTrigger><SelectValue placeholder="Select a budget item"/></SelectTrigger></FormControl>
-                                                    <SelectContent>
-                                                        {categoryBreakdown?.map(item => (
-                                                            <SelectItem key={item.name} value={item.name}>{item.name}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </FormItem>
-                                        )}
-                                     />
-                                )}
                             </div>
                         )
                     })}
