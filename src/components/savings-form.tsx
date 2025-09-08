@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { differenceInMonths, set, getYear, getMonth, getDate } from 'date-fns';
+import { differenceInMonths, set, getYear } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { SavingsItem, SavingsRecurrence, Account } from '@/types';
+import type { SavingsItem, SavingsRecurrence } from '@/types';
 import { useAccounts } from '@/hooks/use-accounts';
 
 const monthOptions = [
@@ -86,53 +86,55 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
   });
   
   const watchedValues = form.watch();
+  
+    // Watch specific fields for changes to recalculate the goal
+  const { totalCost, savingsTarget, dueDate, amount, recurrence, primaryPaymentMonth, secondaryPaymentMonth, goal: currentGoal } = watchedValues;
 
   useEffect(() => {
-    const { totalCost, savingsTarget, dueDate: dueDateString, amount: amountSaved, recurrence, primaryPaymentMonth, secondaryPaymentMonth } = watchedValues;
-
     const costToUse = (savingsTarget && savingsTarget > 0) ? savingsTarget : (totalCost || 0);
 
     if (costToUse <= 0) {
-      form.setValue('goal', 0);
+      if (currentGoal !== 0) form.setValue('goal', 0);
       return;
     }
 
     let effectiveDueDate: Date | null = null;
 
     if (recurrence === 'Semi-Annually (Custom)' && primaryPaymentMonth && secondaryPaymentMonth) {
-        const today = new Date();
-        const currentYear = getYear(today);
-        
-        let date1 = set(new Date(), { month: primaryPaymentMonth - 1, date: 15 });
-        let date2 = set(new Date(), { month: secondaryPaymentMonth - 1, date: 15 });
+      const today = new Date();
+      const currentYear = getYear(today);
+      
+      let date1 = set(new Date(), { month: primaryPaymentMonth - 1, date: 15 });
+      let date2 = set(new Date(), { month: secondaryPaymentMonth - 1, date: 15 });
 
-        if (date1 < today) date1 = set(date1, { year: currentYear + 1 });
-        if (date2 < today) date2 = set(date2, { year: currentYear + 1 });
+      if (date1 < today) date1 = set(date1, { year: currentYear + 1 });
+      if (date2 < today) date2 = set(date2, { year: currentYear + 1 });
 
-        effectiveDueDate = date1 < date2 ? date1 : date2;
-    } else if (dueDateString) {
-        const parts = dueDateString.split('-').map(Number);
-        if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
-            effectiveDueDate = new Date(parts[0], parts[1] - 1, parts[2]);
-        }
+      effectiveDueDate = date1 < date2 ? date1 : date2;
+    } else if (dueDate) {
+      const parts = dueDate.split('-').map(Number);
+      if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+          // Create date in a way that avoids timezone issues from simple new Date(string) constructor
+          effectiveDueDate = new Date(parts[0], parts[1] - 1, parts[2]);
+      }
     }
     
+    let newMonthlyGoal = 0;
     if (effectiveDueDate && effectiveDueDate > new Date()) {
       const monthsRemaining = differenceInMonths(effectiveDueDate, new Date());
       const planningMonths = monthsRemaining >= 0 ? monthsRemaining + 1 : 1;
-      const remainingAmount = costToUse - amountSaved;
+      const remainingAmount = costToUse - amount;
       
       if (remainingAmount > 0) {
-        const monthlyGoal = remainingAmount / planningMonths;
-        form.setValue('goal', parseFloat(monthlyGoal.toFixed(2)));
-      } else {
-        form.setValue('goal', 0);
+        newMonthlyGoal = parseFloat((remainingAmount / planningMonths).toFixed(2));
       }
-    } else {
-      form.setValue('goal', 0);
+    }
+
+    if (newMonthlyGoal !== currentGoal) {
+        form.setValue('goal', newMonthlyGoal);
     }
     
-  }, [watchedValues, form]);
+  }, [totalCost, savingsTarget, dueDate, amount, recurrence, primaryPaymentMonth, secondaryPaymentMonth, form, currentGoal]);
 
 
   useEffect(() => {
