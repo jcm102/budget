@@ -38,7 +38,9 @@ import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -95,6 +97,8 @@ type TransactionFormProps = {
   deleteTransaction: (id: string, accountId?: string) => void;
   editingTransaction: Transaction | null;
 };
+
+type CategoryWithChildren = CategoryType & { children: CategoryWithChildren[] };
 
 
 export function TransactionForm({ open, onOpenChange, accounts, addTransaction, updateTransaction, deleteTransaction, editingTransaction }: TransactionFormProps) {
@@ -187,7 +191,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
   };
   
   const categoryTree = useMemo(() => {
-      const buildTree = (parentId: string | null = null) => {
+      const buildTree = (parentId: string | null = null): CategoryWithChildren[] => {
           return categories
               .filter(c => c.parentId === parentId)
               .map(c => ({
@@ -198,19 +202,27 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
       return buildTree(null);
   }, [categories]);
 
-  const renderCategoryOptions = (nodes: any[], level = 0) => {
-    let options: JSX.Element[] = [];
-    nodes.forEach(node => {
-        options.push(
-            <SelectItem key={node.id} value={node.id} style={{ paddingLeft: `${1 + level * 1}rem` }}>
-                {node.name}
-            </SelectItem>
+  const renderCategoryOptions = (nodes: CategoryWithChildren[]) => {
+    return nodes.map(node => {
+      if (node.children.length > 0) {
+        return (
+          <SelectGroup key={node.id}>
+            <SelectLabel>{node.name}</SelectLabel>
+            {node.children.map(child => (
+              <SelectItem key={child.id} value={child.id} style={{ paddingLeft: '2rem' }}>
+                {child.name}
+              </SelectItem>
+            ))}
+          </SelectGroup>
         );
-        if (node.children.length > 0) {
-            options = options.concat(renderCategoryOptions(node.children, level + 1));
-        }
+      } else {
+        return (
+          <SelectItem key={node.id} value={node.id}>
+            {node.name}
+          </SelectItem>
+        );
+      }
     });
-    return options;
   };
 
   const getBreakdownForCategory = (categoryId?: string): MonthlyBudgetItem['breakdown'] => {
