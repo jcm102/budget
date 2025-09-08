@@ -28,6 +28,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { SavingsItem, SavingsRecurrence, Account } from '@/types';
 import { useAccounts } from '@/hooks/use-accounts';
 
+const monthOptions = [
+    { label: 'January', value: 1 },
+    { label: 'February', value: 2 },
+    { label: 'March', value: 3 },
+    { label: 'April', value: 4 },
+    { label: 'May', value: 5 },
+    { label: 'June', value: 6 },
+    { label: 'July', value: 7 },
+    { label: 'August', value: 8 },
+    { label: 'September', value: 9 },
+    { label: 'October', value: 10 },
+    { label: 'November', value: 11 },
+    { label: 'December', value: 12 },
+];
+
+
 const formSchema = z.object({
   name: z.string().min(2, 'Fund name must be at least 2 characters.'),
   amount: z.coerce.number().min(0, 'Amount must be a positive number.'),
@@ -38,7 +54,8 @@ const formSchema = z.object({
   savingsTarget: z.coerce.number().optional(),
   dueDate: z.string().optional(),
   recurrence: z.enum(['None', 'Quarterly', 'Semi-Annually', 'Annually', 'Bi-Annually', 'Semi-Annually (Custom)']).optional(),
-  semiAnnualOffset: z.coerce.number().optional(),
+  primaryPaymentMonth: z.coerce.number().optional(),
+  secondaryPaymentMonth: z.coerce.number().optional(),
 });
 
 type SavingsFormProps = {
@@ -63,7 +80,8 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
       savingsTarget: 0,
       dueDate: '',
       recurrence: 'None',
-      semiAnnualOffset: 0,
+      primaryPaymentMonth: undefined,
+      secondaryPaymentMonth: undefined,
     },
   });
   
@@ -108,7 +126,8 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
           savingsTarget: editingItem.savingsTarget || 0,
           dueDate: editingItem.dueDate ? new Date(editingItem.dueDate).toISOString().split('T')[0] : '',
           recurrence: editingItem.recurrence || 'None',
-          semiAnnualOffset: editingItem.semiAnnualOffset || 0,
+          primaryPaymentMonth: editingItem.primaryPaymentMonth || undefined,
+          secondaryPaymentMonth: editingItem.secondaryPaymentMonth || undefined,
         });
       } else {
         form.reset({
@@ -121,7 +140,8 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
           savingsTarget: 0,
           dueDate: '',
           recurrence: 'None',
-          semiAnnualOffset: 0,
+          primaryPaymentMonth: undefined,
+          secondaryPaymentMonth: undefined,
         });
       }
     }
@@ -138,7 +158,8 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
       savingsTarget: values.savingsTarget || null,
       dueDate: values.dueDate ? new Date(values.dueDate).toISOString() : null,
       recurrence: values.recurrence as SavingsRecurrence,
-      semiAnnualOffset: values.recurrence === 'Semi-Annually (Custom)' ? values.semiAnnualOffset : null,
+      primaryPaymentMonth: values.recurrence === 'Semi-Annually (Custom)' ? values.primaryPaymentMonth : null,
+      secondaryPaymentMonth: values.recurrence === 'Semi-Annually (Custom)' ? values.secondaryPaymentMonth : null,
     };
 
     if (editingItem) {
@@ -277,14 +298,32 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
               )}
             />
             {recurrence === 'Semi-Annually (Custom)' && (
-              <FormField control={form.control} name="semiAnnualOffset" render={({ field }) => (
+              <div className="grid grid-cols-2 gap-4">
+                <FormField control={form.control} name="primaryPaymentMonth" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Months Between Payments</FormLabel>
-                    <FormControl><Input type="number" placeholder="e.g., 5" {...field} /></FormControl>
+                    <FormLabel>First Payment</FormLabel>
+                     <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Month" /></SelectTrigger></FormControl>
+                        <SelectContent>
+                            {monthOptions.map(m => <SelectItem key={m.value} value={m.value.toString()}>{m.label}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
-                )}
-              />
+                )}/>
+                 <FormField control={form.control} name="secondaryPaymentMonth" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Second Payment</FormLabel>
+                     <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Month" /></SelectTrigger></FormControl>
+                        <SelectContent>
+                            {monthOptions.map(m => <SelectItem key={m.value} value={m.value.toString()}>{m.label}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}/>
+              </div>
             )}
             <FormField control={form.control} name="goal" render={({ field }) => (
                 <FormItem>

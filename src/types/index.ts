@@ -149,7 +149,8 @@ export interface SavingsItem {
   savingsTarget?: number | null; // Optional personal savings goal if different from totalCost
   dueDate?: string | null; // Optional due date for the fund
   recurrence?: SavingsRecurrence | null;
-  semiAnnualOffset?: number | null; // For "Semi-Annually (Custom)"
+  primaryPaymentMonth?: number | null; // For "Semi-Annually (Custom)"
+  secondaryPaymentMonth?: number | null; // For "Semi-Annually (Custom)"
   parentId?: string | null;
   
   // These fields are calculated at runtime for display

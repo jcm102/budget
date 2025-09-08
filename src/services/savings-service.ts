@@ -16,7 +16,7 @@ import {
   orderBy,
   where,
 } from 'firebase/firestore';
-import { addMonths } from 'date-fns';
+import { addMonths, set } from 'date-fns';
 
 const SAVINGS_COLLECTION = 'sinking-funds';
 
@@ -24,7 +24,7 @@ const recurrenceIntervalMap: Record<SavingsRecurrence, number> = {
     'None': 0,
     'Quarterly': 3,
     'Semi-Annually': 6,
-    'Semi-Annually (Custom)': 6, // Base for custom logic
+    'Semi-Annually (Custom)': 0, // Custom logic handled separately
     'Annually': 12,
     'Bi-Annually': 24,
 };
@@ -63,24 +63,24 @@ export async function updateSavingsItem(id: string, itemData: Partial<Omit<Savin
     existingData.dueDate
   ) {
     const savingsTarget = existingData.savingsTarget || existingData.totalCost || 0;
-    const amountAfterWithdrawal = itemData.amount!;
-    const amountWithdrawn = existingData.amount - amountAfterWithdrawal;
+    const amountWithdrawn = existingData.amount - itemData.amount!;
 
     // If they withdrew at least the target amount, reset the date.
     if (savingsTarget > 0 && amountWithdrawn >= savingsTarget) {
-      if (existingData.recurrence === 'Semi-Annually (Custom)' && existingData.semiAnnualOffset) {
+      if (existingData.recurrence === 'Semi-Annually (Custom)' && existingData.primaryPaymentMonth && existingData.secondaryPaymentMonth) {
           const currentDueDate = new Date(existingData.dueDate);
-          const year = currentDueDate.getFullYear();
-          const firstPaymentMonth = currentDueDate.getMonth();
-          const secondPaymentMonth = (firstPaymentMonth + existingData.semiAnnualOffset) % 12;
+          const currentDueMonth = currentDueDate.getMonth() + 1; // 1-indexed
+          const p1 = existingData.primaryPaymentMonth;
+          const p2 = existingData.secondaryPaymentMonth;
 
-          let nextDueDate;
-          if (currentDueDate.getMonth() === firstPaymentMonth) {
-              // The withdrawal was for the first payment, set next due date to the second.
-              nextDueDate = new Date(year, secondPaymentMonth, currentDueDate.getDate());
+          let nextDueDate: Date;
+
+          if (currentDueMonth === p1) {
+              // Current due date was the primary month, next is the secondary month in the same year.
+              nextDueDate = set(currentDueDate, { month: p2 - 1 });
           } else {
-              // The withdrawal was for the second payment, set next due date to the first payment of next year.
-              nextDueDate = new Date(year + 1, firstPaymentMonth, currentDueDate.getDate());
+              // Current due date was the secondary month, next is the primary month in the *next* year.
+              nextDueDate = set(currentDueDate, { year: currentDueDate.getFullYear() + 1, month: p1 - 1 });
           }
           itemData.dueDate = nextDueDate.toISOString();
 
