@@ -275,7 +275,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                         <SelectContent>
                         {accounts.map(acc => (
                             <SelectItem key={acc.id} value={acc.id}>
-                                {acc.name} ({formatCurrency(acc.balance)})
+                                {acc.name} {acc.balance !== undefined ? `(${formatCurrency(acc.balance)})` : ''}
                             </SelectItem>
                         ))}
                         </SelectContent>

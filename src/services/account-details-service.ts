@@ -2,7 +2,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import type { AccountDetails } from '@/types';
+import type { AccountDetails, Debt } from '@/types';
 import {
   collection,
   getDocs,
@@ -17,6 +17,7 @@ import {
 } from 'firebase/firestore';
 
 const ACCOUNT_DETAILS_COLLECTION = 'transferees'; // Keeping the old collection name to avoid data loss
+const DEBT_COLLECTION = 'debts';
 const defaultAccounts = [
     { name: 'Chequing Account', type: 'Chequing', balance: 0 },
     { name: 'Savings Account', type: 'Savings', balance: 0 },
@@ -40,10 +41,26 @@ async function seedDefaultAccounts() {
 
 export async function getAccounts(): Promise<AccountDetails[]> {
   await seedDefaultAccounts();
+  
   const accountCollection = collection(db, ACCOUNT_DETAILS_COLLECTION);
-  const q = query(accountCollection, orderBy('name'));
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccountDetails));
+  const debtCollection = collection(db, DEBT_COLLECTION);
+
+  const [accountSnapshot, debtSnapshot] = await Promise.all([
+    getDocs(query(accountCollection, orderBy('name'))),
+    getDocs(debtCollection)
+  ]);
+  
+  const debtsMap = new Map(debtSnapshot.docs.map(doc => [doc.id, doc.data() as Debt]));
+
+  const accounts = accountSnapshot.docs.map(doc => {
+    const account = { id: doc.id, ...doc.data() } as AccountDetails;
+    if (account.type === 'Credit' && account.linkedDebtId && debtsMap.has(account.linkedDebtId)) {
+        account.balance = debtsMap.get(account.linkedDebtId)!.balance;
+    }
+    return account;
+  });
+
+  return accounts;
 }
 
 export async function addAccount(accountData: Omit<AccountDetails, 'id'>): Promise<AccountDetails> {
