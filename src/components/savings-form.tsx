@@ -102,21 +102,21 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
       if (recurrence === 'Semi-Annually (Custom)' && primaryPaymentMonth && secondaryPaymentMonth) {
         const today = new Date();
         const currentYear = getYear(today);
-        const currentMonth = getMonth(today) + 1; // 1-indexed month
-        const currentDate = getDate(today);
-
-        const p1 = { month: primaryPaymentMonth - 1, day: 15 }; // Assume mid-month
-        const p2 = { month: secondaryPaymentMonth - 1, day: 15 };
-
-        let date1 = set(today, { month: p1.month, date: p1.day });
-        let date2 = set(today, { month: p2.month, date: p2.day });
         
+        // Use a fixed day like the 15th to avoid month-end issues
+        let date1 = set(today, { month: primaryPaymentMonth - 1, date: 15 });
+        let date2 = set(today, { month: secondaryPaymentMonth - 1, date: 15 });
+        
+        // If a payment date for this year has already passed, move it to next year
         if (date1 < today) date1 = set(date1, { year: currentYear + 1 });
         if (date2 < today) date2 = set(date2, { year: currentYear + 1 });
 
+        // The effective due date is the sooner of the two future dates
         effectiveDueDate = date1 < date2 ? date1 : date2;
       } else if (dueDate) {
-        effectiveDueDate = new Date(dueDate);
+        // Create a date object from the string, ensuring it's treated as local time
+        const [year, month, day] = dueDate.split('-').map(Number);
+        effectiveDueDate = new Date(year, month - 1, day);
       }
 
       if (effectiveDueDate && effectiveDueDate > new Date()) {
