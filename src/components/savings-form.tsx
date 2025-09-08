@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect } from 'react';
@@ -36,7 +37,8 @@ const formSchema = z.object({
   totalCost: z.coerce.number().optional(),
   savingsTarget: z.coerce.number().optional(),
   dueDate: z.string().optional(),
-  recurrence: z.enum(['None', 'Quarterly', 'Semi-Annually', 'Annually', 'Bi-Annually']).optional(),
+  recurrence: z.enum(['None', 'Quarterly', 'Semi-Annually', 'Annually', 'Bi-Annually', 'Semi-Annually (Custom)']).optional(),
+  semiAnnualOffset: z.coerce.number().optional(),
 });
 
 type SavingsFormProps = {
@@ -61,6 +63,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
       savingsTarget: 0,
       dueDate: '',
       recurrence: 'None',
+      semiAnnualOffset: 0,
     },
   });
   
@@ -68,6 +71,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
   const savingsTarget = form.watch('savingsTarget');
   const dueDate = form.watch('dueDate');
   const amountSaved = form.watch('amount');
+  const recurrence = form.watch('recurrence');
 
   useEffect(() => {
     const costToUse = (savingsTarget && savingsTarget > 0) ? savingsTarget : (totalCost || 0);
@@ -104,6 +108,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
           savingsTarget: editingItem.savingsTarget || 0,
           dueDate: editingItem.dueDate ? new Date(editingItem.dueDate).toISOString().split('T')[0] : '',
           recurrence: editingItem.recurrence || 'None',
+          semiAnnualOffset: editingItem.semiAnnualOffset || 0,
         });
       } else {
         form.reset({
@@ -116,6 +121,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
           savingsTarget: 0,
           dueDate: '',
           recurrence: 'None',
+          semiAnnualOffset: 0,
         });
       }
     }
@@ -132,6 +138,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
       savingsTarget: values.savingsTarget || null,
       dueDate: values.dueDate ? new Date(values.dueDate).toISOString() : null,
       recurrence: values.recurrence as SavingsRecurrence,
+      semiAnnualOffset: values.recurrence === 'Semi-Annually (Custom)' ? values.semiAnnualOffset : null,
     };
 
     if (editingItem) {
@@ -260,6 +267,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
                         <SelectItem value="None">None (One-Time)</SelectItem>
                         <SelectItem value="Quarterly">Quarterly</SelectItem>
                         <SelectItem value="Semi-Annually">Semi-Annually</SelectItem>
+                        <SelectItem value="Semi-Annually (Custom)">Semi-Annually (Custom)</SelectItem>
                         <SelectItem value="Annually">Annually</SelectItem>
                         <SelectItem value="Bi-Annually">Bi-Annually</SelectItem>
                     </SelectContent>
@@ -268,6 +276,16 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
                 </FormItem>
               )}
             />
+            {recurrence === 'Semi-Annually (Custom)' && (
+              <FormField control={form.control} name="semiAnnualOffset" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Months Between Payments</FormLabel>
+                    <FormControl><Input type="number" placeholder="e.g., 5" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
             <FormField control={form.control} name="goal" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Monthly Contribution Goal (Optional)</FormLabel>

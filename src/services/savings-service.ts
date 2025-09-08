@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -23,6 +24,7 @@ const recurrenceIntervalMap: Record<SavingsRecurrence, number> = {
     'None': 0,
     'Quarterly': 3,
     'Semi-Annually': 6,
+    'Semi-Annually (Custom)': 6, // Base for custom logic
     'Annually': 12,
     'Bi-Annually': 24,
 };
@@ -66,14 +68,33 @@ export async function updateSavingsItem(id: string, itemData: Partial<Omit<Savin
 
     // If they withdrew at least the target amount, reset the date.
     if (savingsTarget > 0 && amountWithdrawn >= savingsTarget) {
-      const monthsToAdd = recurrenceIntervalMap[existingData.recurrence];
-      if (monthsToAdd > 0) {
-        const newDueDate = addMonths(new Date(existingData.dueDate), monthsToAdd);
-        itemData.dueDate = newDueDate.toISOString();
-        // The new amount will be whatever is left over after the large withdrawal.
-        itemData.amount = existingData.amount - savingsTarget;
-        if(itemData.amount < 0) itemData.amount = 0;
+      if (existingData.recurrence === 'Semi-Annually (Custom)' && existingData.semiAnnualOffset) {
+          const currentDueDate = new Date(existingData.dueDate);
+          const year = currentDueDate.getFullYear();
+          const firstPaymentMonth = currentDueDate.getMonth();
+          const secondPaymentMonth = (firstPaymentMonth + existingData.semiAnnualOffset) % 12;
+
+          let nextDueDate;
+          if (currentDueDate.getMonth() === firstPaymentMonth) {
+              // The withdrawal was for the first payment, set next due date to the second.
+              nextDueDate = new Date(year, secondPaymentMonth, currentDueDate.getDate());
+          } else {
+              // The withdrawal was for the second payment, set next due date to the first payment of next year.
+              nextDueDate = new Date(year + 1, firstPaymentMonth, currentDueDate.getDate());
+          }
+          itemData.dueDate = nextDueDate.toISOString();
+
+      } else {
+          const monthsToAdd = recurrenceIntervalMap[existingData.recurrence];
+          if (monthsToAdd > 0) {
+            const newDueDate = addMonths(new Date(existingData.dueDate), monthsToAdd);
+            itemData.dueDate = newDueDate.toISOString();
+          }
       }
+      
+      // The new amount will be whatever is left over after the large withdrawal.
+      itemData.amount = existingData.amount - savingsTarget;
+      if(itemData.amount < 0) itemData.amount = 0;
     }
   }
 
