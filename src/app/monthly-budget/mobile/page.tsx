@@ -11,14 +11,18 @@ import { useTransactions } from '@/hooks/use-transactions';
 
 export default function MobileBudgetPage() {
   const [isTransactionFormOpen, setIsTransactionFormOpen] = useState(false);
-  const { addTransaction } = useTransactions();
+  const { addTransaction, accounts, updateTransaction, deleteTransaction } = useTransactions();
 
   return (
     <>
       <TransactionForm
         open={isTransactionFormOpen}
         onOpenChange={setIsTransactionFormOpen}
+        accounts={accounts}
         addTransaction={addTransaction}
+        updateTransaction={updateTransaction}
+        deleteTransaction={deleteTransaction}
+        editingTransaction={null}
       />
       <div className="container mx-auto max-w-md p-4 flex flex-col h-screen">
         <header className="mb-4">

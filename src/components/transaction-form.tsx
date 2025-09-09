@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -101,7 +100,7 @@ type TransactionFormProps = {
 type CategoryWithChildren = CategoryType & { children: CategoryWithChildren[] };
 
 
-export function TransactionForm({ open, onOpenChange, accounts, addTransaction, updateTransaction, deleteTransaction, editingTransaction }: TransactionFormProps) {
+export function TransactionForm({ open, onOpenChange, accounts = [], addTransaction, updateTransaction, deleteTransaction, editingTransaction }: TransactionFormProps) {
   const { categories, budgetItems, isLoading: isLoadingCategories } = useMonthlyBudget();
 
   const form = useForm<z.infer<typeof formSchema>>({
