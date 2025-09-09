@@ -24,7 +24,7 @@ export default function MobileBudgetPage() {
         deleteTransaction={deleteTransaction}
         editingTransaction={null}
       />
-      <div className="container mx-auto max-w-md p-4 flex flex-col h-screen">
+      <div className="container mx-auto max-w-md p-4 flex flex-col min-h-screen">
         <header className="mb-4">
           <Button asChild variant="outline" size="sm">
             <Link href="/monthly-budget">
@@ -33,7 +33,7 @@ export default function MobileBudgetPage() {
             </Link>
           </Button>
         </header>
-        <main className="flex-grow flex flex-col gap-4">
+        <main className="flex-1 flex flex-col gap-4">
              <div className="py-2">
                 <Button size="lg" className="w-full h-14 text-lg" onClick={() => setIsTransactionFormOpen(true)}>
                     <PlusCircle className="mr-2 h-6 w-6" />
