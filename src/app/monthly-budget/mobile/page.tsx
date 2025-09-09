@@ -33,7 +33,7 @@ export default function MobileBudgetPage() {
             </Link>
           </Button>
         </header>
-        <main className="flex flex-col gap-4">
+        <main className="space-y-4">
              <div className="py-2">
                 <Button size="lg" className="w-full h-14 text-lg" onClick={() => setIsTransactionFormOpen(true)}>
                     <PlusCircle className="mr-2 h-6 w-6" />

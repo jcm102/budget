@@ -30,7 +30,9 @@ export default function RootLayout({
                 <SidebarHeader>
                     <SidebarTrigger />
                 </SidebarHeader>
-                {children}
+                <div className="flex-1 overflow-y-auto">
+                    {children}
+                </div>
             </SidebarInset>
         </SidebarProvider>
         <Toaster />
