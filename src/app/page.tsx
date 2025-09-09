@@ -1,16 +1,23 @@
+
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTasks } from '@/hooks/use-tasks';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { TaskForm } from '@/components/task-form';
 import { TaskList } from '@/components/task-list';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, Sunrise, CalendarDays, CalendarRange } from 'lucide-react';
+import { PlusCircle, Sunrise, CalendarDays, CalendarRange, Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Task, Subtask } from '@/types';
 
 export default function Home() {
+  const router = useRouter();
+  const isMobile = useIsMobile();
+  const [isRedirecting, setIsRedirecting] = useState(true);
+
   const { 
     tasks,
     linkGroups,
@@ -28,6 +35,21 @@ export default function Home() {
   } = useTasks();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  
+  useEffect(() => {
+    // The isMobile hook needs a moment to determine the device type.
+    // We only want to act once it has a definitive value (true or false).
+    if (isMobile === undefined) {
+      return;
+    }
+    
+    if (isMobile) {
+      router.replace('/monthly-budget/mobile');
+    } else {
+      setIsRedirecting(false);
+    }
+  }, [isMobile, router]);
+
 
   const handleEdit = (task: Task) => {
     setEditingTask(task);
@@ -59,6 +81,14 @@ export default function Home() {
       <Skeleton className="h-20 w-full" />
     </div>
   );
+
+  if (isRedirecting) {
+    return (
+        <div className="flex justify-center items-center h-screen">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+    );
+  }
 
   return (
     <>
