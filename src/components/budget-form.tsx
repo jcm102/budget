@@ -203,8 +203,11 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
   useEffect(() => {
     if (itemType !== 'Income') {
         form.setValue('category', 'N/A');
+        form.setValue('destinationAccountId', undefined);
+        form.setValue('forNextMonth', false);
     } else {
-        if(form.getValues('category') === 'N/A'){
+        const currentCategory = form.getValues('category');
+        if(currentCategory === 'N/A'){
              form.setValue('category', '');
         }
     }
@@ -215,7 +218,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
      if (itemType !== 'Pre-Authorized Payments') {
       form.setValue('budgetCategoryId', undefined);
     }
-  }, [itemType, form.setValue]);
+  }, [itemType, form]);
 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
