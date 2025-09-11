@@ -57,6 +57,9 @@ export function useBudget() {
     try {
       await BudgetService.updateBudgetItem(id, itemData);
       await fetchBudgetItems(); // Refetch to show the new one-time item and remove the old instance
+      if (itemData.type === 'Income' || itemData.type === 'Transfers') {
+        await fetchAccounts();
+      }
     } catch (error) {
       console.error('Failed to update budget item:', error);
       toast({
@@ -65,7 +68,7 @@ export function useBudget() {
         variant: 'destructive',
       });
     }
-  }, [toast, fetchBudgetItems]);
+  }, [toast, fetchBudgetItems, fetchAccounts]);
 
   const deleteBudgetItem = useCallback(async (id: string) => {
     try {

@@ -265,7 +265,29 @@ export async function updateBudgetItem(id: string, itemData: Partial<Omit<Budget
             newBudgetItemSnap = oldBudgetItemSnap;
         }
 
+        let oldDestAccountSnap, newDestAccountSnap;
+        if (oldItemData.type === 'Income' && oldItemData.destinationAccountId) {
+            oldDestAccountSnap = await getDoc(doc(db, ACCOUNTS_COLLECTION, oldItemData.destinationAccountId));
+        }
+        if (newData.type === 'Income' && newData.destinationAccountId) {
+             newDestAccountSnap = await getDoc(doc(db, ACCOUNTS_COLLECTION, newData.destinationAccountId));
+        }
+
         // --- ALL WRITES AFTER READS ---
+        
+        // Revert old transaction if necessary
+        if(oldDestAccountSnap?.exists()) {
+            const currentBalance = oldDestAccountSnap.data().balance || 0;
+            transaction.update(oldDestAccountSnap.ref, { balance: currentBalance - oldItemData.amount });
+        }
+        
+        // Apply new transaction
+        if(newDestAccountSnap?.exists()) {
+             const currentBalance = newDestAccountSnap.data().balance || 0;
+            transaction.update(newDestAccountSnap.ref, { balance: currentBalance + newData.amount });
+        }
+
+
         if (isRecurringInstance && !isOverride) {
             const newDocData: Omit<BudgetItem, 'id'> & { originalId: string } = {
                 ...(oldItemData as Omit<BudgetItem, 'id'>),
@@ -345,17 +367,10 @@ export async function deleteBudgetItem(id: string): Promise<void> {
 
     // --- Step 2: Prepare WRITES using a batch ---
     if (isRecurringInstance && !isOverride) {
-        // If it's a recurring instance that was never modified, we should not delete the base item.
-        // The user wants to delete the *instance*, not the recurring rule.
-        // This case is tricky. For now, let's assume deleting an instance means skipping it,
-        // which would require creating an override "deleted" marker, which is complex.
-        // A simpler approach for now is to just delete the base item if a recurring instance is deleted.
-        // This is a design decision. Let's stick with deleting the base item.
         const baseId = id.split('-')[0];
         const baseRef = doc(db, BUDGET_COLLECTION, baseId);
         batch.delete(baseRef);
     } else if (itemToDeleteRef) {
-        // If it's a one-time item or a modified recurring instance, delete it
         batch.delete(itemToDeleteRef);
     }
     
@@ -370,6 +385,15 @@ export async function deleteBudgetItem(id: string): Promise<void> {
             const newBreakdown = (budgetData.breakdown || []).filter(b => b.name !== itemToDelete!.description);
             const newBudgeted = newBreakdown.reduce((sum, item) => sum + item.amount, 0);
             batch.update(budgetDoc.ref, { budgeted: newBudgeted, breakdown: newBreakdown });
+        }
+    }
+    
+    if (itemToDelete.type === 'Income' && itemToDelete.destinationAccountId) {
+        const accountRef = doc(db, ACCOUNTS_COLLECTION, itemToDelete.destinationAccountId);
+        const accountSnap = await getDoc(accountRef);
+        if (accountSnap.exists()) {
+            const currentBalance = accountSnap.data().balance || 0;
+            batch.update(accountRef, { balance: currentBalance - itemToDelete.amount });
         }
     }
 
@@ -395,7 +419,6 @@ export async function resetPaPayments(): Promise<void> {
   querySnapshot.forEach(docSnap => {
     const item = { id: docSnap.id, ...docSnap.data() } as BudgetItem;
     
-    // We only want to update the base items, not the modified instances we just deleted
     if (item.originalId) {
       return; 
     }
@@ -406,7 +429,6 @@ export async function resetPaPayments(): Promise<void> {
       let newDate = new Date(item.date);
       const today = new Date();
       
-      // Loop until we find the date for the *next* month or beyond
       while (isBefore(newDate, today) || isSameMonth(newDate, today)) {
         switch (item.frequency) {
           case 'Monthly':
@@ -422,7 +444,6 @@ export async function resetPaPayments(): Promise<void> {
             newDate = addWeeks(newDate, 2);
             break;
           default:
-            // This case should not be hit for recurring items, but it's good practice
             break;
         }
       }
