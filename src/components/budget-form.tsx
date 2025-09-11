@@ -215,7 +215,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
      if (itemType !== 'Pre-Authorized Payments') {
       form.setValue('budgetCategoryId', undefined);
     }
-  }, [itemType, form]);
+  }, [itemType, form.setValue]);
 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
