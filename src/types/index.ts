@@ -96,6 +96,7 @@ export interface AccountDetails {
     type: AccountType;
     balance?: number;
     linkedDebtId?: string | null;
+    isCalculated?: boolean;
 }
 
 

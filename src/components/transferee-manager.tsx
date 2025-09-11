@@ -6,7 +6,7 @@ import { useAccountDetails } from '@/hooks/use-transferees';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Trash2, PlusCircle } from 'lucide-react';
+import { Trash2, PlusCircle, Server } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +30,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { AccountDetails, AccountType, Debt } from '@/types';
+import { Switch } from './ui/switch';
+import { Label } from './ui/label';
 
 function AccountRow({ account, onUpdate, onDelete, debts, isLoadingDebts }: { account: AccountDetails, onUpdate: (id: string, field: keyof AccountDetails, value: any) => void, onDelete: (id: string) => void, debts: Debt[], isLoadingDebts: boolean }) {
   return (
@@ -81,11 +83,17 @@ function AccountRow({ account, onUpdate, onDelete, debts, isLoadingDebts }: { ac
             defaultValue={account.balance}
             onBlur={(e) => onUpdate(account.id, 'balance', parseFloat(e.target.value) || 0)}
             placeholder="Balance"
+            disabled={account.isCalculated}
           />
         )}
-
-        <div className="text-right">
-          <AlertDialog>
+        <div className="flex items-center gap-1">
+            <Switch
+              id={`is-calculated-${account.id}`}
+              checked={account.isCalculated}
+              onCheckedChange={(checked) => onUpdate(account.id, 'isCalculated', checked)}
+              aria-label="Toggle calculated balance"
+            />
+             <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive">
                 <Trash2 className="h-4 w-4" />
@@ -122,7 +130,7 @@ export function AccountDetailsManager() {
   };
 
   const handleAddNew = () => {
-    addAccount({ name: "New Account", type: "Chequing", balance: 0, linkedDebtId: null });
+    addAccount({ name: "New Account", type: "Chequing", balance: 0, linkedDebtId: null, isCalculated: false });
   };
   
   const groupedAccounts = useMemo(() => {
@@ -170,7 +178,10 @@ export function AccountDetailsManager() {
                    <div className="hidden md:grid grid-cols-4 items-center gap-2 text-xs text-muted-foreground px-2">
                       <span className="col-span-2">Account Name</span>
                       <span>Account Type</span>
-                      <span>{type === 'Credit' ? 'Linked Debt' : 'Balance'}</span>
+                      <div className="flex items-center gap-1">
+                        <span>{type === 'Credit' ? 'Linked Debt' : 'Balance'}</span>
+                        <Server className="h-3 w-3" title="Calculated from Ledger" />
+                      </div>
                   </div>
                   <div className="space-y-2">
                     {accs.map(account => (
