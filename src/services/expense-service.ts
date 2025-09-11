@@ -136,6 +136,11 @@ export async function updateExpense(id: string, itemData: Partial<Omit<Expense, 
     }
 }
 
+export async function deleteExpense(id: string): Promise<void> {
+    const itemRef = doc(db, EXPENSE_COLLECTION, id);
+    await deleteDoc(itemRef);
+}
+
 export async function updateHonorarium(id: string, itemData: Partial<Omit<Honorarium, 'id'>>): Promise<void> {
     // This function will need to handle amount changes carefully if it's ever used
     // to prevent desyncing the ledger. For now, it's just for non-amount fields.
