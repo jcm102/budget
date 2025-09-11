@@ -31,12 +31,13 @@ export function useAccountDetails() {
 
   useEffect(() => {
     fetchAccounts();
-  }, [fetchAccounts]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const addAccount = useCallback(async (accountData: Omit<AccountDetails, 'id'>) => {
     try {
-      const newAccount = await AccountDetailsService.addAccount(accountData);
-      setAccounts((prev) => [...prev, newAccount]);
+      await AccountDetailsService.addAccount(accountData);
+      await fetchAccounts();
     } catch (error) {
       console.error('Failed to add account:', error);
       toast({
@@ -45,19 +46,23 @@ export function useAccountDetails() {
         variant: 'destructive',
       });
     }
-  }, [toast]);
+  }, [toast, fetchAccounts]);
   
   const updateAccount = useCallback(async (id: string, accountData: Partial<Omit<AccountDetails, 'id'>>) => {
     const originalAccounts = accounts;
     setAccounts(prev => prev.map(acc => acc.id === id ? { ...acc, ...accountData } as AccountDetails : acc));
     try {
       await AccountDetailsService.updateAccount(id, accountData);
+      // We don't need a full fetch here, optimistic update is enough unless balances change
+      if (accountData.balance !== undefined || accountData.isCalculated !== undefined || accountData.linkedDebtId !== undefined) {
+          await fetchAccounts();
+      }
     } catch (error) {
        setAccounts(originalAccounts);
        console.error('Failed to update account:', error);
        toast({ title: 'Error', description: 'Failed to update account.', variant: 'destructive'});
     }
-  }, [accounts, toast]);
+  }, [accounts, toast, fetchAccounts]);
 
 
   const deleteAccount = useCallback(async (id: string) => {
@@ -65,6 +70,7 @@ export function useAccountDetails() {
     setAccounts((prev) => prev.filter((acc) => acc.id !== id));
     try {
       await AccountDetailsService.deleteAccount(id);
+      await fetchAccounts();
     } catch (error) {
       console.error('Failed to delete account:', error);
       setAccounts(originalAccounts);
@@ -74,7 +80,7 @@ export function useAccountDetails() {
         variant: 'destructive',
       });
     }
-  }, [accounts, toast]);
+  }, [accounts, toast, fetchAccounts]);
 
   return { accounts, addAccount, updateAccount, deleteAccount, isLoading, fetchAccounts };
 }
