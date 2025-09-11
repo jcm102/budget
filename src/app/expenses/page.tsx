@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Landmark, HandCoins, DollarSign, FileClock, Archive, FileText, Route, Car } from 'lucide-react';
+import { ArrowLeft, Landmark, HandCoins, DollarSign, FileClock, Archive, FileText, Route, Car, FileSpreadsheet } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useExpenses } from '@/hooks/use-expenses';
 import { useExpenseFunds } from '@/hooks/use-expense-funds';
@@ -14,6 +14,9 @@ import { HonorariumTable } from '@/components/honorarium-table';
 import * as ExpenseService from '@/services/expense-service';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import * as XLSX from 'xlsx';
+import { format } from 'date-fns';
+
 
 export default function ExpensesPage() {
     const { honorariumFund, reimbursableFund, isLoading: isLoadingLedger, fetchFunds } = useExpenseFunds();
@@ -108,6 +111,49 @@ export default function ExpensesPage() {
         });
     };
     
+    const handleExport = () => {
+        const wb = XLSX.utils.book_new();
+
+        // Expenses Sheet
+        const expensesData = expenses.map(e => ({
+            Date: format(new Date(e.date), 'PPP'),
+            Description: e.description,
+            Category: e.category,
+            'Payment Source': e.transferee,
+            Amount: e.amount,
+            Reimbursable: e.reimbursable ? 'Yes' : 'No',
+            Frequency: e.frequency,
+            Completed: e.completed ? 'Yes' : 'No'
+        }));
+        const wsExpenses = XLSX.utils.json_to_sheet(expensesData);
+        XLSX.utils.book_append_sheet(wb, wsExpenses, "Monetary Expenses");
+        
+        // Mileage Sheet
+        const mileageData = mileageLogs.map(m => ({
+            Date: format(new Date(m.date), 'PPP'),
+            Description: m.description,
+            Origin: m.origin,
+            Destination: m.destination,
+            Distance: m.distance,
+            Rate: m.rate,
+            Total: m.distance * m.rate
+        }));
+         const wsMileage = XLSX.utils.json_to_sheet(mileageData);
+        XLSX.utils.book_append_sheet(wb, wsMileage, "Mileage");
+
+        // Honorariums Sheet
+        const honorariumsData = honorariums.map(h => ({
+            Date: format(new Date(h.date), 'PPP'),
+            Description: h.description,
+            Amount: h.amount
+        }));
+        const wsHonorariums = XLSX.utils.json_to_sheet(honorariumsData);
+        XLSX.utils.book_append_sheet(wb, wsHonorariums, "Honorariums");
+
+
+        XLSX.writeFile(wb, `Work-Expenses-${new Date().toISOString().slice(0,10)}.xlsx`);
+    }
+    
     const totalReimbursable = expenses.filter(e => e.reimbursable).reduce((acc, e) => acc + e.amount, 0);
 
     const renderSummarySkeleton = () => (
@@ -133,6 +179,10 @@ export default function ExpensesPage() {
                 </Link>
                 </Button>
                  <div className="flex items-center gap-2">
+                    <Button onClick={handleExport} variant="outline">
+                        <FileSpreadsheet className="mr-2 h-4 w-4" />
+                        Export to Excel
+                    </Button>
                     <Button onClick={handleArchive} variant="outline" disabled={expenses.length === 0 && mileageLogs.length === 0 && honorariums.length === 0}>
                         <Archive className="mr-2 h-4 w-4" />
                         Archive Current Month
