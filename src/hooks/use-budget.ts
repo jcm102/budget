@@ -6,11 +6,14 @@ import { useState, useEffect, useCallback } from 'react';
 import type { BudgetItem } from '@/types';
 import { useToast } from './use-toast';
 import * as BudgetService from '@/services/budget-service';
+import { useAccountDetails } from './use-transferees';
 
 export function useBudget() {
   const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const { fetchAccounts } = useAccountDetails();
+
 
   const fetchBudgetItems = useCallback(async () => {
       try {
@@ -37,6 +40,9 @@ export function useBudget() {
     try {
       await BudgetService.addBudgetItem(itemData);
       await fetchBudgetItems(); // refetch to get the correct state
+      if (itemData.type === 'Income' || itemData.type === 'Transfers') {
+        await fetchAccounts();
+      }
     } catch (error) {
       console.error('Failed to add budget item:', error);
       toast({
@@ -45,7 +51,7 @@ export function useBudget() {
         variant: 'destructive',
       });
     }
-  }, [toast, fetchBudgetItems]);
+  }, [toast, fetchBudgetItems, fetchAccounts]);
 
   const updateBudgetItem = useCallback(async (id: string, itemData: Partial<Omit<BudgetItem, 'id' | 'originalId'>>) => {
     try {

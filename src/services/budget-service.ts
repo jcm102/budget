@@ -134,7 +134,7 @@ export async function addBudgetItem(itemData: Omit<BudgetItem, 'id'>): Promise<B
   await runTransaction(db, async (transaction) => {
     // --- ALL READS FIRST ---
     const newDocRef = doc(collection(db, BUDGET_COLLECTION));
-    let budgetItemQuery, fromAccountQuery, toAccountQuery;
+    let budgetItemQuery, fromAccountQuery, toAccountQuery, destAccountQuery;
     
     if (itemData.type === 'Pre-Authorized Payments' && itemData.budgetCategoryId) {
       const currentMonth = new Date().toISOString().slice(0, 7);
@@ -150,14 +150,24 @@ export async function addBudgetItem(itemData: Omit<BudgetItem, 'id'>): Promise<B
         fromAccountQuery = query(collection(db, ACCOUNTS_COLLECTION), where('name', '==', itemData.transferFrom), limit(1));
         toAccountQuery = query(collection(db, ACCOUNTS_COLLECTION), where('name', '==', itemData.transferTo), limit(1));
     }
+
+    if (itemData.type === 'Income' && itemData.destinationAccountId) {
+        destAccountQuery = doc(db, ACCOUNTS_COLLECTION, itemData.destinationAccountId);
+    }
     
     const budgetSnapshot = budgetItemQuery ? await getDocs(budgetItemQuery) : null;
     const fromAccountSnapshot = fromAccountQuery ? await getDocs(fromAccountQuery) : null;
     const toAccountSnapshot = toAccountQuery ? await getDocs(toAccountQuery) : null;
+    const destAccountSnap = destAccountQuery ? await transaction.get(destAccountQuery) : null;
     
     // --- ALL WRITES AFTER READS ---
     transaction.set(newDocRef, dataWithCompleted);
     
+    if (itemData.type === 'Income' && destAccountSnap?.exists()) {
+        const currentBalance = destAccountSnap.data().balance || 0;
+        transaction.update(destAccountSnap.ref, { balance: currentBalance + itemData.amount });
+    }
+
     // Handle PA Payments budget update
     if (budgetSnapshot) {
       const currentMonth = new Date().toISOString().slice(0, 7);

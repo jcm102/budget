@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -56,6 +57,7 @@ const formSchema = z.object({
     frequency: z.enum(['One-Time', 'Weekly', 'Bi-Weekly', 'Monthly', 'Monthly (Last Day)']),
     transferTo: z.string().optional(),
     transferFrom: z.string().optional(),
+    destinationAccountId: z.string().optional(),
     forNextMonth: z.boolean().optional(),
     budgetCategoryId: z.string().optional(),
     // New fields for allocation
@@ -70,6 +72,14 @@ const formSchema = z.object({
   }, {
     message: 'Both "Source" and "Destination" accounts are required for transfers.',
     path: ['transferTo'],
+  }).refine(data => {
+    if (data.type === 'Income') {
+        return !!data.destinationAccountId;
+    }
+    return true;
+  }, {
+      message: 'Destination account is required for income.',
+      path: ['destinationAccountId'],
   });
 
 type BudgetFormProps = {
@@ -101,6 +111,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
       frequency: 'One-Time',
       transferFrom: '',
       transferTo: '',
+      destinationAccountId: '',
       forNextMonth: false,
       budgetCategoryId: '',
       allocationType: 'none',
@@ -161,6 +172,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
           frequency: editingItem.frequency || 'One-Time',
           transferFrom: editingItem.transferFrom || '',
           transferTo: editingItem.transferTo || '',
+          destinationAccountId: editingItem.destinationAccountId || '',
           forNextMonth: editingItem.forNextMonth || false,
           budgetCategoryId: editingItem.budgetCategoryId || '',
           allocationType: 'none',
@@ -177,6 +189,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
           frequency: 'One-Time',
           transferFrom: '',
           transferTo: '',
+          destinationAccountId: '',
           forNextMonth: false,
           budgetCategoryId: '',
           allocationType: 'none',
@@ -345,6 +358,23 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                                 ))}
                             </SelectContent>
                             </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                     <FormField control={form.control} name="destinationAccountId" render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Destination Account</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                            <SelectTrigger><SelectValue placeholder="Select destination account" /></SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                            {transferees.filter(t => t.type !== 'Credit').map(t => (
+                                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                            ))}
+                            </SelectContent>
+                        </Select>
                         <FormMessage />
                         </FormItem>
                     )}

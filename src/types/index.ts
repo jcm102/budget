@@ -72,6 +72,7 @@ export interface BudgetItem {
   frequency: BudgetItemFrequency;
   transferTo?: string;
   transferFrom?: string;
+  destinationAccountId?: string | null;
   originalId?: string; // To track edited recurring instances
   completed?: boolean;
   allocationType?: 'none' | 'goal' | 'debt';
