@@ -113,44 +113,64 @@ export default function ExpensesPage() {
     
     const handleExport = () => {
         const wb = XLSX.utils.book_new();
+        const allData: any[] = [];
 
-        // Expenses Sheet
-        const expensesData = expenses.map(e => ({
-            Date: format(new Date(e.date), 'PPP'),
-            Description: e.description,
-            Category: e.category,
-            'Payment Source': e.transferee,
-            Amount: e.amount,
-            Reimbursable: e.reimbursable ? 'Yes' : 'No',
-            Frequency: e.frequency,
-            Completed: e.completed ? 'Yes' : 'No'
-        }));
-        const wsExpenses = XLSX.utils.json_to_sheet(expensesData);
-        XLSX.utils.book_append_sheet(wb, wsExpenses, "Monetary Expenses");
+        // Monetary Expenses Section
+        if (expenses.length > 0) {
+            allData.push(['Monetary Expenses']); // Section Header
+            const expensesHeaders = ['Date', 'Description', 'Category', 'Payment Source', 'Amount', 'Reimbursable', 'Frequency', 'Completed'];
+            allData.push(expensesHeaders);
+            expenses.forEach(e => {
+                allData.push([
+                    format(new Date(e.date), 'PPP'),
+                    e.description,
+                    e.category,
+                    e.transferee,
+                    e.amount,
+                    e.reimbursable ? 'Yes' : 'No',
+                    e.frequency,
+                    e.completed ? 'Yes' : 'No'
+                ]);
+            });
+            allData.push([]); // Spacer row
+        }
+
+        // Mileage Section
+        if (mileageLogs.length > 0) {
+            allData.push(['Mileage']); // Section Header
+            const mileageHeaders = ['Date', 'Description', 'Origin', 'Destination', 'Distance (km)', 'Rate', 'Total'];
+            allData.push(mileageHeaders);
+            mileageLogs.forEach(m => {
+                allData.push([
+                    format(new Date(m.date), 'PPP'),
+                    m.description,
+                    m.origin,
+                    m.destination,
+                    m.distance,
+                    m.rate,
+                    m.distance * m.rate
+                ]);
+            });
+            allData.push([]); // Spacer row
+        }
+
+        // Honorariums Section
+        if (honorariums.length > 0) {
+            allData.push(['Honorariums']); // Section Header
+            const honorariumsHeaders = ['Date', 'Description', 'Amount'];
+            allData.push(honorariumsHeaders);
+            honorariums.forEach(h => {
+                allData.push([
+                    format(new Date(h.date), 'PPP'),
+                    h.description,
+                    h.amount
+                ]);
+            });
+        }
         
-        // Mileage Sheet
-        const mileageData = mileageLogs.map(m => ({
-            Date: format(new Date(m.date), 'PPP'),
-            Description: m.description,
-            Origin: m.origin,
-            Destination: m.destination,
-            Distance: m.distance,
-            Rate: m.rate,
-            Total: m.distance * m.rate
-        }));
-         const wsMileage = XLSX.utils.json_to_sheet(mileageData);
-        XLSX.utils.book_append_sheet(wb, wsMileage, "Mileage");
-
-        // Honorariums Sheet
-        const honorariumsData = honorariums.map(h => ({
-            Date: format(new Date(h.date), 'PPP'),
-            Description: h.description,
-            Amount: h.amount
-        }));
-        const wsHonorariums = XLSX.utils.json_to_sheet(honorariumsData);
-        XLSX.utils.book_append_sheet(wb, wsHonorariums, "Honorariums");
-
-
+        const ws = XLSX.utils.aoa_to_sheet(allData);
+        XLSX.utils.book_append_sheet(wb, ws, "Work Expenses");
+        
         XLSX.writeFile(wb, `Work-Expenses-${new Date().toISOString().slice(0,10)}.xlsx`);
     }
     
