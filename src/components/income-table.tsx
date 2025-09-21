@@ -213,8 +213,7 @@ export function IncomeTable() {
                 </TableBody>
                 <TableFooter>
                     <TableRow>
-                        <TableCell colSpan={4}></TableCell>
-                        <TableCell className="font-semibold text-right">Total</TableCell>
+                        <TableCell colSpan={4} className="font-semibold text-right">Total</TableCell>
                         <TableCell className="text-right font-semibold">{formatCurrency(total)}</TableCell>
                         <TableCell></TableCell>
                     </TableRow>
