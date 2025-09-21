@@ -9,22 +9,24 @@ import * as MonthlyBudgetService from '@/services/monthly-budget-service';
 import { useMonthlyBudget } from './use-monthly-budget';
 import { useAccountDetails } from './use-transferees';
 import { useBudget } from './use-budget';
+import { format } from 'date-fns';
 
-export function useTransactions() {
+export function useTransactions(month?: string) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accountTransactions, setAccountTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
-  const { fetchBudget } = useMonthlyBudget();
+
+  const selectedMonth = month || format(new Date(), 'yyyy-MM');
+  
+  const { fetchBudget } = useMonthlyBudget(selectedMonth);
   const { accounts, fetchAccounts } = useAccountDetails();
   const { fetchBudgetItems } = useBudget(); // Import from useBudget
-  
-  const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
 
   const fetchTransactions = useCallback(async () => {
     try {
       setIsLoading(true);
-      const fetchedTransactions = await MonthlyBudgetService.getTransactionsForMonth(currentMonth);
+      const fetchedTransactions = await MonthlyBudgetService.getTransactionsForMonth(selectedMonth);
       setTransactions(fetchedTransactions);
     } catch (error) {
       console.error('Failed to load transactions:', error);
@@ -36,7 +38,7 @@ export function useTransactions() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentMonth, toast]);
+  }, [selectedMonth, toast]);
 
   const fetchTransactionsForAccount = useCallback(async (accountId: string) => {
     try {
@@ -59,7 +61,7 @@ export function useTransactions() {
     fetchTransactions();
     fetchAccounts();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [selectedMonth]);
 
   const addTransaction = useCallback(async (transactionData: Omit<Transaction, 'id'>) => {
     try {

@@ -12,15 +12,24 @@ import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
 import { BudgetBreakdownForm } from '@/components/budget-breakdown-form';
 import type { Category, MonthlyBudgetItem, BudgetSubItem, Transaction } from '@/types';
 import { useBudget } from '@/hooks/use-budget';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { addMonths, format } from 'date-fns';
 
 export default function MonthlyBudgetPage() {
   const [isTransactionFormOpen, setIsTransactionFormOpen] = useState(false);
   const [isBreakdownFormOpen, setIsBreakdownFormOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [view, setView] = useState<'current' | 'next'>('current');
 
-  const { transactions, accounts, addTransaction, updateTransaction, deleteTransaction, isLoading: isLoadingTransactions } = useTransactions();
-  const { budgetItems: monthlyBudgetItems, categories, updateBudgetItemWithBreakdown, isLoading: isLoadingBudget } = useMonthlyBudget();
+  const selectedMonth = view === 'current' ? currentDate : addMonths(currentDate, 1);
+  const selectedMonthString = format(selectedMonth, 'yyyy-MM');
+
+
+  const { transactions, accounts, addTransaction, updateTransaction, deleteTransaction, isLoading: isLoadingTransactions } = useTransactions(selectedMonthString);
+  const { budgetItems: monthlyBudgetItems, categories, updateBudgetItemWithBreakdown, isLoading: isLoadingBudget, updateBudgetItem } = useMonthlyBudget(selectedMonthString);
   const { budgetItems, isLoading: isLoadingIncome } = useBudget();
 
   const incomeAmount = budgetItems
@@ -77,7 +86,7 @@ export default function MonthlyBudgetPage() {
         onOpenChange={setIsBreakdownFormOpen}
         onSave={handleSaveBreakdown}
         category={selectedCategory}
-        budgetItem={selectedBudgetItem}
+        budgetItem={budgetItem}
       />
       <div className="container mx-auto max-w-4xl p-4 md:p-8">
         <header className="mb-8 flex justify-between items-center">
@@ -130,15 +139,34 @@ export default function MonthlyBudgetPage() {
                     </p>
                 </div>
             </div>
-
-            <BudgetTable 
-                budgetItems={monthlyBudgetItems}
-                categories={categories}
-                transactions={transactions}
-                isLoading={isLoadingBudget || isLoadingTransactions || isLoadingIncome}
-                onEditBreakdown={handleEditBreakdown}
-                onEditTransaction={handleOpenTransactionForm}
-            />
+             <Tabs defaultValue="current" className="w-full" onValueChange={(value) => setView(value as 'current' | 'next')}>
+              <TabsList className="grid w-full grid-cols-2 bg-secondary/50 mb-6 no-print">
+                <TabsTrigger value="current">Current Month</TabsTrigger>
+                <TabsTrigger value="next">Next Month</TabsTrigger>
+              </TabsList>
+              <TabsContent value="current">
+                <BudgetTable 
+                    budgetItems={monthlyBudgetItems}
+                    categories={categories}
+                    transactions={transactions}
+                    isLoading={isLoadingBudget || isLoadingTransactions || isLoadingIncome}
+                    onEditBreakdown={handleEditBreakdown}
+                    onEditTransaction={handleOpenTransactionForm}
+                    onUpdateBudget={updateBudgetItem}
+                />
+              </TabsContent>
+              <TabsContent value="next">
+                <BudgetTable 
+                    budgetItems={monthlyBudgetItems}
+                    categories={categories}
+                    transactions={transactions}
+                    isLoading={isLoadingBudget || isLoadingTransactions || isLoadingIncome}
+                    onEditBreakdown={handleEditBreakdown}
+                    onEditTransaction={handleOpenTransactionForm}
+                    onUpdateBudget={updateBudgetItem}
+                />
+              </TabsContent>
+            </Tabs>
         </main>
       </div>
     </>

@@ -32,6 +32,7 @@ type BudgetTableProps = {
     isLoading: boolean;
     onEditBreakdown: (category: Category) => void;
     onEditTransaction: (transaction: Transaction) => void;
+    onUpdateBudget: (categoryId: string, budgeted: number) => void;
 }
 
 type CategoryWithChildren = Category & { children: CategoryWithChildren[] };
@@ -64,6 +65,7 @@ const CategoryRow = ({
     onEditBreakdown,
     getCategoryTotals,
     onEditTransaction,
+    onUpdateBudget,
 }: { 
     category: CategoryWithChildren, 
     level: number,
@@ -73,8 +75,12 @@ const CategoryRow = ({
     onEditBreakdown: (category: Category) => void,
     getCategoryTotals: (cat: CategoryWithChildren) => { budgeted: number, actual: number, breakdown: Record<string, { budgeted: number, actual: number }> },
     onEditTransaction: (transaction: Transaction) => void,
+    onUpdateBudget: (categoryId: string, budgeted: number) => void;
 }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [budgetInput, setBudgetInput] = useState<number | string>('');
+
 
     const { budgeted, actual, breakdown: breakdownTotals } = getCategoryTotals(category);
     
@@ -97,6 +103,23 @@ const CategoryRow = ({
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
     };
+
+    const handleEditClick = () => {
+        setBudgetInput(budgeted);
+        setIsEditing(true);
+    };
+
+    const handleSave = () => {
+        const newBudgeted = Number(budgetInput);
+        if (!isNaN(newBudgeted)) {
+            onUpdateBudget(category.id, newBudgeted);
+        }
+        setIsEditing(false);
+    };
+
+    const handleCancel = () => {
+        setIsEditing(false);
+    };
     
     return (
         <>
@@ -113,7 +136,27 @@ const CategoryRow = ({
                         <span>{category.name}</span>
                     </div>
                 </TableCell>
-                <TableCell className="text-right">{formatCurrency(budgeted)}</TableCell>
+                <TableCell className="text-right">
+                   {isEditing ? (
+                        <div className="flex items-center justify-end gap-1">
+                            <Input
+                                type="number"
+                                value={budgetInput}
+                                onChange={(e) => setBudgetInput(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+                                className="h-8 w-24 text-right"
+                                autoFocus
+                            />
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600" onClick={handleSave}><Save className="h-4 w-4"/></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleCancel}><X className="h-4 w-4"/></Button>
+                        </div>
+                    ) : (
+                        <div className="group flex items-center justify-end gap-1">
+                            <span>{formatCurrency(budgeted)}</span>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100" onClick={handleEditClick}><Pencil className="h-4 w-4"/></Button>
+                        </div>
+                    )}
+                </TableCell>
                 <TableCell className="text-right">{formatCurrency(actual)}</TableCell>
                 <TableCell className="text-right">
                 <div className="flex flex-col items-end">
@@ -199,6 +242,7 @@ const CategoryRow = ({
                                             onEditBreakdown={onEditBreakdown}
                                             getCategoryTotals={getCategoryTotals}
                                             onEditTransaction={onEditTransaction}
+                                            onUpdateBudget={onUpdateBudget}
                                         />
                                     ))}
                                     </TableBody>
@@ -214,7 +258,7 @@ const CategoryRow = ({
 }
 
 
-export function BudgetTable({ budgetItems, categories, transactions, isLoading, onEditBreakdown, onEditTransaction }: BudgetTableProps) {
+export function BudgetTable({ budgetItems, categories, transactions, isLoading, onEditBreakdown, onEditTransaction, onUpdateBudget }: BudgetTableProps) {
   const { accounts: allAccounts } = useAccountDetails();
 
   const accountMap = useMemo(() => {
@@ -325,6 +369,7 @@ export function BudgetTable({ budgetItems, categories, transactions, isLoading, 
                     onEditBreakdown={onEditBreakdown}
                     getCategoryTotals={getCategoryTotals}
                     onEditTransaction={onEditTransaction}
+                    onUpdateBudget={onUpdateBudget}
                 />
             ))
           ) : (

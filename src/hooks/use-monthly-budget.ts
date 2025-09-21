@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -6,20 +7,21 @@ import type { MonthlyBudgetItem, Category, BudgetSubItem } from '@/types';
 import { useToast } from './use-toast';
 import * as MonthlyBudgetService from '@/services/monthly-budget-service';
 import * as BudgetCategoryService from '@/services/budget-category-service';
+import { format } from 'date-fns';
 
-export function useMonthlyBudget() {
+export function useMonthlyBudget(month?: string) {
   const [budgetItems, setBudgetItems] = useState<MonthlyBudgetItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   
-  const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
+  const selectedMonth = month || format(new Date(), 'yyyy-MM');
 
   const fetchBudget = useCallback(async () => {
     try {
       setIsLoading(true);
       const [fetchedBudgetItems, fetchedCategories] = await Promise.all([
-        MonthlyBudgetService.getBudgetForMonth(currentMonth),
+        MonthlyBudgetService.getBudgetForMonth(selectedMonth),
         BudgetCategoryService.getCategories()
       ]);
       setBudgetItems(fetchedBudgetItems);
@@ -34,7 +36,7 @@ export function useMonthlyBudget() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentMonth, toast]);
+  }, [selectedMonth, toast]);
 
   useEffect(() => {
     fetchBudget();
@@ -46,7 +48,7 @@ export function useMonthlyBudget() {
       if (existingItem) {
         await MonthlyBudgetService.updateBudgetItem(existingItem.id, { budgeted });
       } else {
-        await MonthlyBudgetService.addBudgetItem({ categoryId, budgeted, month: currentMonth });
+        await MonthlyBudgetService.addBudgetItem({ categoryId, budgeted, month: selectedMonth });
       }
       // Refetch to get the latest state
       await fetchBudget();
@@ -58,7 +60,7 @@ export function useMonthlyBudget() {
         variant: 'destructive',
       });
     }
-  }, [budgetItems, currentMonth, toast, fetchBudget]);
+  }, [budgetItems, selectedMonth, toast, fetchBudget]);
   
   const updateBudgetItemWithBreakdown = useCallback(async (categoryId: string, breakdown: BudgetSubItem[]) => {
     try {
@@ -68,7 +70,7 @@ export function useMonthlyBudget() {
         if (existingItem) {
             await MonthlyBudgetService.updateBudgetItem(existingItem.id, { budgeted: totalBudgeted, breakdown });
         } else {
-            await MonthlyBudgetService.addBudgetItem({ categoryId, budgeted: totalBudgeted, month: currentMonth, breakdown });
+            await MonthlyBudgetService.addBudgetItem({ categoryId, budgeted: totalBudgeted, month: selectedMonth, breakdown });
         }
         await fetchBudget();
     } catch (error) {
@@ -79,7 +81,7 @@ export function useMonthlyBudget() {
             variant: 'destructive',
         });
     }
-  }, [budgetItems, currentMonth, toast, fetchBudget]);
+  }, [budgetItems, selectedMonth, toast, fetchBudget]);
 
   return { budgetItems, categories, updateBudgetItem, updateBudgetItemWithBreakdown, isLoading, fetchBudget };
 }
