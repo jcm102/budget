@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -61,13 +62,9 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
 
     const itemStartDate = new Date(item.date);
     
+    // For one-time items, we now include them regardless of the month to fix the bug.
     if (item.frequency === 'One-Time') {
-      // Only include one-time items for the current month
-      if (isSameMonth(itemStartDate, today)) {
-        if (!allGeneratedItems.some(i => i.id === item.id)) {
-          allGeneratedItems.push(item);
-        }
-      }
+        allGeneratedItems.push(item);
     } else if (item.frequency === 'Monthly' || item.frequency === 'Monthly (Last Day)') {
         let currentDate;
         if (item.frequency === 'Monthly (Last Day)') {
@@ -310,7 +307,7 @@ export async function updateBudgetItem(id: string, itemData: Partial<Omit<Budget
                 budgetItemRef = newBudgetItemSnap.ref;
                 currentBreakdown = (newBudgetItemSnap.data() as MonthlyBudgetItem).breakdown?.filter(item => item.name !== oldItemData!.description) || [];
             } else {
-                budgetItemRef = doc(collection(db, MONTHLY_BUDGET_COLLECTION));
+                budgetItemRef = doc(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION));
             }
 
             const finalBreakdown = [...currentBreakdown, { name: newData.description, amount: newData.amount }];
