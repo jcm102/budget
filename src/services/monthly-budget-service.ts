@@ -48,6 +48,41 @@ export async function updateBudgetItem(id: string, itemData: Partial<Omit<Monthl
   await updateDoc(itemRef, itemData);
 }
 
+export async function copyBudget(fromMonth: string, toMonth: string): Promise<void> {
+  const fromItems = await getBudgetForMonth(fromMonth);
+  const toItemsSnapshot = await getDocs(query(collection(db, BUDGET_ITEMS_COLLECTION), where('month', '==', toMonth)));
+  
+  const toItemsMap = new Map<string, MonthlyBudgetItem & { docId: string }>();
+  toItemsSnapshot.forEach(doc => {
+      const data = doc.data() as MonthlyBudgetItem;
+      toItemsMap.set(data.categoryId, { ...data, docId: doc.id });
+  });
+
+  const batch = writeBatch(db);
+
+  for (const fromItem of fromItems) {
+      if (fromItem.budgeted > 0) {
+          const existingToItem = toItemsMap.get(fromItem.categoryId);
+          if (existingToItem) {
+              // Update existing item for the "to" month
+              const itemRef = doc(db, BUDGET_ITEMS_COLLECTION, existingToItem.docId);
+              batch.update(itemRef, { budgeted: fromItem.budgeted, breakdown: fromItem.breakdown });
+          } else {
+              // Create new item for the "to" month
+              const newItemRef = doc(collection(db, BUDGET_ITEMS_COLLECTION));
+              const newItemData: Omit<MonthlyBudgetItem, 'id'> = {
+                  ...fromItem,
+                  month: toMonth,
+              };
+              batch.set(newItemRef, newItemData);
+          }
+      }
+  }
+
+  await batch.commit();
+}
+
+
 // ===== Transactions & Accounts =====
 
 export async function getAccountDetails(accountId: string): Promise<AccountDetails | null> {
@@ -310,4 +345,5 @@ export async function deleteTransaction(id: string): Promise<void> {
         transaction.delete(transactionRef);
     });
 }
+
 

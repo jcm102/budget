@@ -7,7 +7,7 @@ import type { MonthlyBudgetItem, Category, BudgetSubItem } from '@/types';
 import { useToast } from './use-toast';
 import * as MonthlyBudgetService from '@/services/monthly-budget-service';
 import * as BudgetCategoryService from '@/services/budget-category-service';
-import { format } from 'date-fns';
+import { addMonths, format } from 'date-fns';
 
 export function useMonthlyBudget(month?: string) {
   const [budgetItems, setBudgetItems] = useState<MonthlyBudgetItem[]>([]);
@@ -83,5 +83,25 @@ export function useMonthlyBudget(month?: string) {
     }
   }, [budgetItems, selectedMonth, toast, fetchBudget]);
 
-  return { budgetItems, categories, updateBudgetItem, updateBudgetItemWithBreakdown, isLoading, fetchBudget };
+  const copyBudgetFromPreviousMonth = useCallback(async () => {
+    try {
+      const previousMonthDate = addMonths(new Date(selectedMonth), -1);
+      const previousMonthString = format(previousMonthDate, 'yyyy-MM');
+      await MonthlyBudgetService.copyBudget(previousMonthString, selectedMonth);
+      await fetchBudget();
+      toast({
+        title: 'Success!',
+        description: 'Budget has been copied from the previous month.',
+      });
+    } catch (error: any) {
+      console.error('Failed to copy budget:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Could not copy budget from the previous month.',
+        variant: 'destructive',
+      });
+    }
+  }, [selectedMonth, fetchBudget, toast]);
+
+  return { budgetItems, categories, updateBudgetItem, updateBudgetItemWithBreakdown, copyBudgetFromPreviousMonth, isLoading, fetchBudget };
 }

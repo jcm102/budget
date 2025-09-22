@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, PlusCircle, Pencil, Smartphone } from 'lucide-react';
+import { ArrowLeft, PlusCircle, Pencil, Smartphone, Copy } from 'lucide-react';
 import { BudgetTable } from '@/components/budget-table';
 import { TransactionForm } from '@/components/transaction-form';
 import { useTransactions } from '@/hooks/use-transactions';
@@ -29,7 +29,7 @@ export default function MonthlyBudgetPage() {
 
 
   const { transactions, accounts, addTransaction, updateTransaction, deleteTransaction, isLoading: isLoadingTransactions } = useTransactions(selectedMonthString);
-  const { budgetItems: monthlyBudgetItems, categories, updateBudgetItemWithBreakdown, isLoading: isLoadingBudget, updateBudgetItem } = useMonthlyBudget(selectedMonthString);
+  const { budgetItems: monthlyBudgetItems, categories, updateBudgetItemWithBreakdown, isLoading: isLoadingBudget, updateBudgetItem, copyBudgetFromPreviousMonth } = useMonthlyBudget(selectedMonthString);
   const { budgetItems, isLoading: isLoadingIncome } = useBudget();
 
   const incomeAmount = budgetItems
@@ -156,6 +156,12 @@ export default function MonthlyBudgetPage() {
                 />
               </TabsContent>
               <TabsContent value="next">
+                 <div className="flex justify-end mb-4">
+                    <Button variant="outline" onClick={() => copyBudgetFromPreviousMonth()}>
+                        <Copy className="mr-2 h-4 w-4" />
+                        Copy from Previous Month
+                    </Button>
+                </div>
                 <BudgetTable 
                     budgetItems={monthlyBudgetItems}
                     categories={categories}
