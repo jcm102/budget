@@ -35,9 +35,7 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
   const today = new Date();
   const allGeneratedItems: BudgetItem[] = [];
   const startOfCurrentMonth = startOfMonth(today);
-  const endOfCurrentMonth = lastDayOfMonth(today);
-  const processedRecurringInstances = new Set<string>();
-
+  
   const allItems = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BudgetItem));
 
   // First, find all modified one-time items for the current month
@@ -45,6 +43,7 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
       item.originalId && isSameMonth(new Date(item.date), today)
   );
 
+  const processedRecurringInstances = new Set<string>();
   modifiedItemsInMonth.forEach(item => {
       allGeneratedItems.push(item);
       // Keep track of which original instances have been processed
@@ -63,16 +62,9 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
 
     const itemStartDate = new Date(item.date);
     
-    if (getYear(itemStartDate) > getYear(today) || (getYear(itemStartDate) === getYear(today) && getMonth(itemStartDate) > getMonth(today))) {
-        if (item.frequency === 'One-Time' && isSameMonth(itemStartDate, today)) {
-            // allow
-        } else {
-            return;
-        }
-    }
-    
     if (item.frequency === 'One-Time') {
-      if (isSameMonth(itemStartDate, today) && !allGeneratedItems.some(i => i.id === item.id)) {
+      // Always include one-time items regardless of their month
+      if (!allGeneratedItems.some(i => i.id === item.id)) {
         allGeneratedItems.push(item);
       }
     } else if (item.frequency === 'Monthly' || item.frequency === 'Monthly (Last Day)') {
@@ -455,3 +447,4 @@ export async function resetPaPayments(): Promise<void> {
 
   await batch.commit();
 }
+
