@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -63,9 +62,11 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
     const itemStartDate = new Date(item.date);
     
     if (item.frequency === 'One-Time') {
-      // Always include one-time items regardless of their month
-      if (!allGeneratedItems.some(i => i.id === item.id)) {
-        allGeneratedItems.push(item);
+      // Only include one-time items for the current month
+      if (isSameMonth(itemStartDate, today)) {
+        if (!allGeneratedItems.some(i => i.id === item.id)) {
+          allGeneratedItems.push(item);
+        }
       }
     } else if (item.frequency === 'Monthly' || item.frequency === 'Monthly (Last Day)') {
         let currentDate;
@@ -131,7 +132,7 @@ export async function addBudgetItem(itemData: Omit<BudgetItem, 'id'>): Promise<B
     if (itemData.type === 'Pre-Authorized Payments' && itemData.budgetCategoryId) {
       const currentMonth = new Date().toISOString().slice(0, 7);
       budgetItemQuery = query(
-        collection(db, MONTHLY_BUDGET_COLLECTION),
+        collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION),
         where('month', '==', currentMonth),
         where('categoryId', '==', itemData.budgetCategoryId),
         limit(1)
@@ -155,7 +156,7 @@ export async function addBudgetItem(itemData: Omit<BudgetItem, 'id'>): Promise<B
     // --- ALL WRITES AFTER READS ---
     transaction.set(newDocRef, dataWithCompleted);
     
-    if (itemData.type === 'Income' && destAccountSnap?.exists()) {
+    if (itemData.type === 'Income' && destAccountSnap?.exists() && !itemData.forNextMonth) {
         const currentBalance = destAccountSnap.data().balance || 0;
         transaction.update(destAccountSnap.ref, { balance: currentBalance + itemData.amount });
     }
@@ -169,7 +170,7 @@ export async function addBudgetItem(itemData: Omit<BudgetItem, 'id'>): Promise<B
         budgetItemRef = budgetSnapshot.docs[0].ref;
         currentBudgetItem = budgetSnapshot.docs[0].data() as MonthlyBudgetItem;
       } else {
-        budgetItemRef = doc(collection(db, MONTHLY_BUDGET_COLLECTION));
+        budgetItemRef = doc(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION));
       }
       
       const currentBreakdown = currentBudgetItem?.breakdown || [];
@@ -258,10 +259,10 @@ export async function updateBudgetItem(id: string, itemData: Partial<Omit<Budget
         }
 
         let oldDestAccountSnap, newDestAccountSnap;
-        if (oldItemData.type === 'Income' && oldItemData.destinationAccountId) {
+        if (oldItemData.type === 'Income' && oldItemData.destinationAccountId && !oldItemData.forNextMonth) {
             oldDestAccountSnap = await getDoc(doc(db, ACCOUNTS_COLLECTION, oldItemData.destinationAccountId));
         }
-        if (newData.type === 'Income' && newData.destinationAccountId) {
+        if (newData.type === 'Income' && newData.destinationAccountId && !newData.forNextMonth) {
              newDestAccountSnap = await getDoc(doc(db, ACCOUNTS_COLLECTION, newData.destinationAccountId));
         }
 
@@ -380,7 +381,7 @@ export async function deleteBudgetItem(id: string): Promise<void> {
         }
     }
     
-    if (itemToDelete.type === 'Income' && itemToDelete.destinationAccountId) {
+    if (itemToDelete.type === 'Income' && itemToDelete.destinationAccountId && !itemToDelete.forNextMonth) {
         const accountRef = doc(db, ACCOUNTS_COLLECTION, itemToDelete.destinationAccountId);
         const accountSnap = await getDoc(accountRef);
         if (accountSnap.exists()) {
@@ -447,4 +448,3 @@ export async function resetPaPayments(): Promise<void> {
 
   await batch.commit();
 }
-
