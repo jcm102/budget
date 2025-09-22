@@ -32,35 +32,38 @@ import {
 import { AccountDetails, AccountType, Debt } from '@/types';
 import { Switch } from './ui/switch';
 import { Label } from './ui/label';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 
 function AccountRow({ account, onUpdate, onDelete, debts, isLoadingDebts }: { account: AccountDetails, onUpdate: (id: string, field: keyof AccountDetails, value: any) => void, onDelete: (id: string) => void, debts: Debt[], isLoadingDebts: boolean }) {
   return (
     <div
       key={account.id}
-      className="grid grid-cols-1 md:grid-cols-4 items-center gap-2 p-2 border rounded-md"
+      className="grid grid-cols-1 md:grid-cols-12 items-center gap-2 p-2 border rounded-md"
     >
-      <div className="md:col-span-2">
+      <div className="md:col-span-4">
         <Input
           defaultValue={account.name}
           onBlur={(e) => onUpdate(account.id, 'name', e.target.value)}
           placeholder="Account Name"
         />
       </div>
-      <Select
-        value={account.type}
-        onValueChange={(value: AccountType) => onUpdate(account.id, 'type', value)}
-      >
-        <SelectTrigger><SelectValue /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value="Chequing">Chequing</SelectItem>
-          <SelectItem value="Savings">Savings</SelectItem>
-          <SelectItem value="Credit">Credit</SelectItem>
-          <SelectItem value="Gift Card">Gift Card</SelectItem>
-          <SelectItem value="IOU">IOU</SelectItem>
-        </SelectContent>
-      </Select>
+      <div className="md:col-span-3">
+        <Select
+            value={account.type}
+            onValueChange={(value: AccountType) => onUpdate(account.id, 'type', value)}
+        >
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+            <SelectItem value="Chequing">Chequing</SelectItem>
+            <SelectItem value="Savings">Savings</SelectItem>
+            <SelectItem value="Credit">Credit</SelectItem>
+            <SelectItem value="Gift Card">Gift Card</SelectItem>
+            <SelectItem value="IOU">IOU</SelectItem>
+            </SelectContent>
+        </Select>
+      </div>
 
-      <div className="flex items-center gap-2">
+      <div className="md:col-span-5 flex items-center gap-2">
         {account.type === 'Credit' ? (
           <div className="flex-grow">
             <Select
@@ -84,36 +87,46 @@ function AccountRow({ account, onUpdate, onDelete, debts, isLoadingDebts }: { ac
             onBlur={(e) => onUpdate(account.id, 'balance', parseFloat(e.target.value) || 0)}
             placeholder="Balance"
             disabled={account.isCalculated}
+            className="flex-grow"
           />
         )}
-        <div className="flex items-center gap-1">
-            <Switch
-              id={`is-calculated-${account.id}`}
-              checked={account.isCalculated}
-              onCheckedChange={(checked) => onUpdate(account.id, 'isCalculated', checked)}
-              aria-label="Toggle calculated balance"
-            />
-             <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive">
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will permanently delete the &quot;{account.name}&quot; account.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={() => onDelete(account.id)} className={cn(buttonVariants({ variant: "destructive" }))}>
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+         <div className="flex items-center gap-1">
+             <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                   <Switch
+                    id={`is-calculated-${account.id}`}
+                    checked={account.isCalculated}
+                    onCheckedChange={(checked) => onUpdate(account.id, 'isCalculated', checked)}
+                    aria-label="Toggle calculated balance"
+                  />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>If on, balance is calculated from its funds.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete the &quot;{account.name}&quot; account.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => onDelete(account.id)} className={cn(buttonVariants({ variant: "destructive" }))}>
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
         </div>
       </div>
     </div>
@@ -175,12 +188,21 @@ export function AccountDetailsManager() {
               return (
                 <div key={type} className="space-y-2">
                   <h4 className="font-semibold text-primary">{type}</h4>
-                   <div className="hidden md:grid grid-cols-4 items-center gap-2 text-xs text-muted-foreground px-2">
-                      <span className="col-span-2">Account Name</span>
-                      <span>Account Type</span>
-                      <div className="flex items-center gap-1">
+                   <div className="hidden md:grid grid-cols-12 items-center gap-2 text-xs text-muted-foreground px-2">
+                      <span className="col-span-4">Account Name</span>
+                      <span className="col-span-3">Account Type</span>
+                      <div className="col-span-5 flex items-center gap-1">
                         <span>{type === 'Credit' ? 'Linked Debt' : 'Balance'}</span>
-                        <Server className="h-3 w-3" title="Calculated from Ledger" />
+                         <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Server className="h-3 w-3" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Toggle marks balance as calculated from ledger.</p>
+                                </TooltipContent>
+                            </Tooltip>
+                         </TooltipProvider>
                       </div>
                   </div>
                   <div className="space-y-2">
