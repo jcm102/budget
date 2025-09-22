@@ -86,7 +86,7 @@ export default function MonthlyBudgetPage() {
         onOpenChange={setIsBreakdownFormOpen}
         onSave={handleSaveBreakdown}
         category={selectedCategory}
-        budgetItem={budgetItem}
+        budgetItem={selectedBudgetItem}
       />
       <div className="container mx-auto max-w-4xl p-4 md:p-8">
         <header className="mb-8 flex justify-between items-center">
