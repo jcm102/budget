@@ -496,8 +496,9 @@ export function ExpenseForm({
                             <FormItem className="flex-grow">
                                 <FormLabel>Distance (km)</FormLabel>
                                 <FormControl><Input type="number" step="0.1" {...field} onChange={(e) => {
-                                    field.onChange(e);
-                                    oneWayDistanceRef.current = parseFloat(e.target.value) / (tripType === 'Return' ? 2 : 1);
+                                    const value = e.target.value;
+                                    field.onChange(value === '' ? '' : parseFloat(value));
+                                    oneWayDistanceRef.current = parseFloat(value) / (tripType === 'Return' ? 2 : 1);
                                 }} /></FormControl>
                                 <FormMessage />
                             </FormItem>

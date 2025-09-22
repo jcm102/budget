@@ -491,7 +491,10 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                                                         {...field} 
                                                         className="w-28" 
                                                         placeholder="Amount"
-                                                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                                        onChange={(e) => {
+                                                            const value = e.target.value;
+                                                            field.onChange(value === '' ? '' : parseFloat(value) || 0);
+                                                        }}
                                                     />
                                                 </FormControl>
                                             </FormItem>
