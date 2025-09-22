@@ -15,7 +15,7 @@ export function useBudget() {
   const { fetchAccounts } = useAccountDetails();
 
 
-  const fetchBudgetItems = async () => {
+  const fetchBudgetItems = useCallback(async () => {
       try {
         setIsLoading(true);
         const fetchedItems = await BudgetService.getBudgetItems();
@@ -30,12 +30,11 @@ export function useBudget() {
       } finally {
         setIsLoading(false);
       }
-    };
+    }, [toast]);
 
   useEffect(() => {
     fetchBudgetItems();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchBudgetItems]);
 
   const addBudgetItem = useCallback(async (itemData: Omit<BudgetItem, 'id'>) => {
     try {
@@ -52,7 +51,7 @@ export function useBudget() {
         variant: 'destructive',
       });
     }
-  }, [toast, fetchAccounts]);
+  }, [toast, fetchAccounts, fetchBudgetItems]);
 
   const updateBudgetItem = useCallback(async (id: string, itemData: Partial<Omit<BudgetItem, 'id' | 'originalId'>>) => {
     try {
@@ -69,7 +68,7 @@ export function useBudget() {
         variant: 'destructive',
       });
     }
-  }, [toast, fetchAccounts]);
+  }, [toast, fetchAccounts, fetchBudgetItems]);
 
   const deleteBudgetItem = useCallback(async (id: string) => {
     try {
