@@ -53,7 +53,7 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
 }
 
 export function IncomeTable() {
-  const { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, isLoading } = useBudget();
+  const { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, isLoading, fetchBudgetItems } = useBudget();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<BudgetItem | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'ascending' });
@@ -114,7 +114,7 @@ export function IncomeTable() {
     ))
   );
 
-  const total = incomeItems.reduce((acc, item) => acc + item.amount, 0);
+  const total = incomeItems.filter(i => !i.forNextMonth).reduce((acc, item) => acc + item.amount, 0);
 
   return (
     <>
@@ -213,7 +213,7 @@ export function IncomeTable() {
                 </TableBody>
                 <TableFooter>
                     <TableRow>
-                        <TableCell colSpan={4} className="font-semibold text-right">Total</TableCell>
+                        <TableCell colSpan={4} className="font-semibold text-right">Total (This Month)</TableCell>
                         <TableCell className="text-right font-semibold">{formatCurrency(total)}</TableCell>
                         <TableCell></TableCell>
                     </TableRow>
