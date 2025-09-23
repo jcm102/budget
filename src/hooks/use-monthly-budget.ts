@@ -89,26 +89,6 @@ export function useMonthlyBudget(month?: string) {
     }
   }, [budgetItems, selectedMonth, toast, fetchBudget]);
 
-  const copyBudgetFromPreviousMonth = useCallback(async () => {
-    try {
-      const previousMonthDate = addMonths(new Date(selectedMonth), -1);
-      const previousMonthString = format(previousMonthDate, 'yyyy-MM');
-      await MonthlyBudgetService.copyBudget(previousMonthString, selectedMonth);
-      await fetchBudget();
-      toast({
-        title: 'Success!',
-        description: 'Budget has been copied from the previous month.',
-      });
-    } catch (error: any) {
-      console.error('Failed to copy budget:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Could not copy budget from the previous month.',
-        variant: 'destructive',
-      });
-    }
-  }, [selectedMonth, fetchBudget, toast]);
-  
   const copyCategoryBudget = useCallback(async (categoryId: string) => {
     try {
         const prevBudgetItem = previousMonthBudgetItems.find(item => item.categoryId === categoryId);
@@ -131,5 +111,5 @@ export function useMonthlyBudget(month?: string) {
     }
   }, [previousMonthBudgetItems, toast, updateBudgetItem]);
 
-  return { budgetItems, categories, updateBudgetItem, updateBudgetItemWithBreakdown, copyBudgetFromPreviousMonth, copyCategoryBudget, isLoading, fetchBudget };
+  return { budgetItems, categories, updateBudgetItem, updateBudgetItemWithBreakdown, copyCategoryBudget, isLoading, fetchBudget };
 }

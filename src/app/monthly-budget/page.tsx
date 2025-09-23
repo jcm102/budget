@@ -30,7 +30,7 @@ export default function MonthlyBudgetPage() {
 
 
   const { transactions, accounts, addTransaction, updateTransaction, deleteTransaction, isLoading: isLoadingTransactions } = useTransactions(selectedMonthString);
-  const { budgetItems: monthlyBudgetItems, categories, updateBudgetItemWithBreakdown, isLoading: isLoadingBudget, updateBudgetItem, copyBudgetFromPreviousMonth, copyCategoryBudget } = useMonthlyBudget(selectedMonthString);
+  const { budgetItems: monthlyBudgetItems, categories, updateBudgetItemWithBreakdown, isLoading: isLoadingBudget, updateBudgetItem, copyCategoryBudget } = useMonthlyBudget(selectedMonthString);
   const { budgetItems, isLoading: isLoadingIncome } = useBudget();
 
   const incomeAmount = budgetItems
@@ -159,12 +159,6 @@ export default function MonthlyBudgetPage() {
                 />
               </TabsContent>
               <TabsContent value="next">
-                 <div className="flex justify-end mb-4">
-                    <Button variant="outline" onClick={() => copyBudgetFromPreviousMonth()}>
-                        <Copy className="mr-2 h-4 w-4" />
-                        Copy from Previous Month
-                    </Button>
-                </div>
                 <BudgetTable 
                     budgetItems={monthlyBudgetItems}
                     categories={categories}
