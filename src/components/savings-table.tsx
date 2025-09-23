@@ -59,6 +59,7 @@ import { Progress } from './ui/progress';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
 import { Badge } from './ui/badge';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 
 const transactionSchema = z.object({
   amount: z.coerce.number().min(0.01, 'Amount must be greater than zero.'),
@@ -300,6 +301,7 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
       </div>
 
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+        <TooltipProvider>
           <Table>
             <TableHeader>
               <TableRow className="group">
@@ -372,14 +374,34 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
                             {columnVisibility.actions && <TableCell className="text-right">
                                 <div className="flex justify-end gap-1">
                                      <TransactionDialog item={item} transactionType='deposit' onSave={(amount) => handleTransaction(item, amount, 'deposit')}>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700"><DollarSign className="h-4 w-4" /></Button>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700"><DollarSign className="h-4 w-4" /></Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent><p>Deposit</p></TooltipContent>
+                                        </Tooltip>
                                     </TransactionDialog>
                                     <TransactionDialog item={item} transactionType='withdraw' onSave={(amount) => handleTransaction(item, amount, 'withdraw')}>
-                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700"><MinusCircle className="h-4 w-4" /></Button>
+                                         <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700"><MinusCircle className="h-4 w-4" /></Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent><p>Withdraw</p></TooltipContent>
+                                        </Tooltip>
                                     </TransactionDialog>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(item)}><Pencil className="h-4 w-4" /></Button>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(item)}><Pencil className="h-4 w-4" /></Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent><p>Edit Fund</p></TooltipContent>
+                                    </Tooltip>
                                     <AlertDialog>
-                                        <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                                            </TooltipTrigger>
+                                            <TooltipContent><p>Delete Fund</p></TooltipContent>
+                                        </Tooltip>
                                         <AlertDialogContent>
                                             <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete this savings fund.</AlertDialogDescription></AlertDialogHeader>
                                             <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => deleteSavingsItem(item.id)} className={cn(buttonVariants({ variant: "destructive" }))}>Delete</AlertDialogAction></AlertDialogFooter>
@@ -413,6 +435,7 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
               </TableFooter>
             )}
           </Table>
+        </TooltipProvider>
       </div>
     </>
   );
