@@ -37,17 +37,14 @@ export async function getBudgetForMonth(month: string): Promise<MonthlyBudgetIte
 }
 
 export async function getBudgetItemForCategory(month: string, categoryId: string): Promise<MonthlyBudgetItem | null> {
-    const q = query(
-        collection(db, BUDGET_ITEMS_COLLECTION),
-        where('month', '==', month),
-        where('categoryId', '==', categoryId),
-        limit(1)
-    );
-    const querySnapshot = await getDocs(q);
-    if (querySnapshot.empty) {
-        return null;
+    const monthItems = await getBudgetForMonth(month);
+    const budgetItem = monthItems.find(item => item.categoryId === categoryId);
+    
+    if (budgetItem) {
+      return budgetItem;
     }
-    return { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as MonthlyBudgetItem;
+    
+    return null;
 }
 
 export async function addBudgetItem(itemData: Omit<MonthlyBudgetItem, 'id'>): Promise<MonthlyBudgetItem> {
@@ -359,6 +356,7 @@ export async function deleteTransaction(id: string): Promise<void> {
         transaction.delete(transactionRef);
     });
 }
+
 
 
 
