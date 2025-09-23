@@ -1,12 +1,10 @@
 
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import type { MonthlyBudgetItem, Category, BudgetSubItem } from '@/types';
 import { useToast } from './use-toast';
 import * as MonthlyBudgetService from '@/services/monthly-budget-service';
-import * as BudgetCategoryService from '@/services/budget-category-service';
 import { addMonths, format } from 'date-fns';
 
 export function useMonthlyBudget(month?: string) {
@@ -26,7 +24,7 @@ export function useMonthlyBudget(month?: string) {
 
       const [fetchedBudgetItems, fetchedCategories, fetchedPreviousBudgetItems] = await Promise.all([
         MonthlyBudgetService.getBudgetForMonth(selectedMonth),
-        BudgetCategoryService.getCategories(),
+        MonthlyBudgetService.getCategories(),
         MonthlyBudgetService.getBudgetForMonth(previousMonthString),
       ]);
       setBudgetItems(fetchedBudgetItems);
