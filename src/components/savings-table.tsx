@@ -271,17 +271,25 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
     ))
   );
 
-  const { totalSaved, totalMonthlyContribution } = useMemo(() => {
-    const saved = sortedItems.reduce((acc, item) => acc + item.amount, 0);
-
-    const monthly = sortedItems.reduce((acc, item) => {
+  const { totalSaved, totalCost, totalSavingsTarget, totalMonthlyContribution } = useMemo(() => {
+    const totals = sortedItems.reduce((acc, item) => {
+        acc.saved += item.amount || 0;
+        acc.cost += item.totalCost || 0;
+        acc.target += item.savingsTarget || 0;
+        
         const monthlyAmt = item.monthlyAmount || item.goal || 0;
         const rate = exchangeRate || 1.0;
         const convertedAmt = item.currency === 'USD' ? monthlyAmt * rate : monthlyAmt;
-        return acc + convertedAmt;
-    }, 0);
+        acc.monthly += convertedAmt;
+        return acc;
+    }, { saved: 0, cost: 0, target: 0, monthly: 0 });
 
-    return { totalSaved: saved, totalMonthlyContribution: monthly };
+    return {
+        totalSaved: totals.saved,
+        totalCost: totals.cost,
+        totalSavingsTarget: totals.target,
+        totalMonthlyContribution: totals.monthly
+    };
 }, [sortedItems, exchangeRate]);
 
   return (
@@ -423,14 +431,14 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
             {sortedItems.length > 0 && (
               <TableFooter>
                 <TableRow>
-                    <TableCell colSpan={Object.values(columnVisibility).filter(Boolean).length - 2} className="font-semibold text-right">Total Saved (CAD)</TableCell>
-                    <TableCell className="text-right font-semibold">{formatCurrency(totalSaved)}</TableCell>
-                    <TableCell></TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell colSpan={Object.values(columnVisibility).filter(Boolean).length - 2} className="font-semibold text-right">Total Monthly Contribution (CAD)</TableCell>
-                  <TableCell className="text-right font-semibold">{formatCurrency(totalMonthlyContribution)}</TableCell>
-                  <TableCell></TableCell>
+                    {columnVisibility.name && <TableCell className="font-semibold text-right">Totals (CAD)</TableCell>}
+                    {columnVisibility.amount && <TableCell className="text-right font-semibold">{formatCurrency(totalSaved)}</TableCell>}
+                    {columnVisibility.totalCost && <TableCell className="text-right font-semibold">{formatCurrency(totalCost)}</TableCell>}
+                    {columnVisibility.savingsTarget && <TableCell className="text-right font-semibold">{formatCurrency(totalSavingsTarget)}</TableCell>}
+                    {columnVisibility.dueDate && <TableCell></TableCell>}
+                    {columnVisibility.recurrence && <TableCell></TableCell>}
+                    {columnVisibility.monthlyAmount && <TableCell className="text-right font-semibold">{formatCurrency(totalMonthlyContribution)}</TableCell>}
+                    {columnVisibility.actions && <TableCell></TableCell>}
                 </TableRow>
               </TableFooter>
             )}
