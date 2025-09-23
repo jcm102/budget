@@ -2,10 +2,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { SavingsTable } from '@/components/savings-table';
-import { ArrowLeft, Printer, PiggyBank, Landmark, Truck, Repeat, Star, ChevronsUpDown } from 'lucide-react';
+import { ArrowLeft, Printer, PiggyBank, Landmark, Truck, Repeat, Star, ChevronsUpDown, View } from 'lucide-react';
 import { GoalTable } from '@/components/goal-table';
 import { AutoShipTable } from '@/components/autoship-table';
 import { SubscriptionTable } from '@/components/subscription-table';
@@ -18,13 +18,21 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { useLedgerSettings } from '@/hooks/use-ledger-settings';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useSavings } from '@/hooks/use-savings';
 import { useGoals } from '@/hooks/use-goals';
+import type { SavingsItem } from '@/types';
 
+
+export type ColumnVisibility = {
+    [key in keyof SavingsItem | 'monthlyAmount' | 'actions']?: boolean;
+};
 
 export default function SavingsPage() {
   const { accounts, isLoading: isLoadingAccounts } = useAccounts();
@@ -32,7 +40,27 @@ export default function SavingsPage() {
   const { includeGoalSavings, setIncludeGoalSavings, includeSinkingFunds, setIncludeSinkingFunds } = useLedgerSettings();
   const { savingsItems, isLoading: isLoadingSavings } = useSavings();
   const { goals, isLoading: isLoadingGoals } = useGoals();
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
+    name: true,
+    amount: true,
+    totalCost: true,
+    savingsTarget: false,
+    dueDate: true,
+    recurrence: false,
+    monthlyAmount: true,
+    actions: true,
+  });
 
+   const columnConfig = {
+    name: { label: 'Fund Name' },
+    amount: { label: 'Amount Saved'},
+    totalCost: { label: 'Total Cost' },
+    savingsTarget: { label: 'My Target' },
+    dueDate: { label: 'Due Date' },
+    recurrence: { label: 'Recurrence' },
+    monthlyAmount: { label: 'Monthly Amount' },
+    actions: { label: 'Actions' },
+  };
 
   const handlePrint = () => {
     window.print();
@@ -83,6 +111,33 @@ export default function SavingsPage() {
                     </DropdownMenuItem>
                   ))
                 )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <View className="mr-2 h-4 w-4" />
+                  View
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[180px]">
+                <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {Object.entries(columnConfig).map(([key, { label }]) => (
+                   <DropdownMenuCheckboxItem
+                    key={key}
+                    className="capitalize"
+                    checked={columnVisibility[key as keyof ColumnVisibility]}
+                    onCheckedChange={(value) =>
+                      setColumnVisibility((prev) => ({
+                        ...prev,
+                        [key]: !!value,
+                      }))
+                    }
+                  >
+                    {label}
+                  </DropdownMenuCheckboxItem>
+                ))}
               </DropdownMenuContent>
             </DropdownMenu>
             <Button variant="outline" onClick={handlePrint}>
@@ -151,7 +206,7 @@ export default function SavingsPage() {
                     <Label htmlFor="include-funds-switch">Include in Ledger</Label>
                   </div>
             </div>
-            <SavingsTable />
+            <SavingsTable columnVisibility={columnVisibility} />
           </TabsContent>
 
           <TabsContent value="autoship">

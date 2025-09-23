@@ -8,6 +8,7 @@ import * as z from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format, differenceInMonths, addMonths } from 'date-fns';
+import type { ColumnVisibility } from '@/app/savings/page';
 
 import {
   Table,
@@ -143,7 +144,11 @@ const getNextBillingDate = (item: SubscriptionItem | AutoShipItem): Date => {
     return addMonths(today, monthsToAdd[item.billingFrequency]);
 }
 
-export function SavingsTable() {
+type SavingsTableProps = {
+    columnVisibility: ColumnVisibility;
+}
+
+export function SavingsTable({ columnVisibility }: SavingsTableProps) {
   const { 
     savingsItems, 
     subscriptions,
@@ -298,14 +303,14 @@ export function SavingsTable() {
           <Table>
             <TableHeader>
               <TableRow className="group">
-                <SortableHeader column="name" label="Fund Name" sortConfig={sortConfig} requestSort={requestSort} />
-                <SortableHeader column="amount" label="Amount Saved" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[140px]"/>
-                <SortableHeader column="totalCost" label="Total Cost" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[120px]"/>
-                <SortableHeader column="savingsTarget" label="My Target" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[120px]"/>
-                <SortableHeader column="dueDate" label="Due Date" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[140px]"/>
-                <SortableHeader column="recurrence" label="Recurrence" sortConfig={sortConfig} requestSort={requestSort} className="w-[150px]"/>
-                <SortableHeader column="monthlyAmount" label="Monthly Amount" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[160px]"/>
-                <TableHead className="w-[140px] text-right">Actions</TableHead>
+                {columnVisibility.name && <SortableHeader column="name" label="Fund Name" sortConfig={sortConfig} requestSort={requestSort} />}
+                {columnVisibility.amount && <SortableHeader column="amount" label="Amount Saved" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[140px]"/>}
+                {columnVisibility.totalCost && <SortableHeader column="totalCost" label="Total Cost" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[120px]"/>}
+                {columnVisibility.savingsTarget && <SortableHeader column="savingsTarget" label="My Target" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[120px]"/>}
+                {columnVisibility.dueDate && <SortableHeader column="dueDate" label="Due Date" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[140px]"/>}
+                {columnVisibility.recurrence && <SortableHeader column="recurrence" label="Recurrence" sortConfig={sortConfig} requestSort={requestSort} className="w-[150px]"/>}
+                {columnVisibility.monthlyAmount && <SortableHeader column="monthlyAmount" label="Monthly Amount" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[160px]"/>}
+                {columnVisibility.actions && <TableHead className="w-[140px] text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -322,12 +327,12 @@ export function SavingsTable() {
 
                         return (
                         <TableRow key={item.id}>
-                            <TableCell className="font-medium">{item.name}{isUsd && <Badge variant="secondary" className="ml-2">USD</Badge>}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(item.amount, item.currency)}</TableCell>
-                            <TableCell className="text-right">
+                            {columnVisibility.name && <TableCell className="font-medium">{item.name}{isUsd && <Badge variant="secondary" className="ml-2">USD</Badge>}</TableCell>}
+                            {columnVisibility.amount && <TableCell className="text-right">{formatCurrency(item.amount, item.currency)}</TableCell>}
+                            {columnVisibility.totalCost && <TableCell className="text-right">
                                 {item.totalCost ? formatCurrency(item.totalCost, item.currency) : '-'}
-                            </TableCell>
-                            <TableCell className="text-right">
+                            </TableCell>}
+                            {columnVisibility.savingsTarget && <TableCell className="text-right">
                                 {item.savingsTarget ? formatCurrency(item.savingsTarget, item.currency) : '-'}
                                 {costToUse && costToUse > 0 && (
                                     <div className="flex items-center justify-end gap-2 mt-1">
@@ -335,9 +340,9 @@ export function SavingsTable() {
                                          <span className="text-xs text-muted-foreground">{Math.round(progress)}%</span>
                                     </div>
                                 )}
-                            </TableCell>
-                             <TableCell className="text-right">{item.dueDate ? format(new Date(item.dueDate), 'PPP') : '-'}</TableCell>
-                             <TableCell>
+                            </TableCell>}
+                             {columnVisibility.dueDate && <TableCell className="text-right">{item.dueDate ? format(new Date(item.dueDate), 'PPP') : '-'}</TableCell>}
+                             {columnVisibility.recurrence && <TableCell>
                                 {item.recurrence && item.recurrence !== 'None' ? (
                                     <Badge variant="secondary" className="gap-1 items-center">
                                         <Repeat className="h-3 w-3" /> {item.recurrence}
@@ -345,8 +350,8 @@ export function SavingsTable() {
                                 ) : (
                                     <span className="text-muted-foreground">-</span>
                                 )}
-                            </TableCell>
-                            <TableCell className="text-right">
+                            </TableCell>}
+                            {columnVisibility.monthlyAmount && <TableCell className="text-right">
                                 <div className='flex items-center justify-end gap-1'>
                                 {monthlyAmount > 0 && (
                                   <>
@@ -363,8 +368,8 @@ export function SavingsTable() {
                                 )}
                                 {monthlyAmount <= 0 && '-'}
                                 </div>
-                            </TableCell>
-                            <TableCell className="text-right">
+                            </TableCell>}
+                            {columnVisibility.actions && <TableCell className="text-right">
                                 <div className="flex justify-end gap-1">
                                      <TransactionDialog item={item} transactionType='deposit' onSave={(amount) => handleTransaction(item, amount, 'deposit')}>
                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700"><DollarSign className="h-4 w-4" /></Button>
@@ -381,13 +386,13 @@ export function SavingsTable() {
                                         </AlertDialogContent>
                                     </AlertDialog>
                                 </div>
-                            </TableCell>
+                            </TableCell>}
                         </TableRow>
                         )
                     })
                 ) : (
                     <TableRow>
-                    <TableCell colSpan={8} className="h-24 text-center">
+                    <TableCell colSpan={Object.values(columnVisibility).filter(Boolean).length} className="h-24 text-center">
                         No funds created yet. Add one to get started!
                     </TableCell>
                     </TableRow>
@@ -396,12 +401,12 @@ export function SavingsTable() {
             {sortedItems.length > 0 && (
               <TableFooter>
                 <TableRow>
-                    <TableCell colSpan={6} className="font-semibold text-right">Total Saved (CAD)</TableCell>
+                    <TableCell colSpan={Object.values(columnVisibility).filter(Boolean).length - 2} className="font-semibold text-right">Total Saved (CAD)</TableCell>
                     <TableCell className="text-right font-semibold">{formatCurrency(totalSaved)}</TableCell>
                     <TableCell></TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell colSpan={6} className="font-semibold text-right">Total Monthly Contribution (CAD)</TableCell>
+                  <TableCell colSpan={Object.values(columnVisibility).filter(Boolean).length - 2} className="font-semibold text-right">Total Monthly Contribution (CAD)</TableCell>
                   <TableCell className="text-right font-semibold">{formatCurrency(totalMonthlyContribution)}</TableCell>
                   <TableCell></TableCell>
                 </TableRow>
@@ -412,4 +417,3 @@ export function SavingsTable() {
     </>
   );
 }
-
