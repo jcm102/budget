@@ -11,6 +11,7 @@ import { addMonths, format } from 'date-fns';
 
 export function useMonthlyBudget(month?: string) {
   const [budgetItems, setBudgetItems] = useState<MonthlyBudgetItem[]>([]);
+  const [previousMonthBudgetItems, setPreviousMonthBudgetItems] = useState<MonthlyBudgetItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
@@ -20,12 +21,17 @@ export function useMonthlyBudget(month?: string) {
   const fetchBudget = useCallback(async () => {
     try {
       setIsLoading(true);
-      const [fetchedBudgetItems, fetchedCategories] = await Promise.all([
+      const previousMonthDate = addMonths(new Date(selectedMonth), -1);
+      const previousMonthString = format(previousMonthDate, 'yyyy-MM');
+
+      const [fetchedBudgetItems, fetchedCategories, fetchedPreviousBudgetItems] = await Promise.all([
         MonthlyBudgetService.getBudgetForMonth(selectedMonth),
-        BudgetCategoryService.getCategories()
+        BudgetCategoryService.getCategories(),
+        MonthlyBudgetService.getBudgetForMonth(previousMonthString),
       ]);
       setBudgetItems(fetchedBudgetItems);
       setCategories(fetchedCategories);
+      setPreviousMonthBudgetItems(fetchedPreviousBudgetItems);
     } catch (error) {
       console.error('Failed to load monthly budget data:', error);
       toast({
@@ -105,10 +111,7 @@ export function useMonthlyBudget(month?: string) {
   
   const copyCategoryBudget = useCallback(async (categoryId: string) => {
     try {
-        const previousMonthDate = addMonths(new Date(selectedMonth), -1);
-        const previousMonthString = format(previousMonthDate, 'yyyy-MM');
-        
-        const prevBudgetItem = await MonthlyBudgetService.getBudgetItemForCategory(previousMonthString, categoryId);
+        const prevBudgetItem = previousMonthBudgetItems.find(item => item.categoryId === categoryId);
 
         if (prevBudgetItem && prevBudgetItem.budgeted > 0) {
             await updateBudgetItem(categoryId, prevBudgetItem.budgeted);
@@ -126,7 +129,7 @@ export function useMonthlyBudget(month?: string) {
             variant: 'destructive',
         });
     }
-  }, [selectedMonth, toast, updateBudgetItem]);
+  }, [previousMonthBudgetItems, toast, updateBudgetItem]);
 
   return { budgetItems, categories, updateBudgetItem, updateBudgetItemWithBreakdown, copyBudgetFromPreviousMonth, copyCategoryBudget, isLoading, fetchBudget };
 }

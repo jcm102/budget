@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -33,23 +34,6 @@ export async function getBudgetForMonth(month: string): Promise<MonthlyBudgetIte
   const q = query(collection(db, BUDGET_ITEMS_COLLECTION), where('month', '==', month));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MonthlyBudgetItem));
-}
-
-export async function getBudgetItemForCategory(month: string, categoryId: string): Promise<MonthlyBudgetItem | null> {
-    const q = query(
-        collection(db, BUDGET_ITEMS_COLLECTION),
-        where('month', '==', month),
-        where('categoryId', '==', categoryId),
-        limit(1)
-    );
-    const querySnapshot = await getDocs(q);
-    
-    if (querySnapshot.empty) {
-        return null;
-    }
-    
-    const doc = querySnapshot.docs[0];
-    return { id: doc.id, ...doc.data() } as MonthlyBudgetItem;
 }
 
 export async function addBudgetItem(itemData: Omit<MonthlyBudgetItem, 'id'>): Promise<MonthlyBudgetItem> {
