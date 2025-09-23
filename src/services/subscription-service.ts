@@ -49,15 +49,23 @@ async function updateLinkedSinkingFund(
         currency: 'CAD', // Assuming CAD
         type: 'Subscription',
     };
+    
+    const fundDoc = sinkingFundSnapshot.docs[0];
 
-    if (sinkingFundSnapshot.empty) {
-        if (!oldSubscriptionData) { // Only create if it's a new subscription
-             const newFundRef = doc(collection(db, SINKING_FUNDS_COLLECTION));
-             transaction.set(newFundRef, fundData);
+    if (subscription.includeInSinkingFund) {
+        if (fundDoc) {
+            // Update existing fund
+            transaction.update(fundDoc.ref, fundData);
+        } else {
+            // Create new fund
+            const newFundRef = doc(collection(db, SINKING_FUNDS_COLLECTION));
+            transaction.set(newFundRef, fundData);
         }
     } else {
-        const fundDoc = sinkingFundSnapshot.docs[0];
-        transaction.update(fundDoc.ref, fundData);
+        // If it shouldn't be included, delete it if it exists
+        if (fundDoc) {
+            transaction.delete(fundDoc.ref);
+        }
     }
 }
 

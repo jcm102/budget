@@ -191,6 +191,7 @@ export interface SubscriptionItem {
   nextRenewalDate: string; // ISO string;
   type: 'Subscription'; // To distinguish for dialog
   budgetCategoryId?: string;
+  includeInSinkingFund?: boolean;
 }
 
 export interface LinkGroup {

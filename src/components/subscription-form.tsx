@@ -33,6 +33,7 @@ import {
 import type { SubscriptionItem, SubscriptionBillingFrequency, Category } from '@/types';
 import { useAccounts } from '@/hooks/use-accounts';
 import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
+import { Switch } from './ui/switch';
 
 type CategoryWithChildren = Category & { children: CategoryWithChildren[] };
 
@@ -44,6 +45,7 @@ const formSchema = z.object({
   cost: z.coerce.number().min(0, 'Cost must be a positive number.'),
   nextRenewalDate: z.string().min(1, 'A renewal date is required.'),
   budgetCategoryId: z.string().optional(),
+  includeInSinkingFund: z.boolean().optional(),
 });
 
 type SubscriptionFormProps = {
@@ -66,8 +68,19 @@ export function SubscriptionForm({ open, onOpenChange, addSubscription, updateSu
       cost: 0,
       nextRenewalDate: '',
       budgetCategoryId: '',
+      includeInSinkingFund: false,
     },
   });
+
+  const billingFrequency = form.watch('billingFrequency');
+
+  useEffect(() => {
+    if (billingFrequency === 'Monthly') {
+      form.setValue('includeInSinkingFund', false);
+    } else {
+      form.setValue('includeInSinkingFund', true);
+    }
+  }, [billingFrequency, form]);
 
   const categoryTree = useMemo(() => {
     const buildTree = (parentId: string | null = null): CategoryWithChildren[] => {
@@ -107,6 +120,7 @@ export function SubscriptionForm({ open, onOpenChange, addSubscription, updateSu
           cost: editingItem.cost,
           nextRenewalDate: editingItem.nextRenewalDate ? new Date(editingItem.nextRenewalDate).toISOString().split('T')[0] : '',
           budgetCategoryId: editingItem.budgetCategoryId || '',
+          includeInSinkingFund: editingItem.includeInSinkingFund ?? (editingItem.billingFrequency !== 'Monthly'),
         });
       } else {
         form.reset({
@@ -116,6 +130,7 @@ export function SubscriptionForm({ open, onOpenChange, addSubscription, updateSu
           cost: 0,
           nextRenewalDate: new Date().toISOString().split('T')[0],
           budgetCategoryId: '',
+          includeInSinkingFund: false,
         });
       }
     }
@@ -233,6 +248,24 @@ export function SubscriptionForm({ open, onOpenChange, addSubscription, updateSu
                 </FormItem>
               )}
             />
+             <FormField
+                control={form.control}
+                name="includeInSinkingFund"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>Include in Sinking Funds</FormLabel>
+                      <FormMessage />
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
             <DialogFooter>
               <Button type="submit">{editingItem ? 'Save Changes' : 'Add Subscription'}</Button>
             </DialogFooter>
