@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, PlusCircle, Pencil, Smartphone, Copy } from 'lucide-react';
@@ -13,22 +13,26 @@ import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
 import { BudgetBreakdownForm } from '@/components/budget-breakdown-form';
 import type { Category, MonthlyBudgetItem, BudgetSubItem, Transaction } from '@/types';
 import { useBudget } from '@/hooks/use-budget';
-import { format } from 'date-fns';
+import { format, addMonths } from 'date-fns';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function MonthlyBudgetPage() {
   const [isTransactionFormOpen, setIsTransactionFormOpen] = useState(false);
   const [isBreakdownFormOpen, setIsBreakdownFormOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [view, setView] = useState<'current' | 'next'>('current');
   
-  const selectedMonthString = format(new Date(), 'yyyy-MM');
-
+  const currentDate = new Date();
+  const currentMonthString = format(currentDate, 'yyyy-MM');
+  const nextMonthString = format(addMonths(currentDate, 1), 'yyyy-MM');
+  const selectedMonthString = view === 'current' ? currentMonthString : nextMonthString;
 
   const { transactions, accounts, addTransaction, updateTransaction, deleteTransaction, isLoading: isLoadingTransactions } = useTransactions(selectedMonthString);
-  const { budgetItems: monthlyBudgetItems, categories, updateBudgetItemWithBreakdown, isLoading: isLoadingBudget, updateBudgetItem } = useMonthlyBudget(selectedMonthString);
-  const { budgetItems, isLoading: isLoadingIncome } = useBudget();
+  const { budgetItems: monthlyBudgetItems, categories, updateBudgetItemWithBreakdown, isLoading: isLoadingBudget, updateBudgetItem, copyCategoryFromPreviousMonth } = useMonthlyBudget(selectedMonthString);
+  const { budgetItems: incomeItems, isLoading: isLoadingIncome } = useBudget();
 
-  const incomeAmount = budgetItems
+  const incomeAmount = incomeItems
     .filter(i => i.type === 'Income' && !i.forNextMonth)
     .reduce((acc, i) => acc + i.amount, 0);
 
@@ -135,17 +139,38 @@ export default function MonthlyBudgetPage() {
                     </p>
                 </div>
             </div>
-            <BudgetTable 
-                budgetItems={monthlyBudgetItems}
-                categories={categories}
-                transactions={transactions}
-                isLoading={isLoadingBudget || isLoadingTransactions || isLoadingIncome}
-                onEditBreakdown={handleEditBreakdown}
-                onEditTransaction={handleOpenTransactionForm}
-                onUpdateBudget={updateBudgetItem}
-                onCopyCategory={() => {}} // Placeholder, will be reimplemented
-                view={'current'} // Hardcoded to current
-            />
+            <Tabs value={view} onValueChange={(value) => setView(value as 'current' | 'next')} className="w-full">
+                <TabsList className="grid w-full grid-cols-2 bg-secondary/50 mb-6 no-print">
+                    <TabsTrigger value="current">Current Month</TabsTrigger>
+                    <TabsTrigger value="next">Next Month</TabsTrigger>
+                </TabsList>
+                <TabsContent value="current">
+                     <BudgetTable 
+                        budgetItems={monthlyBudgetItems}
+                        categories={categories}
+                        transactions={transactions}
+                        isLoading={isLoadingBudget || isLoadingTransactions || isLoadingIncome}
+                        onEditBreakdown={handleEditBreakdown}
+                        onEditTransaction={handleOpenTransactionForm}
+                        onUpdateBudget={updateBudgetItem}
+                        onCopyCategory={copyCategoryFromPreviousMonth}
+                        view={view}
+                    />
+                </TabsContent>
+                <TabsContent value="next">
+                     <BudgetTable 
+                        budgetItems={monthlyBudgetItems}
+                        categories={categories}
+                        transactions={transactions}
+                        isLoading={isLoadingBudget || isLoadingTransactions || isLoadingIncome}
+                        onEditBreakdown={handleEditBreakdown}
+                        onEditTransaction={handleOpenTransactionForm}
+                        onUpdateBudget={updateBudgetItem}
+                        onCopyCategory={copyCategoryFromPreviousMonth}
+                        view={view}
+                    />
+                </TabsContent>
+            </Tabs>
         </main>
       </div>
     </>

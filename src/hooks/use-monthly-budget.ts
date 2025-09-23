@@ -6,10 +6,11 @@ import type { MonthlyBudgetItem, Category, BudgetSubItem } from '@/types';
 import { useToast } from './use-toast';
 import * as MonthlyBudgetService from '@/services/monthly-budget-service';
 import * as BudgetCategoryService from '@/services/budget-category-service';
-import { format } from 'date-fns';
+import { format, subMonths } from 'date-fns';
 
 export function useMonthlyBudget(month?: string) {
   const [budgetItems, setBudgetItems] = useState<MonthlyBudgetItem[]>([]);
+  const [previousMonthBudgetItems, setPreviousMonthBudgetItems] = useState<MonthlyBudgetItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
@@ -19,11 +20,16 @@ export function useMonthlyBudget(month?: string) {
   const fetchBudget = useCallback(async () => {
     try {
       setIsLoading(true);
-      const [fetchedBudgetItems, fetchedCategories] = await Promise.all([
+      const currentMonthDate = new Date(selectedMonth + '-02'); // Use day 2 to avoid timezone issues
+      const previousMonthString = format(subMonths(currentMonthDate, 1), 'yyyy-MM');
+
+      const [fetchedBudgetItems, fetchedPreviousBudgetItems, fetchedCategories] = await Promise.all([
         MonthlyBudgetService.getBudgetForMonth(selectedMonth),
+        MonthlyBudgetService.getBudgetForMonth(previousMonthString),
         BudgetCategoryService.getCategories(),
       ]);
       setBudgetItems(fetchedBudgetItems);
+      setPreviousMonthBudgetItems(fetchedPreviousBudgetItems);
       setCategories(fetchedCategories);
     } catch (error) {
       console.error('Failed to load monthly budget data:', error);
@@ -82,5 +88,23 @@ export function useMonthlyBudget(month?: string) {
     }
   }, [budgetItems, selectedMonth, toast, fetchBudget]);
 
-  return { budgetItems, categories, updateBudgetItem, updateBudgetItemWithBreakdown, isLoading, fetchBudget };
+  const copyCategoryFromPreviousMonth = useCallback(async (categoryId: string) => {
+    const prevBudgetItem = previousMonthBudgetItems.find(item => item.categoryId === categoryId);
+    if (prevBudgetItem) {
+      await updateBudgetItem(categoryId, prevBudgetItem.budgeted);
+      toast({
+        title: 'Success',
+        description: `Copied ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(prevBudgetItem.budgeted)} from previous month.`,
+      });
+    } else {
+      toast({
+        title: 'No Data',
+        description: 'No budget amount found for this category in the previous month.',
+        variant: 'destructive',
+      });
+    }
+  }, [previousMonthBudgetItems, updateBudgetItem, toast]);
+
+
+  return { budgetItems, categories, updateBudgetItem, updateBudgetItemWithBreakdown, isLoading, fetchBudget, copyCategoryFromPreviousMonth };
 }

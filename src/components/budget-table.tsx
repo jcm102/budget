@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 import type { Transaction, Category, MonthlyBudgetItem, BudgetSubItem } from '@/types';
 import { Separator } from './ui/separator';
 import { useAccountDetails } from '@/hooks/use-transferees';
+import { useToast } from '@/hooks/use-toast';
 
 type BudgetTableProps = {
     budgetItems: MonthlyBudgetItem[];
