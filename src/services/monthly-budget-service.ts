@@ -36,6 +36,20 @@ export async function getBudgetForMonth(month: string): Promise<MonthlyBudgetIte
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MonthlyBudgetItem));
 }
 
+export async function getBudgetItemForCategory(month: string, categoryId: string): Promise<MonthlyBudgetItem | null> {
+    const q = query(
+        collection(db, BUDGET_ITEMS_COLLECTION),
+        where('month', '==', month),
+        where('categoryId', '==', categoryId),
+        limit(1)
+    );
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) {
+        return null;
+    }
+    return { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as MonthlyBudgetItem;
+}
+
 export async function addBudgetItem(itemData: Omit<MonthlyBudgetItem, 'id'>): Promise<MonthlyBudgetItem> {
   const docRef = await addDoc(collection(db, BUDGET_ITEMS_COLLECTION), itemData);
   const docSnap = await getDoc(docRef);

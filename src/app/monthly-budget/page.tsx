@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState } from 'react';
@@ -29,7 +30,7 @@ export default function MonthlyBudgetPage() {
 
 
   const { transactions, accounts, addTransaction, updateTransaction, deleteTransaction, isLoading: isLoadingTransactions } = useTransactions(selectedMonthString);
-  const { budgetItems: monthlyBudgetItems, categories, updateBudgetItemWithBreakdown, isLoading: isLoadingBudget, updateBudgetItem, copyBudgetFromPreviousMonth } = useMonthlyBudget(selectedMonthString);
+  const { budgetItems: monthlyBudgetItems, categories, updateBudgetItemWithBreakdown, isLoading: isLoadingBudget, updateBudgetItem, copyBudgetFromPreviousMonth, copyCategoryBudget } = useMonthlyBudget(selectedMonthString);
   const { budgetItems, isLoading: isLoadingIncome } = useBudget();
 
   const incomeAmount = budgetItems
@@ -153,6 +154,8 @@ export default function MonthlyBudgetPage() {
                     onEditBreakdown={handleEditBreakdown}
                     onEditTransaction={handleOpenTransactionForm}
                     onUpdateBudget={updateBudgetItem}
+                    onCopyCategory={copyCategoryBudget}
+                    view={view}
                 />
               </TabsContent>
               <TabsContent value="next">
@@ -170,6 +173,8 @@ export default function MonthlyBudgetPage() {
                     onEditBreakdown={handleEditBreakdown}
                     onEditTransaction={handleOpenTransactionForm}
                     onUpdateBudget={updateBudgetItem}
+                    onCopyCategory={copyCategoryBudget}
+                    view={view}
                 />
               </TabsContent>
             </Tabs>

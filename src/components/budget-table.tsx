@@ -4,7 +4,7 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { format } from 'date-fns';
-import { Pencil, Save, X, ChevronDown, ArrowRightLeft, CornerDownRight } from 'lucide-react';
+import { Pencil, Save, X, ChevronDown, ArrowRightLeft, CornerDownRight, Copy } from 'lucide-react';
 import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
 import {
   Table,
@@ -33,6 +33,8 @@ type BudgetTableProps = {
     onEditBreakdown: (category: Category) => void;
     onEditTransaction: (transaction: Transaction) => void;
     onUpdateBudget: (categoryId: string, budgeted: number) => void;
+    onCopyCategory: (categoryId: string) => void;
+    view: 'current' | 'next';
 }
 
 type CategoryWithChildren = Category & { children: CategoryWithChildren[] };
@@ -66,6 +68,8 @@ const CategoryRow = ({
     getCategoryTotals,
     onEditTransaction,
     onUpdateBudget,
+    onCopyCategory,
+    view,
 }: { 
     category: CategoryWithChildren, 
     level: number,
@@ -76,6 +80,8 @@ const CategoryRow = ({
     getCategoryTotals: (cat: CategoryWithChildren) => { budgeted: number, actual: number, breakdown: Record<string, { budgeted: number, actual: number }> },
     onEditTransaction: (transaction: Transaction) => void,
     onUpdateBudget: (categoryId: string, budgeted: number) => void;
+    onCopyCategory: (categoryId: string) => void;
+    view: 'current' | 'next';
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -153,7 +159,14 @@ const CategoryRow = ({
                     ) : (
                         <div className="group flex items-center justify-end gap-1">
                             <span>{formatCurrency(budgeted)}</span>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100" onClick={handleEditClick}><Pencil className="h-4 w-4"/></Button>
+                             <div className="flex opacity-0 group-hover:opacity-100">
+                                {view === 'next' && (
+                                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onCopyCategory(category.id)}>
+                                        <Copy className="h-4 w-4 text-blue-500" />
+                                    </Button>
+                                )}
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleEditClick}><Pencil className="h-4 w-4"/></Button>
+                            </div>
                         </div>
                     )}
                 </TableCell>
@@ -243,6 +256,8 @@ const CategoryRow = ({
                                             getCategoryTotals={getCategoryTotals}
                                             onEditTransaction={onEditTransaction}
                                             onUpdateBudget={onUpdateBudget}
+                                            onCopyCategory={onCopyCategory}
+                                            view={view}
                                         />
                                     ))}
                                     </TableBody>
@@ -258,7 +273,7 @@ const CategoryRow = ({
 }
 
 
-export function BudgetTable({ budgetItems, categories, transactions, isLoading, onEditBreakdown, onEditTransaction, onUpdateBudget }: BudgetTableProps) {
+export function BudgetTable({ budgetItems, categories, transactions, isLoading, onEditBreakdown, onEditTransaction, onUpdateBudget, onCopyCategory, view }: BudgetTableProps) {
   const { accounts: allAccounts } = useAccountDetails();
 
   const accountMap = useMemo(() => {
@@ -370,6 +385,8 @@ export function BudgetTable({ budgetItems, categories, transactions, isLoading, 
                     getCategoryTotals={getCategoryTotals}
                     onEditTransaction={onEditTransaction}
                     onUpdateBudget={onUpdateBudget}
+                    onCopyCategory={onCopyCategory}
+                    view={view}
                 />
             ))
           ) : (

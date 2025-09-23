@@ -102,6 +102,31 @@ export function useMonthlyBudget(month?: string) {
       });
     }
   }, [selectedMonth, fetchBudget, toast]);
+  
+  const copyCategoryBudget = useCallback(async (categoryId: string) => {
+    try {
+        const previousMonthDate = addMonths(new Date(selectedMonth), -1);
+        const previousMonthString = format(previousMonthDate, 'yyyy-MM');
+        
+        const prevBudgetItem = await MonthlyBudgetService.getBudgetItemForCategory(previousMonthString, categoryId);
 
-  return { budgetItems, categories, updateBudgetItem, updateBudgetItemWithBreakdown, copyBudgetFromPreviousMonth, isLoading, fetchBudget };
+        if (prevBudgetItem && prevBudgetItem.budgeted > 0) {
+            await updateBudgetItem(categoryId, prevBudgetItem.budgeted);
+        } else {
+             toast({
+                title: 'No Data',
+                description: 'No budget amount found for this category in the previous month.',
+            });
+        }
+    } catch (error) {
+        console.error('Failed to copy category budget:', error);
+        toast({
+            title: 'Error',
+            description: 'Could not copy the budget for this category.',
+            variant: 'destructive',
+        });
+    }
+  }, [selectedMonth, toast, updateBudgetItem]);
+
+  return { budgetItems, categories, updateBudgetItem, updateBudgetItemWithBreakdown, copyBudgetFromPreviousMonth, copyCategoryBudget, isLoading, fetchBudget };
 }
