@@ -13,8 +13,7 @@ import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
 import { BudgetBreakdownForm } from '@/components/budget-breakdown-form';
 import type { Category, MonthlyBudgetItem, BudgetSubItem, Transaction } from '@/types';
 import { useBudget } from '@/hooks/use-budget';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { addMonths, format } from 'date-fns';
+import { format } from 'date-fns';
 
 export default function MonthlyBudgetPage() {
   const [isTransactionFormOpen, setIsTransactionFormOpen] = useState(false);
@@ -22,15 +21,11 @@ export default function MonthlyBudgetPage() {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [view, setView] = useState<'current' | 'next'>('current');
-
-  const selectedMonth = view === 'current' ? currentDate : addMonths(currentDate, 1);
-  const selectedMonthString = format(selectedMonth, 'yyyy-MM');
+  const selectedMonthString = format(new Date(), 'yyyy-MM');
 
 
   const { transactions, accounts, addTransaction, updateTransaction, deleteTransaction, isLoading: isLoadingTransactions } = useTransactions(selectedMonthString);
-  const { budgetItems: monthlyBudgetItems, categories, updateBudgetItemWithBreakdown, isLoading: isLoadingBudget, updateBudgetItem, copyCategoryBudget } = useMonthlyBudget(selectedMonthString);
+  const { budgetItems: monthlyBudgetItems, categories, updateBudgetItemWithBreakdown, isLoading: isLoadingBudget, updateBudgetItem } = useMonthlyBudget(selectedMonthString);
   const { budgetItems, isLoading: isLoadingIncome } = useBudget();
 
   const incomeAmount = budgetItems
@@ -140,38 +135,17 @@ export default function MonthlyBudgetPage() {
                     </p>
                 </div>
             </div>
-             <Tabs defaultValue="current" className="w-full" onValueChange={(value) => setView(value as 'current' | 'next')}>
-              <TabsList className="grid w-full grid-cols-2 bg-secondary/50 mb-6 no-print">
-                <TabsTrigger value="current">Current Month</TabsTrigger>
-                <TabsTrigger value="next">Next Month</TabsTrigger>
-              </TabsList>
-              <TabsContent value="current">
-                <BudgetTable 
-                    budgetItems={monthlyBudgetItems}
-                    categories={categories}
-                    transactions={transactions}
-                    isLoading={isLoadingBudget || isLoadingTransactions || isLoadingIncome}
-                    onEditBreakdown={handleEditBreakdown}
-                    onEditTransaction={handleOpenTransactionForm}
-                    onUpdateBudget={updateBudgetItem}
-                    onCopyCategory={copyCategoryBudget}
-                    view={view}
-                />
-              </TabsContent>
-              <TabsContent value="next">
-                <BudgetTable 
-                    budgetItems={monthlyBudgetItems}
-                    categories={categories}
-                    transactions={transactions}
-                    isLoading={isLoadingBudget || isLoadingTransactions || isLoadingIncome}
-                    onEditBreakdown={handleEditBreakdown}
-                    onEditTransaction={handleOpenTransactionForm}
-                    onUpdateBudget={updateBudgetItem}
-                    onCopyCategory={copyCategoryBudget}
-                    view={view}
-                />
-              </TabsContent>
-            </Tabs>
+            <BudgetTable 
+                budgetItems={monthlyBudgetItems}
+                categories={categories}
+                transactions={transactions}
+                isLoading={isLoadingBudget || isLoadingTransactions || isLoadingIncome}
+                onEditBreakdown={handleEditBreakdown}
+                onEditTransaction={handleOpenTransactionForm}
+                onUpdateBudget={updateBudgetItem}
+                onCopyCategory={() => {}} // Placeholder, will be reimplemented
+                view={'current'} // Hardcoded to current
+            />
         </main>
       </div>
     </>

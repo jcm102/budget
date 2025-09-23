@@ -159,15 +159,13 @@ const CategoryRow = ({
                     ) : (
                         <div className="group flex items-center justify-end gap-1">
                             <span>{formatCurrency(budgeted)}</span>
-                            <div className="flex">
+                            <div className="opacity-0 group-hover:opacity-100 flex">
                                 {view === 'next' && (
                                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onCopyCategory(category.id)}>
                                         <Copy className="h-4 w-4 text-blue-500" />
                                     </Button>
                                 )}
-                                <div className="opacity-0 group-hover:opacity-100">
-                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleEditClick}><Pencil className="h-4 w-4"/></Button>
-                                </div>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleEditClick}><Pencil className="h-4 w-4"/></Button>
                             </div>
                         </div>
                     )}
