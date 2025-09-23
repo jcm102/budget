@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -37,14 +36,20 @@ export async function getBudgetForMonth(month: string): Promise<MonthlyBudgetIte
 }
 
 export async function getBudgetItemForCategory(month: string, categoryId: string): Promise<MonthlyBudgetItem | null> {
-    const monthItems = await getBudgetForMonth(month);
-    const budgetItem = monthItems.find(item => item.categoryId === categoryId);
+    const q = query(
+        collection(db, BUDGET_ITEMS_COLLECTION),
+        where('month', '==', month),
+        where('categoryId', '==', categoryId),
+        limit(1)
+    );
+    const querySnapshot = await getDocs(q);
     
-    if (budgetItem) {
-      return budgetItem;
+    if (querySnapshot.empty) {
+        return null;
     }
     
-    return null;
+    const doc = querySnapshot.docs[0];
+    return { id: doc.id, ...doc.data() } as MonthlyBudgetItem;
 }
 
 export async function addBudgetItem(itemData: Omit<MonthlyBudgetItem, 'id'>): Promise<MonthlyBudgetItem> {
@@ -357,6 +362,4 @@ export async function deleteTransaction(id: string): Promise<void> {
     });
 }
 
-
-
-
+    
