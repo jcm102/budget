@@ -3,7 +3,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import type { MonthlyBudgetItem, Transaction, TransactionSplit, BudgetItem, AccountDetails, Debt } from '@/types';
+import type { MonthlyBudgetItem, Transaction, TransactionSplit, BudgetItem, AccountDetails, Debt, BudgetSubItem } from '@/types';
 import {
   collection,
   getDocs,
@@ -42,7 +42,7 @@ export async function addBudgetItem(itemData: Omit<MonthlyBudgetItem, 'id'>): Pr
   return { id: docSnap.id, ...(docSnap.data() as Omit<MonthlyBudgetItem, 'id'>) };
 }
 
-export async function updateBudgetItem(id: string, itemData: Partial<Omit<MonthlyBudgetItem, 'id'>>): Promise<void> {
+export async function updateBudgetItem(id: string, itemData: { budgeted: number, breakdown?: BudgetSubItem[] | null }): Promise<void> {
   const itemRef = doc(db, BUDGET_ITEMS_COLLECTION, id);
   // The hook now calculates the total, so we just need to save it.
   await updateDoc(itemRef, itemData);
@@ -311,3 +311,4 @@ export async function deleteTransaction(id: string): Promise<void> {
         transaction.delete(transactionRef);
     });
 }
+

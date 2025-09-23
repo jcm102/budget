@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -47,13 +46,18 @@ export function useMonthlyBudget(month?: string) {
     fetchBudget();
   }, [fetchBudget]);
 
-  const updateBudgetItem = useCallback(async (categoryId: string, budgeted: number) => {
+  const updateBudgetItem = useCallback(async (categoryId: string, budgeted: number, breakdown?: BudgetSubItem[] | null) => {
     try {
       const existingItem = budgetItems.find(item => item.categoryId === categoryId);
+      const itemData = {
+        budgeted,
+        breakdown: breakdown || null,
+      };
+
       if (existingItem) {
-        await MonthlyBudgetService.updateBudgetItem(existingItem.id, { budgeted });
+        await MonthlyBudgetService.updateBudgetItem(existingItem.id, itemData);
       } else {
-        await MonthlyBudgetService.addBudgetItem({ categoryId, budgeted, month: selectedMonth });
+        await MonthlyBudgetService.addBudgetItem({ categoryId, month: selectedMonth, ...itemData });
       }
       // Refetch to get the latest state
       await fetchBudget();
@@ -91,7 +95,7 @@ export function useMonthlyBudget(month?: string) {
   const copyCategoryFromPreviousMonth = useCallback(async (categoryId: string) => {
     const prevBudgetItem = previousMonthBudgetItems.find(item => item.categoryId === categoryId);
     if (prevBudgetItem) {
-      await updateBudgetItem(categoryId, prevBudgetItem.budgeted);
+      await updateBudgetItem(categoryId, prevBudgetItem.budgeted, prevBudgetItem.breakdown);
       toast({
         title: 'Success',
         description: `Copied ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(prevBudgetItem.budgeted)} from previous month.`,
