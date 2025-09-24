@@ -5,7 +5,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, PlusCircle, Pencil, Smartphone, Copy } from 'lucide-react';
+import { ArrowLeft, PlusCircle, Smartphone, Copy } from 'lucide-react';
 import { BudgetTable } from '@/components/budget-table';
 import { TransactionForm } from '@/components/transaction-form';
 import { useTransactions } from '@/hooks/use-transactions';
@@ -32,9 +32,14 @@ export default function MonthlyBudgetPage() {
   const { budgetItems: monthlyBudgetItems, categories, updateBudgetItemWithBreakdown, isLoading: isLoadingBudget, updateBudgetItem, copyCategoryFromPreviousMonth } = useMonthlyBudget(selectedMonthString);
   const { budgetItems: incomeItems, isLoading: isLoadingIncome } = useBudget();
 
-  const incomeAmount = incomeItems
-    .filter(i => i.type === 'Income' && !i.forNextMonth)
-    .reduce((acc, i) => acc + i.amount, 0);
+  const incomeAmount = useMemo(() => {
+    const relevantIncome = view === 'next'
+      ? incomeItems.filter(i => i.type === 'Income' && i.forNextMonth)
+      : incomeItems.filter(i => i.type === 'Income' && !i.forNextMonth);
+      
+    return relevantIncome.reduce((acc, i) => acc + i.amount, 0);
+  }, [incomeItems, view]);
+
 
   const totalBudgeted = monthlyBudgetItems.reduce((acc, item) => acc + item.budgeted, 0);
   
