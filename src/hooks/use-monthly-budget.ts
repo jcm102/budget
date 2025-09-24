@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -109,6 +110,24 @@ export function useMonthlyBudget(month?: string) {
     }
   }, [previousMonthBudgetItems, updateBudgetItem, toast]);
 
+  const cycleToNextMonth = useCallback(async () => {
+    try {
+      await MonthlyBudgetService.cycleToNextMonth();
+      await fetchBudget(); // Refetch data to show the cycled budget
+      toast({
+        title: 'Success!',
+        description: 'Your budget has been cycled to the next month.',
+      });
+    } catch (error) {
+      console.error('Failed to cycle budget:', error);
+      toast({
+        title: 'Error',
+        description: 'Could not cycle the budget. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  }, [fetchBudget, toast]);
 
-  return { budgetItems, categories, updateBudgetItem, updateBudgetItemWithBreakdown, isLoading, fetchBudget, copyCategoryFromPreviousMonth };
+
+  return { budgetItems, categories, updateBudgetItem, updateBudgetItemWithBreakdown, isLoading, fetchBudget, copyCategoryFromPreviousMonth, cycleToNextMonth };
 }

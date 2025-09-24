@@ -5,7 +5,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, PlusCircle, Smartphone, Copy } from 'lucide-react';
+import { ArrowLeft, PlusCircle, Smartphone, Copy, CalendarClock } from 'lucide-react';
 import { BudgetTable } from '@/components/budget-table';
 import { TransactionForm } from '@/components/transaction-form';
 import { useTransactions } from '@/hooks/use-transactions';
@@ -15,6 +15,19 @@ import type { Category, MonthlyBudgetItem, BudgetSubItem, Transaction } from '@/
 import { useBudget } from '@/hooks/use-budget';
 import { format, addMonths } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { cn } from '@/lib/utils';
+import { buttonVariants } from '@/components/ui/button';
 
 export default function MonthlyBudgetPage() {
   const [isTransactionFormOpen, setIsTransactionFormOpen] = useState(false);
@@ -29,7 +42,7 @@ export default function MonthlyBudgetPage() {
   const selectedMonthString = view === 'current' ? currentMonthString : nextMonthString;
 
   const { transactions, accounts, addTransaction, updateTransaction, deleteTransaction, isLoading: isLoadingTransactions } = useTransactions(selectedMonthString);
-  const { budgetItems: monthlyBudgetItems, categories, updateBudgetItemWithBreakdown, isLoading: isLoadingBudget, updateBudgetItem, copyCategoryFromPreviousMonth } = useMonthlyBudget(selectedMonthString);
+  const { budgetItems: monthlyBudgetItems, categories, updateBudgetItemWithBreakdown, isLoading: isLoadingBudget, updateBudgetItem, copyCategoryFromPreviousMonth, cycleToNextMonth } = useMonthlyBudget(selectedMonthString);
   const { budgetItems: incomeItems, isLoading: isLoadingIncome } = useBudget();
 
   const incomeAmount = useMemo(() => {
@@ -102,6 +115,28 @@ export default function MonthlyBudgetPage() {
             </Link>
           </Button>
            <div className="flex items-center gap-2">
+             <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline">
+                  <CalendarClock className="mr-2 h-4 w-4" />
+                  Cycle to Next Month
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Cycle to Next Month?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will finalize your planned budget, making it the current month's budget. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={cycleToNextMonth} className={cn(buttonVariants({ variant: "default" }))}>
+                    Yes, Cycle Month
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             <Button asChild variant="outline" className="md:hidden">
                 <Link href="/monthly-budget/mobile">
                     <Smartphone className="mr-2 h-4 w-4" />

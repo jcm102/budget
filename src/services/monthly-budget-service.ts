@@ -20,6 +20,7 @@ import {
   limit
 } from 'firebase/firestore';
 import { getBudgetItems } from './budget-service';
+import { format, addMonths } from 'date-fns';
 
 const BUDGET_ITEMS_COLLECTION = 'monthly-budget-items';
 const TRANSACTIONS_COLLECTION = 'transactions';
@@ -46,6 +47,56 @@ export async function updateBudgetItem(id: string, itemData: { budgeted: number,
   const itemRef = doc(db, BUDGET_ITEMS_COLLECTION, id);
   // The hook now calculates the total, so we just need to save it.
   await updateDoc(itemRef, itemData);
+}
+
+export async function cycleToNextMonth(): Promise<void> {
+  const today = new Date();
+  const currentMonth = format(today, 'yyyy-MM');
+  const nextMonth = format(addMonths(today, 1), 'yyyy-MM');
+
+  // Query for all budget items planned for next month
+  const nextMonthQuery = query(collection(db, BUDGET_ITEMS_COLLECTION), where('month', '==', nextMonth));
+  const nextMonthSnapshot = await getDocs(nextMonthQuery);
+
+  if (nextMonthSnapshot.empty) {
+    throw new Error('No budget planned for next month to cycle.');
+  }
+
+  const batch = writeBatch(db);
+
+  // Overwrite current month's budget with next month's planned budget
+  // and clear out the old next month items.
+  nextMonthSnapshot.forEach(docSnap => {
+    const item = docSnap.data() as MonthlyBudgetItem;
+    const newItemForCurrentMonth = {
+      ...item,
+      month: currentMonth, // Set the month to the new current month
+    };
+
+    // Since we don't know the ID of a potential existing item for this category in the current month,
+    // the safest approach is to query and delete existing items for the new month, then add the new ones.
+    // However, a simpler, though potentially less efficient approach, is to just add them.
+    // Let's assume for now we just create new items for the new current month.
+    // A better implementation would find existing items and update them (or delete all and re-add).
+    
+    // For simplicity here, we'll create a new document for the current month.
+    // This overwrites any existing plan for the current month if one existed.
+    // A more robust solution might query for existing docs first.
+    const newDocRef = doc(collection(db, BUDGET_ITEMS_COLLECTION));
+    batch.set(newDocRef, newItemForCurrentMonth);
+
+    // Delete the old "next month" item
+    batch.delete(docSnap.ref);
+  });
+  
+  // We need to ensure we delete any old items for the new current month before adding the new ones.
+  const currentMonthQuery = query(collection(db, BUDGET_ITEMS_COLLECTION), where('month', '==', currentMonth));
+  const currentMonthSnapshot = await getDocs(currentMonthQuery);
+  currentMonthSnapshot.forEach(docSnap => {
+    batch.delete(docSnap.ref);
+  });
+
+  await batch.commit();
 }
 
 
@@ -311,4 +362,3 @@ export async function deleteTransaction(id: string): Promise<void> {
         transaction.delete(transactionRef);
     });
 }
-
