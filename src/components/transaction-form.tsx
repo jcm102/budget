@@ -246,7 +246,7 @@ export function TransactionForm({ open, onOpenChange, accounts = [], addTransact
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl flex flex-col max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>{editingTransaction ? 'Edit Transaction' : 'Add Transaction'}</DialogTitle>
           <DialogDescription>
@@ -254,9 +254,9 @@ export function TransactionForm({ open, onOpenChange, accounts = [], addTransact
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <ScrollArea className="max-h-[60vh] p-1">
-              <div className="space-y-4 p-3">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0">
+            <ScrollArea className="flex-1 pr-6 -mr-6">
+              <div className="space-y-4 pr-1">
                  <div className="space-y-4">
                     <FormField control={form.control} name="date" render={({ field }) => (
                         <FormItem>
