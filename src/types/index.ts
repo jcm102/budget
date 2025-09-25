@@ -109,6 +109,7 @@ interface BaseExpense {
   date: string; // ISO string
   status: 'active' | 'archived';
   archiveKey?: string; // e.g., '2024-08'
+  forNextMonth?: boolean;
 }
 
 export interface Expense extends BaseExpense {

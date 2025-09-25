@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -42,7 +43,7 @@ export async function getMileageLogs(status: 'active' | 'archived', archiveKey?:
 
 export async function addMileageLog(itemData: Omit<MileageLog, 'id'>): Promise<MileageLog> {
   // New mileage logs are always active
-  const dataWithStatus = { ...itemData, status: 'active' };
+  const dataWithStatus = { ...itemData, status: 'active', forNextMonth: itemData.forNextMonth || false };
   const docRef = await addDoc(collection(db, EXPENSE_COLLECTION), dataWithStatus);
   const docSnap = await getDoc(docRef);
   return { id: docSnap.id, ...docSnap.data() } as MileageLog;

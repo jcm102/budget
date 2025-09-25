@@ -60,6 +60,7 @@ const formSchema = z.object({
   tripType: z.enum(['One-Way', 'Return']).optional(),
   // New ledger field
   ledgerAccountId: z.string().optional(),
+  forNextMonth: z.boolean().optional(),
 }).refine(data => {
     if (data.expenseType === 'Monetary') {
         return !!data.amount && data.amount > 0 && !!data.category && !!data.transferee && data.reimbursable !== undefined && !!data.frequency;
@@ -135,6 +136,7 @@ export function ExpenseForm({
       rate: 0.50,
       tripType: 'One-Way',
       ledgerAccountId: '',
+      forNextMonth: false,
     },
   });
 
@@ -174,6 +176,7 @@ export function ExpenseForm({
           transferee: 'transferee' in editingItem ? editingItem.transferee : '',
           reimbursable: 'reimbursable' in editingItem ? editingItem.reimbursable : true,
           frequency: 'frequency' in editingItem ? editingItem.frequency : 'One-Time',
+          forNextMonth: 'forNextMonth' in editingItem ? editingItem.forNextMonth : false,
           origin: 'origin' in editingItem ? editingItem.origin : '',
           destination: 'destination' in editingItem ? editingItem.destination : '',
           distance: 'distance' in editingItem ? editingItem.distance : 0,
@@ -197,6 +200,7 @@ export function ExpenseForm({
           transferee: '',
           reimbursable: true,
           frequency: 'One-Time',
+          forNextMonth: false,
           origin: '',
           destination: '',
           distance: 0,
@@ -272,6 +276,7 @@ export function ExpenseForm({
             reimbursable: values.reimbursable!,
             frequency: values.frequency as BudgetItemFrequency,
             completed: false,
+            forNextMonth: values.forNextMonth,
         };
         if (editingItem && editingItem.type === 'Monetary') {
             updateExpense(editingItem.id, submissionData);
@@ -293,6 +298,7 @@ export function ExpenseForm({
             rate: values.rate!,
             date: localDate.toISOString(),
             tripType: values.tripType as TripType,
+            forNextMonth: values.forNextMonth,
         };
         if (editingItem && editingItem.type === 'Mileage') {
             updateMileage(editingItem.id, submissionData);
@@ -375,6 +381,27 @@ export function ExpenseForm({
                 </FormItem>
               )}
             />
+
+            {(expenseType === 'Monetary' || expenseType === 'Mileage') && (
+                <FormField
+                    control={form.control}
+                    name="forNextMonth"
+                    render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                        <div className="space-y-0.5">
+                            <FormLabel>For Next Month's Expenses</FormLabel>
+                            <FormMessage />
+                        </div>
+                        <FormControl>
+                            <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            />
+                        </FormControl>
+                        </FormItem>
+                    )}
+                />
+            )}
 
             {expenseType === 'Monetary' && (
                 <>

@@ -59,13 +59,13 @@ export async function getHonorariums(status: 'active' | 'archived', archiveKey?:
 
 
 export async function addExpense(itemData: Omit<Expense, 'id'>, ledgerAccountId?: string): Promise<Expense> {
-  const dataWithStatus = { ...itemData, status: 'active' };
+  const dataWithStatus = { ...itemData, status: 'active', forNextMonth: itemData.forNextMonth || false };
   
   return runTransaction(db, async (transaction) => {
     // 1. READ from the ledger if an ID is provided
     let ledgerItemRef;
     let ledgerItemSnap;
-    if (ledgerAccountId) {
+    if (ledgerAccountId && !itemData.forNextMonth) { // Only debit for current month expenses
       ledgerItemRef = doc(db, LEDGER_COLLECTION, ledgerAccountId);
       ledgerItemSnap = await transaction.get(ledgerItemRef);
       if (!ledgerItemSnap.exists()) {
@@ -207,7 +207,7 @@ export async function getExpensesForMonth(archiveKey: string): Promise<{ expense
 export async function archiveCurrentExpenses(archiveKey: string): Promise<void> {
   const batch = writeBatch(db);
   
-  const activeQuery = query(collection(db, EXPENSE_COLLECTION), where('status', '==', 'active'));
+  const activeQuery = query(collection(db, EXPENSE_COLLECTION), where('status', '==', 'active'), where('forNextMonth', '==', false));
 
   const activeSnapshot = await getDocs(activeQuery);
   
@@ -221,4 +221,21 @@ export async function archiveCurrentExpenses(archiveKey: string): Promise<void> 
   });
   
   await batch.commit();
+}
+
+
+export async function cycleExpensesToNextMonth(): Promise<void> {
+    const batch = writeBatch(db);
+    const q = query(collection(db, EXPENSE_COLLECTION), where('forNextMonth', '==', true));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+        throw new Error("No expenses planned for next month.");
+    }
+
+    snapshot.forEach(doc => {
+        batch.update(doc.ref, { forNextMonth: false });
+    });
+
+    await batch.commit();
 }

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -39,6 +40,24 @@ export function useExpenses() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+  
+  const cycleExpensesToNextMonth = useCallback(async () => {
+    try {
+        await ExpenseService.cycleExpensesToNextMonth();
+        await fetchData();
+        toast({
+            title: 'Success!',
+            description: 'Next month\'s expenses have been moved to the current month.',
+        });
+    } catch (error) {
+        console.error('Failed to cycle expenses:', error);
+        toast({
+            title: 'Error',
+            description: 'Could not cycle expenses to the next month.',
+            variant: 'destructive',
+        });
+    }
+  }, [fetchData, toast]);
 
   const addExpense = useCallback(async (itemData: Omit<Expense, 'id'>, ledgerAccountId: string | undefined, callback: (success: boolean) => void) => {
     try {
@@ -208,5 +227,6 @@ export function useExpenses() {
     deleteHonorarium,
     isLoading, 
     fetchData,
+    cycleExpensesToNextMonth,
   };
 }

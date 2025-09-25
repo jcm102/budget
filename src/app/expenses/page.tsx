@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Landmark, HandCoins, DollarSign, FileClock, Archive, FileText, Route, Car, FileSpreadsheet } from 'lucide-react';
@@ -19,6 +19,7 @@ import { format } from 'date-fns';
 
 
 export default function ExpensesPage() {
+    const [view, setView] = useState<'current' | 'next'>('current');
     const { honorariumFund, reimbursableFund, isLoading: isLoadingLedger, fetchFunds } = useExpenseFunds();
     const {
         expenses,
@@ -36,6 +37,7 @@ export default function ExpensesPage() {
         deleteHonorarium,
         isLoading,
         fetchData,
+        cycleExpensesToNextMonth,
     } = useExpenses();
     
     const { toast } = useToast();
@@ -115,12 +117,15 @@ export default function ExpensesPage() {
         const wb = XLSX.utils.book_new();
         const allData: any[] = [];
 
+        const currentExpenses = expenses.filter(e => !e.forNextMonth);
+        const currentMileage = mileageLogs.filter(m => !m.forNextMonth);
+
         // Monetary Expenses Section
-        if (expenses.length > 0) {
+        if (currentExpenses.length > 0) {
             allData.push(['Monetary Expenses']); // Section Header
             const expensesHeaders = ['Date', 'Description', 'Category', 'Payment Source', 'Amount', 'Reimbursable', 'Frequency', 'Completed'];
             allData.push(expensesHeaders);
-            expenses.forEach(e => {
+            currentExpenses.forEach(e => {
                 allData.push([
                     format(new Date(e.date), 'PPP'),
                     e.description,
@@ -136,11 +141,11 @@ export default function ExpensesPage() {
         }
 
         // Mileage Section
-        if (mileageLogs.length > 0) {
+        if (currentMileage.length > 0) {
             allData.push(['Mileage']); // Section Header
             const mileageHeaders = ['Date', 'Description', 'Origin', 'Destination', 'Distance (km)', 'Rate', 'Total'];
             allData.push(mileageHeaders);
-            mileageLogs.forEach(m => {
+            currentMileage.forEach(m => {
                 allData.push([
                     format(new Date(m.date), 'PPP'),
                     m.description,
@@ -173,8 +178,18 @@ export default function ExpensesPage() {
         
         XLSX.writeFile(wb, `Work-Expenses-${new Date().toISOString().slice(0,10)}.xlsx`);
     }
+
+    const { currentExpenses, nextExpenses, currentMileage, nextMileage } = useMemo(() => {
+        return {
+            currentExpenses: expenses.filter(e => !e.forNextMonth),
+            nextExpenses: expenses.filter(e => e.forNextMonth),
+            currentMileage: mileageLogs.filter(m => !m.forNextMonth),
+            nextMileage: mileageLogs.filter(m => m.forNextMonth),
+        }
+    }, [expenses, mileageLogs]);
     
-    const totalReimbursable = expenses.filter(e => e.reimbursable).reduce((acc, e) => acc + e.amount, 0);
+    const totalReimbursable = currentExpenses.filter(e => e.reimbursable).reduce((acc, e) => acc + e.amount, 0);
+    const totalMileageReimbursement = currentMileage.reduce((acc, log) => acc + (log.distance * log.rate), 0);
 
     const renderSummarySkeleton = () => (
         Array.from({ length: 4 }).map((_, i) => (
@@ -199,6 +214,9 @@ export default function ExpensesPage() {
                 </Link>
                 </Button>
                  <div className="flex items-center gap-2">
+                    <Button onClick={cycleExpensesToNextMonth} variant="outline">
+                        Cycle to Next Month
+                    </Button>
                     <Button onClick={handleExport} variant="outline">
                         <FileSpreadsheet className="mr-2 h-4 w-4" />
                         Export to Excel
@@ -229,93 +247,140 @@ export default function ExpensesPage() {
                             </div>
                              <div className="p-4 border rounded-lg bg-card">
                                 <h4 className="text-muted-foreground flex items-center gap-2"><Car className="h-4 w-4"/>Mileage Reimbursement</h4>
-                                <p className="text-2xl font-semibold">{formatCurrency(mileageLogs.reduce((acc, log) => acc + (log.distance * log.rate), 0))}</p>
+                                <p className="text-2xl font-semibold">{formatCurrency(totalMileageReimbursement)}</p>
                             </div>
                         </>
                     )}
                 </div>
                 
-                <Tabs defaultValue="expenses" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 bg-secondary/50 mb-6 no-print h-auto">
-                        <TabsTrigger value="expenses" className="py-2"><FileText className="mr-2 h-4 w-4"/>Monetary Expenses</TabsTrigger>
-                        <TabsTrigger value="mileage" className="py-2"><Route className="mr-2 h-4 w-4"/>Mileage</TabsTrigger>
-                        <TabsTrigger value="honorariums" className="py-2"><HandCoins className="mr-2 h-4 w-4"/>Honorariums</TabsTrigger>
-                        <TabsTrigger value="archive" className="py-2"><FileClock className="mr-2 h-4 w-4"/>Archived</TabsTrigger>
+                <Tabs defaultValue="current" onValueChange={(v) => setView(v as 'current' | 'next')} className="w-full">
+                    <TabsList className="grid w-full grid-cols-2 bg-secondary/50 mb-6 no-print">
+                        <TabsTrigger value="current">Current Month</TabsTrigger>
+                        <TabsTrigger value="next">Next Month</TabsTrigger>
                     </TabsList>
-                    
-                    <TabsContent value="expenses">
-                        <ExpenseTable 
-                            expenses={expenses}
-                            addExpense={handleAddExpense}
-                            updateExpense={updateExpense}
-                            deleteExpense={deleteExpense}
-                            toggleExpenseCompleted={toggleExpenseCompleted}
-                            addMileage={addMileage}
-                            updateMileage={updateMileage}
-                            addHonorarium={handleAddHonorarium}
-                            updateHonorarium={updateHonorarium}
-                            isLoading={isLoading}
-                            isArchived={false}
-                        />
-                    </TabsContent>
-                    
-                    <TabsContent value="mileage">
-                         <MileageTable 
-                            mileageLogs={mileageLogs}
-                            addExpense={handleAddExpense}
-                            updateExpense={updateExpense}
-                            addMileage={addMileage}
-                            updateMileage={updateMileage}
-                            deleteMileage={deleteMileage}
-                            addHonorarium={handleAddHonorarium}
-                            updateHonorarium={updateHonorarium}
-                            isLoading={isLoading}
-                            isArchived={false}
-                        />
-                    </TabsContent>
-                    
-                    <TabsContent value="honorariums">
-                        <HonorariumTable
-                            honorariums={honorariums}
-                            addExpense={handleAddExpense}
-                            updateExpense={updateExpense}
-                            addMileage={addMileage}
-                            updateMileage={updateMileage}
-                            addHonorarium={handleAddHonorarium}
-                            updateHonorarium={updateHonorarium}
-                            deleteHonorarium={handleDeleteHonorarium}
-                            isLoading={isLoading}
-                            isArchived={false}
-                        />
-                    </TabsContent>
-                    <TabsContent value="archive">
-                        <div className="space-y-6">
-                            <h2 className="text-2xl font-bold font-headline text-primary">Archived Expenses</h2>
-                            <div className="flex gap-2 flex-wrap">
-                                {archivedMonths.map(month => (
-                                    <Button key={month} variant={selectedArchive === month ? 'default' : 'outline'} onClick={() => setSelectedArchive(month)}>
-                                        {month}
-                                    </Button>
-                                ))}
-                                {archivedMonths.length === 0 && <p className="text-muted-foreground">No archives found.</p>}
-                            </div>
-                            {selectedArchive && archivedData && (
-                                <div className="space-y-8">
-                                     <div>
-                                        <h3 className="text-xl font-semibold mb-4">Monetary Expenses</h3>
-                                        <ExpenseTable expenses={archivedData.expenses} isLoading={false} isArchived={true} addExpense={()=>{}} updateExpense={()=>{}} deleteExpense={()=>{}} toggleExpenseCompleted={()=>{}} addMileage={()=>{}} updateMileage={()=>{}} addHonorarium={()=>{}} updateHonorarium={()=>{}} />
+                    <TabsContent value="current">
+                        <Tabs defaultValue="expenses" className="w-full">
+                            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 bg-secondary/50 mb-6 no-print h-auto">
+                                <TabsTrigger value="expenses" className="py-2"><FileText className="mr-2 h-4 w-4"/>Monetary Expenses</TabsTrigger>
+                                <TabsTrigger value="mileage" className="py-2"><Route className="mr-2 h-4 w-4"/>Mileage</TabsTrigger>
+                                <TabsTrigger value="honorariums" className="py-2"><HandCoins className="mr-2 h-4 w-4"/>Honorariums</TabsTrigger>
+                                <TabsTrigger value="archive" className="py-2"><FileClock className="mr-2 h-4 w-4"/>Archived</TabsTrigger>
+                            </TabsList>
+                            
+                            <TabsContent value="expenses">
+                                <ExpenseTable 
+                                    expenses={currentExpenses}
+                                    addExpense={handleAddExpense}
+                                    updateExpense={updateExpense}
+                                    deleteExpense={deleteExpense}
+                                    toggleExpenseCompleted={toggleExpenseCompleted}
+                                    addMileage={addMileage}
+                                    updateMileage={updateMileage}
+                                    addHonorarium={handleAddHonorarium}
+                                    updateHonorarium={updateHonorarium}
+                                    isLoading={isLoading}
+                                    isArchived={false}
+                                />
+                            </TabsContent>
+                            
+                            <TabsContent value="mileage">
+                                <MileageTable 
+                                    mileageLogs={currentMileage}
+                                    addExpense={handleAddExpense}
+                                    updateExpense={updateExpense}
+                                    addMileage={addMileage}
+                                    updateMileage={updateMileage}
+                                    deleteMileage={deleteMileage}
+                                    addHonorarium={handleAddHonorarium}
+                                    updateHonorarium={updateHonorarium}
+                                    isLoading={isLoading}
+                                    isArchived={false}
+                                />
+                            </TabsContent>
+                            
+                            <TabsContent value="honorariums">
+                                <HonorariumTable
+                                    honorariums={honorariums}
+                                    addExpense={handleAddExpense}
+                                    updateExpense={updateExpense}
+                                    addMileage={addMileage}
+                                    updateMileage={updateMileage}
+                                    addHonorarium={handleAddHonorarium}
+                                    updateHonorarium={updateHonorarium}
+                                    deleteHonorarium={handleDeleteHonorarium}
+                                    isLoading={isLoading}
+                                    isArchived={false}
+                                />
+                            </TabsContent>
+                            <TabsContent value="archive">
+                                <div className="space-y-6">
+                                    <h2 className="text-2xl font-bold font-headline text-primary">Archived Expenses</h2>
+                                    <div className="flex gap-2 flex-wrap">
+                                        {archivedMonths.map(month => (
+                                            <Button key={month} variant={selectedArchive === month ? 'default' : 'outline'} onClick={() => setSelectedArchive(month)}>
+                                                {month}
+                                            </Button>
+                                        ))}
+                                        {archivedMonths.length === 0 && <p className="text-muted-foreground">No archives found.</p>}
                                     </div>
-                                    <div>
-                                        <h3 className="text-xl font-semibold mb-4">Mileage</h3>
-                                        <MileageTable mileageLogs={archivedData.mileageLogs} isLoading={false} isArchived={true} addExpense={()=>{}} updateExpense={()=>{}} addMileage={()=>{}} updateMileage={()=>{}} deleteMileage={()=>{}} addHonorarium={()=>{}} updateHonorarium={()=>{}} />
-                                    </div>
-                                     <div>
-                                        <h3 className="text-xl font-semibold mb-4">Honorariums</h3>
-                                        <HonorariumTable honorariums={archivedData.honorariums} isLoading={false} isArchived={true} addExpense={()=>{}} updateExpense={()=>{}} addMileage={()=>{}} updateMileage={()=>{}} deleteHonorarium={()=>{}} addHonorarium={()=>{}} updateHonorarium={()=>{}} />
-                                    </div>
+                                    {selectedArchive && archivedData && (
+                                        <div className="space-y-8">
+                                            <div>
+                                                <h3 className="text-xl font-semibold mb-4">Monetary Expenses</h3>
+                                                <ExpenseTable expenses={archivedData.expenses} isLoading={false} isArchived={true} addExpense={()=>{}} updateExpense={()=>{}} deleteExpense={()=>{}} toggleExpenseCompleted={()=>{}} addMileage={()=>{}} updateMileage={()=>{}} addHonorarium={()=>{}} updateHonorarium={()=>{}} />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xl font-semibold mb-4">Mileage</h3>
+                                                <MileageTable mileageLogs={archivedData.mileageLogs} isLoading={false} isArchived={true} addExpense={()=>{}} updateExpense={()=>{}} addMileage={()=>{}} updateMileage={()=>{}} deleteMileage={()=>{}} addHonorarium={()=>{}} updateHonorarium={()=>{}} />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xl font-semibold mb-4">Honorariums</h3>
+                                                <HonorariumTable honorariums={archivedData.honorariums} isLoading={false} isArchived={true} addExpense={()=>{}} updateExpense={()=>{}} addMileage={()=>{}} updateMileage={()=>{}} deleteHonorarium={()=>{}} addHonorarium={()=>{}} updateHonorarium={()=>{}} />
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                            )}
-                        </div>
+                            </TabsContent>
+                        </Tabs>
+                    </TabsContent>
+                    <TabsContent value="next">
+                         <Tabs defaultValue="expenses" className="w-full">
+                            <TabsList className="grid w-full grid-cols-2 bg-secondary/50 mb-6 no-print h-auto">
+                                <TabsTrigger value="expenses" className="py-2"><FileText className="mr-2 h-4 w-4"/>Monetary Expenses</TabsTrigger>
+                                <TabsTrigger value="mileage" className="py-2"><Route className="mr-2 h-4 w-4"/>Mileage</TabsTrigger>
+                            </TabsList>
+                            
+                            <TabsContent value="expenses">
+                                <ExpenseTable 
+                                    expenses={nextExpenses}
+                                    addExpense={handleAddExpense}
+                                    updateExpense={updateExpense}
+                                    deleteExpense={deleteExpense}
+                                    toggleExpenseCompleted={toggleExpenseCompleted}
+                                    addMileage={addMileage}
+                                    updateMileage={updateMileage}
+                                    addHonorarium={handleAddHonorarium}
+                                    updateHonorarium={updateHonorarium}
+                                    isLoading={isLoading}
+                                    isArchived={false}
+                                />
+                            </TabsContent>
+                            
+                            <TabsContent value="mileage">
+                                <MileageTable 
+                                    mileageLogs={nextMileage}
+                                    addExpense={handleAddExpense}
+                                    updateExpense={updateExpense}
+                                    addMileage={addMileage}
+                                    updateMileage={updateMileage}
+                                    deleteMileage={deleteMileage}
+                                    addHonorarium={handleAddHonorarium}
+                                    updateHonorarium={updateHonorarium}
+                                    isLoading={isLoading}
+                                    isArchived={false}
+                                />
+                            </TabsContent>
+                        </Tabs>
                     </TabsContent>
                 </Tabs>
             </main>
