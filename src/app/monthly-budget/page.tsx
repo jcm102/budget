@@ -126,7 +126,7 @@ export default function MonthlyBudgetPage() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Cycle to Next Month?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will finalize your planned budget, making it the current month's budget. This action cannot be undone.
+                    This will finalize your planned budget, making it the current month's budget and clearing the plan for next month. This action cannot be undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

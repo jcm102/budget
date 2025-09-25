@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Landmark, HandCoins, DollarSign, FileClock, Archive, FileText, Route, Car, FileSpreadsheet } from 'lucide-react';
+import { ArrowLeft, Landmark, HandCoins, DollarSign, FileClock, Archive, FileText, Route, Car, FileSpreadsheet, CalendarClock } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useExpenses } from '@/hooks/use-expenses';
 import { useExpenseFunds } from '@/hooks/use-expense-funds';
@@ -16,6 +16,19 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { cn } from '@/lib/utils';
+import { buttonVariants } from '@/components/ui/button';
 
 
 export default function ExpensesPage() {
@@ -65,28 +78,6 @@ export default function ExpensesPage() {
             fetchArchiveData();
         }
     }, [selectedArchive]);
-
-    const handleArchive = async () => {
-        const now = new Date();
-        const archiveKey = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
-        try {
-            await ExpenseService.archiveCurrentExpenses(archiveKey);
-            await fetchData();
-            const months = await ExpenseService.getArchivedMonths();
-            setArchivedMonths(months);
-            setSelectedArchive(archiveKey);
-            toast({
-                title: 'Success!',
-                description: 'Current expenses have been archived.',
-            });
-        } catch (error: any) {
-            toast({
-                title: 'Error Archiving',
-                description: error.message || 'Could not archive expenses.',
-                variant: 'destructive',
-            });
-        }
-    };
 
     const handleAddExpense = (item: any, ledgerAccountId: any, callback: any) => {
         addExpense(item, ledgerAccountId, (success) => {
@@ -214,16 +205,31 @@ export default function ExpensesPage() {
                 </Link>
                 </Button>
                  <div className="flex items-center gap-2">
-                    <Button onClick={cycleExpensesToNextMonth} variant="outline">
-                        Cycle to Next Month
-                    </Button>
+                     <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="outline">
+                                <CalendarClock className="mr-2 h-4 w-4" />
+                                Cycle to Next Month
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                            <AlertDialogTitle>Cycle to Next Month?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This will archive all current month expenses and move any planned expenses for next month into the current view. This action cannot be undone.
+                            </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={cycleExpensesToNextMonth} className={cn(buttonVariants({ variant: "default" }))}>
+                                Yes, Archive and Cycle
+                            </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                     <Button onClick={handleExport} variant="outline">
                         <FileSpreadsheet className="mr-2 h-4 w-4" />
                         Export to Excel
-                    </Button>
-                    <Button onClick={handleArchive} variant="outline" disabled={expenses.length === 0 && mileageLogs.length === 0 && honorariums.length === 0}>
-                        <Archive className="mr-2 h-4 w-4" />
-                        Archive Current Month
                     </Button>
                 </div>
             </header>

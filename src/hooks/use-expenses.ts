@@ -6,6 +6,7 @@ import type { Expense, MileageLog, Honorarium } from '@/types';
 import { useToast } from './use-toast';
 import * as ExpenseService from '@/services/expense-service';
 import * as MileageService from '@/services/mileage-service';
+import { format } from 'date-fns';
 
 export function useExpenses() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -43,11 +44,13 @@ export function useExpenses() {
   
   const cycleExpensesToNextMonth = useCallback(async () => {
     try {
+        const archiveKey = format(new Date(), 'yyyy-MM');
+        await ExpenseService.archiveCurrentExpenses(archiveKey);
         await ExpenseService.cycleExpensesToNextMonth();
         await fetchData();
         toast({
             title: 'Success!',
-            description: 'Next month\'s expenses have been moved to the current month.',
+            description: 'Current month archived and next month\'s expenses are now active.',
         });
     } catch (error) {
         console.error('Failed to cycle expenses:', error);
