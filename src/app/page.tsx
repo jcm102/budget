@@ -44,7 +44,7 @@ export default function Home() {
     }
     
     if (isMobile) {
-      router.replace('/monthly-budget/mobile');
+      router.replace('/monthly-budget');
     } else {
       setIsRedirecting(false);
     }
