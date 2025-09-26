@@ -26,7 +26,7 @@ export default function RootLayout({
             <Sidebar>
                 <AppNav />
             </Sidebar>
-            <SidebarInset>
+            <SidebarInset className="flex flex-col">
                 <SidebarHeader>
                     <SidebarTrigger />
                 </SidebarHeader>
