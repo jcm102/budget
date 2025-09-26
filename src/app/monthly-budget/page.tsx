@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -138,12 +136,12 @@ export default function MonthlyBudgetPage() {
               </AlertDialogContent>
             </AlertDialog>
             <Button asChild variant="outline" className="md:hidden">
-                <Link href="/monthly-budget/mobile">
-                    <Smartphone className="mr-2 h-4 w-4" />
-                    Mobile View
+                <Link href="/monthly-budget/add">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add Transaction
                 </Link>
             </Button>
-            <Button onClick={() => handleOpenTransactionForm(null)}>
+            <Button onClick={() => handleOpenTransactionForm(null)} className="hidden md:inline-flex">
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Add Transaction
             </Button>
