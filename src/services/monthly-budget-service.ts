@@ -165,6 +165,15 @@ export async function addTransaction(transactionData: Omit<Transaction, 'id'>): 
         for(const snap of destinationAccountSnaps) {
             if (!snap.exists()) throw new Error(`One of the destination accounts was not found.`);
         }
+        
+        let linkedDebtRef;
+        let linkedDebtSnap;
+        if (sourceAccountData.type === 'Credit' && sourceAccountData.linkedDebtId) {
+            linkedDebtRef = doc(db, DEBT_COLLECTION, sourceAccountData.linkedDebtId);
+            linkedDebtSnap = await transaction.get(linkedDebtRef);
+             if (!linkedDebtSnap.exists()) throw new Error(`Linked debt with ID ${sourceAccountData.linkedDebtId} not found.`);
+        }
+
         // --- End READS ---
 
         // --- Start WRITES ---
@@ -172,10 +181,11 @@ export async function addTransaction(transactionData: Omit<Transaction, 'id'>): 
         transaction.set(newTransactionRef, transactionData);
 
         // Debit/Credit source account
-        const sourceBalance = sourceAccountData.balance || 0;
-        if (sourceAccountData.type === 'Credit') {
-            transaction.update(sourceAccountRef, { balance: sourceBalance + amount });
+        if (sourceAccountData.type === 'Credit' && linkedDebtRef && linkedDebtSnap) {
+            const debtBalance = (linkedDebtSnap.data() as Debt).balance || 0;
+            transaction.update(linkedDebtRef, { balance: debtBalance + amount });
         } else {
+            const sourceBalance = sourceAccountData.balance || 0;
             transaction.update(sourceAccountRef, { balance: sourceBalance - amount });
         }
 
@@ -186,10 +196,9 @@ export async function addTransaction(transactionData: Omit<Transaction, 'id'>): 
                 if (destSnap) {
                      const destData = destSnap.data() as AccountDetails;
                      const destBalance = destData.balance || 0;
-                     // For IOU/Credit, a transfer TO it DECREASES balance (paying it off)
                      if (destData.type === 'IOU' || destData.type === 'Credit') {
                          transaction.update(destSnap.ref, { balance: destBalance - split.amount });
-                     } else { // For Chequing/Savings, it INCREASES balance
+                     } else { 
                          transaction.update(destSnap.ref, { balance: destBalance + split.amount });
                      }
                 }
@@ -224,14 +233,18 @@ export async function addTransaction(transactionData: Omit<Transaction, 'id'>): 
     return { id: docSnap.id, ...(docSnap.data() as Omit<Transaction, 'id'>) };
 }
 
-async function revertTransaction(transaction: FirebaseFirestore.Transaction, oldData: Transaction, accountSnaps: Map<string, FirebaseFirestore.DocumentSnapshot>) {
+async function revertTransaction(transaction: FirebaseFirestore.Transaction, oldData: Transaction, accountSnaps: Map<string, FirebaseFirestore.DocumentSnapshot>, debtSnaps: Map<string, FirebaseFirestore.DocumentSnapshot>) {
     const sourceSnap = accountSnaps.get(oldData.sourceAccountId);
     if (sourceSnap?.exists()) {
         const sourceData = sourceSnap.data() as AccountDetails;
-        const sourceBalance = sourceData.balance || 0;
-        if (sourceData.type === 'Credit') {
-            transaction.update(sourceSnap.ref, { balance: sourceBalance - oldData.amount });
+        if (sourceData.type === 'Credit' && sourceData.linkedDebtId) {
+            const debtSnap = debtSnaps.get(sourceData.linkedDebtId);
+            if (debtSnap?.exists()) {
+                const debtBalance = (debtSnap.data() as Debt).balance || 0;
+                transaction.update(debtSnap.ref, { balance: debtBalance - oldData.amount });
+            }
         } else {
+            const sourceBalance = sourceData.balance || 0;
             transaction.update(sourceSnap.ref, { balance: sourceBalance + oldData.amount });
         }
     }
@@ -252,19 +265,24 @@ async function revertTransaction(transaction: FirebaseFirestore.Transaction, old
     }
 }
 
-async function applyTransaction(transaction: FirebaseFirestore.Transaction, newData: Transaction, accountSnaps: Map<string, FirebaseFirestore.DocumentSnapshot>) {
+async function applyTransaction(transaction: FirebaseFirestore.Transaction, newData: Transaction, accountSnaps: Map<string, FirebaseFirestore.DocumentSnapshot>, debtSnaps: Map<string, FirebaseFirestore.DocumentSnapshot>) {
     const sourceSnap = accountSnaps.get(newData.sourceAccountId);
     if (!sourceSnap?.exists()) {
         throw new Error(`Source account with ID ${newData.sourceAccountId} not found.`);
     }
     const sourceData = sourceSnap.data() as AccountDetails;
-    const sourceBalance = sourceData.balance || 0;
-    if (sourceData.type === 'Credit') {
-        transaction.update(sourceSnap.ref, { balance: sourceBalance + newData.amount });
+
+    if (sourceData.type === 'Credit' && sourceData.linkedDebtId) {
+        const debtSnap = debtSnaps.get(sourceData.linkedDebtId);
+        if (!debtSnap?.exists()) {
+             throw new Error(`Linked debt with ID ${sourceData.linkedDebtId} not found.`);
+        }
+        const debtBalance = (debtSnap.data() as Debt).balance || 0;
+        transaction.update(debtSnap.ref, { balance: debtBalance + newData.amount });
     } else {
+        const sourceBalance = sourceData.balance || 0;
         transaction.update(sourceSnap.ref, { balance: sourceBalance - newData.amount });
     }
-
 
     for (const split of (newData.splits || [])) {
         if (split.type === 'transfer' && split.destinationAccountId) {
@@ -315,12 +333,25 @@ export async function updateTransaction(id: string, transactionData: Partial<Omi
         const accountRefs = Array.from(accountIds).map(accId => doc(db, ACCOUNTS_COLLECTION, accId));
         const accountSnaps = await Promise.all(accountRefs.map(ref => transaction.get(ref)));
         const accountSnapsMap = new Map(accountSnaps.map(snap => [snap.id, snap]));
+
+        const debtIds = new Set<string>();
+        accountSnaps.forEach(snap => {
+            if (snap.exists()) {
+                const accData = snap.data() as AccountDetails;
+                if (accData.type === 'Credit' && accData.linkedDebtId) {
+                    debtIds.add(accData.linkedDebtId);
+                }
+            }
+        });
+        const debtRefs = Array.from(debtIds).map(debtId => doc(db, DEBT_COLLECTION, debtId));
+        const debtSnaps = await Promise.all(debtRefs.map(ref => transaction.get(ref)));
+        const debtSnapsMap = new Map(debtSnaps.map(snap => [snap.id, snap]));
         // --- End READS ---
 
 
         // --- Start WRITES ---
-        await revertTransaction(transaction, oldData, accountSnapsMap);
-        await applyTransaction(transaction, newData, accountSnapsMap);
+        await revertTransaction(transaction, oldData, accountSnapsMap, debtSnapsMap);
+        await applyTransaction(transaction, newData, accountSnapsMap, debtSnapsMap);
         
         transaction.update(transactionRef, transactionData);
     });
@@ -348,10 +379,23 @@ export async function deleteTransaction(id: string): Promise<void> {
         const accountRefs = Array.from(accountIds).map(accId => doc(db, ACCOUNTS_COLLECTION, accId));
         const accountSnaps = await Promise.all(accountRefs.map(ref => transaction.get(ref)));
         const accountSnapsMap = new Map(accountSnaps.map(snap => [snap.id, snap]));
+        
+        const debtIds = new Set<string>();
+        accountSnaps.forEach(snap => {
+            if (snap.exists()) {
+                const accData = snap.data() as AccountDetails;
+                if (accData.type === 'Credit' && accData.linkedDebtId) {
+                    debtIds.add(accData.linkedDebtId);
+                }
+            }
+        });
+        const debtRefs = Array.from(debtIds).map(debtId => doc(db, DEBT_COLLECTION, debtId));
+        const debtSnaps = await Promise.all(debtRefs.map(ref => transaction.get(ref)));
+        const debtSnapsMap = new Map(debtSnaps.map(snap => [snap.id, snap]));
         // --- End READS ---
         
         // --- Start WRITES ---
-        await revertTransaction(transaction, oldData, accountSnapsMap);
+        await revertTransaction(transaction, oldData, accountSnapsMap, debtSnapsMap);
         transaction.delete(transactionRef);
     });
 }
