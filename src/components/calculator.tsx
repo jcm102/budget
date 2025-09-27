@@ -1,17 +1,23 @@
-
 'use client';
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { Delete } from 'lucide-react';
+import { Delete, Copy } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
-export function Calculator() {
+export function Calculator({ onUseResult }: { onUseResult?: (result: string) => void }) {
   const [input, setInput] = useState('');
   const [result, setResult] = useState('');
+  const { toast } = useToast();
 
   const handleInput = (value: string) => {
+    if (result === 'Error') {
+        clearInput();
+        setInput(value);
+        return;
+    }
     if (result) {
       setInput(result + value);
       setResult('');
@@ -21,6 +27,7 @@ export function Calculator() {
   };
 
   const calculateResult = () => {
+    if (result === 'Error' || !input) return;
     try {
       // Using a safer evaluation method
       const calculatedResult = new Function('return ' + input)();
@@ -40,6 +47,25 @@ export function Calculator() {
         clearInput();
     } else {
         setInput(input.slice(0, -1));
+    }
+  }
+
+  const handleCopy = () => {
+    const valueToCopy = result || input;
+    if (valueToCopy && valueToCopy !== 'Error') {
+        navigator.clipboard.writeText(valueToCopy).then(() => {
+            toast({
+                title: 'Copied to Clipboard!',
+                description: `Value: ${valueToCopy}`
+            })
+        });
+    }
+  };
+  
+  const handleUseResult = () => {
+    const valueToUse = result || (input && !isNaN(Number(input)) ? input : '');
+    if (onUseResult && valueToUse && valueToUse !== 'Error') {
+        onUseResult(valueToUse);
     }
   }
 
@@ -66,7 +92,7 @@ export function Calculator() {
   ];
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className="h-full flex flex-col border-none shadow-none">
       <CardContent className="p-4 flex-grow flex flex-col">
         <div className="bg-muted rounded-lg p-4 text-right flex-grow flex flex-col justify-end">
           <div className="text-2xl text-muted-foreground min-h-[32px] break-all">{input || '0'}</div>
@@ -78,21 +104,31 @@ export function Calculator() {
                     key={btn.label}
                     onClick={btn.action}
                     variant="outline"
-                    className={cn('h-16 text-2xl', btn.className)}
+                    className={cn('h-14 text-2xl', btn.className)}
                 >
                     {btn.label}
                 </Button>
             ))}
         </div>
-        <div className="grid grid-cols-1 mt-2">
+        <div className="grid grid-cols-2 gap-2 mt-2">
              <Button
                 onClick={backspace}
                 variant="outline"
-                className="h-16 text-2xl"
+                className="h-14 text-2xl"
              >
                 <Delete className="h-8 w-8"/>
              </Button>
+             <Button
+                onClick={handleCopy}
+                variant="outline"
+                className="h-14 text-2xl"
+             >
+                <Copy className="h-8 w-8"/>
+             </Button>
         </div>
+         {onUseResult && (
+            <Button onClick={handleUseResult} className="mt-4 w-full h-14 text-lg">Use Result</Button>
+        )}
       </CardContent>
     </Card>
   );
