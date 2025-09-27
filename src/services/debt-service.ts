@@ -203,7 +203,8 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
             if (!debt || paymentAmount <= 0) continue;
 
             const debtRef = doc(db, DEBT_COLLECTION, debtId);
-            transaction.update(debtRef, { plannedPayment: paymentAmount });
+            // Apply the calculated payment to the *next* month's minimum payment field.
+            transaction.update(debtRef, { nextMinimumPayment: paymentAmount });
 
             if (!debt.debtType) continue;
 

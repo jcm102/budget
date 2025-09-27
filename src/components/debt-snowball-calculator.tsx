@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -179,7 +180,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
       await fetchDebts(); // Refetch debts to update the table UI
       toast({
         title: "Success!",
-        description: "Planned payments have been updated and budgeted amounts have been set.",
+        description: "Next month's minimum payments have been updated on the Debt Worksheet.",
       });
     } catch (error: any) {
       toast({
@@ -259,7 +260,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
                     </div>
                     <Button onClick={handleApplySchedule} disabled={isApplying}>
                         {isApplying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Apply Plan to Budget
+                        Apply Plan to Next Month
                     </Button>
                 </div>
             </CardHeader>
