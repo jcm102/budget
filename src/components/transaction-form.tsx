@@ -134,95 +134,16 @@ function SplitTotals() {
     );
 }
 
-export function TransactionForm({ 
-  open, 
-  onOpenChange, 
-  accounts = [], 
-  addTransaction, 
-  updateTransaction, 
-  deleteTransaction, 
-  editingTransaction,
-  isPage = false 
-}: TransactionFormProps) {
+function FormContent({ isPage = false }: { isPage?: boolean }) {
   const router = useRouter();
   const { categories, budgetItems, isLoading: isLoadingCategories } = useMonthlyBudget();
-
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      description: '',
-      amount: 0,
-      date: new Date().toISOString().split('T')[0],
-      sourceAccountId: '',
-      splits: [],
-    },
-  });
+  
+  const form = useFormContext<z.infer<typeof formSchema>>();
   
   const { fields: splitFields, append, remove, update } = useFieldArray({
       control: form.control,
       name: 'splits',
   });
-  
-  useEffect(() => {
-    if (open) {
-      if (editingTransaction) {
-        form.reset({
-            description: editingTransaction.description,
-            amount: editingTransaction.amount,
-            date: new Date(editingTransaction.date).toISOString().split('T')[0],
-            sourceAccountId: editingTransaction.sourceAccountId,
-            splits: editingTransaction.splits || [],
-        });
-      } else {
-         form.reset({
-            description: '',
-            amount: 0,
-            date: new Date().toISOString().split('T')[0],
-            sourceAccountId: '',
-            splits: [{ id: crypto.randomUUID(), type: 'expense', amount: 0, categoryId: '', budgetItemName: 'Default' }],
-        });
-      }
-    }
-  }, [open, editingTransaction, form]);
-
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    const [year, month, day] = values.date.split('-').map(Number);
-    const localDate = new Date(year, month - 1, day);
-    
-    const dataToSubmit = {
-        description: values.description,
-        amount: values.amount,
-        date: localDate.toISOString(),
-        sourceAccountId: values.sourceAccountId,
-        splits: values.splits.map(s => ({
-            id: s.id,
-            type: s.type,
-            amount: s.amount,
-            categoryId: s.type === 'expense' ? s.categoryId : undefined,
-            budgetItemName: s.type === 'expense' ? s.budgetItemName || 'Default' : undefined,
-            destinationAccountId: s.type === 'transfer' ? s.destinationAccountId : undefined,
-        })),
-    }
-
-    if (editingTransaction) {
-        updateTransaction(editingTransaction.id, dataToSubmit);
-    } else {
-        addTransaction(dataToSubmit);
-    }
-    
-    if (isPage) {
-        router.push('/monthly-budget');
-    } else {
-        onOpenChange(false);
-    }
-  }
-  
-  const handleDelete = () => {
-    if (editingTransaction) {
-      deleteTransaction(editingTransaction.id);
-      onOpenChange(false);
-    }
-  }
   
   const categoryTree = React.useMemo(() => {
       const buildTree = (parentId: string | null = null): CategoryWithChildren[] => {
@@ -278,193 +199,285 @@ export function TransactionForm({
       });
   };
 
-  const FormContent = () => (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full">
-        <ScrollArea className="flex-1 pr-6 -mr-6">
-          <div className="space-y-4">
-              <FormField control={form.control} name="date" render={({ field }) => (
-                  <FormItem>
-                  <FormLabel>Date</FormLabel>
-                  <FormControl><Input type="date" {...field} /></FormControl>
-                  <FormMessage />
-                  </FormItem>
-              )}
-              />
-              <FormField control={form.control} name="sourceAccountId" render={({ field }) => (
-                  <FormItem>
-                  <FormLabel>Source Account</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Select payment source" /></SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                      {accounts.map(acc => (
-                          <SelectItem key={acc.id} value={acc.id}>
-                              {acc.name} {acc.balance !== undefined ? `(${formatCurrency(acc.balance)})` : ''}
-                          </SelectItem>
-                      ))}
-                      </SelectContent>
-                  </Select>
-                  <FormMessage />
-                  </FormItem>
-              )}
-              />
-              <FormField control={form.control} name="description" render={({ field }) => (
-                  <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl><Input placeholder="e.g., Groceries from store" {...field} /></FormControl>
-                  <FormMessage />
-                  </FormItem>
-              )}
-              />
-              <FormField control={form.control} name="amount" render={({ field }) => (
-                  <FormItem>
-                  <FormLabel>Total Amount</FormLabel>
-                  <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
-                  </FormItem>
-              )}
-              />
-              
-              <Separator />
-              
-              <div className="space-y-2">
-                  <FormLabel>Transaction Splits</FormLabel>
-                  <div className="space-y-3">
-                      {splitFields.map((field, index) => {
-                          const currentSplit = form.getValues(`splits.${index}`);
-                          const selectedValue = `${currentSplit?.categoryId}::${currentSplit?.budgetItemName}`;
+  const { accounts, addTransaction, updateTransaction, deleteTransaction, editingTransaction, onOpenChange } = useTransactionFormContext();
 
-                          return (
-                              <div key={field.id} className="p-3 border rounded-lg space-y-3">
-                                  <FormField
-                                      control={form.control}
-                                      name={`splits.${index}.type`}
-                                      render={({ field }) => (
-                                          <FormItem>
-                                              <FormControl>
-                                                  <RadioGroup
-                                                  onValueChange={field.onChange}
-                                                  value={field.value}
-                                                  className="flex gap-4"
-                                                  >
-                                                      <FormItem className="flex items-center space-x-2 space-y-0">
-                                                          <FormControl><RadioGroupItem value="expense" /></FormControl>
-                                                          <Label className="font-normal">Expense</Label>
-                                                      </FormItem>
-                                                      <FormItem className="flex items-center space-x-2 space-y-0">
-                                                          <FormControl><RadioGroupItem value="transfer" /></FormControl>
-                                                          <Label className="font-normal">Transfer</Label>
-                                                      </FormItem>
-                                                  </RadioGroup>
-                                              </FormControl>
-                                          </FormItem>
-                                      )}
-                                  />
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                  {currentSplit?.type === 'expense' ? (
-                                      <FormField
-                                          control={form.control}
-                                          name={`splits.${index}.categoryId`}
-                                          render={({ field }) => (
-                                              <FormItem>
-                                                  <FormLabel className="sr-only">Category</FormLabel>
-                                                  <Select onValueChange={(value) => handleCategoryChange(value, index)} value={selectedValue}>
-                                                      <FormControl><SelectTrigger><SelectValue placeholder="Select a category"/></SelectTrigger></FormControl>
-                                                      <SelectContent>{renderCategoryOptions(categoryTree)}</SelectContent>
-                                                  </Select>
-                                              </FormItem>
-                                          )}
-                                      />
-                                  ) : (
-                                      <FormField
-                                          control={form.control}
-                                          name={`splits.${index}.destinationAccountId`}
-                                          render={({ field }) => (
-                                              <FormItem>
-                                                  <FormLabel className="sr-only">Destination Account</FormLabel>
-                                                  <Select onValueChange={field.onChange} value={field.value}>
-                                                      <FormControl><SelectTrigger><SelectValue placeholder="Select destination account"/></SelectTrigger></FormControl>
-                                                      <SelectContent>
-                                                          {accounts.map(acc => (
-                                                              <SelectItem key={acc.id} value={acc.id} disabled={acc.id === form.getValues('sourceAccountId')}>
-                                                                  {acc.name}
-                                                              </SelectItem>
-                                                          ))}
-                                                      </SelectContent>
-                                                  </Select>
-                                              </FormItem>
-                                          )}
-                                      />
-                                  )}
-                                      <div className="flex items-center gap-2">
-                                      <FormField
-                                          control={form.control}
-                                          name={`splits.${index}.amount`}
-                                          render={({ field }) => (
-                                              <FormItem className="flex-grow">
-                                                  <FormLabel className="sr-only">Amount</FormLabel>
-                                                  <FormControl><Input type="number" step="0.01" placeholder="Amount" {...field} /></FormControl>
-                                              </FormItem>
-                                          )}
-                                      />
-                                      <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => remove(index)} disabled={splitFields.length <= 1}>
-                                          <Trash2 className="h-4 w-4 text-destructive" />
-                                      </Button>
-                                  </div>
-                                  </div>
-                              </div>
-                          )
-                      })}
-                  </div>
-                  <Button type="button" variant="outline" size="sm" onClick={() => append({ id: crypto.randomUUID(), type: 'expense', amount: 0, categoryId: '' })}>
-                      <PlusCircle className="mr-2 h-4 w-4" /> Add Split
-                  </Button>
+  function onSubmit(values: z.infer<typeof formSchema>) {
+    const [year, month, day] = values.date.split('-').map(Number);
+    const localDate = new Date(year, month - 1, day);
+    
+    const dataToSubmit = {
+        description: values.description,
+        amount: values.amount,
+        date: localDate.toISOString(),
+        sourceAccountId: values.sourceAccountId,
+        splits: values.splits.map(s => ({
+            id: s.id,
+            type: s.type,
+            amount: s.amount,
+            categoryId: s.type === 'expense' ? s.categoryId : undefined,
+            budgetItemName: s.type === 'expense' ? s.budgetItemName || 'Default' : undefined,
+            destinationAccountId: s.type === 'transfer' ? s.destinationAccountId : undefined,
+        })),
+    }
 
-                  <SplitTotals />
-              </div>
-          </div>
-        </ScrollArea>
-        <DialogFooter className={cn("pt-4", isPage ? "justify-end" : "sm:justify-between mt-auto")}>
-            {editingTransaction && !isPage && (
-                <AlertDialog>
-                <AlertDialogTrigger asChild>
-                    <Button type="button" variant="destructive">
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
-                    </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete this transaction.
-                    </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                        onClick={handleDelete}
-                        className={cn(buttonVariants({ variant: "destructive" }))}
-                    >
-                        Confirm Delete
-                    </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-                </AlertDialog>
+    if (editingTransaction) {
+        updateTransaction(editingTransaction.id, dataToSubmit);
+    } else {
+        addTransaction(dataToSubmit);
+    }
+    
+    if (isPage) {
+        router.push('/monthly-budget');
+    } else {
+        onOpenChange(false);
+    }
+  }
+
+   const handleDelete = () => {
+    if (editingTransaction) {
+      deleteTransaction(editingTransaction.id);
+      onOpenChange(false);
+    }
+  }
+
+  return (
+    <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full">
+      <ScrollArea className="flex-1 pr-6 -mr-6">
+        <div className="space-y-4">
+            <FormField control={form.control} name="date" render={({ field }) => (
+                <FormItem>
+                <FormLabel>Date</FormLabel>
+                <FormControl><Input type="date" {...field} /></FormControl>
+                <FormMessage />
+                </FormItem>
             )}
-            {!isPage && editingTransaction && <div className="flex-grow"></div>}
-            <div className="flex gap-2">
-                {!isPage && <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>}
-                <Button type="submit">{editingTransaction ? 'Save Changes' : 'Add Transaction'}</Button>
-            </div>
-        </DialogFooter>
-      </form>
-    </Form>
-  )
+            />
+            <FormField control={form.control} name="sourceAccountId" render={({ field }) => (
+                <FormItem>
+                <FormLabel>Source Account</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                    <SelectTrigger><SelectValue placeholder="Select payment source" /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                    {accounts.map(acc => (
+                        <SelectItem key={acc.id} value={acc.id}>
+                            {acc.name} {acc.balance !== undefined ? `(${formatCurrency(acc.balance)})` : ''}
+                        </SelectItem>
+                    ))}
+                    </SelectContent>
+                </Select>
+                <FormMessage />
+                </FormItem>
+            )}
+            />
+            <FormField control={form.control} name="description" render={({ field }) => (
+                <FormItem>
+                <FormLabel>Description</FormLabel>
+                <FormControl><Input placeholder="e.g., Groceries from store" {...field} /></FormControl>
+                <FormMessage />
+                </FormItem>
+            )}
+            />
+            <FormField control={form.control} name="amount" render={({ field }) => (
+                <FormItem>
+                <FormLabel>Total Amount</FormLabel>
+                <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                </FormItem>
+            )}
+            />
+            
+            <Separator />
+            
+            <div className="space-y-2">
+                <FormLabel>Transaction Splits</FormLabel>
+                <div className="space-y-3">
+                    {splitFields.map((field, index) => {
+                        const currentSplit = form.getValues(`splits.${index}`);
+                        const selectedValue = `${currentSplit?.categoryId}::${currentSplit?.budgetItemName}`;
 
-  if (isPage) {
-    return <FormContent />;
+                        return (
+                            <div key={field.id} className="p-3 border rounded-lg space-y-3">
+                                <FormField
+                                    control={form.control}
+                                    name={`splits.${index}.type`}
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormControl>
+                                                <RadioGroup
+                                                onValueChange={field.onChange}
+                                                value={field.value}
+                                                className="flex gap-4"
+                                                >
+                                                    <FormItem className="flex items-center space-x-2 space-y-0">
+                                                        <FormControl><RadioGroupItem value="expense" /></FormControl>
+                                                        <Label className="font-normal">Expense</Label>
+                                                    </FormItem>
+                                                    <FormItem className="flex items-center space-x-2 space-y-0">
+                                                        <FormControl><RadioGroupItem value="transfer" /></FormControl>
+                                                        <Label className="font-normal">Transfer</Label>
+                                                    </FormItem>
+                                                </RadioGroup>
+                                            </FormControl>
+                                        </FormItem>
+                                    )}
+                                />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                {currentSplit?.type === 'expense' ? (
+                                    <FormField
+                                        control={form.control}
+                                        name={`splits.${index}.categoryId`}
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="sr-only">Category</FormLabel>
+                                                <Select onValueChange={(value) => handleCategoryChange(value, index)} value={selectedValue}>
+                                                    <FormControl><SelectTrigger><SelectValue placeholder="Select a category"/></SelectTrigger></FormControl>
+                                                    <SelectContent>{renderCategoryOptions(categoryTree)}</SelectContent>
+                                                </Select>
+                                            </FormItem>
+                                        )}
+                                    />
+                                ) : (
+                                    <FormField
+                                        control={form.control}
+                                        name={`splits.${index}.destinationAccountId`}
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="sr-only">Destination Account</FormLabel>
+                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                    <FormControl><SelectTrigger><SelectValue placeholder="Select destination account"/></SelectTrigger></FormControl>
+                                                    <SelectContent>
+                                                        {accounts.map(acc => (
+                                                            <SelectItem key={acc.id} value={acc.id} disabled={acc.id === form.getValues('sourceAccountId')}>
+                                                                {acc.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </FormItem>
+                                        )}
+                                    />
+                                )}
+                                    <div className="flex items-center gap-2">
+                                    <FormField
+                                        control={form.control}
+                                        name={`splits.${index}.amount`}
+                                        render={({ field }) => (
+                                            <FormItem className="flex-grow">
+                                                <FormLabel className="sr-only">Amount</FormLabel>
+                                                <FormControl><Input type="number" step="0.01" placeholder="Amount" {...field} /></FormControl>
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => remove(index)} disabled={splitFields.length <= 1}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                </div>
+                                </div>
+                            </div>
+                        )
+                    })}
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={() => append({ id: crypto.randomUUID(), type: 'expense', amount: 0, categoryId: '' })}>
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add Split
+                </Button>
+
+                <SplitTotals />
+            </div>
+        </div>
+      </ScrollArea>
+      <DialogFooter className={cn("pt-4", isPage ? "justify-end" : "sm:justify-between mt-auto")}>
+          {editingTransaction && !isPage && (
+              <AlertDialog>
+              <AlertDialogTrigger asChild>
+                  <Button type="button" variant="destructive">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                  </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                  <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete this transaction.
+                  </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                      onClick={handleDelete}
+                      className={cn(buttonVariants({ variant: "destructive" }))}
+                  >
+                      Confirm Delete
+                  </AlertDialogAction>
+                  </AlertDialogFooter>
+              </AlertDialogContent>
+              </AlertDialog>
+          )}
+          {!isPage && editingTransaction && <div className="flex-grow"></div>}
+          <div className="flex gap-2">
+              {!isPage && <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>}
+              <Button type="submit">{editingTransaction ? 'Save Changes' : 'Add Transaction'}</Button>
+          </div>
+      </DialogFooter>
+    </form>
+  )
+}
+
+const TransactionFormContext = React.createContext<TransactionFormProps | null>(null);
+
+const useTransactionFormContext = () => {
+    const context = React.useContext(TransactionFormContext);
+    if (!context) {
+        throw new Error('useTransactionFormContext must be used within a TransactionFormProvider');
+    }
+    return context;
+}
+
+export function TransactionForm(props: TransactionFormProps) {
+  const { open, onOpenChange, editingTransaction } = props;
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      description: '',
+      amount: 0,
+      date: new Date().toISOString().split('T')[0],
+      sourceAccountId: '',
+      splits: [],
+    },
+  });
+  
+  useEffect(() => {
+    if (open) {
+      if (editingTransaction) {
+        form.reset({
+            description: editingTransaction.description,
+            amount: editingTransaction.amount,
+            date: new Date(editingTransaction.date).toISOString().split('T')[0],
+            sourceAccountId: editingTransaction.sourceAccountId,
+            splits: editingTransaction.splits || [],
+        });
+      } else {
+         form.reset({
+            description: '',
+            amount: 0,
+            date: new Date().toISOString().split('T')[0],
+            sourceAccountId: '',
+            splits: [{ id: crypto.randomUUID(), type: 'expense', amount: 0, categoryId: '', budgetItemName: 'Default' }],
+        });
+      }
+    }
+  }, [open, editingTransaction, form]);
+
+
+  if (props.isPage) {
+    return (
+        <TransactionFormContext.Provider value={props}>
+            <Form {...form}>
+                <FormContent isPage={true} />
+            </Form>
+        </TransactionFormContext.Provider>
+    );
   }
 
   return (
@@ -477,7 +490,11 @@ export function TransactionForm({
           </DialogDescription>
         </DialogHeader>
         <div className="flex-1 min-h-0">
-          <FormContent />
+             <TransactionFormContext.Provider value={props}>
+                <Form {...form}>
+                    <FormContent />
+                </Form>
+            </TransactionFormContext.Provider>
         </div>
       </DialogContent>
     </Dialog>
