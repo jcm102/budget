@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -31,7 +32,8 @@ export function Calculator({ onUseResult }: { onUseResult?: (result: string) => 
     try {
       // Using a safer evaluation method
       const calculatedResult = new Function('return ' + input)();
-      setResult(String(calculatedResult));
+      const roundedResult = parseFloat(calculatedResult.toFixed(2));
+      setResult(String(roundedResult));
     } catch (error) {
       setResult('Error');
     }
