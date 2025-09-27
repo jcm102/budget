@@ -27,7 +27,6 @@ import {
 import {
   Form,
   FormControl,
-  FormProvider,
   FormField,
   FormItem,
   FormLabel,
@@ -278,7 +277,7 @@ export function TransactionForm({
   };
 
   const FormContent = () => (
-    <FormProvider {...form}>
+    <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full">
         <ScrollArea className="flex-1 pr-6 -mr-6">
           <div className="space-y-4">
@@ -459,7 +458,7 @@ export function TransactionForm({
             </div>
         </DialogFooter>
       </form>
-    </FormProvider>
+    </Form>
   )
 
   if (isPage) {
