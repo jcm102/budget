@@ -147,6 +147,8 @@ export async function addTransaction(transactionData: Omit<Transaction, 'id'>): 
         const sourceAccountRef = doc(db, ACCOUNTS_COLLECTION, sourceAccountId);
         const sourceAccountSnap = await transaction.get(sourceAccountRef);
         if (!sourceAccountSnap.exists()) throw new Error(`Source account with ID ${sourceAccountId} not found.`);
+        
+        const sourceAccountData = sourceAccountSnap.data() as AccountDetails;
 
         const destinationAccountIds = splits
             .filter(s => s.type === 'transfer' && s.destinationAccountId)
@@ -169,9 +171,13 @@ export async function addTransaction(transactionData: Omit<Transaction, 'id'>): 
         const newTransactionRef = doc(collection(db, TRANSACTIONS_COLLECTION));
         transaction.set(newTransactionRef, transactionData);
 
-        // Debit source account
-        const sourceBalance = sourceAccountSnap.data()?.balance || 0;
-        transaction.update(sourceAccountRef, { balance: sourceBalance - amount });
+        // Debit/Credit source account
+        const sourceBalance = sourceAccountData.balance || 0;
+        if (sourceAccountData.type === 'Credit') {
+            transaction.update(sourceAccountRef, { balance: sourceBalance + amount });
+        } else {
+            transaction.update(sourceAccountRef, { balance: sourceBalance - amount });
+        }
 
         // Credit/Debit destination accounts for transfers
         splits.forEach((split) => {
@@ -221,8 +227,13 @@ export async function addTransaction(transactionData: Omit<Transaction, 'id'>): 
 async function revertTransaction(transaction: FirebaseFirestore.Transaction, oldData: Transaction, accountSnaps: Map<string, FirebaseFirestore.DocumentSnapshot>) {
     const sourceSnap = accountSnaps.get(oldData.sourceAccountId);
     if (sourceSnap?.exists()) {
-        const sourceBalance = sourceSnap.data()?.balance || 0;
-        transaction.update(sourceSnap.ref, { balance: sourceBalance + oldData.amount });
+        const sourceData = sourceSnap.data() as AccountDetails;
+        const sourceBalance = sourceData.balance || 0;
+        if (sourceData.type === 'Credit') {
+            transaction.update(sourceSnap.ref, { balance: sourceBalance - oldData.amount });
+        } else {
+            transaction.update(sourceSnap.ref, { balance: sourceBalance + oldData.amount });
+        }
     }
 
     for (const split of (oldData.splits || [])) {
@@ -246,8 +257,14 @@ async function applyTransaction(transaction: FirebaseFirestore.Transaction, newD
     if (!sourceSnap?.exists()) {
         throw new Error(`Source account with ID ${newData.sourceAccountId} not found.`);
     }
-    const sourceBalance = sourceSnap.data()?.balance || 0;
-    transaction.update(sourceSnap.ref, { balance: sourceBalance - newData.amount });
+    const sourceData = sourceSnap.data() as AccountDetails;
+    const sourceBalance = sourceData.balance || 0;
+    if (sourceData.type === 'Credit') {
+        transaction.update(sourceSnap.ref, { balance: sourceBalance + newData.amount });
+    } else {
+        transaction.update(sourceSnap.ref, { balance: sourceBalance - newData.amount });
+    }
+
 
     for (const split of (newData.splits || [])) {
         if (split.type === 'transfer' && split.destinationAccountId) {
