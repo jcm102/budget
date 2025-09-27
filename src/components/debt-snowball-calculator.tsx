@@ -47,8 +47,9 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
 
 
   const totalMinimumPayment = useMemo(() => {
-    return debts.reduce((sum, debt) => sum + debt.minimumPayment, 0);
+    return debts.reduce((sum, debt) => sum + (debt.nextMinimumPayment || debt.minimumPayment), 0);
   }, [debts]);
+
 
   useEffect(() => {
     if (totalMinimumPayment > 0) {
@@ -61,20 +62,20 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
   const calculateSchedule = () => {
     setError(null);
 
-    if (totalMonthlyPayment < totalMinimumPayment) {
+    if (debouncedTotalMonthlyPayment < totalMinimumPayment) {
         setError(`Total monthly payment must be at least the sum of minimum payments (${formatCurrency(totalMinimumPayment)}).`);
         setSchedule([]);
         return;
     }
     
     let currentDebts = debts
-        .filter(d => d.balance > 0)
+        .filter(d => (d.nextBalance || d.balance) > 0)
         .map(d => ({ 
             id: d.id, 
             name: d.name,
-            balance: d.balance, 
+            balance: d.nextBalance || d.balance, 
             interestRate: d.interestRate / 100, // Convert to decimal for calculation
-            minimumPayment: d.minimumPayment 
+            minimumPayment: d.nextMinimumPayment || d.minimumPayment 
         }));
 
     if (currentDebts.length === 0) {
@@ -83,16 +84,16 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
     }
     
     // Apply one-time extra payment
-    if (extraPayment > 0 && extraPaymentTarget !== 'none') {
+    if (debouncedExtraPayment > 0 && debouncedExtraPaymentTarget !== 'none') {
         let targetDebt;
-        if (extraPaymentTarget === 'highest_interest') {
-            targetDebt = currentDebts.sort((a,b) => b.interestRate - a.interestRate)[0];
+        if (debouncedExtraPaymentTarget === 'highest_interest') {
+            targetDebt = [...currentDebts].sort((a,b) => b.interestRate - a.interestRate)[0];
         } else {
-            targetDebt = currentDebts.find(d => d.id === extraPaymentTarget);
+            targetDebt = currentDebts.find(d => d.id === debouncedExtraPaymentTarget);
         }
 
         if (targetDebt) {
-            targetDebt.balance -= extraPayment;
+            targetDebt.balance -= debouncedExtraPayment;
         }
     }
 
@@ -103,7 +104,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
      while (currentDebts.some(d => d.balance > 0) && month < 360) { // Limit to 30 years
         month++;
         
-        let paymentForMonth = totalMonthlyPayment;
+        let paymentForMonth = debouncedTotalMonthlyPayment;
         const monthlyPayments: Record<string, number> = {};
 
         // Apply interest to remaining balances
@@ -235,7 +236,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="highest_interest">Highest Interest Rate (Default)</SelectItem>
-                        {debts.filter(d => d.balance > 0).map(debt => (
+                        {debts.filter(d => (d.nextBalance || d.balance) > 0).map(debt => (
                             <SelectItem key={debt.id} value={debt.id}>{debt.name}</SelectItem>
                         ))}
                     </SelectContent>
@@ -270,7 +271,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
                         <TableHeader className="sticky top-0 bg-secondary z-10">
                             <TableRow>
                                 <TableHead className="w-[80px]">Month</TableHead>
-                                {debts.filter(d => d.balance > 0).map(debt => (
+                                {debts.filter(d => (d.nextBalance || d.balance) > 0).map(debt => (
                                     <TableHead key={debt.id} className="text-right min-w-[120px]">{debt.name}</TableHead>
                                 ))}
                                 <TableHead className="text-right font-bold">Total Paid</TableHead>
@@ -280,7 +281,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
                             {schedule.map(entry => (
                                 <TableRow key={entry.month}>
                                     <TableCell>{entry.month}</TableCell>
-                                    {debts.filter(d => d.balance > 0).map(debt => {
+                                    {debts.filter(d => (d.nextBalance || d.balance) > 0).map(debt => {
                                         const payment = entry.payments[debt.id];
                                         const balance = entry.balances[debt.id];
                                         
