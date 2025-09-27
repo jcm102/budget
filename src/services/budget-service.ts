@@ -307,7 +307,7 @@ export async function updateBudgetItem(id: string, itemData: Partial<Omit<Budget
                 budgetItemRef = newBudgetItemSnap.ref;
                 currentBreakdown = (newBudgetItemSnap.data() as MonthlyBudgetItem).breakdown?.filter(item => item.name !== oldItemData!.description) || [];
             } else {
-                budgetItemRef = doc(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION));
+                budgetItemRef = doc(collection(db, MONTHLY_BUDGET_COLLECTION));
             }
 
             const finalBreakdown = [...currentBreakdown, { name: newData.description, amount: newData.amount }];
@@ -443,5 +443,19 @@ export async function resetPaPayments(): Promise<void> {
     batch.update(docSnap.ref, updatedData);
   });
 
+  await batch.commit();
+}
+
+export async function clearDebtPayments(forNextMonth: boolean): Promise<void> {
+  const batch = writeBatch(db);
+  const q = query(
+    collection(db, BUDGET_COLLECTION),
+    where('type', '==', 'Debt Payments'),
+    where('forNextMonth', '==', forNextMonth)
+  );
+  const querySnapshot = await getDocs(q);
+  querySnapshot.forEach(doc => {
+    batch.delete(doc.ref);
+  });
   await batch.commit();
 }
