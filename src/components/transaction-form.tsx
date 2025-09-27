@@ -247,8 +247,7 @@ function FormContent({ isPage = false }: { isPage?: boolean }) {
             <Calculator onUseResult={handleUseCalculatorResult}/>
         </DialogContent>
       </Dialog>
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full">
             <ScrollArea className="flex-1 pr-6 -mr-6">
             <div className="space-y-4">
                 <FormField control={form.control} name="date" render={({ field }) => (
@@ -435,7 +434,6 @@ function FormContent({ isPage = false }: { isPage?: boolean }) {
                 </div>
             </DialogFooter>
         </form>
-      </Form>
     </>
   )
 }
@@ -487,13 +485,15 @@ export function TransactionForm(props: TransactionFormProps) {
 
 
   const formContent = (
+    <Form {...form}>
       <TransactionFormContext.Provider value={props}>
-         <FormContent isPage={isPage} />
+        <FormContent isPage={isPage} />
       </TransactionFormContext.Provider>
+    </Form>
   );
 
   if (isPage) {
-    return  <form.Provider {...form}>{formContent}</form.Provider>;
+    return formContent;
   }
 
   return (
@@ -506,7 +506,7 @@ export function TransactionForm(props: TransactionFormProps) {
           </DialogDescription>
         </DialogHeader>
         <div className="flex-1 min-h-0">
-             <form.Provider {...form}>{formContent}</form.Provider>
+             {formContent}
         </div>
       </DialogContent>
     </Dialog>
