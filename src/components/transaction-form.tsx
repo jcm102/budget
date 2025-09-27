@@ -130,7 +130,6 @@ export function TransactionForm({
       name: 'splits',
   });
 
-  const transactionAmount = form.watch('amount');
   const currentSplits = form.watch('splits');
   
   useEffect(() => {
@@ -254,14 +253,16 @@ export function TransactionForm({
   };
 
   const FormContent = () => {
+    const transactionAmount = form.watch('amount');
+    const currentSplits = form.watch('splits');
     const totalSplitAmount = currentSplits.reduce((sum, split) => sum + (split.amount || 0), 0);
     const remainingToSplit = transactionAmount - totalSplitAmount;
     
     return (
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full">
-          <div className={cn("flex-1", isPage ? "overflow-y-auto" : "overflow-y-auto")}>
-            <ScrollArea className={cn(isPage ? "h-full" : "max-h-[calc(90vh-14rem)]", "pr-6")}>
+          <div className={cn("flex-1", isPage ? "overflow-y-auto" : "")}>
+            <ScrollArea className={cn(isPage ? "h-full" : "max-h-[calc(80vh-14rem)]", "pr-6")}>
               <div className="space-y-4 pr-1">
                   <div className="space-y-4">
                     <FormField control={form.control} name="date" render={({ field }) => (
@@ -421,8 +422,7 @@ export function TransactionForm({
               </div>
             </ScrollArea>
           </div>
-          <div className="pt-4 mt-auto">
-            <div className={cn("flex gap-2", isPage ? "justify-end" : "sm:justify-between")}>
+          <DialogFooter className={cn("pt-4", isPage ? "justify-end" : "sm:justify-between")}>
                 {editingTransaction && !isPage && (
                     <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -455,8 +455,7 @@ export function TransactionForm({
                     {!isPage && <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>}
                     <Button type="submit">{editingTransaction ? 'Save Changes' : 'Add Transaction'}</Button>
                 </div>
-            </div>
-          </div>
+          </DialogFooter>
         </form>
       </Form>
     )
