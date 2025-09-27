@@ -72,7 +72,7 @@ const formSchema = z.object({
   sourceAccountId: z.string().min(1, 'Source account is required.'),
   splits: z.array(splitSchema).min(1, 'At least one split is required.'),
 }).superRefine((data, ctx) => {
-    const totalSplitAmount = data.splits.reduce((sum, split) => sum + split.amount, 0);
+    const totalSplitAmount = data.splits.reduce((sum, split) => sum + (parseFloat(String(split.amount)) || 0), 0);
     if (Math.abs(totalSplitAmount - data.amount) > 0.001) { // Check for floating point differences
             ctx.addIssue({
             code: z.ZodIssueCode.custom,
@@ -106,7 +106,7 @@ function SplitTotals() {
     const transactionAmount = watch('amount');
     const currentSplits = watch('splits');
     
-    const totalSplitAmount = currentSplits.reduce((sum, split) => sum + (split.amount || 0), 0);
+    const totalSplitAmount = currentSplits.reduce((sum, split) => sum + (parseFloat(String(split.amount)) || 0), 0);
     const remainingToSplit = transactionAmount - totalSplitAmount;
     
     return (
