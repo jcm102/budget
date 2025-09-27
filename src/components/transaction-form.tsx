@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm, useFieldArray, useFormContext } from 'react-hook-form';
+import { useForm, useFieldArray, FormProvider, useFormContext } from 'react-hook-form';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import {
@@ -241,7 +241,7 @@ function FormContent({ isPage = false }: { isPage?: boolean }) {
   }
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full">
+    <div className="flex flex-col h-full">
       <ScrollArea className="flex-1 pr-6 -mr-6">
         <div className="space-y-4">
             <FormField control={form.control} name="date" render={({ field }) => (
@@ -282,7 +282,7 @@ function FormContent({ isPage = false }: { isPage?: boolean }) {
             <FormField control={form.control} name="amount" render={({ field }) => (
                 <FormItem>
                 <FormLabel>Total Amount</FormLabel>
-                <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                <FormControl><Input type="tel" inputMode="decimal" step="0.01" {...field} /></FormControl>
                 </FormItem>
             )}
             />
@@ -365,7 +365,7 @@ function FormContent({ isPage = false }: { isPage?: boolean }) {
                                         render={({ field }) => (
                                             <FormItem className="flex-grow">
                                                 <FormLabel className="sr-only">Amount</FormLabel>
-                                                <FormControl><Input type="number" step="0.01" placeholder="Amount" {...field} /></FormControl>
+                                                <FormControl><Input type="tel" inputMode="decimal" step="0.01" placeholder="Amount" {...field} /></FormControl>
                                             </FormItem>
                                         )}
                                     />
@@ -420,7 +420,7 @@ function FormContent({ isPage = false }: { isPage?: boolean }) {
               <Button type="submit">{editingTransaction ? 'Save Changes' : 'Add Transaction'}</Button>
           </div>
       </DialogFooter>
-    </form>
+    </div>
   )
 }
 
@@ -435,7 +435,7 @@ const useTransactionFormContext = () => {
 }
 
 export function TransactionForm(props: TransactionFormProps) {
-  const { open, onOpenChange, editingTransaction } = props;
+  const { open, onOpenChange, editingTransaction, isPage } = props;
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -448,7 +448,7 @@ export function TransactionForm(props: TransactionFormProps) {
   });
   
   useEffect(() => {
-    if (open) {
+    if (open || isPage) {
       if (editingTransaction) {
         form.reset({
             description: editingTransaction.description,
@@ -467,17 +467,19 @@ export function TransactionForm(props: TransactionFormProps) {
         });
       }
     }
-  }, [open, editingTransaction, form]);
+  }, [open, isPage, editingTransaction, form]);
 
 
-  if (props.isPage) {
-    return (
-        <TransactionFormContext.Provider value={props}>
-            <Form {...form}>
-                <FormContent isPage={true} />
-            </Form>
-        </TransactionFormContext.Provider>
-    );
+  const formContent = (
+      <TransactionFormContext.Provider value={props}>
+          <Form {...form}>
+              <FormContent isPage={isPage} />
+          </Form>
+      </TransactionFormContext.Provider>
+  );
+
+  if (isPage) {
+    return formContent;
   }
 
   return (
@@ -490,11 +492,7 @@ export function TransactionForm(props: TransactionFormProps) {
           </DialogDescription>
         </DialogHeader>
         <div className="flex-1 min-h-0">
-             <TransactionFormContext.Provider value={props}>
-                <Form {...form}>
-                    <FormContent />
-                </Form>
-            </TransactionFormContext.Provider>
+             {formContent}
         </div>
       </DialogContent>
     </Dialog>
