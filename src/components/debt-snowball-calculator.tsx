@@ -35,7 +35,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
   const { fetchDebts } = useDebt();
   const [totalMonthlyPayment, setTotalMonthlyPayment] = useState<number>(0);
   const [extraPayment, setExtraPayment] = useState<number>(0);
-  const [extraPaymentTarget, setExtraPaymentTarget] = useState<string>('none');
+  const [extraPaymentTarget, setExtraPaymentTarget] = useState<string>('highest_interest');
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState(false);
@@ -45,18 +45,38 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
   const debouncedExtraPayment = useDebounce(extraPayment, 500);
   const debouncedExtraPaymentTarget = useDebounce(extraPaymentTarget, 500);
 
+  // Load state from localStorage on mount
+  useEffect(() => {
+    const savedState = localStorage.getItem('debtCalculatorState');
+    if (savedState) {
+      const { totalMonthlyPayment, extraPayment, extraPaymentTarget } = JSON.parse(savedState);
+      setTotalMonthlyPayment(totalMonthlyPayment || 0);
+      setExtraPayment(extraPayment || 0);
+      setExtraPaymentTarget(extraPaymentTarget || 'highest_interest');
+    }
+  }, []);
+
+  // Save state to localStorage on change
+  useEffect(() => {
+    const stateToSave = {
+      totalMonthlyPayment,
+      extraPayment,
+      extraPaymentTarget,
+    };
+    localStorage.setItem('debtCalculatorState', JSON.stringify(stateToSave));
+  }, [totalMonthlyPayment, extraPayment, extraPaymentTarget]);
+
 
   const totalMinimumPayment = useMemo(() => {
-    return debts.reduce((sum, debt) => sum + (debt.nextMinimumPayment || debt.minimumPayment), 0);
+    return debts.reduce((sum, debt) => sum + (debt.nextMinimumPayment || 0), 0);
   }, [debts]);
 
 
   useEffect(() => {
-    if (totalMinimumPayment > 0) {
+    if (totalMinimumPayment > 0 && totalMonthlyPayment < totalMinimumPayment) {
       setTotalMonthlyPayment(totalMinimumPayment);
-    } else {
-      setTotalMonthlyPayment(0);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [totalMinimumPayment]);
   
   const calculateSchedule = () => {
@@ -73,9 +93,9 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
         .map(d => ({ 
             id: d.id, 
             name: d.name,
-            balance: d.nextBalance || d.balance, 
+            balance: d.nextBalance || 0, // Always use nextBalance for calculation
             interestRate: d.interestRate / 100, // Convert to decimal for calculation
-            minimumPayment: d.nextMinimumPayment || d.minimumPayment 
+            minimumPayment: d.nextMinimumPayment || 0 // Always use nextMinimumPayment
         }));
 
     if (currentDebts.length === 0) {
@@ -271,7 +291,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
                         <TableHeader className="sticky top-0 bg-secondary z-10">
                             <TableRow>
                                 <TableHead className="w-[80px]">Month</TableHead>
-                                {debts.filter(d => (d.nextBalance || d.balance) > 0).map(debt => (
+                                {debts.filter(d => (d.nextBalance || 0) > 0).map(debt => (
                                     <TableHead key={debt.id} className="text-right min-w-[120px]">{debt.name}</TableHead>
                                 ))}
                                 <TableHead className="text-right font-bold">Total Paid</TableHead>
@@ -281,7 +301,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
                             {schedule.map(entry => (
                                 <TableRow key={entry.month}>
                                     <TableCell>{entry.month}</TableCell>
-                                    {debts.filter(d => (d.nextBalance || d.balance) > 0).map(debt => {
+                                    {debts.filter(d => (d.nextBalance || 0) > 0).map(debt => {
                                         const payment = entry.payments[debt.id];
                                         const balance = entry.balances[debt.id];
                                         
