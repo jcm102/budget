@@ -130,7 +130,7 @@ export async function addBudgetItem(itemData: Omit<BudgetItem, 'id'>): Promise<B
     if (itemData.type === 'Pre-Authorized Payments' && itemData.budgetCategoryId) {
       const currentMonth = new Date().toISOString().slice(0, 7);
       budgetItemQuery = query(
-        collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION),
+        collection(db, MONTHLY_BUDGET_COLLECTION),
         where('month', '==', currentMonth),
         where('categoryId', '==', itemData.budgetCategoryId),
         limit(1)
@@ -168,7 +168,7 @@ export async function addBudgetItem(itemData: Omit<BudgetItem, 'id'>): Promise<B
         budgetItemRef = budgetSnapshot.docs[0].ref;
         currentBudgetItem = budgetSnapshot.docs[0].data() as MonthlyBudgetItem;
       } else {
-        budgetItemRef = doc(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION));
+        budgetItemRef = doc(collection(db, MONTHLY_BUDGET_COLLECTION));
       }
       
       const currentBreakdown = currentBudgetItem?.breakdown || [];
