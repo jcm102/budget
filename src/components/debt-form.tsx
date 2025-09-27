@@ -26,6 +26,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Debt, DebtType } from '@/types';
 import { Separator } from './ui/separator';
+import { ScrollArea } from './ui/scroll-area';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.'),
@@ -151,126 +152,129 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <FormField control={form.control} name="name" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Debt Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., Credit Card" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField control={form.control} name="debtType" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Debt Type</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+            <ScrollArea className="h-[60vh] pr-6 -mr-6">
+                <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="name" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Debt Name</FormLabel>
+                            <FormControl>
+                            <Input placeholder="e.g., Credit Card" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                    <FormField control={form.control} name="debtType" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Debt Type</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                                <FormControl>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    <SelectItem value="Credit Card">Credit Card</SelectItem>
+                                    <SelectItem value="Loan">Loan</SelectItem>
+                                    <SelectItem value="Line of Credit">Line of Credit</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                    <FormField control={form.control} name="interestRate" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Interest Rate (%)</FormLabel>
+                            <FormControl>
+                            <Input type="number" step="0.01" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                    </div>
+
+                    <Separator />
+                    <h4 className="text-md font-medium text-center">Current Month</h4>
+                    <Separator />
+
+                    <FormField control={form.control} name="balance" render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Balance</FormLabel>
                         <FormControl>
-                           <SelectTrigger><SelectValue /></SelectTrigger>
+                            <Input type="number" step="0.01" {...field} />
                         </FormControl>
-                        <SelectContent>
-                            <SelectItem value="Credit Card">Credit Card</SelectItem>
-                            <SelectItem value="Loan">Loan</SelectItem>
-                            <SelectItem value="Line of Credit">Line of Credit</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-               <FormField control={form.control} name="interestRate" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Interest Rate (%)</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="0.01" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                    <FormField control={form.control} name="minimumPayment" render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Minimum Payment</FormLabel>
+                        <FormControl>
+                            <Input type="number" step="0.01" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                    <FormField control={form.control} name="plannedPayment" render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Planned Payment</FormLabel>
+                        <FormControl>
+                            <Input type="number" step="0.01" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                    <FormField control={form.control} name="dueDate" render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Due Date</FormLabel>
+                        <FormControl>
+                            <Input type="date" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                    
+                    <Separator />
+                    <h4 className="text-md font-medium text-center">Next Month</h4>
+                    <Separator />
 
-            <Separator />
-            <h4 className="text-md font-medium text-center">Current Month</h4>
-            <Separator />
-
-            <FormField control={form.control} name="balance" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Balance</FormLabel>
-                  <FormControl>
-                    <Input type="number" step="0.01" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField control={form.control} name="minimumPayment" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Minimum Payment</FormLabel>
-                  <FormControl>
-                    <Input type="number" step="0.01" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField control={form.control} name="plannedPayment" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Planned Payment</FormLabel>
-                  <FormControl>
-                    <Input type="number" step="0.01" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField control={form.control} name="dueDate" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Due Date</FormLabel>
-                   <FormControl>
-                    <Input type="date" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <Separator />
-            <h4 className="text-md font-medium text-center">Next Month</h4>
-            <Separator />
-
-             <FormField control={form.control} name="nextBalance" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Next Balance</FormLabel>
-                  <FormControl>
-                    <Input type="number" step="0.01" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField control={form.control} name="nextMinimumPayment" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Next Minimum Payment</FormLabel>
-                  <FormControl>
-                    <Input type="number" step="0.01" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField control={form.control} name="nextDueDate" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Next Due Date</FormLabel>
-                   <FormControl>
-                    <Input type="date" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
+                    <FormField control={form.control} name="nextBalance" render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Next Balance</FormLabel>
+                        <FormControl>
+                            <Input type="number" step="0.01" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                    <FormField control={form.control} name="nextMinimumPayment" render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Next Minimum Payment</FormLabel>
+                        <FormControl>
+                            <Input type="number" step="0.01" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                    <FormField control={form.control} name="nextDueDate" render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Next Due Date</FormLabel>
+                        <FormControl>
+                            <Input type="date" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                </div>
+            </ScrollArea>
             <DialogFooter>
               <Button type="submit">{editingDebt ? 'Save Changes' : 'Add Debt'}</Button>
             </DialogFooter>
