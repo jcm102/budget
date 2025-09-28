@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -21,6 +22,7 @@ import {
 } from 'firebase/firestore';
 import { isSameMonth, startOfMonth, getDate, getMonth, getYear, set, addWeeks, isAfter, isBefore, isLastDayOfMonth, lastDayOfMonth, addMonths, startOfDay, format } from 'date-fns';
 import { getDebts } from './debt-service';
+import { getCategories as getBudgetCategories } from './budget-category-service';
 
 const BUDGET_COLLECTION = 'budget-items';
 const DEBT_COLLECTION = 'debts';
@@ -483,72 +485,73 @@ export async function syncDebtPaymentsFromWorksheet(forNextMonth: boolean): Prom
             batch.set(newDocRef, newItem);
         }
     }
-    
-    if (forNextMonth) {
-        await syncNextMonthDebtToMonthlyBudget(allDebts, batch);
-    }
 
     await batch.commit();
 }
 
 
-async function syncNextMonthDebtToMonthlyBudget(allDebts: Debt[], batch: FirebaseFirestore.WriteBatch): Promise<void> {
-    const nextMonth = format(addMonths(new Date(), 1), 'yyyy-MM');
-    const budgetCategories = await getDocs(query(collection(db, 'budget-categories')));
-    
-    const categoryMap = new Map<string, string>();
-    budgetCategories.forEach(doc => {
-        const data = doc.data();
-        categoryMap.set(data.name, doc.id);
+export async function syncDebtPaymentsToMonthlyBudget(): Promise<void> {
+    await runTransaction(db, async (transaction) => {
+        const nextMonth = format(addMonths(new Date(), 1), 'yyyy-MM');
+
+        // 1. Fetch all necessary data
+        const [debts, budgetCategories] = await Promise.all([
+            getDebts(),
+            getBudgetCategories()
+        ]);
+        
+        const categoryMap = new Map<string, string>();
+        budgetCategories.forEach(cat => categoryMap.set(cat.name, cat.id));
+
+        const categoryAggregates: Record<string, { total: number; breakdown: { name: string; amount: number }[] }> = {};
+
+        // 2. Aggregate payments by category
+        for (const debt of debts) {
+            const amount = debt.nextMinimumPayment || 0;
+            if (amount <= 0 || !debt.debtType) continue;
+
+            const categoryName: string | undefined = {
+                'Credit Card': 'Credit Cards',
+                'Loan': 'Loans',
+                'Line of Credit': 'Line of Credit'
+            }[debt.debtType];
+
+            const categoryId = categoryName ? categoryMap.get(categoryName) : undefined;
+            if (!categoryId) continue;
+
+            if (!categoryAggregates[categoryId]) {
+                categoryAggregates[categoryId] = { total: 0, breakdown: [] };
+            }
+            categoryAggregates[categoryId].total += amount;
+            categoryAggregates[categoryId].breakdown.push({ name: debt.name, amount });
+        }
+
+        // 3. Update or create monthly budget items
+        for (const categoryId in categoryAggregates) {
+            const { total, breakdown } = categoryAggregates[categoryId];
+            
+            const budgetItemQuery = query(
+                collection(db, MONTHLY_BUDGET_COLLECTION),
+                where('month', '==', nextMonth),
+                where('categoryId', '==', categoryId),
+                limit(1)
+            );
+            const snapshot = await getDocs(budgetItemQuery);
+            
+            const data = {
+                categoryId: categoryId,
+                month: nextMonth,
+                budgeted: total,
+                breakdown: breakdown,
+            };
+
+            if (snapshot.empty) {
+                const newDocRef = doc(collection(db, MONTHLY_BUDGET_COLLECTION));
+                transaction.set(newDocRef, data);
+            } else {
+                const docRef = snapshot.docs[0].ref;
+                transaction.update(docRef, data);
+            }
+        }
     });
-
-    const categoryAggregates: Record<string, { total: number; breakdown: { name: string; amount: number }[] }> = {};
-
-    for (const debt of allDebts) {
-        const amount = debt.nextMinimumPayment || 0;
-        if (amount <= 0 || !debt.debtType) continue;
-
-        let categoryName: string;
-        switch (debt.debtType) {
-            case 'Credit Card': categoryName = 'Credit Cards'; break;
-            case 'Loan': categoryName = 'Loans'; break;
-            case 'Line of Credit': categoryName = 'Line of Credit'; break;
-            default: continue;
-        }
-
-        const categoryId = categoryMap.get(categoryName);
-        if (!categoryId) continue;
-
-        if (!categoryAggregates[categoryId]) {
-            categoryAggregates[categoryId] = { total: 0, breakdown: [] };
-        }
-        categoryAggregates[categoryId].total += amount;
-        categoryAggregates[categoryId].breakdown.push({ name: debt.name, amount });
-    }
-
-    for (const categoryId in categoryAggregates) {
-        const { total, breakdown } = categoryAggregates[categoryId];
-
-        const budgetItemQuery = query(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION),
-            where('month', '==', nextMonth),
-            where('categoryId', '==', categoryId),
-            limit(1)
-        );
-
-        const snapshot = await getDocs(budgetItemQuery);
-        const data = {
-            categoryId: categoryId,
-            month: nextMonth,
-            budgeted: total,
-            breakdown: breakdown,
-        };
-
-        if (snapshot.empty) {
-            const newDocRef = doc(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION));
-            batch.set(newDocRef, data);
-        } else {
-            const docRef = snapshot.docs[0].ref;
-            batch.update(docRef, data);
-        }
-    }
 }

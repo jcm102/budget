@@ -40,6 +40,7 @@ import { Badge } from './ui/badge';
 import { Checkbox } from './ui/checkbox';
 import * as BudgetService from '@/services/budget-service';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/hooks/use-toast';
 
 type SortConfig = {
     key: keyof BudgetItem;
@@ -60,14 +61,15 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
   )
 }
 
-function PaymentsTableContent({ items, isLoading, onEdit, onDelete, onToggleCompleted, onSync, syncLabel }: { 
+function PaymentsTableContent({ items, isLoading, onEdit, onDelete, onToggleCompleted, onSync, syncLabel, showSync }: { 
     items: BudgetItem[], 
     isLoading: boolean, 
     onEdit: (item: BudgetItem) => void, 
     onDelete: (id: string) => void, 
     onToggleCompleted: (id: string, completed: boolean) => void,
     onSync: () => void,
-    syncLabel: string
+    syncLabel: string,
+    showSync: boolean
 }) {
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'ascending' });
 
@@ -116,12 +118,14 @@ function PaymentsTableContent({ items, isLoading, onEdit, onDelete, onToggleComp
 
     return (
         <div className="space-y-4">
-             <div className="flex justify-end items-center gap-2 no-print">
-                <Button onClick={onSync} >
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    {syncLabel}
-                </Button>
-            </div>
+            {showSync && (
+                 <div className="flex justify-end items-center gap-2 no-print">
+                    <Button onClick={onSync} >
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        {syncLabel}
+                    </Button>
+                </div>
+            )}
              <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
                 <Table>
                     <TableHeader>
@@ -222,13 +226,26 @@ export function DebtPaymentsTable() {
   const { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, toggleBudgetItemCompleted, isLoading, fetchBudgetItems } = useBudget();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<BudgetItem | null>(null);
-  
+  const { toast } = useToast();
+
   const handleSyncFromWorksheet = async (forNextMonth: boolean) => {
     try {
         await BudgetService.syncDebtPaymentsFromWorksheet(forNextMonth);
+        if (forNextMonth) {
+            await BudgetService.syncDebtPaymentsToMonthlyBudget();
+        }
         await fetchBudgetItems();
+        toast({
+            title: "Success!",
+            description: "Debt payments have been synced from the worksheet."
+        })
     } catch (error) {
         console.error('Failed to sync from worksheet:', error);
+         toast({
+            title: "Error",
+            description: "Could not sync debt payments from the worksheet.",
+            variant: "destructive"
+        })
     }
   };
 
@@ -288,6 +305,7 @@ export function DebtPaymentsTable() {
                 onToggleCompleted={toggleBudgetItemCompleted}
                 onSync={() => handleSyncFromWorksheet(false)}
                 syncLabel="Sync From Debt Worksheet"
+                showSync={true}
             />
         </TabsContent>
         <TabsContent value="next">
@@ -299,6 +317,7 @@ export function DebtPaymentsTable() {
                 onToggleCompleted={toggleBudgetItemCompleted}
                 onSync={() => handleSyncFromWorksheet(true)}
                 syncLabel="Sync Next Month From Debt Worksheet"
+                showSync={true}
             />
         </TabsContent>
       </Tabs>
