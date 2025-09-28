@@ -447,12 +447,12 @@ export async function resetPaPayments(): Promise<void> {
   await batch.commit();
 }
 
-export async function clearDebtPayments(forNextMonth: boolean): Promise<void> {
+export async function clearDebtPayments(): Promise<void> {
   const batch = writeBatch(db);
   const q = query(
     collection(db, BUDGET_COLLECTION),
     where('type', '==', 'Debt Payments'),
-    where('forNextMonth', '==', forNextMonth)
+    where('forNextMonth', '==', false)
   );
   const querySnapshot = await getDocs(q);
   querySnapshot.forEach(doc => {
