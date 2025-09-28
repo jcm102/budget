@@ -15,7 +15,8 @@ import {
   orderBy,
   updateDoc,
   runTransaction,
-  where
+  where,
+  limit
 } from 'firebase/firestore';
 import { addMonths, format } from 'date-fns';
 
