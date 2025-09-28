@@ -236,3 +236,5 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
         }
     });
 }
+
+    
