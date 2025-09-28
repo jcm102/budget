@@ -327,6 +327,9 @@ export function BudgetTable({ budgetItems, categories, transactions, isLoading, 
                 } else if (totals.breakdown['Default']) {
                     // If the split item doesn't exist, attribute it to the default
                     totals.breakdown['Default'].actual += split.amount;
+                } else {
+                    // If there's no default and no matching item, create one on the fly
+                    totals.breakdown[budgetItemName] = { budgeted: 0, actual: split.amount };
                 }
             }
         })
