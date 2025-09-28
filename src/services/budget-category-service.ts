@@ -16,7 +16,6 @@ import {
   getDoc,
   limit,
   where,
-  Query,
   setDoc,
 } from 'firebase/firestore';
 
