@@ -209,11 +209,10 @@ export async function updateBudgetItem(id: string, itemData: Partial<Omit<Budget
         let oldItemData: BudgetItem | null = null;
         let originalItemRef: FirebaseFirestore.DocumentReference;
         let isOverride = false;
-        let baseId = id;
         
-        const isRecurringInstance = id.includes('-');
+        const isRecurringInstance = id && id.includes('-');
         if (isRecurringInstance) {
-            baseId = id.split('-')[0];
+            const baseId = id.split('-')[0];
             const overrideQuery = query(collection(db, BUDGET_COLLECTION), where('originalId', '==', id), limit(1));
             const existingOverrideSnap = await getDocs(overrideQuery);
             if (!existingOverrideSnap.empty) {
@@ -326,7 +325,7 @@ export async function deleteBudgetItem(id: string): Promise<void> {
     let itemToDelete: BudgetItem | null = null;
     let isOverride = false;
     
-    const isRecurringInstance = id.includes('-');
+    const isRecurringInstance = id && id.includes('-');
     
     if (isRecurringInstance) {
         const overrideQuery = query(collection(db, BUDGET_COLLECTION), where('originalId', '==', id), limit(1));
@@ -448,19 +447,19 @@ export async function resetPaPayments(): Promise<void> {
 }
 
 export async function clearDebtPayments(): Promise<void> {
-  const batch = writeBatch(db);
-  const q = query(
-    collection(db, BUDGET_COLLECTION),
-    where('type', '==', 'Debt Payments'),
-    where('forNextMonth', '==', false)
-  );
-  const querySnapshot = await getDocs(q);
-  querySnapshot.forEach(doc => {
-    batch.delete(doc.ref);
-  });
-  await batch.commit();
-}
-
+    const batch = writeBatch(db);
+    const q = query(
+      collection(db, BUDGET_COLLECTION),
+      where('type', '==', 'Debt Payments'),
+      where('forNextMonth', '==', false)
+    );
+    const querySnapshot = await getDocs(q);
+    querySnapshot.forEach(doc => {
+      batch.delete(doc.ref);
+    });
+    await batch.commit();
+  }
+  
 export async function syncDebtPaymentsFromWorksheet(forNextMonth: boolean): Promise<void> {
     const batch = writeBatch(db);
 
@@ -499,3 +498,4 @@ export async function syncDebtPaymentsFromWorksheet(forNextMonth: boolean): Prom
 
     await batch.commit();
 }
+
