@@ -130,23 +130,5 @@ export function useDebt() {
 
   }, [debts, updateDebt]);
 
-  const cycleToNextMonth = useCallback(async () => {
-    try {
-        await DebtService.cycleToNextMonth();
-        await fetchDebts();
-        toast({
-            title: 'Success!',
-            description: 'Debt worksheet has been cycled to the next month.',
-        });
-    } catch (error) {
-        console.error('Failed to cycle to next month:', error);
-        toast({
-            title: 'Error',
-            description: 'Could not cycle the debt worksheet.',
-            variant: 'destructive',
-        });
-    }
-  }, [fetchDebts, toast]);
-
-  return { debts, addDebt, updateDebt, deleteDebt, resetDebtValues, cycleToNextMonth, updateDebtOrder, isLoading, toggleDebtPaid, fetchDebts };
+  return { debts, addDebt, updateDebt, deleteDebt, resetDebtValues, updateDebtOrder, isLoading, toggleDebtPaid, fetchDebts };
 }

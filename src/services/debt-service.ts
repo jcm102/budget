@@ -117,37 +117,6 @@ export async function resetDebtValues(): Promise<void> {
   await batch.commit();
 }
 
-
-export async function cycleToNextMonth(): Promise<void> {
-    const debtCollection = collection(db, DEBT_COLLECTION);
-    const q = query(debtCollection);
-    const querySnapshot = await getDocs(q);
-    const batch = writeBatch(db);
-
-    querySnapshot.forEach(docSnap => {
-        const debtRef = doc(db, DEBT_COLLECTION, docSnap.id);
-        const debt = docSnap.data() as Debt;
-
-        const updatedData = {
-            // Move next month's data to current month
-            balance: debt.nextBalance || 0,
-            minimumPayment: debt.nextMinimumPayment || 0,
-            plannedPayment: 0, // Reset planned payment for the new month
-            dueDate: debt.nextDueDate || new Date().toISOString(),
-            paid: false,
-
-            // Reset next month's data
-            nextBalance: 0,
-            nextMinimumPayment: 0,
-            nextDueDate: new Date().toISOString(),
-            nextPaid: false
-        };
-        batch.update(debtRef, updatedData);
-    });
-
-    await batch.commit();
-}
-
 const getBudgetCategories = async (): Promise<Category[]> => {
     const q = query(collection(db, BUDGET_CATEGORIES_COLLECTION));
     const snapshot = await getDocs(q);
