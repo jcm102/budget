@@ -33,7 +33,7 @@ import type { ColumnVisibility } from '@/components/debt-table';
 import { DebtSnowballCalculator } from '@/components/debt-snowball-calculator';
 
 export default function DebtPage() {
-  const { debts, addDebt, updateDebt, deleteDebt, resetDebtValues, updateDebtOrder, toggleDebtPaid, isLoading } = useDebt();
+  const { debts, addDebt, updateDebt, deleteDebt, resetDebtValues, cycleToNextMonth, updateDebtOrder, toggleDebtPaid, isLoading } = useDebt();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState(null);
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
@@ -73,6 +73,28 @@ export default function DebtPage() {
           </Link>
         </Button>
          <div className="flex gap-2">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" disabled={debts.length === 0}>
+                  <CalendarClock className="mr-2 h-5 w-5" />
+                  Cycle to Next Month
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Cycle to Next Month?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will replace all "Current Month" data with the "Next Month" data you've entered. The "Next Month" fields will then be cleared. This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={cycleToNextMonth} className={cn(buttonVariants({ variant: "default" }))}>
+                    Yes, Cycle Month
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" disabled={debts.length === 0}>

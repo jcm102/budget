@@ -39,6 +39,7 @@ import { buttonVariants } from './ui/button';
 import { Badge } from './ui/badge';
 import { Checkbox } from './ui/checkbox';
 import * as BudgetService from '@/services/budget-service';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type SortConfig = {
     key: keyof BudgetItem;
@@ -222,9 +223,9 @@ export function DebtPaymentsTable() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<BudgetItem | null>(null);
   
-  const handleSyncFromWorksheet = async () => {
+  const handleSyncFromWorksheet = async (forNextMonth: boolean) => {
     try {
-        await BudgetService.syncDebtPaymentsFromWorksheet(false);
+        await BudgetService.syncDebtPaymentsFromWorksheet(forNextMonth);
         await fetchBudgetItems();
     } catch (error) {
         console.error('Failed to sync from worksheet:', error);
@@ -232,6 +233,7 @@ export function DebtPaymentsTable() {
   };
 
   const currentMonthItems = useMemo(() => budgetItems.filter(item => item.type === 'Debt Payments' && !item.forNextMonth), [budgetItems]);
+  const nextMonthItems = useMemo(() => budgetItems.filter(item => item.type === 'Debt Payments' && item.forNextMonth), [budgetItems]);
 
   const handleEdit = (item: BudgetItem) => {
     setEditingItem(item);
@@ -272,15 +274,34 @@ export function DebtPaymentsTable() {
             </Popover>
         </div>
       </div>
-      <PaymentsTableContent
-          items={currentMonthItems}
-          isLoading={isLoading}
-          onEdit={handleEdit}
-          onDelete={deleteBudgetItem}
-          onToggleCompleted={toggleBudgetItemCompleted}
-          onSync={() => handleSyncFromWorksheet()}
-          syncLabel="Sync From Debt Worksheet"
-      />
+      <Tabs defaultValue="current" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 bg-secondary/50 mb-6 no-print">
+            <TabsTrigger value="current">Current Month</TabsTrigger>
+            <TabsTrigger value="next">Next Month</TabsTrigger>
+        </TabsList>
+        <TabsContent value="current">
+            <PaymentsTableContent
+                items={currentMonthItems}
+                isLoading={isLoading}
+                onEdit={handleEdit}
+                onDelete={deleteBudgetItem}
+                onToggleCompleted={toggleBudgetItemCompleted}
+                onSync={() => handleSyncFromWorksheet(false)}
+                syncLabel="Sync From Debt Worksheet"
+            />
+        </TabsContent>
+        <TabsContent value="next">
+             <PaymentsTableContent
+                items={nextMonthItems}
+                isLoading={isLoading}
+                onEdit={handleEdit}
+                onDelete={deleteBudgetItem}
+                onToggleCompleted={toggleBudgetItemCompleted}
+                onSync={() => handleSyncFromWorksheet(true)}
+                syncLabel="Sync Next Month From Debt Worksheet"
+            />
+        </TabsContent>
+      </Tabs>
     </>
   );
 }

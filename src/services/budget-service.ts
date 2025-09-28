@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -20,7 +19,8 @@ import {
   runTransaction,
   limit,
 } from 'firebase/firestore';
-import { isSameMonth, startOfMonth, getDate, getMonth, getYear, set, addWeeks, isAfter, isBefore, isLastDayOfMonth, lastDayOfMonth, addMonths, startOfDay } from 'date-fns';
+import { isSameMonth, startOfMonth, getDate, getMonth, getYear, set, addWeeks, isAfter, isBefore, isLastDayOfMonth, lastDayOfMonth, addMonths, startOfDay, format } from 'date-fns';
+import { getDebts } from './debt-service';
 
 const BUDGET_COLLECTION = 'budget-items';
 const DEBT_COLLECTION = 'debts';
@@ -445,24 +445,11 @@ export async function resetPaPayments(): Promise<void> {
 
   await batch.commit();
 }
-
-export async function clearDebtPayments(): Promise<void> {
-    const batch = writeBatch(db);
-    const q = query(
-      collection(db, BUDGET_COLLECTION),
-      where('type', '==', 'Debt Payments'),
-      where('forNextMonth', '==', false)
-    );
-    const querySnapshot = await getDocs(q);
-    querySnapshot.forEach(doc => {
-      batch.delete(doc.ref);
-    });
-    await batch.commit();
-  }
   
 export async function syncDebtPaymentsFromWorksheet(forNextMonth: boolean): Promise<void> {
     const batch = writeBatch(db);
-
+    const debtCollection = collection(db, DEBT_COLLECTION);
+    
     // 1. Clear existing debt payments for the target month
     const clearQuery = query(
         collection(db, BUDGET_COLLECTION),
@@ -473,11 +460,12 @@ export async function syncDebtPaymentsFromWorksheet(forNextMonth: boolean): Prom
     clearSnapshot.forEach(doc => batch.delete(doc.ref));
 
     // 2. Fetch all debts
-    const debtsSnapshot = await getDocs(query(collection(db, DEBT_COLLECTION), orderBy('order')));
+    const debtsSnapshot = await getDocs(query(debtCollection, orderBy('order')));
+    
+    const allDebts = debtsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Debt));
 
     // 3. Create new budget items from debts
-    debtsSnapshot.forEach(doc => {
-        const debt = doc.data() as Debt;
+    for (const debt of allDebts) {
         const amount = forNextMonth ? debt.nextMinimumPayment : debt.plannedPayment;
 
         if (amount && amount > 0) {
@@ -494,8 +482,73 @@ export async function syncDebtPaymentsFromWorksheet(forNextMonth: boolean): Prom
             const newDocRef = doc(collection(db, BUDGET_COLLECTION));
             batch.set(newDocRef, newItem);
         }
-    });
+    }
+    
+    if (forNextMonth) {
+        await syncNextMonthDebtToMonthlyBudget(allDebts, batch);
+    }
 
     await batch.commit();
 }
 
+
+async function syncNextMonthDebtToMonthlyBudget(allDebts: Debt[], batch: FirebaseFirestore.WriteBatch): Promise<void> {
+    const nextMonth = format(addMonths(new Date(), 1), 'yyyy-MM');
+    const budgetCategories = await getDocs(query(collection(db, 'budget-categories')));
+    
+    const categoryMap = new Map<string, string>();
+    budgetCategories.forEach(doc => {
+        const data = doc.data();
+        categoryMap.set(data.name, doc.id);
+    });
+
+    const categoryAggregates: Record<string, { total: number; breakdown: { name: string; amount: number }[] }> = {};
+
+    for (const debt of allDebts) {
+        const amount = debt.nextMinimumPayment || 0;
+        if (amount <= 0 || !debt.debtType) continue;
+
+        let categoryName: string;
+        switch (debt.debtType) {
+            case 'Credit Card': categoryName = 'Credit Cards'; break;
+            case 'Loan': categoryName = 'Loans'; break;
+            case 'Line of Credit': categoryName = 'Line of Credit'; break;
+            default: continue;
+        }
+
+        const categoryId = categoryMap.get(categoryName);
+        if (!categoryId) continue;
+
+        if (!categoryAggregates[categoryId]) {
+            categoryAggregates[categoryId] = { total: 0, breakdown: [] };
+        }
+        categoryAggregates[categoryId].total += amount;
+        categoryAggregates[categoryId].breakdown.push({ name: debt.name, amount });
+    }
+
+    for (const categoryId in categoryAggregates) {
+        const { total, breakdown } = categoryAggregates[categoryId];
+
+        const budgetItemQuery = query(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION),
+            where('month', '==', nextMonth),
+            where('categoryId', '==', categoryId),
+            limit(1)
+        );
+
+        const snapshot = await getDocs(budgetItemQuery);
+        const data = {
+            categoryId: categoryId,
+            month: nextMonth,
+            budgeted: total,
+            breakdown: breakdown,
+        };
+
+        if (snapshot.empty) {
+            const newDocRef = doc(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION));
+            batch.set(newDocRef, data);
+        } else {
+            const docRef = snapshot.docs[0].ref;
+            batch.update(docRef, data);
+        }
+    }
+}

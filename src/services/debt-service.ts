@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -18,6 +17,7 @@ import {
   runTransaction,
   where
 } from 'firebase/firestore';
+import { addMonths, format } from 'date-fns';
 
 const DEBT_COLLECTION = 'debts';
 const BUDGET_CATEGORIES_COLLECTION = 'budget-categories';
@@ -117,6 +117,32 @@ export async function resetDebtValues(): Promise<void> {
   await batch.commit();
 }
 
+export async function cycleToNextMonth(): Promise<void> {
+  const debtCollectionRef = collection(db, DEBT_COLLECTION);
+  const snapshot = await getDocs(query(debtCollectionRef));
+  const batch = writeBatch(db);
+
+  snapshot.forEach(doc => {
+    const debt = doc.data() as Debt;
+    const debtRef = doc.ref;
+
+    batch.update(debtRef, {
+      balance: debt.nextBalance || 0,
+      minimumPayment: debt.nextMinimumPayment || 0,
+      dueDate: debt.nextDueDate || new Date().toISOString(),
+      paid: debt.nextPaid || false,
+      // Clear out the 'next' fields
+      nextBalance: 0,
+      nextMinimumPayment: 0,
+      nextDueDate: new Date().toISOString(),
+      nextPaid: false,
+    });
+  });
+
+  await batch.commit();
+}
+
+
 const getBudgetCategories = async (): Promise<Category[]> => {
     const q = query(collection(db, BUDGET_CATEGORIES_COLLECTION));
     const snapshot = await getDocs(q);
@@ -135,7 +161,7 @@ const getCategoryForDebt = (debtType: DebtType, budgetCategories: Category[]): C
 
 export async function applyPaymentsToBudget(payments: Record<string, number>): Promise<void> {
     await runTransaction(db, async (transaction) => {
-        const currentMonth = new Date().toISOString().slice(0, 7);
+        const nextMonth = format(addMonths(new Date(), 1), 'yyyy-MM');
 
         // 1. Fetch all necessary data first
         const [debtsSnapshot, budgetCategories] = await Promise.all([
@@ -151,7 +177,7 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
         const budgetItemQueries = budgetCategories.map(cat => 
             query(
                 collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION),
-                where('month', '==', currentMonth),
+                where('month', '==', nextMonth),
                 where('categoryId', '==', cat.id)
             )
         );
@@ -201,7 +227,7 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
                 const newBudgetItemRef = doc(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION));
                 transaction.set(newBudgetItemRef, {
                     categoryId: categoryId,
-                    month: currentMonth,
+                    month: nextMonth,
                     budgeted: totalForCategory,
                     breakdown: breakdownForCategory,
                 });

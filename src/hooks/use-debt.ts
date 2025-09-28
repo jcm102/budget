@@ -115,6 +115,24 @@ export function useDebt() {
       });
     }
   }, [debts, toast, fetchDebts]);
+  
+  const cycleToNextMonth = useCallback(async () => {
+    try {
+        await DebtService.cycleToNextMonth();
+        await fetchDebts();
+        toast({
+            title: 'Cycle Complete!',
+            description: 'Next month\'s debt values are now current.',
+        });
+    } catch (error) {
+        console.error('Failed to cycle debts:', error);
+        toast({
+            title: 'Error',
+            description: 'Failed to cycle debt values.',
+            variant: 'destructive',
+        });
+    }
+  }, [fetchDebts, toast]);
 
   const toggleDebtPaid = useCallback(async (id: string, view: DebtView) => {
     const debtToToggle = debts.find(d => d.id === id);
@@ -130,5 +148,5 @@ export function useDebt() {
 
   }, [debts, updateDebt]);
 
-  return { debts, addDebt, updateDebt, deleteDebt, resetDebtValues, updateDebtOrder, isLoading, toggleDebtPaid, fetchDebts };
+  return { debts, addDebt, updateDebt, deleteDebt, resetDebtValues, cycleToNextMonth, updateDebtOrder, isLoading, toggleDebtPaid, fetchDebts };
 }
