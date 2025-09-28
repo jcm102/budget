@@ -13,30 +13,14 @@ import {
   addDoc,
   updateDoc,
   getDoc,
-  writeBatch,
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore';
 
 const PEOPLE_COLLECTION = 'people';
 
-async function seedDefaultPeople() {
-  const peopleCollectionRef = collection(db, PEOPLE_COLLECTION);
-  const snapshot = await getDocs(query(peopleCollectionRef));
-  
-  if (snapshot.empty) {
-    const batch = writeBatch(db);
-    const defaultPeople = ['Person 1', 'Person 2'];
-    defaultPeople.forEach(personName => {
-      const newDocRef = doc(peopleCollectionRef);
-      batch.set(newDocRef, { name: personName, createdAt: serverTimestamp() });
-    });
-    await batch.commit();
-  }
-}
 
 export async function getPeople(): Promise<Person[]> {
-  await seedDefaultPeople();
   const peopleCollection = collection(db, PEOPLE_COLLECTION);
   const q = query(peopleCollection, orderBy('createdAt'));
   const querySnapshot = await getDocs(q);
