@@ -40,7 +40,7 @@ import {
 import type { Transaction, Category as CategoryType, AccountDetails } from '@/types';
 import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
 import { ScrollArea } from './ui/scroll-area';
-import { Trash2, PlusCircle, CalculatorIcon } from 'lucide-react';
+import { Trash2, PlusCircle, CalculatorIcon, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Separator } from './ui/separator';
 import { buttonVariants } from './ui/button';
@@ -199,6 +199,16 @@ function FormContent({ isPage = false }: { isPage?: boolean }) {
     setIsCalculatorOpen(false);
   }
 
+  const handleCopyBalance = () => {
+    const totalAmount = form.getValues('amount');
+    if (totalAmount > 0) {
+      update(0, {
+        ...form.getValues('splits.0'),
+        amount: totalAmount,
+      });
+    }
+  };
+
   const { accounts, addTransaction, updateTransaction, deleteTransaction, editingTransaction, onOpenChange } = useTransactionFormContext();
 
   function onSubmit(values: z.infer<typeof formSchema>) {
@@ -292,8 +302,12 @@ function FormContent({ isPage = false }: { isPage?: boolean }) {
                         <FormControl>
                             <Input type="tel" inputMode="decimal" step="0.01" {...field} />
                         </FormControl>
-                         <Button type="button" variant="outline" size="icon" onClick={() => setIsCalculatorOpen(true)}>
+                         <Button type="button" variant="outline" size="icon" onClick={() => setIsCalculatorOpen(true)} aria-label="Open Calculator">
                             <CalculatorIcon className="h-4 w-4" />
+                         </Button>
+                         <Button type="button" variant="outline" size="sm" onClick={handleCopyBalance}>
+                            <Copy className="h-4 w-4 mr-2" />
+                            Copy Balance
                          </Button>
                     </div>
                     </FormItem>
