@@ -7,6 +7,7 @@ export const internalPages = [
   { name: 'Budget Overview', path: '/budget' },
   { name: 'Work Expenses', path: '/expenses' },
   { name: 'Future Spending', path: '/savings' },
+  { name: 'Reports', path: '/reports' },
   { name: 'Split Calculator', path: '/split' },
   { name: 'Settings', path: '/settings' },
   { name: 'Monthly Budget', path: '/monthly-budget' },

@@ -113,6 +113,18 @@ export async function getTransactionsForMonth(month: string): Promise<Transactio
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
 }
 
+export async function getTransactionsByDateRange(startDate: Date, endDate: Date): Promise<Transaction[]> {
+  const q = query(
+    collection(db, TRANSACTIONS_COLLECTION),
+    where('date', '>=', startDate.toISOString()),
+    where('date', '<=', endDate.toISOString()),
+    orderBy('date', 'desc')
+  );
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
+}
+
+
 export async function getTransactionsForAccount(accountId: string): Promise<Transaction[]> {
     // This query is difficult because Firestore cannot query for a specific element in an array of objects.
     // A better approach is to fetch all transactions for the month and filter client-side, 
