@@ -36,56 +36,70 @@ function CollapsibleTableRow({ item, groupedTransactions, showTransactions }: { 
     const [isOpen, setIsOpen] = useState(false);
     
     return (
-      <Collapsible asChild key={item.cardId} open={isOpen} onOpenChange={setIsOpen}>
-        <React.Fragment>
-          <TableRow>
-            <TableCell>
-              <div className="flex items-center gap-2">
+        <Collapsible asChild key={item.cardId} open={isOpen} onOpenChange={setIsOpen}>
+            <React.Fragment>
+                <TableRow>
+                    <TableCell>
+                        <div className="flex items-center gap-2">
+                            {showTransactions && groupedTransactions[item.cardId] && (
+                            <CollapsibleTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 -ml-2">
+                                <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "-rotate-180")} />
+                                </Button>
+                            </CollapsibleTrigger>
+                            )}
+                            <span className={cn(!showTransactions || !groupedTransactions[item.cardId] && "pl-8")}>{item.cardName}</span>
+                        </div>
+                    </TableCell>
+                    <TableCell className="text-right font-mono">{formatCurrency(item.total)}</TableCell>
+                </TableRow>
                 {showTransactions && groupedTransactions[item.cardId] && (
-                  <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 -ml-2">
-                      <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "-rotate-180")} />
-                    </Button>
-                  </CollapsibleTrigger>
+                <CollapsibleContent asChild>
+                    <tr className="bg-muted/50">
+                        <TableCell colSpan={2} className="p-0">
+                            <div className="p-4">
+                            <Table>
+                                <TableHeader>
+                                <TableRow>
+                                    <TableHead>Date</TableHead>
+                                    <TableHead>Description</TableHead>
+                                    <TableHead className="text-right">Amount</TableHead>
+                                </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                {groupedTransactions[item.cardId]?.map(tx => (
+                                    <TableRow key={tx.id}>
+                                    <TableCell>{new Date(tx.date.replace(/-/g, '/')).toLocaleDateString()}</TableCell>
+                                    <TableCell>{tx.description}</TableCell>
+                                    <TableCell className="text-right">{formatCurrency(tx.amount)}</TableCell>
+                                    </TableRow>
+                                ))}
+                                </TableBody>
+                            </Table>
+                            </div>
+                        </TableCell>
+                    </tr>
+                </CollapsibleContent>
                 )}
-                <span className={cn(!showTransactions || !groupedTransactions[item.cardId] && "pl-8")}>{item.cardName}</span>
-              </div>
-            </TableCell>
-            <TableCell className="text-right font-mono">{formatCurrency(item.total)}</TableCell>
-          </TableRow>
-          {showTransactions && groupedTransactions[item.cardId] && (
-            <CollapsibleContent asChild>
-              <tr className="bg-muted/50">
-                <TableCell colSpan={2} className="p-0">
-                  <div className="p-4">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Description</TableHead>
-                          <TableHead className="text-right">Amount</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {groupedTransactions[item.cardId]?.map(tx => (
-                          <TableRow key={tx.id}>
-                            <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>
-                            <TableCell>{tx.description}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(tx.amount)}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </TableCell>
-              </tr>
-            </CollapsibleContent>
-          )}
-        </React.Fragment>
+            </React.Fragment>
       </Collapsible>
     );
 };
 
+// This helper function safely calculates the next day from a YYYY-MM-DD string
+// without being affected by timezones.
+const getNextDayString = (dateString: string): string => {
+    const [year, month, day] = dateString.split('-').map(Number);
+    // Use UTC to create the date object to avoid timezone shifts
+    const date = new Date(Date.UTC(year, month - 1, day));
+    date.setUTCDate(date.getUTCDate() + 1);
+    
+    const nextYear = date.getUTCFullYear();
+    const nextMonth = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const nextDay = String(date.getUTCDate()).padStart(2, '0');
+
+    return `${nextYear}-${nextMonth}-${nextDay}`;
+}
 
 export function CreditCardReport() {
   const { toast } = useToast();
@@ -102,21 +116,18 @@ export function CreditCardReport() {
       try {
         const lastRunDateString = await getCreditCardReportLastRunDate();
         if (lastRunDateString) {
-          // Replace hyphens with slashes to ensure the date is parsed in the local timezone, not UTC.
-          // This prevents the off-by-one day error.
-          const localDate = new Date(lastRunDateString.replace(/-/g, '/'));
-          localDate.setDate(localDate.getDate() + 1);
-          setStartDate(localDate.toISOString().slice(0, 10));
+          // Safely calculate the next day without timezone issues
+          setStartDate(getNextDayString(lastRunDateString));
         } else {
           // Default to start of the current week if no last run date is found.
           const today = new Date();
-          const startOfWeekDate = new Date(today.setDate(today.getDate() - today.getDay()));
+          const startOfWeekDate = new Date(today.setDate(today.getDate() - today.getDay() + 1));
           setStartDate(startOfWeekDate.toISOString().slice(0, 10));
         }
       } catch (error) {
         console.error("Failed to fetch last run date", error);
         const today = new Date();
-        const startOfWeekDate = new Date(today.setDate(today.getDate() - today.getDay()));
+        const startOfWeekDate = new Date(today.setDate(today.getDate() - today.getDay() + 1));
         setStartDate(startOfWeekDate.toISOString().slice(0, 10));
       }
     };
