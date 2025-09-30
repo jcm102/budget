@@ -54,12 +54,12 @@ function CollapsibleTableRow({ item, groupedTransactions, showTransactions }: { 
     const [isOpen, setIsOpen] = useState(false);
     
     return (
-        <React.Fragment>
+        <React.Fragment key={item.cardId}>
             <TableRow>
                 <TableCell>
                     <div className="flex items-center gap-2">
                         {showTransactions && groupedTransactions[item.cardId] && (
-                            <Button variant="ghost" size="icon" className="h-6 w-6 -ml-2" onClick={() => setIsOpen(!isOpen)}>
+                             <Button variant="ghost" size="icon" className="h-6 w-6 -ml-2" onClick={() => setIsOpen(!isOpen)}>
                                 <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "-rotate-180")} />
                             </Button>
                         )}
@@ -102,7 +102,7 @@ function CollapsibleTableRow({ item, groupedTransactions, showTransactions }: { 
 export function CreditCardReport() {
   const { toast } = useToast();
   const [startDate, setStartDate] = useState<string | undefined>();
-  const [endDate, setEndDate] = useState<string | undefined>(() => new Date().toISOString().slice(0, 10));
+  const [endDate, setEndDate] = useState<string | undefined>();
   const [reportData, setReportData] = useState<ReportData[]>([]);
   const [groupedTransactions, setGroupedTransactions] = useState<GroupedTransactions>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -113,18 +113,34 @@ export function CreditCardReport() {
     const loadLastRunDate = async () => {
       try {
         const lastRunDateString = await getCreditCardReportLastRunDate();
+        const todayString = new Date().toISOString().slice(0, 10);
+        let finalStartDate: string;
+
         if (lastRunDateString) {
-          setStartDate(getNextDayString(lastRunDateString));
+          finalStartDate = getNextDayString(lastRunDateString);
         } else {
+          // Default to start of the current week (Sunday)
           const today = new Date();
-          const startOfWeekDate = new Date(today.setDate(today.getDate() - today.getDay() + 1));
-          setStartDate(startOfWeekDate.toISOString().slice(0, 10));
+          const startOfWeekDate = new Date(today.setDate(today.getDate() - today.getDay()));
+          finalStartDate = startOfWeekDate.toISOString().slice(0, 10);
         }
+
+        setStartDate(finalStartDate);
+        
+        // Ensure end date is not before the calculated start date
+        if (new Date(finalStartDate) > new Date(todayString)) {
+            setEndDate(finalStartDate);
+        } else {
+            setEndDate(todayString);
+        }
+
       } catch (error) {
         console.error("Failed to fetch last run date", error);
+        // Fallback on error
         const today = new Date();
-        const startOfWeekDate = new Date(today.setDate(today.getDate() - today.getDay() + 1));
+        const startOfWeekDate = new Date(today.setDate(today.getDate() - today.getDay()));
         setStartDate(startOfWeekDate.toISOString().slice(0, 10));
+        setEndDate(new Date().toISOString().slice(0, 10));
       }
     };
     loadLastRunDate();
