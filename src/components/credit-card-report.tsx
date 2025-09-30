@@ -149,7 +149,7 @@ export function CreditCardReport() {
                             </>
                         ) : reportData.length > 0 ? (
                            reportData.map(item => (
-                               <Collapsible asChild key={item.cardId}>
+                               <Collapsible key={item.cardId} asChild>
                                     <React.Fragment>
                                         <TableRow>
                                             <TableCell>
