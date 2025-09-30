@@ -103,10 +103,8 @@ export function CreditCardReport() {
         try {
             const lastRunDateString = await getCreditCardReportLastRunDate();
             if (lastRunDateString) {
-                // The date string is in 'YYYY-MM-DD' format.
-                // Parse it manually to avoid timezone issues.
-                const [year, month, day] = lastRunDateString.split('-').map(Number);
-                const lastRunDate = new Date(year, month - 1, day);
+                // By appending T00:00:00, we tell the Date constructor to parse it as UTC, avoiding timezone shifts.
+                const lastRunDate = new Date(`${lastRunDateString}T00:00:00`);
                 const nextDay = addDays(lastRunDate, 1);
                 setStartDate(nextDay);
             } else {
