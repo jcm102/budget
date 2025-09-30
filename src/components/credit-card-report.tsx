@@ -36,55 +36,49 @@ type GroupedTransactions = {
 
 const CollapsibleTableRow = ({ item, groupedTransactions, showTransactions }: { item: ReportData, groupedTransactions: GroupedTransactions, showTransactions: boolean }) => {
     const [isOpen, setIsOpen] = useState(false);
-
+    
     return (
-        <Collapsible asChild key={item.cardId} open={isOpen} onOpenChange={setIsOpen}>
-            <React.Fragment>
+        <React.Fragment>
+            <TableRow>
+                <TableCell>
+                    <div className="flex items-center gap-2">
+                        {showTransactions && groupedTransactions[item.cardId] && (
+                             <Button variant="ghost" size="icon" className="h-6 w-6 -ml-2" onClick={() => setIsOpen(!isOpen)}>
+                                <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "-rotate-180")} />
+                            </Button>
+                        )}
+                        <span className={cn(!showTransactions || !groupedTransactions[item.cardId] && "pl-8")}>{item.cardName}</span>
+                    </div>
+                </TableCell>
+                <TableCell className="text-right font-mono">{formatCurrency(item.total)}</TableCell>
+            </TableRow>
+            {isOpen && showTransactions && groupedTransactions[item.cardId] && (
                 <TableRow>
-                    <TableCell>
-                        <div className="flex items-center gap-2">
-                            {showTransactions && groupedTransactions[item.cardId] && (
-                                <CollapsibleTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 -ml-2">
-                                        <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "-rotate-180")} />
-                                    </Button>
-                                </CollapsibleTrigger>
-                            )}
-                            <span className={cn(!showTransactions || !groupedTransactions[item.cardId] && "pl-8")}>{item.cardName}</span>
+                    <TableCell colSpan={2} className="p-0">
+                        <div className="p-4 bg-muted/50">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Date</TableHead>
+                                        <TableHead>Description</TableHead>
+                                        <TableHead className="text-right">Amount</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {groupedTransactions[item.cardId]?.map(tx => (
+                                        <TableRow key={tx.id}>
+                                            <TableCell>{format(new Date(tx.date), 'PPP')}</TableCell>
+                                            <TableCell>{tx.description}</TableCell>
+                                            <TableCell className="text-right">{formatCurrency(tx.amount)}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
                         </div>
                     </TableCell>
-                    <TableCell className="text-right font-mono">{formatCurrency(item.total)}</TableCell>
                 </TableRow>
-                {showTransactions && groupedTransactions[item.cardId] && (
-                    <CollapsibleContent asChild>
-                        <TableRow>
-                            <TableCell colSpan={2} className="p-0">
-                                <div className="p-4 bg-muted/50">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Date</TableHead>
-                                                <TableHead>Description</TableHead>
-                                                <TableHead className="text-right">Amount</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {groupedTransactions[item.cardId]?.map(tx => (
-                                                <TableRow key={tx.id}>
-                                                    <TableCell>{format(new Date(tx.date), 'PPP')}</TableCell>
-                                                    <TableCell>{tx.description}</TableCell>
-                                                    <TableCell className="text-right">{formatCurrency(tx.amount)}</TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            </TableCell>
-                        </TableRow>
-                    </CollapsibleContent>
-                )}
-            </React.Fragment>
-        </Collapsible>
+            )}
+        </React.Fragment>
     );
 };
 
@@ -104,18 +98,13 @@ export function CreditCardReport() {
       try {
         const lastRunDateString = await getCreditCardReportLastRunDate();
         if (lastRunDateString) {
-          // Manually parse the date string to avoid timezone issues.
           const [year, month, day] = lastRunDateString.split('-').map(Number);
-          const lastRunDate = new Date(year, month - 1, day);
+          const lastRunDate = new Date(Date.UTC(year, month - 1, day));
           
           const nextStartDate = new Date(lastRunDate);
-          nextStartDate.setDate(nextStartDate.getDate() + 1);
+          nextStartDate.setUTCDate(nextStartDate.getUTCDate() + 1);
 
-          const nextYear = nextStartDate.getFullYear();
-          const nextMonth = String(nextStartDate.getMonth() + 1).padStart(2, '0');
-          const nextDay = String(nextStartDate.getDate()).padStart(2, '0');
-          
-          setStartDate(`${nextYear}-${nextMonth}-${nextDay}`);
+          setStartDate(nextStartDate.toISOString().slice(0, 10));
         } else {
           // Default to start of the current week if no last run date is found.
           const today = new Date();
@@ -145,8 +134,12 @@ export function CreditCardReport() {
         return;
     }
     
-    const queryStartDate = new Date(startDate);
-    const queryEndDate = new Date(endDate);
+    // Create dates in UTC to avoid timezone issues with date-fns
+    const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
+    const queryStartDate = new Date(Date.UTC(startYear, startMonth - 1, startDay));
+
+    const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
+    const queryEndDate = new Date(Date.UTC(endYear, endMonth - 1, endDay, 23, 59, 59));
 
     setIsLoading(true);
     setReportData([]);
