@@ -37,7 +37,7 @@ function CollapsibleTableRow({ item, groupedTransactions }: { item: ReportData, 
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <Collapsible asChild key={item.cardId} open={isOpen} onOpenChange={setIsOpen}>
+     <Collapsible asChild key={item.cardId} open={isOpen} onOpenChange={setIsOpen}>
         <>
             <TableRow className="font-medium" data-state={isOpen ? 'open' : 'closed'}>
                 <TableCell>
@@ -70,7 +70,7 @@ function CollapsibleTableRow({ item, groupedTransactions }: { item: ReportData, 
                             <TableBody>
                             {groupedTransactions[item.cardId]?.map(tx => (
                                 <TableRow key={tx.id}>
-                                <TableCell>{format(new Date(tx.date), 'PPP')}</TableCell>
+                                <TableCell>{format(parseISO(tx.date), 'PPP')}</TableCell>
                                 <TableCell>{tx.description}</TableCell>
                                 <TableCell className="text-right">{formatCurrency(tx.amount)}</TableCell>
                                 </TableRow>
@@ -103,7 +103,6 @@ export function CreditCardReport() {
         try {
             const lastRunDateString = await getCreditCardReportLastRunDate();
             if (lastRunDateString) {
-                // Parse the string as UTC to avoid timezone shifts
                 const lastRunDate = parseISO(lastRunDateString);
                 const nextDay = addDays(lastRunDate, 1);
                 setStartDate(format(nextDay, 'yyyy-MM-dd'));
@@ -120,24 +119,28 @@ export function CreditCardReport() {
 
   const handleGenerateReport = async () => {
     if (!startDate || !endDate) return;
+    
+    // Ensure the date string is interpreted in the local timezone for comparison.
+    const queryStartDate = parseISO(startDate);
+    const queryEndDate = parseISO(endDate);
 
-    const queryStartDate = new Date(`${startDate}T00:00:00`);
-    const queryEndDate = new Date(`${endDate}T23:59:59`);
-
-    if (queryEndDate < queryStartDate) {
+    if (isAfter(queryStartDate, queryEndDate)) {
         toast({
             title: 'Invalid Date Range',
-            description: 'The end date cannot be before the start date.',
+            description: 'The start date cannot be after the end date.',
             variant: 'destructive',
         });
         return;
     }
+    
+    // Use the parsed dates for the service call, but add time to cover the whole end day.
+    const serviceEndDate = new Date(queryEndDate.getFullYear(), queryEndDate.getMonth(), queryEndDate.getDate(), 23, 59, 59);
 
     setIsLoading(true);
     setReportData([]);
     setGroupedTransactions({});
     try {
-      const transactions = await getTransactionsByDateRange(queryStartDate, queryEndDate);
+      const transactions = await getTransactionsByDateRange(queryStartDate, serviceEndDate);
       
       const totalsByCard = new Map<string, number>();
       const transactionsByCard: GroupedTransactions = {};
@@ -186,7 +189,7 @@ export function CreditCardReport() {
             Credit Card Payoff Report
         </CardTitle>
         <CardDescription>
-          Generate a summary of credit card spending within a specific date range to determine payoff amounts.
+          Generate a summary of credit card spending within a specific date range to determine payoff amounts. The start date defaults to the day after the last report was run.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -251,3 +254,5 @@ export function CreditCardReport() {
     </Card>
   );
 }
+
+    
