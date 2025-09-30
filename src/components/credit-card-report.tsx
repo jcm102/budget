@@ -104,7 +104,7 @@ export function CreditCardReport() {
             const lastRunDateString = await getCreditCardReportLastRunDate();
             if (lastRunDateString) {
                 // The date string is in 'YYYY-MM-DD' format.
-                // We add 1 day to it to get the start of the next period.
+                // Parse it manually to avoid timezone issues.
                 const [year, month, day] = lastRunDateString.split('-').map(Number);
                 const lastRunDate = new Date(year, month - 1, day);
                 const nextDay = addDays(lastRunDate, 1);
