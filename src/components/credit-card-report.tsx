@@ -23,24 +23,6 @@ const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 };
 
-// --- Timezone-aware date helpers for GMT-4 (e.g., America/New_York) ---
-
-// Converts a 'YYYY-MM-DD' string to a Date object at the start of that day in GMT-4
-function parseDateStringAsGMT4(dateString: string): Date {
-    // Appending a fixed time and timezone offset ensures consistency
-    return new Date(`${dateString}T00:00:00-04:00`);
-}
-
-// Formats a Date object back into a 'YYYY-MM-DD' string.
-function formatDateToYYYYMMDD(date: Date): string {
-    // Use UTC methods to avoid local timezone interference during formatting
-    const year = date.getUTCFullYear();
-    const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
-    const day = date.getUTCDate().toString().padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
-
-
 type ReportData = {
   cardName: string;
   cardId: string;
@@ -109,7 +91,7 @@ function CollapsibleTableRow({ item, groupedTransactions }: { item: ReportData, 
 export function CreditCardReport() {
   const { toast } = useToast();
   const [startDate, setStartDate] = useState<string | undefined>();
-  const [endDate, setEndDate] = useState<string | undefined>(() => formatDateToYYYYMMDD(new Date()));
+  const [endDate, setEndDate] = useState<string | undefined>(() => new Date().toISOString().slice(0, 10));
   const [reportData, setReportData] = useState<ReportData[]>([]);
   const [groupedTransactions, setGroupedTransactions] = useState<GroupedTransactions>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -121,21 +103,27 @@ export function CreditCardReport() {
         try {
             const lastRunDateString = await getCreditCardReportLastRunDate();
             if (lastRunDateString) {
-                // Use the timezone-aware helper
-                const lastRunDate = parseDateStringAsGMT4(lastRunDateString);
-                // Safely add one day in UTC to avoid DST issues
-                const nextDay = new Date(lastRunDate.getTime() + 24 * 60 * 60 * 1000);
-                setStartDate(formatDateToYYYYMMDD(nextDay));
+                // Safely calculate the next day in UTC to avoid timezone shifts
+                const [year, month, day] = lastRunDateString.split('-').map(Number);
+                const utcDate = new Date(Date.UTC(year, month - 1, day));
+                utcDate.setUTCDate(utcDate.getUTCDate() + 1);
+                
+                const nextYear = utcDate.getUTCFullYear();
+                const nextMonth = (utcDate.getUTCMonth() + 1).toString().padStart(2, '0');
+                const nextDay = utcDate.getUTCDate().toString().padStart(2, '0');
+                
+                setStartDate(`${nextYear}-${nextMonth}-${nextDay}`);
+
             } else {
                 const today = new Date();
                 const startOfWeekDate = new Date(today.setDate(today.getDate() - today.getDay()));
-                setStartDate(formatDateToYYYYMMDD(startOfWeekDate));
+                setStartDate(startOfWeekDate.toISOString().slice(0, 10));
             }
         } catch (error) {
             console.error("Failed to fetch last run date", error);
             const today = new Date();
             const startOfWeekDate = new Date(today.setDate(today.getDate() - today.getDay()));
-            setStartDate(formatDateToYYYYMMDD(startOfWeekDate)); // fallback
+            setStartDate(startOfWeekDate.toISOString().slice(0, 10)); // fallback
         }
     };
     loadLastRunDate();
@@ -144,11 +132,7 @@ export function CreditCardReport() {
   const handleGenerateReport = async () => {
     if (!startDate || !endDate) return;
     
-    // Use the timezone-aware helper for comparison
-    const queryStartDate = parseDateStringAsGMT4(startDate);
-    const queryEndDate = parseDateStringAsGMT4(endDate);
-    
-    if (queryStartDate > queryEndDate) {
+    if (startDate > endDate) {
         toast({
             title: 'Invalid Date Range',
             description: 'The start date cannot be after the end date.',
@@ -157,15 +141,15 @@ export function CreditCardReport() {
         return;
     }
     
-    // Set the time to the end of the day for the query
-    const serviceEndDate = new Date(queryEndDate.getTime());
-    serviceEndDate.setUTCHours(23, 59, 59, 999);
+    // Create Date objects from strings, assuming UTC to avoid timezone shifts
+    const queryStartDate = new Date(startDate + 'T00:00:00Z');
+    const queryEndDate = new Date(endDate + 'T23:59:59Z');
 
     setIsLoading(true);
     setReportData([]);
     setGroupedTransactions({});
     try {
-      const transactions = await getTransactionsByDateRange(queryStartDate, serviceEndDate);
+      const transactions = await getTransactionsByDateRange(queryStartDate, queryEndDate);
       
       const totalsByCard = new Map<string, number>();
       const transactionsByCard: GroupedTransactions = {};
@@ -279,3 +263,5 @@ export function CreditCardReport() {
     </Card>
   );
 }
+
+    
