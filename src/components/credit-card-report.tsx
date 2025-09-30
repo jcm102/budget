@@ -1,8 +1,7 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, addDays } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { DatePicker } from '@/components/date-picker';
@@ -189,7 +188,7 @@ export function CreditCardReport() {
                         ) : reportData.length > 0 ? (
                            reportData.map(item => (
                              <Collapsible key={item.cardId} asChild>
-                                 <>
+                                 <React.Fragment>
                                    <TableRow>
                                      <TableCell>
                                        <div className="flex items-center gap-2">
@@ -233,7 +232,7 @@ export function CreditCardReport() {
                                        </TableRow>
                                      </CollapsibleContent>
                                    )}
-                                 </>
+                                 </React.Fragment>
                              </Collapsible>
                            ))
                         ) : null}
