@@ -1,14 +1,13 @@
-
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { DatePicker } from '@/components/date-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getTransactionsByDateRange } from '@/services/monthly-budget-service';
-import { getCreditCardReportLastRunDate, updateCreditCardReportLastRunDate } from '@/services/settings-service';
+import { updateCreditCardReportLastRunDate } from '@/services/settings-service';
 import type { Transaction, AccountDetails } from '@/types';
 import { useAccountDetails } from '@/hooks/use-transferees';
 import { Loader2, TrendingUp, ChevronDown, Printer } from 'lucide-react';
@@ -30,25 +29,6 @@ type ReportData = {
 type GroupedTransactions = {
   [key: string]: Transaction[];
 };
-
-// This helper function safely calculates the next day from a YYYY-MM-DD string
-// without being affected by timezones.
-const getNextDayString = (dateString: string): string => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-        return dateString;
-    }
-    const [year, month, day] = dateString.split('-').map(Number);
-    // Use Date.UTC to create a date in a timezone-neutral way
-    const utcDate = new Date(Date.UTC(year, month - 1, day));
-    // Add one day in UTC
-    utcDate.setUTCDate(utcDate.getUTCDate() + 1);
-
-    const nextYear = utcDate.getUTCFullYear();
-    const nextMonth = String(utcDate.getUTCMonth() + 1).padStart(2, '0');
-    const nextDay = String(utcDate.getUTCDate()).padStart(2, '0');
-
-    return `${nextYear}-${nextMonth}-${nextDay}`;
-}
 
 function CollapsibleTableRow({ item, groupedTransactions, showTransactions }: { item: ReportData, groupedTransactions: GroupedTransactions, showTransactions: boolean }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -109,47 +89,15 @@ export function CreditCardReport() {
   const [showTransactions, setShowTransactions] = useState(false);
   const { accounts } = useAccountDetails();
 
-  useEffect(() => {
-    const loadLastRunDate = async () => {
-      try {
-        const lastRunDateString = await getCreditCardReportLastRunDate();
-        const todayString = new Date().toISOString().slice(0, 10);
-        
-        let finalStartDate: string;
-        if (lastRunDateString) {
-          finalStartDate = getNextDayString(lastRunDateString);
-        } else {
-          // Default to start of the current week (Sunday) if no last run date
-          const today = new Date();
-          const startOfWeekDate = new Date(today.setDate(today.getDate() - today.getDay()));
-          finalStartDate = startOfWeekDate.toISOString().slice(0, 10);
-        }
-
-        setStartDate(finalStartDate);
-        
-        // Ensure end date is not before the calculated start date
-        if (new Date(finalStartDate) > new Date(todayString)) {
-            setEndDate(finalStartDate);
-        } else {
-            setEndDate(todayString);
-        }
-
-      } catch (error) {
-        console.error("Failed to fetch last run date", error);
-        // Fallback on error to a safe default (last 7 days)
-        const today = new Date();
-        const endDate = today.toISOString().slice(0, 10);
-        const startDate = new Date(today.setDate(today.getDate() - 6)).toISOString().slice(0, 10);
-        setStartDate(startDate);
-        setEndDate(endDate);
-      }
-    };
-    loadLastRunDate();
-  }, []);
-  
-
   const handleGenerateReport = async () => {
-    if (!startDate || !endDate) return;
+    if (!startDate || !endDate) {
+        toast({
+            title: 'Missing Dates',
+            description: 'Please select both a start and end date.',
+            variant: 'destructive',
+        });
+        return;
+    }
     
     if (new Date(startDate) > new Date(endDate)) {
         toast({
@@ -218,7 +166,7 @@ export function CreditCardReport() {
             Credit Card Payoff Report
         </CardTitle>
         <CardDescription>
-          Generate a summary of credit card spending within a specific date range to determine payoff amounts. The start date defaults to the day after the last report was run.
+          Generate a summary of credit card spending within a specific date range to determine payoff amounts.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4 no-print">
