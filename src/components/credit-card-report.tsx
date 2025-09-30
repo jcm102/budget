@@ -1,9 +1,7 @@
 
 'use client';
 
-import * as React from 'react';
-import { useState, useEffect } from 'react';
-import { format, addDays, parseISO } from 'date-fns';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { DatePicker } from '@/components/date-picker';
@@ -32,20 +30,20 @@ type ReportData = {
 
 type GroupedTransactions = {
   [key: string]: Transaction[];
-}
+};
 
 function CollapsibleTableRow({ item, groupedTransactions, showTransactions }: { item: ReportData, groupedTransactions: GroupedTransactions, showTransactions: boolean }) {
     const [isOpen, setIsOpen] = useState(false);
     
     return (
         <Collapsible asChild key={item.cardId} open={isOpen} onOpenChange={setIsOpen}>
-             <React.Fragment>
+            <React.Fragment>
                 <TableRow>
                     <TableCell>
                         <div className="flex items-center gap-2">
                             {showTransactions && groupedTransactions[item.cardId] && (
                                 <CollapsibleTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 -ml-2" onClick={() => setIsOpen(!isOpen)}>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 -ml-2">
                                         <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "-rotate-180")} />
                                     </Button>
                                 </CollapsibleTrigger>
@@ -71,7 +69,7 @@ function CollapsibleTableRow({ item, groupedTransactions, showTransactions }: { 
                                         <TableBody>
                                             {groupedTransactions[item.cardId]?.map(tx => (
                                                 <TableRow key={tx.id}>
-                                                    <TableCell>{format(new Date(tx.date), 'PPP')}</TableCell>
+                                                    <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>
                                                     <TableCell>{tx.description}</TableCell>
                                                     <TableCell className="text-right">{formatCurrency(tx.amount)}</TableCell>
                                                 </TableRow>
@@ -99,17 +97,20 @@ export function CreditCardReport() {
   const [showTransactions, setShowTransactions] = useState(false);
   const { accounts } = useAccountDetails();
 
+  const getNextDayISO = (dateString: string): string => {
+    const [year, month, day] = dateString.split('-').map(Number);
+    // Note: The month in JavaScript's Date is 0-indexed, so we subtract 1.
+    const date = new Date(Date.UTC(year, month - 1, day));
+    date.setUTCDate(date.getUTCDate() + 1);
+    return date.toISOString().slice(0, 10);
+  };
+
   useEffect(() => {
     const loadLastRunDate = async () => {
       try {
         const lastRunDateString = await getCreditCardReportLastRunDate();
         if (lastRunDateString) {
-          // Robustly parse the date string to avoid timezone issues.
-          const [year, month, day] = lastRunDateString.split('-').map(Number);
-          // Create date in UTC to avoid local timezone from shifting it.
-          const lastRunDate = new Date(Date.UTC(year, month - 1, day));
-          const nextStartDate = addDays(lastRunDate, 1);
-          setStartDate(nextStartDate.toISOString().slice(0, 10));
+          setStartDate(getNextDayISO(lastRunDateString));
         } else {
           // Default to start of the current week if no last run date is found.
           const today = new Date();
@@ -229,7 +230,9 @@ export function CreditCardReport() {
       
       {(isLoading || reportData.length > 0) && (
         <CardFooter className="flex-col items-start">
-             <h3 className="text-lg font-medium mb-4">Report Results</h3>
+             <div className="flex justify-between w-full items-center mb-4">
+               <h3 className="text-lg font-medium">Report Results</h3>
+             </div>
             <div className="w-full rounded-lg border bg-card text-card-foreground shadow-sm">
                  <Table>
                     <TableHeader>
@@ -268,3 +271,5 @@ export function CreditCardReport() {
     </Card>
   );
 }
+
+    
