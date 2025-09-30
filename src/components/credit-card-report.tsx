@@ -16,6 +16,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
@@ -64,7 +65,7 @@ function CollapsibleTableRow({ item, groupedTransactions, showTransactions }: { 
                 <TableBody>
                   {groupedTransactions[item.cardId]?.map(tx => (
                     <TableRow key={tx.id} className="hover:bg-muted/70">
-                      <TableCell>{new Date(tx.date.replace(/-/g, '/')).toLocaleDateString()}</TableCell>
+                      <TableCell>{format(new Date(tx.date), 'PPP')}</TableCell>
                       <TableCell>{tx.description}</TableCell>
                       <TableCell className="text-right">{formatCurrency(tx.amount)}</TableCell>
                     </TableRow>
@@ -240,4 +241,3 @@ export function CreditCardReport() {
     </Card>
   );
 }
-
