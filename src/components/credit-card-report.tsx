@@ -1,13 +1,14 @@
+
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { DatePicker } from '@/components/date-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getTransactionsByDateRange } from '@/services/monthly-budget-service';
-import { updateCreditCardReportLastRunDate } from '@/services/settings-service';
+import { updateCreditCardReportLastRunDate, getCreditCardReportLastRunDate } from '@/services/settings-service';
 import type { Transaction, AccountDetails } from '@/types';
 import { useAccountDetails } from '@/hooks/use-transferees';
 import { Loader2, TrendingUp, ChevronDown, Printer } from 'lucide-react';
@@ -31,51 +32,51 @@ type GroupedTransactions = {
 };
 
 function CollapsibleTableRow({ item, groupedTransactions, showTransactions }: { item: ReportData, groupedTransactions: GroupedTransactions, showTransactions: boolean }) {
-    const [isOpen, setIsOpen] = useState(false);
-    
-    return (
-        <React.Fragment>
-            <TableRow>
-                <TableCell>
-                    <div className="flex items-center gap-2">
-                        {showTransactions && groupedTransactions[item.cardId] && (
-                             <Button variant="ghost" size="icon" className="h-6 w-6 -ml-2" onClick={() => setIsOpen(!isOpen)}>
-                                <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "-rotate-180")} />
-                            </Button>
-                        )}
-                        <span className={cn(!showTransactions || !groupedTransactions[item.cardId] && "pl-8")}>{item.cardName}</span>
-                    </div>
-                </TableCell>
-                <TableCell className="text-right font-mono">{formatCurrency(item.total)}</TableCell>
-            </TableRow>
-            {isOpen && showTransactions && groupedTransactions[item.cardId] && (
-                <TableRow className="bg-muted/50">
-                    <TableCell colSpan={2} className="p-0">
-                        <div className="p-4">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                    <TableHead>Date</TableHead>
-                                    <TableHead>Description</TableHead>
-                                    <TableHead className="text-right">Amount</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {groupedTransactions[item.cardId]?.map(tx => (
-                                    <TableRow key={tx.id}>
-                                        <TableCell>{new Date(tx.date.replace(/-/g, '/')).toLocaleDateString()}</TableCell>
-                                        <TableCell>{tx.description}</TableCell>
-                                        <TableCell className="text-right">{formatCurrency(tx.amount)}</TableCell>
-                                    </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </TableCell>
-                </TableRow>
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <React.Fragment>
+      <TableRow>
+        <TableCell>
+          <div className="flex items-center gap-2">
+            {showTransactions && groupedTransactions[item.cardId] && (
+              <Button variant="ghost" size="icon" className="h-6 w-6 -ml-2" onClick={() => setIsOpen(!isOpen)}>
+                <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "-rotate-180")} />
+              </Button>
             )}
-        </React.Fragment>
-    );
+            <span className={cn(!showTransactions || !groupedTransactions[item.cardId] ? "pl-8" : "")}>{item.cardName}</span>
+          </div>
+        </TableCell>
+        <TableCell className="text-right font-mono">{formatCurrency(item.total)}</TableCell>
+      </TableRow>
+      {isOpen && showTransactions && groupedTransactions[item.cardId] && (
+        <TableRow className="bg-muted/50 hover:bg-muted/50">
+          <TableCell colSpan={2} className="p-0">
+            <div className="p-4">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {groupedTransactions[item.cardId]?.map(tx => (
+                    <TableRow key={tx.id} className="hover:bg-muted/70">
+                      <TableCell>{new Date(tx.date.replace(/-/g, '/')).toLocaleDateString()}</TableCell>
+                      <TableCell>{tx.description}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(tx.amount)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </TableCell>
+        </TableRow>
+      )}
+    </React.Fragment>
+  );
 };
 
 
