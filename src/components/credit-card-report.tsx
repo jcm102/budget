@@ -240,3 +240,4 @@ export function CreditCardReport() {
     </Card>
   );
 }
+
