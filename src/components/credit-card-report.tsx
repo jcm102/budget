@@ -40,7 +40,7 @@ const getNextDayString = (dateString: string): string => {
     const [year, month, day] = dateString.split('-').map(Number);
     // Use Date.UTC to create a date in a timezone-neutral way
     const utcDate = new Date(Date.UTC(year, month - 1, day));
-    // Add one day
+    // Add one day in UTC
     utcDate.setUTCDate(utcDate.getUTCDate() + 1);
 
     const nextYear = utcDate.getUTCFullYear();
@@ -54,7 +54,7 @@ function CollapsibleTableRow({ item, groupedTransactions, showTransactions }: { 
     const [isOpen, setIsOpen] = useState(false);
     
     return (
-        <React.Fragment key={item.cardId}>
+        <React.Fragment>
             <TableRow>
                 <TableCell>
                     <div className="flex items-center gap-2">
@@ -114,12 +114,12 @@ export function CreditCardReport() {
       try {
         const lastRunDateString = await getCreditCardReportLastRunDate();
         const todayString = new Date().toISOString().slice(0, 10);
+        
         let finalStartDate: string;
-
         if (lastRunDateString) {
           finalStartDate = getNextDayString(lastRunDateString);
         } else {
-          // Default to start of the current week (Sunday)
+          // Default to start of the current week (Sunday) if no last run date
           const today = new Date();
           const startOfWeekDate = new Date(today.setDate(today.getDate() - today.getDay()));
           finalStartDate = startOfWeekDate.toISOString().slice(0, 10);
@@ -136,11 +136,12 @@ export function CreditCardReport() {
 
       } catch (error) {
         console.error("Failed to fetch last run date", error);
-        // Fallback on error
+        // Fallback on error to a safe default (last 7 days)
         const today = new Date();
-        const startOfWeekDate = new Date(today.setDate(today.getDate() - today.getDay()));
-        setStartDate(startOfWeekDate.toISOString().slice(0, 10));
-        setEndDate(new Date().toISOString().slice(0, 10));
+        const endDate = today.toISOString().slice(0, 10);
+        const startDate = new Date(today.setDate(today.getDate() - 6)).toISOString().slice(0, 10);
+        setStartDate(startDate);
+        setEndDate(endDate);
       }
     };
     loadLastRunDate();
@@ -150,7 +151,7 @@ export function CreditCardReport() {
   const handleGenerateReport = async () => {
     if (!startDate || !endDate) return;
     
-    if (startDate > endDate) {
+    if (new Date(startDate) > new Date(endDate)) {
         toast({
             title: 'Invalid Date Range',
             description: 'The start date cannot be after the end date.',
