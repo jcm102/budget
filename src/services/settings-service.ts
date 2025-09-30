@@ -7,6 +7,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 const SETTINGS_COLLECTION = 'settings';
 const MILEAGE_RATE_DOC = 'mileageRate';
 const EXCHANGE_RATE_DOC = 'exchangeRate';
+const CREDIT_CARD_REPORT_DATE_DOC = 'creditCardReport';
 
 const DEFAULT_MILEAGE_RATE = 0.50;
 const DEFAULT_EXCHANGE_RATE = 1.35;
@@ -18,6 +19,11 @@ interface MileageRateSetting {
 interface ExchangeRateSetting {
   usdToCad: number;
 }
+
+interface CreditCardReportDateSetting {
+    lastRunDate: string; // Stored as 'YYYY-MM-DD'
+}
+
 
 export async function getMileageRate(): Promise<number> {
   const docRef = doc(db, SETTINGS_COLLECTION, MILEAGE_RATE_DOC);
@@ -52,4 +58,19 @@ export async function getExchangeRate(): Promise<number> {
 export async function updateExchangeRate(rate: number): Promise<void> {
   const docRef = doc(db, SETTINGS_COLLECTION, EXCHANGE_RATE_DOC);
   await setDoc(docRef, { usdToCad: rate });
+}
+
+export async function getCreditCardReportLastRunDate(): Promise<string | null> {
+    const docRef = doc(db, SETTINGS_COLLECTION, CREDIT_CARD_REPORT_DATE_DOC);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+        return (docSnap.data() as CreditCardReportDateSetting).lastRunDate;
+    }
+    return null;
+}
+
+export async function updateCreditCardReportLastRunDate(date: string): Promise<void> {
+    const docRef = doc(db, SETTINGS_COLLECTION, CREDIT_CARD_REPORT_DATE_DOC);
+    await setDoc(docRef, { lastRunDate: date });
 }

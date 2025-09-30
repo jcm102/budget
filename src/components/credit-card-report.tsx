@@ -2,13 +2,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { format, startOfWeek, endOfWeek } from 'date-fns';
+import { format, startOfWeek, endOfWeek, addDays } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { DatePicker } from '@/components/date-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getTransactionsByDateRange } from '@/services/monthly-budget-service';
+import { getCreditCardReportLastRunDate, updateCreditCardReportLastRunDate } from '@/services/settings-service';
 import type { Transaction, AccountDetails } from '@/types';
 import { useAccountDetails } from '@/hooks/use-transferees';
 import { Loader2, TrendingUp, ChevronDown } from 'lucide-react';
@@ -32,8 +33,6 @@ type GroupedTransactions = {
   [key: string]: Transaction[];
 }
 
-const LAST_REPORT_DATE_KEY = 'creditCardReport_lastRunDate';
-
 function CollapsibleTableRow({ item, groupedTransactions }: { item: ReportData, groupedTransactions: GroupedTransactions }) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -55,11 +54,10 @@ function CollapsibleTableRow({ item, groupedTransactions }: { item: ReportData, 
         <TableCell className="text-right font-mono">{formatCurrency(item.total)}</TableCell>
       </TableRow>
       {groupedTransactions[item.cardId] && (
-        <CollapsibleContent asChild>
-           {isOpen && (
+         <CollapsibleContent asChild>
             <TableRow>
               <TableCell colSpan={2} className="p-0">
-                <div className="p-4 bg-muted/50">
+                {isOpen && <div className="p-4 bg-muted/50">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -78,11 +76,10 @@ function CollapsibleTableRow({ item, groupedTransactions }: { item: ReportData, 
                       ))}
                     </TableBody>
                   </Table>
-                </div>
+                </div>}
               </TableCell>
             </TableRow>
-          )}
-        </CollapsibleContent>
+          </CollapsibleContent>
       )}
     </>
   );
@@ -91,24 +88,34 @@ function CollapsibleTableRow({ item, groupedTransactions }: { item: ReportData, 
 
 export function CreditCardReport() {
   const { toast } = useToast();
-  const [startDate, setStartDate] = useState<Date | undefined>(() => {
-    if (typeof window !== 'undefined') {
-      const lastRunDateString = localStorage.getItem(LAST_REPORT_DATE_KEY);
-      if (lastRunDateString) {
-        const lastRunDate = new Date(lastRunDateString);
-        // Create a new date for the next day, carefully handling UTC
-        const nextDay = new Date(lastRunDate.getUTCFullYear(), lastRunDate.getUTCMonth(), lastRunDate.getUTCDate() + 1);
-        return nextDay;
-      }
-    }
-    return startOfWeek(new Date());
-  });
+  const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>(() => endOfWeek(new Date()));
   const [reportData, setReportData] = useState<ReportData[]>([]);
   const [groupedTransactions, setGroupedTransactions] = useState<GroupedTransactions>({});
   const [isLoading, setIsLoading] = useState(false);
   const [showTransactions, setShowTransactions] = useState(false);
   const { accounts } = useAccountDetails();
+
+  useEffect(() => {
+    const loadLastRunDate = async () => {
+        try {
+            const lastRunDateString = await getCreditCardReportLastRunDate();
+            if (lastRunDateString) {
+                // The date string is in 'YYYY-MM-DD' format.
+                // We add 1 day to it to get the start of the next period.
+                const lastRunDate = new Date(lastRunDateString);
+                const nextDay = addDays(lastRunDate, 1);
+                setStartDate(nextDay);
+            } else {
+                setStartDate(startOfWeek(new Date()));
+            }
+        } catch (error) {
+            console.error("Failed to fetch last run date", error);
+            setStartDate(startOfWeek(new Date())); // fallback
+        }
+    };
+    loadLastRunDate();
+  }, []);
 
   const handleGenerateReport = async () => {
     if (!startDate || !endDate) return;
@@ -160,8 +167,8 @@ export function CreditCardReport() {
         setGroupedTransactions(transactionsByCard);
       }
       
-      // Store only the date part in ISO format (YYYY-MM-DD)
-      localStorage.setItem(LAST_REPORT_DATE_KEY, endDate.toISOString().split('T')[0]);
+      const endDateString = format(endDate, 'yyyy-MM-dd');
+      await updateCreditCardReportLastRunDate(endDateString);
 
     } catch (error) {
       console.error("Failed to generate report:", error);
