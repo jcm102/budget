@@ -16,6 +16,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
@@ -89,12 +90,14 @@ function CollapsibleTableRow({ item, groupedTransactions }: { item: ReportData, 
 
 
 export function CreditCardReport() {
+  const { toast } = useToast();
   const [startDate, setStartDate] = useState<Date | undefined>(() => {
     if (typeof window !== 'undefined') {
-      const lastRunDate = localStorage.getItem(LAST_REPORT_DATE_KEY);
-      if (lastRunDate) {
-        const nextDay = new Date(lastRunDate);
-        nextDay.setDate(nextDay.getDate() + 1);
+      const lastRunDateString = localStorage.getItem(LAST_REPORT_DATE_KEY);
+      if (lastRunDateString) {
+        const lastRunDate = new Date(lastRunDateString);
+        // Create a new date for the next day, carefully handling UTC
+        const nextDay = new Date(lastRunDate.getUTCFullYear(), lastRunDate.getUTCMonth(), lastRunDate.getUTCDate() + 1);
         return nextDay;
       }
     }
@@ -110,11 +113,24 @@ export function CreditCardReport() {
   const handleGenerateReport = async () => {
     if (!startDate || !endDate) return;
 
+    if (endDate < startDate) {
+        toast({
+            title: 'Invalid Date Range',
+            description: 'The end date cannot be before the start date.',
+            variant: 'destructive',
+        });
+        return;
+    }
+
     setIsLoading(true);
     setReportData([]);
     setGroupedTransactions({});
     try {
-      const transactions = await getTransactionsByDateRange(startDate, endDate);
+      // Ensure we query from the start of the start day to the end of the end day
+      const queryStartDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+      const queryEndDate = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59);
+
+      const transactions = await getTransactionsByDateRange(queryStartDate, queryEndDate);
       
       const totalsByCard = new Map<string, number>();
       const transactionsByCard: GroupedTransactions = {};
@@ -137,14 +153,15 @@ export function CreditCardReport() {
         cardId,
         cardName: accounts.find(acc => acc.id === cardId)?.name || 'Unknown Card',
         total,
-      }));
+      })).sort((a, b) => a.cardName.localeCompare(b.cardName));
 
       setReportData(formattedReport);
       if (showTransactions) {
         setGroupedTransactions(transactionsByCard);
       }
-
-      localStorage.setItem(LAST_REPORT_DATE_KEY, endDate.toISOString());
+      
+      // Store only the date part in ISO format (YYYY-MM-DD)
+      localStorage.setItem(LAST_REPORT_DATE_KEY, endDate.toISOString().split('T')[0]);
 
     } catch (error) {
       console.error("Failed to generate report:", error);
@@ -206,14 +223,7 @@ export function CreditCardReport() {
                             </>
                         ) : reportData.length > 0 ? (
                            reportData.map(item => (
-                            showTransactions ? (
-                              <CollapsibleTableRow key={item.cardId} item={item} groupedTransactions={groupedTransactions} />
-                            ) : (
-                              <TableRow key={item.cardId} className="font-medium">
-                                <TableCell>{item.cardName}</TableCell>
-                                <TableCell className="text-right font-mono">{formatCurrency(item.total)}</TableCell>
-                              </TableRow>
-                            )
+                            <CollapsibleTableRow key={item.cardId} item={item} groupedTransactions={groupedTransactions} />
                            ))
                         ) : null}
                     </TableBody>
@@ -235,4 +245,3 @@ export function CreditCardReport() {
     </Card>
   );
 }
-
