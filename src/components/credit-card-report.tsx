@@ -33,59 +33,6 @@ type GroupedTransactions = {
   [key: string]: Transaction[];
 }
 
-function CollapsibleTableRow({ item, groupedTransactions }: { item: ReportData, groupedTransactions: GroupedTransactions }) {
-  const [isOpen, setIsOpen] = useState(false);
-
-  return (
-    <>
-      <TableRow className="font-medium" data-state={isOpen ? 'open' : 'closed'}>
-        <TableCell>
-          <div className="flex items-center gap-2">
-            {groupedTransactions[item.cardId] && (
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-6 w-6 -ml-2" onClick={() => setIsOpen(!isOpen)}>
-                  <ChevronDown className="h-4 w-4 transition-transform data-[state=open]:-rotate-180" />
-                </Button>
-              </CollapsibleTrigger>
-            )}
-            <span className={cn(!groupedTransactions[item.cardId] && "pl-8")}>{item.cardName}</span>
-          </div>
-        </TableCell>
-        <TableCell className="text-right font-mono">{formatCurrency(item.total)}</TableCell>
-      </TableRow>
-      {groupedTransactions[item.cardId] && (
-        <CollapsibleContent asChild>
-          <TableRow>
-            <TableCell colSpan={2} className="p-0">
-              <div className="p-4 bg-muted/50">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {groupedTransactions[item.cardId]?.map(tx => (
-                      <TableRow key={tx.id}>
-                        <TableCell>{format(parseISO(tx.date), 'PPP')}</TableCell>
-                        <TableCell>{tx.description}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(tx.amount)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </TableCell>
-          </TableRow>
-        </CollapsibleContent>
-      )}
-    </>
-  );
-}
-
-
 export function CreditCardReport() {
   const { toast } = useToast();
   const [startDate, setStartDate] = useState<string | undefined>();
@@ -95,16 +42,18 @@ export function CreditCardReport() {
   const [isLoading, setIsLoading] = useState(false);
   const [showTransactions, setShowTransactions] = useState(false);
   const { accounts } = useAccountDetails();
+  const [openCollapsibles, setOpenCollapsibles] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const loadLastRunDate = async () => {
         try {
             const lastRunDateString = await getCreditCardReportLastRunDate();
             if (lastRunDateString) {
-                // Safely calculate the next day in UTC to avoid timezone shifts
+                // To reliably get the next day, parse the string as UTC
                 const utcDate = new Date(`${lastRunDateString}T00:00:00Z`);
+                // Add a day
                 utcDate.setUTCDate(utcDate.getUTCDate() + 1);
-                
+                // Format back to YYYY-MM-DD
                 const nextYear = utcDate.getUTCFullYear();
                 const nextMonth = (utcDate.getUTCMonth() + 1).toString().padStart(2, '0');
                 const nextDay = utcDate.getUTCDate().toString().padStart(2, '0');
@@ -238,8 +187,52 @@ export function CreditCardReport() {
                             </>
                         ) : reportData.length > 0 ? (
                            reportData.map(item => (
-                             <Collapsible key={item.cardId}>
-                               <CollapsibleTableRow item={item} groupedTransactions={groupedTransactions} />
+                             <Collapsible key={item.cardId} asChild>
+                                <>
+                                  <TableRow>
+                                    <TableCell>
+                                      <div className="flex items-center gap-2">
+                                        {showTransactions && groupedTransactions[item.cardId] && (
+                                          <CollapsibleTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-6 w-6 -ml-2">
+                                              <ChevronDown className="h-4 w-4 transition-transform data-[state=open]:-rotate-180" />
+                                            </Button>
+                                          </CollapsibleTrigger>
+                                        )}
+                                        <span className={cn(!showTransactions || !groupedTransactions[item.cardId] && "pl-8")}>{item.cardName}</span>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-right font-mono">{formatCurrency(item.total)}</TableCell>
+                                  </TableRow>
+                                  {showTransactions && groupedTransactions[item.cardId] && (
+                                    <CollapsibleContent asChild>
+                                      <TableRow>
+                                        <TableCell colSpan={2} className="p-0">
+                                          <div className="p-4 bg-muted/50">
+                                            <Table>
+                                              <TableHeader>
+                                                <TableRow>
+                                                  <TableHead>Date</TableHead>
+                                                  <TableHead>Description</TableHead>
+                                                  <TableHead className="text-right">Amount</TableHead>
+                                                </TableRow>
+                                              </TableHeader>
+                                              <TableBody>
+                                                {groupedTransactions[item.cardId]?.map(tx => (
+                                                  <TableRow key={tx.id}>
+                                                    <TableCell>{format(parseISO(tx.date), 'PPP')}</TableCell>
+                                                    <TableCell>{tx.description}</TableCell>
+                                                    <TableCell className="text-right">{formatCurrency(tx.amount)}</TableCell>
+                                                  </TableRow>
+                                                ))}
+                                              </TableBody>
+                                            </Table>
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>
+                                    </CollapsibleContent>
+                                  )}
+                                </>
                              </Collapsible>
                            ))
                         ) : null}
@@ -262,5 +255,3 @@ export function CreditCardReport() {
     </Card>
   );
 }
-
-    
