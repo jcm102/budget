@@ -1,10 +1,7 @@
-
 'use client';
 
 export function DatePicker({ date, setDate }: { date?: string, setDate: (date?: string) => void }) {
     const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        // The value from a date input is always a 'YYYY-MM-DD' string in a consistent format.
-        // We pass it up directly.
         setDate(e.target.value || undefined);
     };
     
@@ -17,5 +14,3 @@ export function DatePicker({ date, setDate }: { date?: string, setDate: (date?: 
         />
     )
 }
-
-    
