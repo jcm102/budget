@@ -32,18 +32,19 @@ type GroupedTransactions = {
   [key: string]: Transaction[];
 };
 
-
 // This helper function safely calculates the next day from a YYYY-MM-DD string
 // without being affected by timezones.
 const getNextDayString = (dateString: string): string => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        return dateString;
+    }
     const [year, month, day] = dateString.split('-').map(Number);
-    // Create date in UTC to avoid timezone shifts
-    const date = new Date(Date.UTC(year, month - 1, day));
-    date.setUTCDate(date.getUTCDate() + 1);
+    const date = new Date(year, month - 1, day);
+    date.setDate(date.getDate() + 1);
     
-    const nextYear = date.getUTCFullYear();
-    const nextMonth = String(date.getUTCMonth() + 1).padStart(2, '0');
-    const nextDay = String(date.getUTCDate()).padStart(2, '0');
+    const nextYear = date.getFullYear();
+    const nextMonth = String(date.getMonth() + 1).padStart(2, '0');
+    const nextDay = String(date.getDate()).padStart(2, '0');
 
     return `${nextYear}-${nextMonth}-${nextDay}`;
 }
@@ -52,53 +53,47 @@ function CollapsibleTableRow({ item, groupedTransactions, showTransactions }: { 
     const [isOpen, setIsOpen] = useState(false);
     
     return (
-      <Collapsible asChild key={item.cardId} open={isOpen} onOpenChange={setIsOpen}>
-        <>
-          <TableRow>
-            <TableCell>
-              <div className="flex items-center gap-2">
-                {showTransactions && groupedTransactions[item.cardId] && (
-                  <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 -ml-2">
-                      <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "-rotate-180")} />
-                    </Button>
-                  </CollapsibleTrigger>
-                )}
-                <span className={cn(!showTransactions || !groupedTransactions[item.cardId] && "pl-8")}>{item.cardName}</span>
-              </div>
-            </TableCell>
-            <TableCell className="text-right font-mono">{formatCurrency(item.total)}</TableCell>
-          </TableRow>
-          {showTransactions && groupedTransactions[item.cardId] && (
-            <CollapsibleContent asChild>
-              <tr className="bg-muted/50">
-                <TableCell colSpan={2} className="p-0">
-                  <div className="p-4">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Description</TableHead>
-                          <TableHead className="text-right">Amount</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {groupedTransactions[item.cardId]?.map(tx => (
-                          <TableRow key={tx.id}>
-                            <TableCell>{new Date(tx.date.replace(/-/g, '/')).toLocaleDateString()}</TableCell>
-                            <TableCell>{tx.description}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(tx.amount)}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+        <React.Fragment>
+            <TableRow>
+                <TableCell>
+                    <div className="flex items-center gap-2">
+                        {showTransactions && groupedTransactions[item.cardId] && (
+                            <Button variant="ghost" size="icon" className="h-6 w-6 -ml-2" onClick={() => setIsOpen(!isOpen)}>
+                                <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "-rotate-180")} />
+                            </Button>
+                        )}
+                        <span className={cn(!showTransactions || !groupedTransactions[item.cardId] && "pl-8")}>{item.cardName}</span>
+                    </div>
                 </TableCell>
-              </tr>
-            </CollapsibleContent>
-          )}
-        </>
-      </Collapsible>
+                <TableCell className="text-right font-mono">{formatCurrency(item.total)}</TableCell>
+            </TableRow>
+            {isOpen && showTransactions && groupedTransactions[item.cardId] && (
+                <TableRow className="bg-muted/50">
+                    <TableCell colSpan={2} className="p-0">
+                        <div className="p-4">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                    <TableHead>Date</TableHead>
+                                    <TableHead>Description</TableHead>
+                                    <TableHead className="text-right">Amount</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {groupedTransactions[item.cardId]?.map(tx => (
+                                    <TableRow key={tx.id}>
+                                        <TableCell>{new Date(tx.date.replace(/-/g, '/')).toLocaleDateString()}</TableCell>
+                                        <TableCell>{tx.description}</TableCell>
+                                        <TableCell className="text-right">{formatCurrency(tx.amount)}</TableCell>
+                                    </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </TableCell>
+                </TableRow>
+            )}
+        </React.Fragment>
     );
 };
 
