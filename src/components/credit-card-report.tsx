@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { format, startOfWeek, endOfWeek, addDays } from 'date-fns';
+import { format, startOfWeek, endOfWeek, addDays, parseISO } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { DatePicker } from '@/components/date-picker';
@@ -90,8 +90,8 @@ function CollapsibleTableRow({ item, groupedTransactions }: { item: ReportData, 
 
 export function CreditCardReport() {
   const { toast } = useToast();
-  const [startDate, setStartDate] = useState<Date | undefined>();
-  const [endDate, setEndDate] = useState<Date | undefined>(() => endOfWeek(new Date()));
+  const [startDate, setStartDate] = useState<string | undefined>();
+  const [endDate, setEndDate] = useState<string | undefined>(() => format(endOfWeek(new Date()), 'yyyy-MM-dd'));
   const [reportData, setReportData] = useState<ReportData[]>([]);
   const [groupedTransactions, setGroupedTransactions] = useState<GroupedTransactions>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -103,16 +103,16 @@ export function CreditCardReport() {
         try {
             const lastRunDateString = await getCreditCardReportLastRunDate();
             if (lastRunDateString) {
-                // By appending T00:00:00, we tell the Date constructor to parse it as UTC, avoiding timezone shifts.
-                const lastRunDate = new Date(`${lastRunDateString}T00:00:00`);
+                // Parse the string as UTC to avoid timezone shifts
+                const lastRunDate = parseISO(lastRunDateString);
                 const nextDay = addDays(lastRunDate, 1);
-                setStartDate(nextDay);
+                setStartDate(format(nextDay, 'yyyy-MM-dd'));
             } else {
-                setStartDate(startOfWeek(new Date()));
+                setStartDate(format(startOfWeek(new Date()), 'yyyy-MM-dd'));
             }
         } catch (error) {
             console.error("Failed to fetch last run date", error);
-            setStartDate(startOfWeek(new Date())); // fallback
+            setStartDate(format(startOfWeek(new Date()), 'yyyy-MM-dd')); // fallback
         }
     };
     loadLastRunDate();
@@ -121,7 +121,10 @@ export function CreditCardReport() {
   const handleGenerateReport = async () => {
     if (!startDate || !endDate) return;
 
-    if (endDate < startDate) {
+    const queryStartDate = new Date(`${startDate}T00:00:00`);
+    const queryEndDate = new Date(`${endDate}T23:59:59`);
+
+    if (queryEndDate < queryStartDate) {
         toast({
             title: 'Invalid Date Range',
             description: 'The end date cannot be before the start date.',
@@ -134,10 +137,6 @@ export function CreditCardReport() {
     setReportData([]);
     setGroupedTransactions({});
     try {
-      // Ensure we query from the start of the start day to the end of the end day
-      const queryStartDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-      const queryEndDate = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59);
-
       const transactions = await getTransactionsByDateRange(queryStartDate, queryEndDate);
       
       const totalsByCard = new Map<string, number>();
@@ -168,8 +167,7 @@ export function CreditCardReport() {
         setGroupedTransactions(transactionsByCard);
       }
       
-      const endDateString = format(endDate, 'yyyy-MM-dd');
-      await updateCreditCardReportLastRunDate(endDateString);
+      await updateCreditCardReportLastRunDate(endDate);
 
     } catch (error) {
       console.error("Failed to generate report:", error);
