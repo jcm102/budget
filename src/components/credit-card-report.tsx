@@ -36,53 +36,53 @@ function CollapsibleTableRow({ item, groupedTransactions, showTransactions }: { 
     const [isOpen, setIsOpen] = useState(false);
     
     return (
-        <Collapsible asChild key={item.cardId} open={isOpen} onOpenChange={setIsOpen}>
-            <React.Fragment>
-                <TableRow>
-                    <TableCell>
-                        <div className="flex items-center gap-2">
-                            {showTransactions && groupedTransactions[item.cardId] && (
-                                <CollapsibleTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 -ml-2">
-                                        <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "-rotate-180")} />
-                                    </Button>
-                                </CollapsibleTrigger>
-                            )}
-                            <span className={cn(!showTransactions || !groupedTransactions[item.cardId] && "pl-8")}>{item.cardName}</span>
-                        </div>
-                    </TableCell>
-                    <TableCell className="text-right font-mono">{formatCurrency(item.total)}</TableCell>
-                </TableRow>
+      <Collapsible asChild key={item.cardId} open={isOpen} onOpenChange={setIsOpen}>
+        <React.Fragment>
+          <TableRow>
+            <TableCell>
+              <div className="flex items-center gap-2">
                 {showTransactions && groupedTransactions[item.cardId] && (
-                    <CollapsibleContent asChild>
-                        <tr className="bg-muted/50">
-                            <TableCell colSpan={2} className="p-0">
-                                <div className="p-4">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Date</TableHead>
-                                                <TableHead>Description</TableHead>
-                                                <TableHead className="text-right">Amount</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {groupedTransactions[item.cardId]?.map(tx => (
-                                                <TableRow key={tx.id}>
-                                                    <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>
-                                                    <TableCell>{tx.description}</TableCell>
-                                                    <TableCell className="text-right">{formatCurrency(tx.amount)}</TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            </TableCell>
-                        </tr>
-                    </CollapsibleContent>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 -ml-2">
+                      <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "-rotate-180")} />
+                    </Button>
+                  </CollapsibleTrigger>
                 )}
-            </React.Fragment>
-        </Collapsible>
+                <span className={cn(!showTransactions || !groupedTransactions[item.cardId] && "pl-8")}>{item.cardName}</span>
+              </div>
+            </TableCell>
+            <TableCell className="text-right font-mono">{formatCurrency(item.total)}</TableCell>
+          </TableRow>
+          {showTransactions && groupedTransactions[item.cardId] && (
+            <CollapsibleContent asChild>
+              <tr className="bg-muted/50">
+                <TableCell colSpan={2} className="p-0">
+                  <div className="p-4">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Description</TableHead>
+                          <TableHead className="text-right">Amount</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {groupedTransactions[item.cardId]?.map(tx => (
+                          <TableRow key={tx.id}>
+                            <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>
+                            <TableCell>{tx.description}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(tx.amount)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </TableCell>
+              </tr>
+            </CollapsibleContent>
+          )}
+        </React.Fragment>
+      </Collapsible>
     );
 };
 
@@ -97,20 +97,16 @@ export function CreditCardReport() {
   const [showTransactions, setShowTransactions] = useState(false);
   const { accounts } = useAccountDetails();
 
-  const getNextDayISO = (dateString: string): string => {
-    const [year, month, day] = dateString.split('-').map(Number);
-    // Note: The month in JavaScript's Date is 0-indexed, so we subtract 1.
-    const date = new Date(Date.UTC(year, month - 1, day));
-    date.setUTCDate(date.getUTCDate() + 1);
-    return date.toISOString().slice(0, 10);
-  };
-
   useEffect(() => {
     const loadLastRunDate = async () => {
       try {
         const lastRunDateString = await getCreditCardReportLastRunDate();
         if (lastRunDateString) {
-          setStartDate(getNextDayISO(lastRunDateString));
+          // Replace hyphens with slashes to ensure the date is parsed in the local timezone, not UTC.
+          // This prevents the off-by-one day error.
+          const localDate = new Date(lastRunDateString.replace(/-/g, '/'));
+          localDate.setDate(localDate.getDate() + 1);
+          setStartDate(localDate.toISOString().slice(0, 10));
         } else {
           // Default to start of the current week if no last run date is found.
           const today = new Date();
@@ -140,8 +136,9 @@ export function CreditCardReport() {
         return;
     }
     
-    const queryStartDate = new Date(`${startDate}T00:00:00.000Z`);
-    const queryEndDate = new Date(`${endDate}T23:59:59.999Z`);
+    // Explicitly treat date strings as local time by creating dates with a time component.
+    const queryStartDate = new Date(`${startDate}T00:00:00`);
+    const queryEndDate = new Date(`${endDate}T23:59:59`);
 
     setIsLoading(true);
     setReportData([]);
@@ -271,5 +268,3 @@ export function CreditCardReport() {
     </Card>
   );
 }
-
-    
