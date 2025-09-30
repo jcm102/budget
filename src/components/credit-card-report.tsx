@@ -16,6 +16,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
+import React from 'react';
 
 
 const formatCurrency = (amount: number) => {
@@ -149,7 +150,7 @@ export function CreditCardReport() {
                         ) : reportData.length > 0 ? (
                            reportData.map(item => (
                                <Collapsible asChild key={item.cardId}>
-                                    <>
+                                    <React.Fragment>
                                         <TableRow>
                                             <TableCell>
                                                 {showTransactions && groupedTransactions[item.cardId] && (
@@ -192,7 +193,7 @@ export function CreditCardReport() {
                                                 </tr>
                                            </CollapsibleContent>
                                         )}
-                                    </>
+                                    </React.Fragment>
                                </Collapsible>
                            ))
                         ) : null}
