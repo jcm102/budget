@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { format, startOfWeek, endOfWeek, addDays, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { DatePicker } from '@/components/date-picker';
@@ -23,6 +23,24 @@ const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 };
 
+// --- Timezone-aware date helpers for GMT-4 (e.g., America/New_York) ---
+
+// Converts a 'YYYY-MM-DD' string to a Date object at the start of that day in GMT-4
+function parseDateStringAsGMT4(dateString: string): Date {
+    // Appending a fixed time and timezone offset ensures consistency
+    return new Date(`${dateString}T00:00:00-04:00`);
+}
+
+// Formats a Date object back into a 'YYYY-MM-DD' string.
+function formatDateToYYYYMMDD(date: Date): string {
+    // Use UTC methods to avoid local timezone interference during formatting
+    const year = date.getUTCFullYear();
+    const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+    const day = date.getUTCDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+
 type ReportData = {
   cardName: string;
   cardId: string;
@@ -37,7 +55,7 @@ function CollapsibleTableRow({ item, groupedTransactions }: { item: ReportData, 
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-     <Collapsible asChild key={item.cardId} open={isOpen} onOpenChange={setIsOpen}>
+    <Collapsible asChild key={item.cardId} open={isOpen} onOpenChange={setIsOpen}>
         <>
             <TableRow className="font-medium" data-state={isOpen ? 'open' : 'closed'}>
                 <TableCell>
@@ -45,7 +63,7 @@ function CollapsibleTableRow({ item, groupedTransactions }: { item: ReportData, 
                     {groupedTransactions[item.cardId] && (
                     <CollapsibleTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-6 w-6 -ml-2">
-                        <ChevronDown className="h-4 w-4 transition-transform data-[state=open]:-rotate-180" />
+                           <ChevronDown className="h-4 w-4 transition-transform data-[state=open]:-rotate-180" />
                         </Button>
                     </CollapsibleTrigger>
                     )}
@@ -91,7 +109,7 @@ function CollapsibleTableRow({ item, groupedTransactions }: { item: ReportData, 
 export function CreditCardReport() {
   const { toast } = useToast();
   const [startDate, setStartDate] = useState<string | undefined>();
-  const [endDate, setEndDate] = useState<string | undefined>(() => format(endOfWeek(new Date()), 'yyyy-MM-dd'));
+  const [endDate, setEndDate] = useState<string | undefined>(() => formatDateToYYYYMMDD(new Date()));
   const [reportData, setReportData] = useState<ReportData[]>([]);
   const [groupedTransactions, setGroupedTransactions] = useState<GroupedTransactions>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -103,15 +121,21 @@ export function CreditCardReport() {
         try {
             const lastRunDateString = await getCreditCardReportLastRunDate();
             if (lastRunDateString) {
-                const lastRunDate = parseISO(lastRunDateString);
-                const nextDay = addDays(lastRunDate, 1);
-                setStartDate(format(nextDay, 'yyyy-MM-dd'));
+                // Use the timezone-aware helper
+                const lastRunDate = parseDateStringAsGMT4(lastRunDateString);
+                // Safely add one day in UTC to avoid DST issues
+                const nextDay = new Date(lastRunDate.getTime() + 24 * 60 * 60 * 1000);
+                setStartDate(formatDateToYYYYMMDD(nextDay));
             } else {
-                setStartDate(format(startOfWeek(new Date()), 'yyyy-MM-dd'));
+                const today = new Date();
+                const startOfWeekDate = new Date(today.setDate(today.getDate() - today.getDay()));
+                setStartDate(formatDateToYYYYMMDD(startOfWeekDate));
             }
         } catch (error) {
             console.error("Failed to fetch last run date", error);
-            setStartDate(format(startOfWeek(new Date()), 'yyyy-MM-dd')); // fallback
+            const today = new Date();
+            const startOfWeekDate = new Date(today.setDate(today.getDate() - today.getDay()));
+            setStartDate(formatDateToYYYYMMDD(startOfWeekDate)); // fallback
         }
     };
     loadLastRunDate();
@@ -120,11 +144,11 @@ export function CreditCardReport() {
   const handleGenerateReport = async () => {
     if (!startDate || !endDate) return;
     
-    // Ensure the date string is interpreted in the local timezone for comparison.
-    const queryStartDate = parseISO(startDate);
-    const queryEndDate = parseISO(endDate);
-
-    if (isAfter(queryStartDate, queryEndDate)) {
+    // Use the timezone-aware helper for comparison
+    const queryStartDate = parseDateStringAsGMT4(startDate);
+    const queryEndDate = parseDateStringAsGMT4(endDate);
+    
+    if (queryStartDate > queryEndDate) {
         toast({
             title: 'Invalid Date Range',
             description: 'The start date cannot be after the end date.',
@@ -133,8 +157,9 @@ export function CreditCardReport() {
         return;
     }
     
-    // Use the parsed dates for the service call, but add time to cover the whole end day.
-    const serviceEndDate = new Date(queryEndDate.getFullYear(), queryEndDate.getMonth(), queryEndDate.getDate(), 23, 59, 59);
+    // Set the time to the end of the day for the query
+    const serviceEndDate = new Date(queryEndDate.getTime());
+    serviceEndDate.setUTCHours(23, 59, 59, 999);
 
     setIsLoading(true);
     setReportData([]);
@@ -254,5 +279,3 @@ export function CreditCardReport() {
     </Card>
   );
 }
-
-    
