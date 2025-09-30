@@ -12,7 +12,7 @@ import { getTransactionsByDateRange } from '@/services/monthly-budget-service';
 import { getCreditCardReportLastRunDate, updateCreditCardReportLastRunDate } from '@/services/settings-service';
 import type { Transaction, AccountDetails } from '@/types';
 import { useAccountDetails } from '@/hooks/use-transferees';
-import { Loader2, TrendingUp, ChevronDown } from 'lucide-react';
+import { Loader2, TrendingUp, ChevronDown, Printer } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -37,7 +37,7 @@ const CollapsibleTableRow = ({ item, groupedTransactions, showTransactions }: { 
     const [isOpen, setIsOpen] = useState(false);
 
     return (
-        <>
+        <React.Fragment>
             <TableRow>
                 <TableCell>
                     <div className="flex items-center gap-2">
@@ -81,7 +81,7 @@ const CollapsibleTableRow = ({ item, groupedTransactions, showTransactions }: { 
                     </TableRow>
                 </CollapsibleContent>
             )}
-        </>
+        </React.Fragment>
     );
 };
 
@@ -101,28 +101,19 @@ export function CreditCardReport() {
       try {
         const lastRunDateString = await getCreditCardReportLastRunDate();
         if (lastRunDateString) {
-          // Parse the date string safely in UTC to avoid timezone shifts
-          const [year, month, day] = lastRunDateString.split('-').map(Number);
-          const lastRunDate = new Date(Date.UTC(year, month - 1, day));
-          
-          // Add one day
-          lastRunDate.setUTCDate(lastRunDate.getUTCDate() + 1);
-
-          // Format back to YYYY-MM-DD string for the state
-          const nextStartDateString = lastRunDate.toISOString().slice(0, 10);
-          setStartDate(nextStartDateString);
+          const lastRunDate = parseISO(lastRunDateString);
+          const nextStartDate = addDays(lastRunDate, 1);
+          setStartDate(format(nextStartDate, 'yyyy-MM-dd'));
         } else {
-          // Fallback if no date is in the DB
           const today = new Date();
           const startOfWeekDate = new Date(today.setDate(today.getDate() - today.getDay()));
-          setStartDate(startOfWeekDate.toISOString().slice(0, 10));
+          setStartDate(format(startOfWeekDate, 'yyyy-MM-dd'));
         }
       } catch (error) {
         console.error("Failed to fetch last run date", error);
-        // Fallback on error
         const today = new Date();
         const startOfWeekDate = new Date(today.setDate(today.getDate() - today.getDay()));
-        setStartDate(startOfWeekDate.toISOString().slice(0, 10));
+        setStartDate(format(startOfWeekDate, 'yyyy-MM-dd'));
       }
     };
     loadLastRunDate();
@@ -185,11 +176,15 @@ export function CreditCardReport() {
     }
   };
   
+  const handlePrint = () => {
+    window.print();
+  };
+  
   const grandTotal = reportData.reduce((sum, item) => sum + item.total, 0);
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="no-print">
         <CardTitle className="flex items-center gap-2">
             <TrendingUp />
             Credit Card Payoff Report
@@ -198,7 +193,7 @@ export function CreditCardReport() {
           Generate a summary of credit card spending within a specific date range to determine payoff amounts. The start date defaults to the day after the last report was run.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 no-print">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="grid gap-2 flex-1">
             <Label htmlFor="start-date">Start Date</Label>
@@ -213,10 +208,16 @@ export function CreditCardReport() {
             <Checkbox id="show-transactions" checked={showTransactions} onCheckedChange={(checked) => setShowTransactions(!!checked)} />
             <Label htmlFor="show-transactions">Show individual transactions</Label>
         </div>
-        <Button onClick={handleGenerateReport} disabled={isLoading}>
-          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Generate Report
-        </Button>
+        <div className="flex gap-2">
+            <Button onClick={handleGenerateReport} disabled={isLoading}>
+                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Generate Report
+            </Button>
+            <Button variant="outline" onClick={handlePrint} disabled={reportData.length === 0}>
+                <Printer className="mr-2 h-4 w-4" />
+                Print Report
+            </Button>
+        </div>
       </CardContent>
       
       {(isLoading || reportData.length > 0) && (
@@ -238,9 +239,7 @@ export function CreditCardReport() {
                             </>
                         ) : reportData.length > 0 ? (
                            reportData.map(item => (
-                             <Collapsible key={item.cardId} asChild>
-                                <CollapsibleTableRow item={item} groupedTransactions={groupedTransactions} showTransactions={showTransactions} />
-                             </Collapsible>
+                            <CollapsibleTableRow key={item.cardId} item={item} groupedTransactions={groupedTransactions} showTransactions={showTransactions} />
                            ))
                         ) : null}
                     </TableBody>
