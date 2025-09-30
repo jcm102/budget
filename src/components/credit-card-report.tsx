@@ -14,7 +14,6 @@ import { useAccountDetails } from '@/hooks/use-transferees';
 import { Loader2, TrendingUp, ChevronDown, Printer } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
@@ -39,12 +38,14 @@ const getNextDayString = (dateString: string): string => {
         return dateString;
     }
     const [year, month, day] = dateString.split('-').map(Number);
-    const date = new Date(year, month - 1, day);
-    date.setDate(date.getDate() + 1);
-    
-    const nextYear = date.getFullYear();
-    const nextMonth = String(date.getMonth() + 1).padStart(2, '0');
-    const nextDay = String(date.getDate()).padStart(2, '0');
+    // Use Date.UTC to create a date in a timezone-neutral way
+    const utcDate = new Date(Date.UTC(year, month - 1, day));
+    // Add one day
+    utcDate.setUTCDate(utcDate.getUTCDate() + 1);
+
+    const nextYear = utcDate.getUTCFullYear();
+    const nextMonth = String(utcDate.getUTCMonth() + 1).padStart(2, '0');
+    const nextDay = String(utcDate.getUTCDate()).padStart(2, '0');
 
     return `${nextYear}-${nextMonth}-${nextDay}`;
 }
