@@ -37,13 +37,11 @@ export function CreditCardReport() {
   const [startDate, setStartDate] = useState<Date | undefined>(() => {
     if (typeof window !== 'undefined') {
       const lastRunDate = localStorage.getItem(LAST_REPORT_DATE_KEY);
-      // If there's a last run date, the new start date is the day AFTER that.
       if (lastRunDate) {
         const nextDay = new Date(lastRunDate);
         nextDay.setDate(nextDay.getDate() + 1);
         return nextDay;
       }
-      return startOfWeek(new Date());
     }
     return startOfWeek(new Date());
   });
@@ -151,7 +149,7 @@ export function CreditCardReport() {
                             </>
                         ) : reportData.length > 0 ? (
                            reportData.map(item => (
-                            <Collapsible key={item.cardId} asChild>
+                            <Collapsible asChild key={item.cardId} >
                                 <>
                                     <TableRow className="font-medium">
                                         <TableCell>
@@ -217,3 +215,4 @@ export function CreditCardReport() {
     </Card>
   );
 }
+
