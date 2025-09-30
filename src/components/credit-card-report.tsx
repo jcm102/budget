@@ -11,7 +11,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { getTransactionsByDateRange } from '@/services/monthly-budget-service';
 import type { Transaction, AccountDetails } from '@/types';
 import { useAccountDetails } from '@/hooks/use-transferees';
-import { Loader2, TrendingUp } from 'lucide-react';
+import { Loader2, TrendingUp, ChevronDown } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { cn } from '@/lib/utils';
+
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
@@ -22,6 +27,8 @@ type ReportData = {
   cardId: string;
   total: number;
 };
+
+type GroupedTransactions = Record<string, Transaction[]>;
 
 const LAST_REPORT_DATE_KEY = 'creditCardReport_lastRunDate';
 
@@ -35,7 +42,9 @@ export function CreditCardReport() {
   });
   const [endDate, setEndDate] = useState<Date | undefined>(() => endOfWeek(new Date()));
   const [reportData, setReportData] = useState<ReportData[]>([]);
+  const [groupedTransactions, setGroupedTransactions] = useState<GroupedTransactions>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [showTransactions, setShowTransactions] = useState(false);
   const { accounts, isLoading: isLoadingAccounts } = useAccountDetails();
 
   const creditCardAccounts = accounts.filter(acc => acc.type === 'Credit');
@@ -45,19 +54,28 @@ export function CreditCardReport() {
 
     setIsLoading(true);
     setReportData([]);
+    setGroupedTransactions({});
     try {
       const transactions = await getTransactionsByDateRange(startDate, endDate);
       
       const totalsByCard = new Map<string, number>();
+      const transactionsByCard: GroupedTransactions = {};
 
       transactions.forEach(tx => {
-        // Only include transactions from a credit card account
         const sourceAccount = accounts.find(acc => acc.id === tx.sourceAccountId);
         if (sourceAccount && sourceAccount.type === 'Credit') {
-            const currentTotal = totalsByCard.get(tx.sourceAccountId) || 0;
-            totalsByCard.set(tx.sourceAccountId, currentTotal + tx.amount);
+            const cardId = tx.sourceAccountId;
+            const currentTotal = totalsByCard.get(cardId) || 0;
+            totalsByCard.set(cardId, currentTotal + tx.amount);
+
+            if (!transactionsByCard[cardId]) {
+                transactionsByCard[cardId] = [];
+            }
+            transactionsByCard[cardId].push(tx);
         }
       });
+      
+      setGroupedTransactions(transactionsByCard);
 
       const formattedReport = Array.from(totalsByCard.entries()).map(([cardId, total]) => ({
         cardId,
@@ -67,12 +85,10 @@ export function CreditCardReport() {
 
       setReportData(formattedReport);
 
-      // Save the end date for next time
       localStorage.setItem(LAST_REPORT_DATE_KEY, endDate.toISOString());
 
     } catch (error) {
       console.error("Failed to generate report:", error);
-      // You might want to show a toast message here
     } finally {
       setIsLoading(false);
     }
@@ -102,6 +118,10 @@ export function CreditCardReport() {
             <DatePicker date={endDate} setDate={setEndDate} />
           </div>
         </div>
+         <div className="flex items-center space-x-2 pt-2">
+            <Checkbox id="show-transactions" checked={showTransactions} onCheckedChange={(checked) => setShowTransactions(!!checked)} />
+            <Label htmlFor="show-transactions">Show transaction list</Label>
+        </div>
         <Button onClick={handleGenerateReport} disabled={isLoading}>
           {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Generate Report
@@ -115,6 +135,7 @@ export function CreditCardReport() {
                  <Table>
                     <TableHeader>
                         <TableRow>
+                            <TableHead className="w-[40px]"></TableHead>
                             <TableHead>Credit Card</TableHead>
                             <TableHead className="text-right">Amount to Pay</TableHead>
                         </TableRow>
@@ -122,22 +143,64 @@ export function CreditCardReport() {
                     <TableBody>
                         {isLoading ? (
                             <>
-                                <TableRow><TableCell colSpan={2}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
-                                <TableRow><TableCell colSpan={2}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                                <TableRow><TableCell colSpan={3}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                                <TableRow><TableCell colSpan={3}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
                             </>
                         ) : reportData.length > 0 ? (
                            reportData.map(item => (
-                               <TableRow key={item.cardId}>
-                                   <TableCell className="font-medium">{item.cardName}</TableCell>
-                                   <TableCell className="text-right font-mono">{formatCurrency(item.total)}</TableCell>
-                               </TableRow>
+                               <Collapsible asChild key={item.cardId}>
+                                    <>
+                                        <TableRow>
+                                            <TableCell>
+                                                {showTransactions && groupedTransactions[item.cardId] && (
+                                                    <CollapsibleTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                             <ChevronDown className="h-4 w-4 transition-transform data-[state=open]:-rotate-180" />
+                                                        </Button>
+                                                    </CollapsibleTrigger>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="font-medium">{item.cardName}</TableCell>
+                                            <TableCell className="text-right font-mono">{formatCurrency(item.total)}</TableCell>
+                                        </TableRow>
+                                        {showTransactions && groupedTransactions[item.cardId] && (
+                                           <CollapsibleContent asChild>
+                                                <tr>
+                                                    <td colSpan={3} className="p-0">
+                                                        <div className="p-4 bg-muted/50">
+                                                            <h4 className="font-semibold mb-2 pl-4">Transactions</h4>
+                                                            <Table>
+                                                                <TableHeader>
+                                                                    <TableRow>
+                                                                        <TableHead className="w-[120px]">Date</TableHead>
+                                                                        <TableHead>Description</TableHead>
+                                                                        <TableHead className="text-right">Amount</TableHead>
+                                                                    </TableRow>
+                                                                </TableHeader>
+                                                                <TableBody>
+                                                                    {groupedTransactions[item.cardId].map(tx => (
+                                                                        <TableRow key={tx.id} className="hover:bg-background/50">
+                                                                            <TableCell>{format(new Date(tx.date), 'PPP')}</TableCell>
+                                                                            <TableCell>{tx.description}</TableCell>
+                                                                            <TableCell className="text-right">{formatCurrency(tx.amount)}</TableCell>
+                                                                        </TableRow>
+                                                                    ))}
+                                                                </TableBody>
+                                                            </Table>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                           </CollapsibleContent>
+                                        )}
+                                    </>
+                               </Collapsible>
                            ))
                         ) : null}
                     </TableBody>
                     {reportData.length > 0 && (
                         <TableFooter>
                             <TableRow>
-                                <TableCell className="font-bold text-right">Grand Total</TableCell>
+                                <TableCell colSpan={2} className="font-bold text-right">Grand Total</TableCell>
                                 <TableCell className="text-right font-bold font-mono">{formatCurrency(grandTotal)}</TableCell>
                             </TableRow>
                         </TableFooter>
