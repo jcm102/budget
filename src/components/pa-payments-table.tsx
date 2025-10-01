@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -60,7 +61,7 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
 }
 
 export function PaPaymentsTable() {
-  const { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, toggleBudgetItemCompleted, resetPaPayments, isLoading } = useBudget();
+  const { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, toggleBudgetItemCompleted, cycleBudgetItems, isLoading } = useBudget();
   const { categories: budgetCategories } = useMonthlyBudget();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<BudgetItem | null>(null);
@@ -172,7 +173,7 @@ export function PaPaymentsTable() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => resetPaPayments()} className={cn(buttonVariants({ variant: "default" }))}>
+                  <AlertDialogAction onClick={() => cycleBudgetItems()} className={cn(buttonVariants({ variant: "default" }))}>
                     Yes, Reset Payments
                   </AlertDialogAction>
                 </AlertDialogFooter>

@@ -104,19 +104,19 @@ export function useBudget() {
     }
   }, [budgetItems, toast]);
 
-  const resetPaPayments = useCallback(async () => {
+  const cycleBudgetItems = useCallback(async () => {
     try {
-      await BudgetService.resetPaPayments();
+      await BudgetService.cycleBudgetItems();
       await fetchBudgetItems();
       toast({
         title: 'Success!',
-        description: 'Pre-authorized payments have been reset for the next month.',
+        description: 'Budget items have been cycled for the next month.',
       });
     } catch (error) {
-      console.error('Failed to reset PA payments:', error);
+      console.error('Failed to cycle budget items:', error);
       toast({
         title: 'Error',
-        description: 'Could not reset pre-authorized payments.',
+        description: 'Could not cycle budget items.',
         variant: 'destructive',
       });
     }
@@ -128,7 +128,7 @@ export function useBudget() {
     updateBudgetItem, 
     deleteBudgetItem, 
     toggleBudgetItemCompleted, 
-    resetPaPayments,
+    cycleBudgetItems,
     isLoading,
     fetchBudgetItems,
   };
