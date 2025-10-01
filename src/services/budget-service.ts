@@ -397,54 +397,21 @@ export async function deleteBudgetItem(id: string): Promise<void> {
 export async function cycleBudgetItems(): Promise<void> {
   const batch = writeBatch(db);
   const budgetCollectionRef = collection(db, BUDGET_COLLECTION);
-  const allItemsQuery = query(budgetCollectionRef);
-  const allItemsSnapshot = await getDocs(allItemsQuery);
+  
+  // Query for items that were for the current month
+  const currentMonthItemsQuery = query(budgetCollectionRef, where('forNextMonth', '==', false));
+  const currentMonthItemsSnapshot = await getDocs(currentMonthItemsQuery);
+  
+  currentMonthItemsSnapshot.forEach(doc => {
+      batch.delete(doc.ref);
+  });
+  
+  // Query for items that were for the next month
+  const nextMonthItemsQuery = query(budgetCollectionRef, where('forNextMonth', '==', true));
+  const nextMonthItemsSnapshot = await getDocs(nextMonthItemsQuery);
 
-  allItemsSnapshot.forEach(doc => {
-    const item = doc.data() as BudgetItem;
-    if (item.forNextMonth === true) {
-      // This was a 'Next Month' item, it now becomes a 'Current Month' item.
-      batch.update(doc.ref, { forNextMonth: false, completed: false });
-
-      if(item.type === 'Pre-Authorized Payments') {
-          // Advance recurring PA payments
-          if (item.frequency !== 'One-Time') {
-            let newDate = new Date(item.date);
-            const increment = item.frequency === 'Weekly' ? 1 : (item.frequency === 'Bi-Weekly' ? 2 : 0);
-            if (increment > 0) {
-              newDate = addWeeks(newDate, increment);
-            } else if (item.frequency === 'Monthly') {
-              newDate = addMonths(newDate, 1);
-            } else if (item.frequency === 'Monthly (Last Day)') {
-              newDate = lastDayOfMonth(addMonths(newDate, 1));
-            }
-            batch.update(doc.ref, { date: newDate.toISOString() });
-          }
-      }
-
-    } else {
-      // This was a 'Current Month' item for the month that just ended.
-      // If it's a one-time item, delete it.
-      if (item.frequency === 'One-Time') {
-        batch.delete(doc.ref);
-      } else if (item.type === 'Pre-Authorized Payments') {
-        // If it's a recurring PA payment, advance its date and un-complete it.
-         let newDate = new Date(item.date);
-          const increment = item.frequency === 'Weekly' ? 1 : (item.frequency === 'Bi-Weekly' ? 2 : 0);
-          if (increment > 0) {
-            newDate = addWeeks(newDate, increment);
-          } else if (item.frequency === 'Monthly') {
-            newDate = addMonths(newDate, 1);
-          } else if (item.frequency === 'Monthly (Last Day)') {
-            newDate = lastDayOfMonth(addMonths(newDate, 1));
-          }
-          batch.update(doc.ref, { completed: false, date: newDate.toISOString() });
-      } else {
-        // For recurring Income, Debt, Transfers, just delete the current instance
-        // as they are typically re-added manually or synced.
-        batch.delete(doc.ref);
-      }
-    }
+  nextMonthItemsSnapshot.forEach(doc => {
+    batch.update(doc.ref, { forNextMonth: false, completed: false });
   });
 
   await batch.commit();
@@ -557,3 +524,5 @@ export async function syncDebtPaymentsToMonthlyBudget(): Promise<void> {
         }
     });
 }
+
+  

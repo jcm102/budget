@@ -19,7 +19,7 @@ import {
   writeBatch,
   limit
 } from 'firebase/firestore';
-import { getBudgetItems } from './budget-service';
+import { getBudgetItems, cycleBudgetItems as cycleOverviewItems } from './budget-service';
 import { format, addMonths } from 'date-fns';
 
 const BUDGET_ITEMS_COLLECTION = 'monthly-budget-items';
@@ -73,6 +73,9 @@ export async function cycleToNextMonth(): Promise<void> {
       transaction.update(doc.ref, { month: currentMonth });
     });
   });
+
+  // After successfully cycling the main budget, also cycle the overview items.
+  await cycleOverviewItems();
 }
 
 
@@ -414,3 +417,5 @@ export async function deleteTransaction(id: string): Promise<void> {
 
 
     
+
+  

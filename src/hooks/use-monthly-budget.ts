@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -7,6 +8,7 @@ import { useToast } from './use-toast';
 import * as MonthlyBudgetService from '@/services/monthly-budget-service';
 import * as BudgetCategoryService from '@/services/budget-category-service';
 import { format, subMonths } from 'date-fns';
+import { useBudget } from './use-budget';
 
 export function useMonthlyBudget(month?: string) {
   const [budgetItems, setBudgetItems] = useState<MonthlyBudgetItem[]>([]);
@@ -14,6 +16,7 @@ export function useMonthlyBudget(month?: string) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const { fetchBudgetItems } = useBudget();
   
   const selectedMonth = month || format(new Date(), 'yyyy-MM');
 
@@ -113,7 +116,9 @@ export function useMonthlyBudget(month?: string) {
   const cycleToNextMonth = useCallback(async () => {
     try {
       await MonthlyBudgetService.cycleToNextMonth();
-      await fetchBudget(); // Refetch data to show the cycled budget
+      // After cycling the monthly budget, we need to refetch both budget hooks
+      await fetchBudget();
+      await fetchBudgetItems();
       toast({
         title: 'Success!',
         description: 'Your budget has been cycled to the next month.',
@@ -126,8 +131,10 @@ export function useMonthlyBudget(month?: string) {
         variant: 'destructive',
       });
     }
-  }, [fetchBudget, toast]);
+  }, [fetchBudget, fetchBudgetItems, toast]);
 
 
   return { budgetItems, categories, updateBudgetItem, updateBudgetItemWithBreakdown, isLoading, fetchBudget, copyCategoryFromPreviousMonth, cycleToNextMonth };
 }
+
+  
