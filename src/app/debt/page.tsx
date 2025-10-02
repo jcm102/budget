@@ -67,7 +67,7 @@ export default function DebtPage() {
     <div className="container mx-auto max-w-6xl p-4 md:p-8">
        <header className="mb-8 flex justify-between items-center no-print">
         <Button asChild variant="outline">
-          <Link href="/">
+          <Link href="/tasks">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Tasks
           </Link>

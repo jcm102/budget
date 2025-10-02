@@ -11,7 +11,7 @@ export default function ReportsPage() {
     <div className="container mx-auto max-w-4xl p-4 md:p-8">
        <header className="mb-8">
         <Button asChild variant="outline">
-          <Link href="/">
+          <Link href="/tasks">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Home
           </Link>

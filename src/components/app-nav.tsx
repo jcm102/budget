@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Banknote, CreditCard, Home, Lightbulb, PiggyBank, Settings, Users, Wallet, Briefcase, LayoutGrid, Landmark, Calculator, TrendingUp, FileClock } from 'lucide-react';
+import { Banknote, CreditCard, Home, Lightbulb, PiggyBank, Settings, Users, Wallet, Briefcase, LayoutGrid, Landmark, Calculator, TrendingUp, FileClock, ClipboardList } from 'lucide-react';
 import {
   SidebarContent,
   SidebarMenu,
@@ -16,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Button } from './ui/button';
 
 const navItems = [
-    { href: '/', icon: Home, label: 'Tasks' },
+    { href: '/tasks', icon: ClipboardList, label: 'Tasks' },
     { href: '/accounts', icon: Landmark, label: 'Accounts' },
     { href: '/debt', icon: Wallet, label: 'Debt Worksheet' },
     { href: '/budget', icon: Banknote, label: 'Budget Overview' },
