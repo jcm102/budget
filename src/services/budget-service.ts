@@ -398,20 +398,18 @@ export async function cycleBudgetItems(): Promise<void> {
   const batch = writeBatch(db);
   const budgetCollectionRef = collection(db, BUDGET_COLLECTION);
   
-  // Query for items that were for the current month
-  const currentMonthItemsQuery = query(budgetCollectionRef, where('forNextMonth', '==', false));
-  const currentMonthItemsSnapshot = await getDocs(currentMonthItemsQuery);
+  const allItemsQuery = query(budgetCollectionRef);
+  const allItemsSnapshot = await getDocs(allItemsQuery);
   
-  currentMonthItemsSnapshot.forEach(doc => {
-      batch.delete(doc.ref);
-  });
-  
-  // Query for items that were for the next month
-  const nextMonthItemsQuery = query(budgetCollectionRef, where('forNextMonth', '==', true));
-  const nextMonthItemsSnapshot = await getDocs(nextMonthItemsQuery);
-
-  nextMonthItemsSnapshot.forEach(doc => {
-    batch.update(doc.ref, { forNextMonth: false, completed: false });
+  allItemsSnapshot.forEach(doc => {
+      const item = doc.data() as BudgetItem;
+      if (item.forNextMonth) {
+          // If it was for next month, it's now for the current month.
+          batch.update(doc.ref, { forNextMonth: false, completed: false });
+      } else {
+          // If it was for the current month, delete it.
+          batch.delete(doc.ref);
+      }
   });
 
   await batch.commit();
@@ -524,5 +522,3 @@ export async function syncDebtPaymentsToMonthlyBudget(): Promise<void> {
         }
     });
 }
-
-  
