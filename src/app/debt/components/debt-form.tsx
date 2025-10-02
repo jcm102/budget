@@ -25,8 +25,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Debt, DebtType } from '@/types';
-import { Separator } from './ui/separator';
-import { ScrollArea } from './ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.'),

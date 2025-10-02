@@ -19,7 +19,7 @@ import {
   limit
 } from 'firebase/firestore';
 import { addMonths, format } from 'date-fns';
-import { createAutomatedBackup } from './backup-service';
+import { createAutomatedBackup } from '@/services/backup-service';
 
 const DEBT_COLLECTION = 'debts';
 

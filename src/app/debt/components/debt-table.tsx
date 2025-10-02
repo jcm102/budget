@@ -43,11 +43,11 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { DebtForm } from './debt-form';
-import { useDebt } from '@/hooks/use-debt';
-import { Skeleton } from './ui/skeleton';
+import { useDebt } from '../hooks/use-debt';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { buttonVariants } from './ui/button';
-import { Checkbox } from './ui/checkbox';
+import { buttonVariants } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 
 
 export type ColumnVisibility = {

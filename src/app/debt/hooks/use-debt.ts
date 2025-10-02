@@ -3,8 +3,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Debt } from '@/types';
-import { useToast } from './use-toast';
-import * as DebtService from '@/services/debt-service';
+import { useToast } from '@/hooks/use-toast';
+import * as DebtService from '../services/debt-service';
 
 type DebtView = 'current' | 'next';
 

@@ -3,9 +3,9 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { DebtTable } from '@/components/debt-table';
+import { DebtTable } from '@/app/debt/components/debt-table';
 import { ArrowLeft, Printer, RotateCcw, View, CalendarClock } from 'lucide-react';
-import { useDebt } from '@/hooks/use-debt';
+import { useDebt } from '@/app/debt/hooks/use-debt';
 import { useState } from 'react';
 import {
   AlertDialog,
@@ -29,8 +29,8 @@ import {
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { ColumnVisibility } from '@/components/debt-table';
-import { DebtSnowballCalculator } from '@/components/debt-snowball-calculator';
+import type { ColumnVisibility } from '@/app/debt/components/debt-table';
+import { DebtSnowballCalculator } from '@/app/debt/components/debt-snowball-calculator';
 
 export default function DebtPage() {
   const { debts, addDebt, updateDebt, deleteDebt, resetDebtValues, cycleToNextMonth, updateDebtOrder, toggleDebtPaid, isLoading } = useDebt();
