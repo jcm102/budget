@@ -79,111 +79,109 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [totalMinimumPayment]);
   
-  const calculateSchedule = () => {
-    setError(null);
+  useEffect(() => {
+    const calculateSchedule = () => {
+        setError(null);
 
-    if (debouncedTotalMonthlyPayment < totalMinimumPayment) {
-        setError(`Total monthly payment must be at least the sum of minimum payments (${formatCurrency(totalMinimumPayment)}).`);
-        setSchedule([]);
-        return;
-    }
-    
-    let currentDebts = debts
-        .filter(d => (d.nextBalance || 0) > 0)
-        .map(d => ({ 
-            id: d.id, 
-            name: d.name,
-            balance: d.nextBalance || 0, // Always use nextBalance for calculation
-            interestRate: d.interestRate / 100, // Convert to decimal for calculation
-            minimumPayment: d.nextMinimumPayment || 0 // Always use nextMinimumPayment
-        }));
-
-    if (currentDebts.length === 0) {
-        setSchedule([]); // Clear schedule if no debts to calculate
-        return;
-    }
-    
-    // Apply one-time extra payment
-    if (debouncedExtraPayment > 0 && debouncedExtraPaymentTarget !== 'none') {
-        let targetDebt;
-        if (debouncedExtraPaymentTarget === 'highest_interest') {
-            targetDebt = [...currentDebts].sort((a,b) => b.interestRate - a.interestRate)[0];
-        } else {
-            targetDebt = currentDebts.find(d => d.id === debouncedExtraPaymentTarget);
+        if (debouncedTotalMonthlyPayment < totalMinimumPayment) {
+            setError(`Total monthly payment must be at least the sum of minimum payments (${formatCurrency(totalMinimumPayment)}).`);
+            setSchedule([]);
+            return;
         }
-
-        if (targetDebt) {
-            targetDebt.balance -= debouncedExtraPayment;
-        }
-    }
-
-
-    const newSchedule: ScheduleEntry[] = [];
-    let month = 0;
-    
-     while (currentDebts.some(d => d.balance > 0) && month < 360) { // Limit to 30 years
-        month++;
         
-        let paymentForMonth = debouncedTotalMonthlyPayment;
-        const monthlyPayments: Record<string, number> = {};
+        let currentDebts = debts
+            .filter(d => (d.nextBalance || 0) > 0)
+            .map(d => ({ 
+                id: d.id, 
+                name: d.name,
+                balance: d.nextBalance || 0, // Always use nextBalance for calculation
+                interestRate: d.interestRate / 100, // Convert to decimal for calculation
+                minimumPayment: d.nextMinimumPayment || 0 // Always use nextMinimumPayment
+            }));
 
-        // Apply interest to remaining balances
-        currentDebts.forEach(debt => {
-            const monthlyInterest = debt.balance * (debt.interestRate / 12);
-            debt.balance += monthlyInterest;
-        });
+        if (currentDebts.length === 0) {
+            setSchedule([]); // Clear schedule if no debts to calculate
+            return;
+        }
+        
+        // Apply one-time extra payment
+        if (debouncedExtraPayment > 0 && debouncedExtraPaymentTarget !== 'none') {
+            let targetDebt;
+            if (debouncedExtraPaymentTarget === 'highest_interest') {
+                targetDebt = [...currentDebts].sort((a,b) => b.interestRate - a.interestRate)[0];
+            } else {
+                targetDebt = currentDebts.find(d => d.id === debouncedExtraPaymentTarget);
+            }
 
-        // Pay minimums on all debts first
-        for (const debt of currentDebts) {
-             if (debt.balance > 0) {
-                const paymentAmount = Math.min(debt.minimumPayment, debt.balance);
-                monthlyPayments[debt.id] = (monthlyPayments[debt.id] || 0) + paymentAmount;
-                debt.balance -= paymentAmount;
-                paymentForMonth -= paymentAmount;
+            if (targetDebt) {
+                targetDebt.balance -= debouncedExtraPayment;
             }
         }
-        
-        // Sort by highest interest rate (avalanche method)
-        currentDebts.sort((a, b) => b.interestRate - a.interestRate);
 
-        // Apply extra payment to the highest interest rate debt
-        if (paymentForMonth > 0) {
+
+        const newSchedule: ScheduleEntry[] = [];
+        let month = 0;
+        
+         while (currentDebts.some(d => d.balance > 0) && month < 360) { // Limit to 30 years
+            month++;
+            
+            let paymentForMonth = debouncedTotalMonthlyPayment;
+            const monthlyPayments: Record<string, number> = {};
+
+            // Apply interest to remaining balances
+            currentDebts.forEach(debt => {
+                const monthlyInterest = debt.balance * (debt.interestRate / 12);
+                debt.balance += monthlyInterest;
+            });
+
+            // Pay minimums on all debts first
             for (const debt of currentDebts) {
-                if (debt.balance > 0) {
-                    const extraPaymentAmount = Math.min(paymentForMonth, debt.balance);
-                    monthlyPayments[debt.id] = (monthlyPayments[debt.id] || 0) + extraPaymentAmount;
-                    debt.balance -= extraPaymentAmount;
-                    paymentForMonth -= extraPaymentAmount;
-                    if (paymentForMonth <= 0.01) break; // Use a small epsilon
+                 if (debt.balance > 0) {
+                    const paymentAmount = Math.min(debt.minimumPayment, debt.balance);
+                    monthlyPayments[debt.id] = (monthlyPayments[debt.id] || 0) + paymentAmount;
+                    debt.balance -= paymentAmount;
+                    paymentForMonth -= paymentAmount;
                 }
             }
-        }
-        
-        const monthlyBalances: Record<string, number> = {};
-        let totalMonthPayment = 0;
-        debts.forEach(debt => {
-            const currentDebtState = currentDebts.find(d => d.id === debt.id);
-            monthlyBalances[debt.id] = currentDebtState ? Math.max(0, currentDebtState.balance) : 0;
-            totalMonthPayment += (monthlyPayments[debt.id] || 0);
-        });
+            
+            // Sort by highest interest rate (avalanche method)
+            currentDebts.sort((a, b) => b.interestRate - a.interestRate);
 
-        newSchedule.push({
-            month,
-            payments: monthlyPayments,
-            balances: monthlyBalances,
-            totalPaid: totalMonthPayment
-        });
-        
-        currentDebts = currentDebts.filter(d => d.balance > 0);
-    }
-    setSchedule(newSchedule);
-  };
-  
-  useEffect(() => {
-    // Automatically recalculate when debounced values change
+            // Apply extra payment to the highest interest rate debt
+            if (paymentForMonth > 0) {
+                for (const debt of currentDebts) {
+                    if (debt.balance > 0) {
+                        const extraPaymentAmount = Math.min(paymentForMonth, debt.balance);
+                        monthlyPayments[debt.id] = (monthlyPayments[debt.id] || 0) + extraPaymentAmount;
+                        debt.balance -= extraPaymentAmount;
+                        paymentForMonth -= extraPaymentAmount;
+                        if (paymentForMonth <= 0.01) break; // Use a small epsilon
+                    }
+                }
+            }
+            
+            const monthlyBalances: Record<string, number> = {};
+            let totalMonthPayment = 0;
+            debts.forEach(debt => {
+                const currentDebtState = currentDebts.find(d => d.id === debt.id);
+                monthlyBalances[debt.id] = currentDebtState ? Math.max(0, currentDebtState.balance) : 0;
+                totalMonthPayment += (monthlyPayments[debt.id] || 0);
+            });
+
+            newSchedule.push({
+                month,
+                payments: monthlyPayments,
+                balances: monthlyBalances,
+                totalPaid: totalMonthPayment
+            });
+            
+            currentDebts = currentDebts.filter(d => d.balance > 0);
+        }
+        setSchedule(newSchedule);
+    };
+
     calculateSchedule();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedTotalMonthlyPayment, debouncedExtraPayment, debouncedExtraPaymentTarget, debts]);
+  }, [debouncedTotalMonthlyPayment, debouncedExtraPayment, debouncedExtraPaymentTarget, debts, totalMinimumPayment]);
   
   const handleApplySchedule = async () => {
     if (schedule.length === 0) {
@@ -338,3 +336,6 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
   );
 }
 
+
+
+    
