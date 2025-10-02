@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -25,7 +26,7 @@ import {
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useMonthlyBudget } from '@/app/monthly-budget/hooks/use-monthly-budget';
 import type { SubscriptionItem, AutoShipItem, Category } from '@/types';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const formSchema = z.object({
   categoryId: z.string().min(1, 'Please select a budget category.'),
