@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, RefreshCw, Printer, ChevronsUpDown, Banknote, Wallet, Clock, ArrowRightLeft, Calendar } from 'lucide-react';
-import { useBudget } from '@/hooks/use-budget';
+import { useBudget } from '@/app/budget/hooks/use-budget';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import {
@@ -23,11 +23,11 @@ import { buttonVariants } from '@/components/ui/button';
 import { PaymentCalendar } from '@/components/payment-calendar';
 import { useDebt } from '@/app/debt/hooks/use-debt';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { IncomeTable } from '@/components/income-table';
-import { PaPaymentsTable } from '@/components/pa-payments-table';
-import { TransfersTable } from '@/components/transfers-table';
+import { IncomeTable } from '@/app/budget/components/income-table';
+import { PaPaymentsTable } from '@/app/budget/components/pa-payments-table';
+import { TransfersTable } from '@/app/budget/components/transfers-table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DebtPaymentsTable } from '@/components/debt-payments-table';
+import { DebtPaymentsTable } from '@/app/budget/components/debt-payments-table';
 
 
 export default function BudgetPage() {
