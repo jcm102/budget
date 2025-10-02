@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Banknote, CreditCard, Home, Lightbulb, PiggyBank, Settings, Users, Wallet, Briefcase, LayoutGrid, Landmark, Calculator, TrendingUp } from 'lucide-react';
+import { Banknote, CreditCard, Home, Lightbulb, PiggyBank, Settings, Users, Wallet, Briefcase, LayoutGrid, Landmark, Calculator, TrendingUp, FileClock } from 'lucide-react';
 import {
   SidebarContent,
   SidebarMenu,
@@ -49,6 +49,14 @@ export function AppNav() {
               </Link>
             </SidebarMenuItem>
           ))}
+            <SidebarMenuItem>
+              <Link href="/backup-viewer">
+                <SidebarMenuButton isActive={pathname === '/backup-viewer'} tooltip="Backup Viewer">
+                  <FileClock />
+                  <span className="text-destructive">Backup Viewer</span>
+                </SidebarMenuButton>
+              </Link>
+            </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter className="flex-col !items-stretch gap-2">
