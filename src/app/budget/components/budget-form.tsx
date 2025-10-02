@@ -33,16 +33,16 @@ import {
 import type { BudgetItem, BudgetItemType, BudgetItemFrequency, Category, MonthlyBudgetItem } from '@/types';
 import { useIncomeCategories } from '@/hooks/use-income-categories';
 import { useAccountDetails } from '@/hooks/use-transferees';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useGoals } from '@/app/savings/hooks/use-goals';
 import { useDebt } from '@/app/debt/hooks/use-debt';
 import * as GoalService from '@/services/goal-service';
 import * as DebtService from '@/app/debt/services/debt-service';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { Label } from './ui/label';
-import { RadioGroup, RadioGroupItem } from './ui/radio-group';
-import { Switch } from './ui/switch';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
 import { useMonthlyBudget } from '@/app/monthly-budget/hooks/use-monthly-budget';
 
 type CategoryWithChildren = Category & { children: CategoryWithChildren[] };

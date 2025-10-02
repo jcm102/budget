@@ -1,7 +1,8 @@
+
 import { getAccountDetails, getTransactionsForAccount } from '@/app/monthly-budget/services/monthly-budget-service';
 import { getAccounts } from '@/services/account-details-service';
 import { getCategories } from '@/services/budget-category-service';
-import { AccountClientPage } from '@/components/account-client-page';
+import { AccountClientPage } from '@/app/accounts/components/account-client-page';
 import { notFound } from 'next/navigation';
 
 export default async function AccountDetailPage({ params }: { params: { accountId: string } }) {

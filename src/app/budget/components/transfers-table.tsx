@@ -27,7 +27,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { BudgetForm } from '@/components/budget-form';
+import { BudgetForm } from '@/app/budget/components/budget-form';
 import { useBudget } from '@/app/budget/hooks/use-budget';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
