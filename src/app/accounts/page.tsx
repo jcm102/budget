@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { useAccountDetails } from '@/hooks/use-transferees';
-import { useDebt } from '@/hooks/use-debt';
+import { useDebt } from '@/app/debt/hooks/use-debt';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMemo } from 'react';

@@ -21,7 +21,7 @@ import {
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
 import { PaymentCalendar } from '@/components/payment-calendar';
-import { useDebt } from '@/hooks/use-debt';
+import { useDebt } from '@/app/debt/hooks/use-debt';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { IncomeTable } from '@/components/income-table';
 import { PaPaymentsTable } from '@/components/pa-payments-table';

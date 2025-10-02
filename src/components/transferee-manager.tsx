@@ -22,7 +22,7 @@ import {
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
 import { Skeleton } from './ui/skeleton';
-import { useDebt } from '@/hooks/use-debt';
+import { useDebt } from '@/app/debt/hooks/use-debt';
 import {
   Select,
   SelectContent,
@@ -235,4 +235,3 @@ export function AccountDetailsManager() {
     </Card>
   );
 }
-
