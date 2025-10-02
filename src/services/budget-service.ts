@@ -398,62 +398,59 @@ export async function cycleBudgetItems(): Promise<void> {
   const batch = writeBatch(db);
   const budgetCollectionRef = collection(db, BUDGET_COLLECTION);
   
-  const allItemsQuery = query(budgetCollectionRef);
-  const allItemsSnapshot = await getDocs(allItemsQuery);
+  // Find all items that are NOT forNextMonth and delete them
+  const currentMonthQuery = query(budgetCollectionRef, where('forNextMonth', '!=', true));
+  const currentMonthSnapshot = await getDocs(currentMonthQuery);
+  currentMonthSnapshot.forEach(doc => {
+      batch.delete(doc.ref);
+  });
   
-  allItemsSnapshot.forEach(doc => {
-      const item = doc.data() as BudgetItem;
-      if (item.forNextMonth) {
-          // If it was for next month, it's now for the current month.
-          batch.update(doc.ref, { forNextMonth: false, completed: false });
-      } else {
-          // If it was for the current month, delete it.
-          batch.delete(doc.ref);
-      }
+  // Find all items that ARE forNextMonth and update them
+  const nextMonthQuery = query(budgetCollectionRef, where('forNextMonth', '==', true));
+  const nextMonthSnapshot = await getDocs(nextMonthQuery);
+  nextMonthSnapshot.forEach(doc => {
+      batch.update(doc.ref, { forNextMonth: false, completed: false });
   });
 
   await batch.commit();
 }
   
 export async function syncDebtPaymentsFromWorksheet(forNextMonth: boolean): Promise<void> {
-    const batch = writeBatch(db);
-    const debtCollection = collection(db, DEBT_COLLECTION);
-    
-    // 1. Clear existing debt payments for the target month
-    const clearQuery = query(
-        collection(db, BUDGET_COLLECTION),
-        where('type', '==', 'Debt Payments'),
-        where('forNextMonth', '==', forNextMonth)
-    );
-    const clearSnapshot = await getDocs(clearQuery);
-    clearSnapshot.forEach(doc => batch.delete(doc.ref));
+    await runTransaction(db, async (transaction) => {
+        // 1. Fetch existing debt payments to delete
+        const clearQuery = query(
+            collection(db, BUDGET_COLLECTION),
+            where('type', '==', 'Debt Payments'),
+            where('forNextMonth', '==', forNextMonth)
+        );
+        const clearSnapshot = await getDocs(clearQuery);
+        clearSnapshot.forEach(doc => transaction.delete(doc.ref));
 
-    // 2. Fetch all debts
-    const debtsSnapshot = await getDocs(query(debtCollection, orderBy('order')));
-    
-    const allDebts = debtsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Debt));
+        // 2. Fetch all debts from the worksheet
+        const debtCollection = collection(db, DEBT_COLLECTION);
+        const debtsSnapshot = await getDocs(query(debtCollection, orderBy('order')));
+        const allDebts = debtsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Debt));
 
-    // 3. Create new budget items from debts
-    for (const debt of allDebts) {
-        const amount = forNextMonth ? debt.nextMinimumPayment : debt.plannedPayment;
+        // 3. Create new budget items from the worksheet debts
+        for (const debt of allDebts) {
+            const amount = forNextMonth ? debt.nextMinimumPayment : debt.plannedPayment;
 
-        if (amount && amount > 0) {
-            const newItem: Omit<BudgetItem, 'id'> = {
-                type: 'Debt Payments',
-                category: 'N/A',
-                description: debt.name,
-                amount: amount,
-                date: forNextMonth ? debt.nextDueDate || new Date().toISOString() : debt.dueDate,
-                frequency: 'One-Time',
-                completed: false,
-                forNextMonth: forNextMonth,
-            };
-            const newDocRef = doc(collection(db, BUDGET_COLLECTION));
-            batch.set(newDocRef, newItem);
+            if (amount && amount > 0) {
+                const newItem: Omit<BudgetItem, 'id'> = {
+                    type: 'Debt Payments',
+                    category: 'N/A',
+                    description: debt.name,
+                    amount: amount,
+                    date: forNextMonth ? debt.nextDueDate || new Date().toISOString() : debt.dueDate,
+                    frequency: 'One-Time',
+                    completed: false,
+                    forNextMonth: forNextMonth,
+                };
+                const newDocRef = doc(collection(db, BUDGET_COLLECTION));
+                transaction.set(newDocRef, newItem);
+            }
         }
-    }
-
-    await batch.commit();
+    });
 }
 
 
