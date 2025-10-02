@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { DatePicker } from '@/components/date-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getTransactionsByDateRange } from '@/services/monthly-budget-service';
+import { getTransactionsByDateRange } from '@/app/monthly-budget/services/monthly-budget-service';
 import { updateCreditCardReportLastRunDate, getCreditCardReportLastRunDate } from '@/services/settings-service';
 import type { Transaction, AccountDetails } from '@/types';
 import { useAccountDetails } from '@/hooks/use-transferees';

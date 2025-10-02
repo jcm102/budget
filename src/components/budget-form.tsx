@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -35,7 +34,7 @@ import type { BudgetItem, BudgetItemType, BudgetItemFrequency, Category, Monthly
 import { useIncomeCategories } from '@/hooks/use-income-categories';
 import { useAccountDetails } from '@/hooks/use-transferees';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { useGoals } from '@/hooks/use-goals';
+import { useGoals } from '@/app/savings/hooks/use-goals';
 import { useDebt } from '@/app/debt/hooks/use-debt';
 import * as GoalService from '@/services/goal-service';
 import * as DebtService from '@/app/debt/services/debt-service';
@@ -44,7 +43,7 @@ import { Loader2 } from 'lucide-react';
 import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Switch } from './ui/switch';
-import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
+import { useMonthlyBudget } from '@/app/monthly-budget/hooks/use-monthly-budget';
 
 type CategoryWithChildren = Category & { children: CategoryWithChildren[] };
 
