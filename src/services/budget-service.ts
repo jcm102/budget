@@ -416,25 +416,30 @@ export async function cycleBudgetItems(): Promise<void> {
 }
   
 export async function syncDebtPaymentsFromWorksheet(forNextMonth: boolean): Promise<void> {
+    // 1. Fetch IDs of existing debt payments to delete
+    const clearQuery = query(
+        collection(db, BUDGET_COLLECTION),
+        where('type', '==', 'Debt Payments'),
+        where('forNextMonth', '==', forNextMonth)
+    );
+    const clearSnapshot = await getDocs(clearQuery);
+    const idsToDelete = clearSnapshot.docs.map(doc => doc.id);
+
+    // 2. Fetch all debts from the worksheet
+    const debtCollection = collection(db, DEBT_COLLECTION);
+    const debtsSnapshot = await getDocs(query(debtCollection, orderBy('order')));
+    const allDebts = debtsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Debt));
+
+    // 3. Use a transaction to delete old and create new
     await runTransaction(db, async (transaction) => {
-        // 1. Fetch existing debt payments to delete
-        const clearQuery = query(
-            collection(db, BUDGET_COLLECTION),
-            where('type', '==', 'Debt Payments'),
-            where('forNextMonth', '==', forNextMonth)
-        );
-        const clearSnapshot = await getDocs(clearQuery);
-        clearSnapshot.forEach(doc => transaction.delete(doc.ref));
+        // Delete existing items
+        idsToDelete.forEach(id => {
+            transaction.delete(doc(db, BUDGET_COLLECTION, id));
+        });
 
-        // 2. Fetch all debts from the worksheet
-        const debtCollection = collection(db, DEBT_COLLECTION);
-        const debtsSnapshot = await getDocs(query(debtCollection, orderBy('order')));
-        const allDebts = debtsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Debt));
-
-        // 3. Create new budget items from the worksheet debts
+        // Create new items from the worksheet
         for (const debt of allDebts) {
             const amount = forNextMonth ? debt.nextMinimumPayment : debt.plannedPayment;
-
             if (amount && amount > 0) {
                 const newItem: Omit<BudgetItem, 'id'> = {
                     type: 'Debt Payments',
@@ -451,6 +456,10 @@ export async function syncDebtPaymentsFromWorksheet(forNextMonth: boolean): Prom
             }
         }
     });
+
+    if (forNextMonth) {
+        await syncDebtPaymentsToMonthlyBudget();
+    }
 }
 
 
