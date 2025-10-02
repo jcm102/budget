@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -8,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
+import { Separator } from './ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Calculator, Loader2 } from 'lucide-react';
@@ -17,8 +15,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { useDebt } from '@/hooks/use-debt';
 import { useToast } from '@/hooks/use-toast';
 import * as DebtService from '@/services/debt-service';
-import { useDebounce } from '@/hooks/use-debounce';
-
 
 interface ScheduleEntry {
   month: number;
@@ -31,8 +27,8 @@ const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 };
 
-export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
-  const { fetchDebts } = useDebt();
+export function DebtSnowballCalculator({ debts: initialDebts }: { debts: Debt[] }) {
+  const { debts: liveDebts, fetchDebts } = useDebt();
   const [totalMonthlyPayment, setTotalMonthlyPayment] = useState<number>(0);
   const [extraPayment, setExtraPayment] = useState<number>(0);
   const [extraPaymentTarget, setExtraPaymentTarget] = useState<string>('highest_interest');
@@ -41,22 +37,22 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
   const [isApplying, setIsApplying] = useState(false);
   const { toast } = useToast();
 
-  const debouncedTotalMonthlyPayment = useDebounce(totalMonthlyPayment, 500);
-  const debouncedExtraPayment = useDebounce(extraPayment, 500);
-  const debouncedExtraPaymentTarget = useDebounce(extraPaymentTarget, 500);
+  const debts = useMemo(() => liveDebts.length > 0 ? liveDebts : initialDebts, [liveDebts, initialDebts]);
 
-  // Load state from localStorage on mount
   useEffect(() => {
     const savedState = localStorage.getItem('debtCalculatorState');
     if (savedState) {
-      const { totalMonthlyPayment, extraPayment, extraPaymentTarget } = JSON.parse(savedState);
-      setTotalMonthlyPayment(totalMonthlyPayment || 0);
-      setExtraPayment(extraPayment || 0);
-      setExtraPaymentTarget(extraPaymentTarget || 'highest_interest');
+      try {
+        const { totalMonthlyPayment, extraPayment, extraPaymentTarget } = JSON.parse(savedState);
+        setTotalMonthlyPayment(totalMonthlyPayment || 0);
+        setExtraPayment(extraPayment || 0);
+        setExtraPaymentTarget(extraPaymentTarget || 'highest_interest');
+      } catch (e) {
+        console.error("Failed to parse debt calculator state from localStorage", e);
+      }
     }
   }, []);
 
-  // Save state to localStorage on change
   useEffect(() => {
     const stateToSave = {
       totalMonthlyPayment,
@@ -76,14 +72,13 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
     if (totalMinimumPayment > 0 && totalMonthlyPayment < totalMinimumPayment) {
       setTotalMonthlyPayment(totalMinimumPayment);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totalMinimumPayment]);
+  }, [totalMinimumPayment, totalMonthlyPayment]);
   
   useEffect(() => {
     const calculateSchedule = () => {
         setError(null);
 
-        if (debouncedTotalMonthlyPayment < totalMinimumPayment) {
+        if (totalMonthlyPayment < totalMinimumPayment) {
             setError(`Total monthly payment must be at least the sum of minimum payments (${formatCurrency(totalMinimumPayment)}).`);
             setSchedule([]);
             return;
@@ -94,27 +89,26 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
             .map(d => ({ 
                 id: d.id, 
                 name: d.name,
-                balance: d.nextBalance || 0, // Always use nextBalance for calculation
-                interestRate: d.interestRate / 100, // Convert to decimal for calculation
-                minimumPayment: d.nextMinimumPayment || 0 // Always use nextMinimumPayment
+                balance: d.nextBalance || 0,
+                interestRate: d.interestRate / 100, 
+                minimumPayment: d.nextMinimumPayment || 0 
             }));
 
         if (currentDebts.length === 0) {
-            setSchedule([]); // Clear schedule if no debts to calculate
+            setSchedule([]); 
             return;
         }
         
-        // Apply one-time extra payment
-        if (debouncedExtraPayment > 0 && debouncedExtraPaymentTarget !== 'none') {
+        if (extraPayment > 0 && extraPaymentTarget !== 'none') {
             let targetDebt;
-            if (debouncedExtraPaymentTarget === 'highest_interest') {
+            if (extraPaymentTarget === 'highest_interest') {
                 targetDebt = [...currentDebts].sort((a,b) => b.interestRate - a.interestRate)[0];
             } else {
-                targetDebt = currentDebts.find(d => d.id === debouncedExtraPaymentTarget);
+                targetDebt = currentDebts.find(d => d.id === extraPaymentTarget);
             }
 
             if (targetDebt) {
-                targetDebt.balance -= debouncedExtraPayment;
+                targetDebt.balance -= extraPayment;
             }
         }
 
@@ -122,19 +116,17 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
         const newSchedule: ScheduleEntry[] = [];
         let month = 0;
         
-         while (currentDebts.some(d => d.balance > 0) && month < 360) { // Limit to 30 years
+         while (currentDebts.some(d => d.balance > 0) && month < 360) {
             month++;
             
-            let paymentForMonth = debouncedTotalMonthlyPayment;
+            let paymentForMonth = totalMonthlyPayment;
             const monthlyPayments: Record<string, number> = {};
 
-            // Apply interest to remaining balances
             currentDebts.forEach(debt => {
                 const monthlyInterest = debt.balance * (debt.interestRate / 12);
                 debt.balance += monthlyInterest;
             });
 
-            // Pay minimums on all debts first
             for (const debt of currentDebts) {
                  if (debt.balance > 0) {
                     const paymentAmount = Math.min(debt.minimumPayment, debt.balance);
@@ -144,10 +136,8 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
                 }
             }
             
-            // Sort by highest interest rate (avalanche method)
             currentDebts.sort((a, b) => b.interestRate - a.interestRate);
 
-            // Apply extra payment to the highest interest rate debt
             if (paymentForMonth > 0) {
                 for (const debt of currentDebts) {
                     if (debt.balance > 0) {
@@ -155,7 +145,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
                         monthlyPayments[debt.id] = (monthlyPayments[debt.id] || 0) + extraPaymentAmount;
                         debt.balance -= extraPaymentAmount;
                         paymentForMonth -= extraPaymentAmount;
-                        if (paymentForMonth <= 0.01) break; // Use a small epsilon
+                        if (paymentForMonth <= 0.01) break;
                     }
                 }
             }
@@ -181,7 +171,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
     };
 
     calculateSchedule();
-  }, [debouncedTotalMonthlyPayment, debouncedExtraPayment, debouncedExtraPaymentTarget, debts, totalMinimumPayment]);
+  }, [totalMonthlyPayment, extraPayment, extraPaymentTarget, debts, totalMinimumPayment]);
   
   const handleApplySchedule = async () => {
     if (schedule.length === 0) {
@@ -196,7 +186,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
     try {
       const firstMonthPayments = schedule[0].payments;
       await DebtService.applyPaymentsToBudget(firstMonthPayments);
-      await fetchDebts(); // Refetch debts to update the table UI
+      await fetchDebts();
       toast({
         title: "Success!",
         description: "Next month's minimum payments have been updated on the Debt Worksheet.",
@@ -335,7 +325,3 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
     </Card>
   );
 }
-
-
-
-    
