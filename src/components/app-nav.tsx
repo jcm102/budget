@@ -49,14 +49,6 @@ export function AppNav() {
               </Link>
             </SidebarMenuItem>
           ))}
-            <SidebarMenuItem>
-              <Link href="/backup-viewer">
-                <SidebarMenuButton isActive={pathname === '/backup-viewer'} tooltip="Backup Viewer">
-                  <FileClock />
-                  <span className="text-destructive">Backup Viewer</span>
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter className="flex-col !items-stretch gap-2">
