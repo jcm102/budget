@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Account } from '@/types';
 import { useToast } from './use-toast';
 import * as AccountService from '@/services/account-service';
-import { useSelectedAccount } from './use-selected-account';
+import { useSelectedAccount } from '@/hooks/use-selected-account';
 
 export function useAccounts() {
   const [accounts, setAccounts] = useState<Account[]>([]);

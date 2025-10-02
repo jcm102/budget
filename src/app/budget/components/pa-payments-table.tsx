@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -32,7 +31,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { BudgetForm } from '@/app/budget/components/budget-form';
+import { BudgetForm } from './budget-form';
 import { useBudget } from '@/app/budget/hooks/use-budget';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
