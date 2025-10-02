@@ -396,19 +396,19 @@ export async function deleteBudgetItem(id: string): Promise<void> {
 
 export async function cycleBudgetItems(): Promise<void> {
   const batch = writeBatch(db);
-  const budgetCollectionRef = collection(db, BUDGET_COLLECTION);
   
-  // Find all items that are NOT forNextMonth and delete them
-  const currentMonthQuery = query(budgetCollectionRef, where('forNextMonth', '!=', true));
+  // Query for items that are for the current month (or have no forNextMonth flag, for backward compatibility)
+  const currentMonthQuery = query(collection(db, BUDGET_COLLECTION), where('forNextMonth', '!=', true));
   const currentMonthSnapshot = await getDocs(currentMonthQuery);
   currentMonthSnapshot.forEach(doc => {
       batch.delete(doc.ref);
   });
   
-  // Find all items that ARE forNextMonth and update them
-  const nextMonthQuery = query(budgetCollectionRef, where('forNextMonth', '==', true));
+  // Query for items planned for next month
+  const nextMonthQuery = query(collection(db, BUDGET_COLLECTION), where('forNextMonth', '==', true));
   const nextMonthSnapshot = await getDocs(nextMonthQuery);
   nextMonthSnapshot.forEach(doc => {
+      // Update them to be for the current month now
       batch.update(doc.ref, { forNextMonth: false, completed: false });
   });
 
@@ -416,28 +416,26 @@ export async function cycleBudgetItems(): Promise<void> {
 }
   
 export async function syncDebtPaymentsFromWorksheet(forNextMonth: boolean): Promise<void> {
-    // 1. Fetch IDs of existing debt payments to delete
-    const clearQuery = query(
-        collection(db, BUDGET_COLLECTION),
-        where('type', '==', 'Debt Payments'),
-        where('forNextMonth', '==', forNextMonth)
-    );
-    const clearSnapshot = await getDocs(clearQuery);
-    const idsToDelete = clearSnapshot.docs.map(doc => doc.id);
-
-    // 2. Fetch all debts from the worksheet
-    const debtCollection = collection(db, DEBT_COLLECTION);
-    const debtsSnapshot = await getDocs(query(debtCollection, orderBy('order')));
-    const allDebts = debtsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Debt));
-
-    // 3. Use a transaction to delete old and create new
     await runTransaction(db, async (transaction) => {
-        // Delete existing items
-        idsToDelete.forEach(id => {
-            transaction.delete(doc(db, BUDGET_COLLECTION, id));
+        // 1. Fetch existing debt payments for the target month
+        const clearQuery = query(
+            collection(db, BUDGET_COLLECTION),
+            where('type', '==', 'Debt Payments'),
+            where('forNextMonth', '==', forNextMonth)
+        );
+        const clearSnapshot = await getDocs(clearQuery);
+
+        // 2. Fetch all debts from the worksheet
+        const debtCollection = collection(db, DEBT_COLLECTION);
+        const debtsSnapshot = await getDocs(query(debtCollection, orderBy('order')));
+        const allDebts = debtsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Debt));
+
+        // 3. Delete old payments
+        clearSnapshot.forEach(doc => {
+            transaction.delete(doc.ref);
         });
 
-        // Create new items from the worksheet
+        // 4. Create new payments
         for (const debt of allDebts) {
             const amount = forNextMonth ? debt.nextMinimumPayment : debt.plannedPayment;
             if (amount && amount > 0) {
