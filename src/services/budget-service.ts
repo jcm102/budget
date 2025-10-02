@@ -521,7 +521,7 @@ export async function syncDebtPaymentsToMonthlyBudget(): Promise<void> {
                 transaction.set(newDocRef, data);
             } else {
                 const docRef = snapshot.docs[0].ref;
-                transaction.update(docRef, data);
+                transaction.set(docRef, data);
             }
         }
     });
