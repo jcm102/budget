@@ -1,5 +1,4 @@
-
-import { getAccountDetails, getTransactionsForAccount } from '@/services/monthly-budget-service';
+import { getAccountDetails, getTransactionsForAccount } from '@/app/monthly-budget/services/monthly-budget-service';
 import { getAccounts } from '@/services/account-details-service';
 import { getCategories } from '@/services/budget-category-service';
 import { AccountClientPage } from '@/components/account-client-page';

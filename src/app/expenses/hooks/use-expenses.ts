@@ -3,9 +3,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Expense, MileageLog, Honorarium } from '@/types';
-import { useToast } from './use-toast';
-import * as ExpenseService from '@/services/expense-service';
-import * as MileageService from '@/services/mileage-service';
+import { useToast } from '@/hooks/use-toast';
+import * as ExpenseService from '../services/expense-service';
+import * as MileageService from '../services/mileage-service';
 import { format } from 'date-fns';
 
 export function useExpenses() {

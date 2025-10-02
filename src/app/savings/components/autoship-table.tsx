@@ -28,14 +28,14 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { AutoShipForm } from './autoship-form';
-import { useAutoShip } from '@/hooks/use-autoship';
-import { Skeleton } from './ui/skeleton';
+import { useAutoShip } from '../hooks/use-autoship';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { buttonVariants } from './ui/button';
-import { Badge } from './ui/badge';
+import { buttonVariants } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { useSavings } from '@/hooks/use-savings';
-import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
+import { useSavings } from '../hooks/use-savings';
+import { useMonthlyBudget } from '@/app/monthly-budget/hooks/use-monthly-budget';
 
 
 type SortConfig = {

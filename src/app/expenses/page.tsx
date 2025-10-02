@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -6,12 +5,12 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Landmark, HandCoins, DollarSign, FileClock, Archive, FileText, Route, Car, FileSpreadsheet, CalendarClock } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useExpenses } from '@/hooks/use-expenses';
-import { useExpenseFunds } from '@/hooks/use-expense-funds';
-import { ExpenseTable } from '@/components/expense-table';
-import { MileageTable } from '@/components/mileage-table';
-import { HonorariumTable } from '@/components/honorarium-table';
-import * as ExpenseService from '@/services/expense-service';
+import { useExpenses } from './hooks/use-expenses';
+import { useExpenseFunds } from './hooks/use-expense-funds';
+import { ExpenseTable } from './components/expense-table';
+import { MileageTable } from './components/mileage-table';
+import { HonorariumTable } from './components/honorarium-table';
+import * as ExpenseService from './services/expense-service';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import * as XLSX from 'xlsx';

@@ -1,17 +1,16 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, PlusCircle, Smartphone, Copy, CalendarClock } from 'lucide-react';
-import { BudgetTable } from '@/components/budget-table';
-import { TransactionForm } from '@/components/transaction-form';
-import { useTransactions } from '@/hooks/use-transactions';
-import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
-import { BudgetBreakdownForm } from '@/components/budget-breakdown-form';
+import { BudgetTable } from './components/budget-table';
+import { TransactionForm } from './components/transaction-form';
+import { useTransactions } from './hooks/use-transactions';
+import { useMonthlyBudget } from './hooks/use-monthly-budget';
+import { BudgetBreakdownForm } from './components/budget-breakdown-form';
 import type { Category, MonthlyBudgetItem, BudgetSubItem, Transaction } from '@/types';
-import { useBudget } from '@/hooks/use-budget';
+import { useBudget } from '@/app/budget/hooks/use-budget';
 import { format, addMonths } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {

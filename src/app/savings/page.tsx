@@ -4,12 +4,12 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { SavingsTable } from '@/components/savings-table';
+import { SavingsTable } from './components/savings-table';
 import { ArrowLeft, Printer, PiggyBank, Landmark, Truck, Repeat, Star, ChevronsUpDown, View } from 'lucide-react';
-import { GoalTable } from '@/components/goal-table';
-import { AutoShipTable } from '@/components/autoship-table';
-import { SubscriptionTable } from '@/components/subscription-table';
-import { AccountLedgerTable } from '@/components/account-ledger-table';
+import { GoalTable } from './components/goal-table';
+import { AutoShipTable } from './components/autoship-table';
+import { SubscriptionTable } from './components/subscription-table';
+import { AccountLedgerTable } from './components/account-ledger-table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAccounts } from '@/hooks/use-accounts';
 import { useSelectedAccount } from '@/hooks/use-selected-account';
@@ -25,8 +25,8 @@ import {
 import { useLedgerSettings } from '@/hooks/use-ledger-settings';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { useSavings } from '@/hooks/use-savings';
-import { useGoals } from '@/hooks/use-goals';
+import { useSavings } from './hooks/use-savings';
+import { useGoals } from './hooks/use-goals';
 import type { SavingsItem } from '@/types';
 
 

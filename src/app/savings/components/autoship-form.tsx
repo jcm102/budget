@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/select';
 import type { AutoShipItem, AutoShipFrequency, Category } from '@/types';
 import { useAccounts } from '@/hooks/use-accounts';
-import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
+import { useMonthlyBudget } from '@/app/monthly-budget/hooks/use-monthly-budget';
 
 type CategoryWithChildren = Category & { children: CategoryWithChildren[] };
 

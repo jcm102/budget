@@ -1,11 +1,10 @@
-
 'use client';
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import { TransactionForm } from '@/components/transaction-form';
-import { useTransactions } from '@/hooks/use-transactions';
+import { TransactionForm } from '../components/transaction-form';
+import { useTransactions } from '../hooks/use-transactions';
 import { useAccountDetails } from '@/hooks/use-transferees';
 
 export default function AddTransactionPage() {

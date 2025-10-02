@@ -3,7 +3,7 @@
 
 import { useMemo } from 'react';
 import { format } from 'date-fns';
-import { useTransactions } from '@/hooks/use-transactions';
+import { useTransactions } from '../hooks/use-transactions';
 import { useBudgetCategories } from '@/hooks/use-budget-categories';
 import {
   Table,
@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Skeleton } from './ui/skeleton';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export function TransactionTable() {
   const { transactions, isLoading: isLoadingTransactions } = useTransactions();
@@ -62,7 +62,7 @@ export function TransactionTable() {
               <TableRow key={transaction.id}>
                 <TableCell>{format(new Date(transaction.date), 'PPP')}</TableCell>
                 <TableCell className="font-medium">{transaction.description}</TableCell>
-                <TableCell>{categoryMap[transaction.categoryId] || 'Uncategorized'}</TableCell>
+                <TableCell>{(transaction.splits && transaction.splits.length > 0 && categoryMap[transaction.splits[0].categoryId || '']) || 'Uncategorized'}</TableCell>
                 <TableCell className="text-right">{formatCurrency(transaction.amount)}</TableCell>
               </TableRow>
             ))

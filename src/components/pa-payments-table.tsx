@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -33,13 +31,13 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { BudgetForm } from './budget-form';
-import { useBudget } from '@/hooks/use-budget';
 import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
 import { Badge } from './ui/badge';
 import { Checkbox } from './ui/checkbox';
-import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
+import { useBudget } from '@/app/budget/hooks/use-budget';
+import { useMonthlyBudget } from '@/app/monthly-budget/hooks/use-monthly-budget';
 
 type SortConfig = {
     key: keyof BudgetItem;

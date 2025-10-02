@@ -1,11 +1,8 @@
-
-
 'use client';
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { format } from 'date-fns';
 import { Pencil, Save, X, ChevronDown, ArrowRightLeft, CornerDownRight, Copy } from 'lucide-react';
-import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
 import {
   Table,
   TableBody,
@@ -17,14 +14,15 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Skeleton } from './ui/skeleton';
-import { Progress } from './ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import type { Transaction, Category, MonthlyBudgetItem, BudgetSubItem } from '@/types';
-import { Separator } from './ui/separator';
+import { Separator } from '@/components/ui/separator';
 import { useAccountDetails } from '@/hooks/use-transferees';
 import { useToast } from '@/hooks/use-toast';
+import { useMonthlyBudget } from '../hooks/use-monthly-budget';
 
 type BudgetTableProps = {
     budgetItems: MonthlyBudgetItem[];

@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { AccountLedgerItem, Account } from '@/types';
-import { useToast } from './use-toast';
+import { useToast } from '@/hooks/use-toast';
 import * as AccountLedgerService from '@/services/account-ledger-service';
 import * as AccountService from '@/services/account-service';
 

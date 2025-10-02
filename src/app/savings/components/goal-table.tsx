@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -49,11 +50,11 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { GoalForm } from './goal-form';
-import { useGoals } from '@/hooks/use-goals';
-import { Skeleton } from './ui/skeleton';
+import { useGoals } from '../hooks/use-goals';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { buttonVariants } from './ui/button';
-import { Progress } from './ui/progress';
+import { buttonVariants } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 
 const transactionSchema = z.object({
   amount: z.coerce.number().min(0.01, 'Amount must be greater than zero.'),

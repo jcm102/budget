@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -26,8 +25,8 @@ import {
 import { Input } from '@/components/ui/input';
 import type { MonthlyBudgetItem, BudgetSubItem, Category } from '@/types';
 import { PlusCircle, Trash2 } from 'lucide-react';
-import { ScrollArea } from './ui/scroll-area';
-import { Separator } from './ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 
 const breakdownItemSchema = z.object({
   name: z.string().min(1, 'Name is required.'),

@@ -39,7 +39,7 @@ import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
+import { useMonthlyBudget } from '@/app/monthly-budget/hooks/use-monthly-budget';
 
 type SortConfig = {
     key: keyof BudgetItem;

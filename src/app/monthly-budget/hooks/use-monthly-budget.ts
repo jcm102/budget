@@ -1,14 +1,12 @@
-
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import type { MonthlyBudgetItem, Category, BudgetSubItem } from '@/types';
-import { useToast } from './use-toast';
-import * as MonthlyBudgetService from '@/services/monthly-budget-service';
+import { useToast } from '@/hooks/use-toast';
+import * as MonthlyBudgetService from '../services/monthly-budget-service';
 import * as BudgetCategoryService from '@/services/budget-category-service';
 import { format, subMonths } from 'date-fns';
-import { useBudget } from './use-budget';
+import { useBudget } from '@/app/budget/hooks/use-budget';
 
 export function useMonthlyBudget(month?: string) {
   const [budgetItems, setBudgetItems] = useState<MonthlyBudgetItem[]>([]);
@@ -136,5 +134,3 @@ export function useMonthlyBudget(month?: string) {
 
   return { budgetItems, categories, updateBudgetItem, updateBudgetItemWithBreakdown, isLoading, fetchBudget, copyCategoryFromPreviousMonth, cycleToNextMonth };
 }
-
-  

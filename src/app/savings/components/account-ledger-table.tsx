@@ -47,12 +47,12 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { AccountLedgerForm } from './account-ledger-form';
-import { useAccountLedger } from '@/hooks/use-account-ledger';
-import { Skeleton } from './ui/skeleton';
+import { useAccountLedger } from '../hooks/use-account-ledger';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { buttonVariants } from './ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { Pencil, Trash2, PlusCircle, ArrowUpDown, DollarSign, MinusCircle, Info } from 'lucide-react';
-import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 const transactionSchema = z.object({
   amount: z.coerce.number().min(0.01, 'Amount must be greater than zero.'),

@@ -50,16 +50,16 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { SavingsForm } from './savings-form';
-import { useSavings } from '@/hooks/use-savings';
-import { Skeleton } from './ui/skeleton';
+import { useSavings } from '../hooks/use-savings';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { buttonVariants } from './ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { Pencil, Trash2, PlusCircle, ArrowUpDown, DollarSign, MinusCircle, Info, Repeat } from 'lucide-react';
-import { Progress } from './ui/progress';
-import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
-import { Badge } from './ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Badge } from '@/components/ui/badge';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const transactionSchema = z.object({
   amount: z.coerce.number().min(0.01, 'Amount must be greater than zero.'),

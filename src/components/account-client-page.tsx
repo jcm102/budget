@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -7,12 +5,11 @@ import Link from 'next/link';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Pencil, Trash2 } from 'lucide-react';
-import { useTransactions } from '@/hooks/use-transactions';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { Transaction, AccountDetails, Category } from '@/types';
-import { TransactionForm } from '@/components/transaction-form';
+import { TransactionForm } from '@/app/monthly-budget/components/transaction-form';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +23,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
+import { useTransactions } from '@/app/monthly-budget/hooks/use-transactions';
 
 export function AccountClientPage({
   account,

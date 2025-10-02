@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -24,7 +23,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
+import { useMonthlyBudget } from '@/app/monthly-budget/hooks/use-monthly-budget';
 import type { SubscriptionItem, AutoShipItem, Category } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 
@@ -153,4 +152,3 @@ export function CreateSinkingFundDialog({ open, onOpenChange, item, itemType, on
     </Dialog>
   );
 }
-

@@ -1,10 +1,11 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import type { SubscriptionItem } from '@/types';
-import { useToast } from './use-toast';
+import { useToast } from '@/hooks/use-toast';
 import * as SubscriptionService from '@/services/subscription-service';
-import { useSelectedAccount } from './use-selected-account';
+import { useSelectedAccount } from '@/hooks/use-selected-account';
 import { useMonthlyBudget } from '@/app/monthly-budget/hooks/use-monthly-budget';
 
 export function useSubscriptions() {

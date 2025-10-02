@@ -28,14 +28,14 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { SubscriptionForm } from './subscription-form';
-import { useSubscriptions } from '@/hooks/use-subscriptions';
-import { Skeleton } from './ui/skeleton';
+import { useSubscriptions } from '../hooks/use-subscriptions';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { buttonVariants } from './ui/button';
-import { Badge } from './ui/badge';
-import { useSavings } from '@/hooks/use-savings';
+import { buttonVariants } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { useSavings } from '../hooks/use-savings';
 import { useToast } from '@/hooks/use-toast';
-import { useMonthlyBudget } from '@/hooks/use-monthly-budget';
+import { useMonthlyBudget } from '@/app/monthly-budget/hooks/use-monthly-budget';
 import { CreateSinkingFundDialog } from './create-sinking-fund-dialog';
 
 type SortableHeaderProps = {

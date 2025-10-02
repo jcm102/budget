@@ -18,7 +18,7 @@ import {
   orderBy,
   runTransaction,
 } from 'firebase/firestore';
-import { createAutomatedBackup } from './backup-service';
+import { createAutomatedBackup } from '@/services/backup-service';
 
 const EXPENSE_COLLECTION = 'expenses';
 const LEDGER_COLLECTION = 'account-ledger-items';
