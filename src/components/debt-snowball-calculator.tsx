@@ -89,7 +89,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
     }
     
     let currentDebts = debts
-        .filter(d => (d.nextBalance || d.balance) > 0)
+        .filter(d => (d.nextBalance || 0) > 0)
         .map(d => ({ 
             id: d.id, 
             name: d.name,
@@ -256,7 +256,7 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="highest_interest">Highest Interest Rate (Default)</SelectItem>
-                        {debts.filter(d => (d.nextBalance || d.balance) > 0).map(debt => (
+                        {debts.filter(d => (d.nextBalance || 0) > 0).map(debt => (
                             <SelectItem key={debt.id} value={debt.id}>{debt.name}</SelectItem>
                         ))}
                     </SelectContent>
@@ -337,3 +337,4 @@ export function DebtSnowballCalculator({ debts }: { debts: Debt[] }) {
     </Card>
   );
 }
+
