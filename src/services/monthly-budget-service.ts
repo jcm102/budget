@@ -21,6 +21,7 @@ import {
 } from 'firebase/firestore';
 import { getBudgetItems, cycleBudgetItems as cycleOverviewItems } from './budget-service';
 import { format, addMonths } from 'date-fns';
+import { createAutomatedBackup } from './backup-service';
 
 const BUDGET_ITEMS_COLLECTION = 'monthly-budget-items';
 const TRANSACTIONS_COLLECTION = 'transactions';
@@ -50,6 +51,7 @@ export async function updateBudgetItem(id: string, itemData: { budgeted: number,
 }
 
 export async function cycleToNextMonth(): Promise<void> {
+  await createAutomatedBackup('pre-monthly-budget-cycle');
   const today = new Date();
   const currentMonth = format(today, 'yyyy-MM');
   const nextMonth = format(addMonths(today, 1), 'yyyy-MM');

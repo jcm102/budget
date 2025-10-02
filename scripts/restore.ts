@@ -3,41 +3,92 @@
 
 import * as fs from 'fs';
 import { db } from '../src/lib/firebase';
-import { collection, doc, writeBatch, getDocs, query, where } from 'firebase/firestore';
+import { collection, doc, writeBatch, getDocs, getDoc } from 'firebase/firestore';
+import readline from 'readline';
 
-const backupFilePath = './backup.json';
+const backupsCollection = 'backups';
+
+async function listBackups() {
+  const backupCollectionRef = collection(db, backupsCollection);
+  const snapshot = await getDocs(backupCollectionRef);
+
+  if (snapshot.empty) {
+    console.log('No backups found.');
+    return [];
+  }
+
+  const backups = snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  }));
+
+  // Sort by createdAt date descending
+  backups.sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate());
+
+  console.log('Available backups:');
+  backups.slice(0, 10).forEach((backup, index) => {
+    console.log(`${index + 1}. ${backup.id} - ${new Date(backup.createdAt.toDate()).toLocaleString()} (${backup.reason})`);
+  });
+
+  return backups;
+}
 
 async function restoreData() {
-    console.log('Starting data restoration from backup.json...');
+  const backups = await listBackups();
+  if (backups.length === 0) {
+    process.exit(0);
+  }
 
-    if (!fs.existsSync(backupFilePath)) {
-        console.error(`Error: Backup file not found at ${backupFilePath}`);
-        console.error('Please make sure you have a valid backup.json file in the root directory.');
-        process.exit(1);
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  rl.question('Enter the number of the backup to restore (or press Enter to cancel): ', async (answer) => {
+    rl.close();
+
+    const choice = parseInt(answer, 10);
+    if (isNaN(choice) || choice < 1 || choice > backups.length) {
+      console.log('Invalid choice. Restoration cancelled.');
+      process.exit(0);
     }
 
-    const backupData: Record<string, any[]> = JSON.parse(fs.readFileSync(backupFilePath, 'utf-8'));
-    let totalDocsRestored = 0;
+    const selectedBackup = backups[choice - 1];
+    console.log(`\nRestoring from backup: ${selectedBackup.id}`);
 
+    const backupData = selectedBackup.data;
+    let totalDocsRestored = 0;
     const batch = writeBatch(db);
 
+    // Clear existing collections before restoring
+    console.log('Clearing existing data...');
+    for (const collectionName in backupData) {
+        if (Object.prototype.hasOwnProperty.call(backupData, collectionName)) {
+            const collectionRef = collection(db, collectionName);
+            const snapshot = await getDocs(collectionRef);
+            console.log(`- Deleting ${snapshot.size} documents from '${collectionName}'...`);
+            snapshot.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+        }
+    }
+    try {
+        await batch.commit();
+        console.log('Existing data cleared successfully.');
+    } catch(e) {
+        console.error("Error clearing data", e);
+        process.exit(1);
+    }
+    
+
+    // Restore from backup
+    const restoreBatch = writeBatch(db);
+    console.log('Starting data restoration...');
     for (const collectionName in backupData) {
         if (Object.prototype.hasOwnProperty.call(backupData, collectionName)) {
             const documents = backupData[collectionName];
             console.log(`- Restoring collection '${collectionName}' with ${documents.length} documents...`);
             
-            if (documents.length === 0) {
-                console.log(`  ...skipping empty collection.`);
-                continue;
-            }
-
-            // For safety, let's only restore 'monthly-budget-items' for now as that's what was lost.
-            // You can comment out this check to restore everything.
-            if (collectionName !== 'monthly-budget-items') {
-                console.log(`  ...skipping collection '${collectionName}' for safety. Edit the script to restore all collections.`);
-                continue;
-            }
-
             for (const docData of documents) {
                 const docId = docData.id;
                 if (!docId) {
@@ -45,15 +96,15 @@ async function restoreData() {
                     continue;
                 }
                 const docRef = doc(db, collectionName, docId);
-                const { id, ...data } = docData; // remove id from data payload
-                batch.set(docRef, data);
+                const { id, ...data } = docData;
+                restoreBatch.set(docRef, data);
             }
             totalDocsRestored += documents.length;
         }
     }
 
     try {
-        await batch.commit();
+        await restoreBatch.commit();
         console.log('\nRestoration complete!');
         console.log(`- Total documents restored: ${totalDocsRestored}`);
         console.log('- Please refresh your application to see the restored data.');
@@ -63,9 +114,8 @@ async function restoreData() {
         process.exit(1);
     }
     
-    // It's necessary to manually exit the process because the Firebase client
-    // keeps the script running otherwise.
     process.exit(0);
+  });
 }
 
 restoreData();

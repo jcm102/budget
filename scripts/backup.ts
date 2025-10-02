@@ -7,6 +7,7 @@ import { collection, getDocs } from 'firebase/firestore';
 
 const collectionsToBackup = [
     'accounts',
+    'transferees',
     'account-ledger-items',
     'autoship-items',
     'budget-categories',
@@ -19,12 +20,10 @@ const collectionsToBackup = [
     'monthly-budget-items',
     'payment-calendar',
     'people',
-    'savings-funds',
+    'sinking-funds',
     'settings',
     'subscriptions',
     'tasks',
-    'transferees',
-    'transactions',
     'work-expense-categories',
 ];
 

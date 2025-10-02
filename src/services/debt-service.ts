@@ -19,6 +19,7 @@ import {
   limit
 } from 'firebase/firestore';
 import { addMonths, format } from 'date-fns';
+import { createAutomatedBackup } from './backup-service';
 
 const DEBT_COLLECTION = 'debts';
 
@@ -91,6 +92,7 @@ export async function deleteDebt(id: string): Promise<void> {
 }
 
 export async function resetDebtValues(): Promise<void> {
+  await createAutomatedBackup('pre-debt-reset');
   const debtCollection = collection(db, DEBT_COLLECTION);
   const q = query(debtCollection);
   const querySnapshot = await getDocs(q);
@@ -116,6 +118,7 @@ export async function resetDebtValues(): Promise<void> {
 }
 
 export async function cycleToNextMonth(): Promise<void> {
+  await createAutomatedBackup('pre-debt-cycle');
   const debtCollectionRef = collection(db, DEBT_COLLECTION);
   const snapshot = await getDocs(query(debtCollectionRef));
   const batch = writeBatch(db);

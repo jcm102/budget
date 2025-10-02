@@ -18,6 +18,7 @@ import {
   orderBy,
   runTransaction,
 } from 'firebase/firestore';
+import { createAutomatedBackup } from './backup-service';
 
 const EXPENSE_COLLECTION = 'expenses';
 const LEDGER_COLLECTION = 'account-ledger-items';
@@ -211,10 +212,6 @@ export async function archiveCurrentExpenses(archiveKey: string): Promise<void> 
 
   const activeSnapshot = await getDocs(activeQuery);
   
-  if (activeSnapshot.empty) {
-    throw new Error("No active expenses to archive.");
-  }
-  
   activeSnapshot.forEach(doc => {
     const docRef = doc.ref;
     batch.update(docRef, { status: 'archived', archiveKey: archiveKey });
@@ -225,16 +222,15 @@ export async function archiveCurrentExpenses(archiveKey: string): Promise<void> 
 
 
 export async function cycleExpensesToNextMonth(): Promise<void> {
+    await createAutomatedBackup('pre-expense-cycle');
+    await archiveCurrentExpenses(new Date().toISOString().slice(0, 7));
+    
     const batch = writeBatch(db);
     const q = query(collection(db, EXPENSE_COLLECTION), where('forNextMonth', '==', true));
     const snapshot = await getDocs(q);
 
-    if (snapshot.empty) {
-        throw new Error("No expenses planned for next month.");
-    }
-
     snapshot.forEach(doc => {
-        batch.update(doc.ref, { forNextMonth: false });
+        batch.update(doc.ref, { forNextMonth: false, status: 'active' });
     });
 
     await batch.commit();
