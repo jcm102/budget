@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -462,21 +461,21 @@ export async function syncDebtPaymentsFromWorksheet(forNextMonth: boolean): Prom
 
 
 export async function syncDebtPaymentsToMonthlyBudget(): Promise<void> {
+    // 1. Fetch all necessary data outside the transaction
+    const [debts, budgetCategories] = await Promise.all([
+        getDebts(),
+        getBudgetCategories()
+    ]);
+    
     await runTransaction(db, async (transaction) => {
         const nextMonth = format(addMonths(new Date(), 1), 'yyyy-MM');
 
-        // 1. Fetch all necessary data
-        const [debts, budgetCategories] = await Promise.all([
-            getDebts(),
-            getBudgetCategories()
-        ]);
-        
         const categoryMap = new Map<string, string>();
         budgetCategories.forEach(cat => categoryMap.set(cat.name, cat.id));
 
         const categoryAggregates: Record<string, { total: number; breakdown: { name: string; amount: number }[] }> = {};
 
-        // 2. Aggregate payments by category
+        // 2. Aggregate payments by category (using data fetched outside)
         for (const debt of debts) {
             const amount = debt.nextMinimumPayment || 0;
             if (amount <= 0 || !debt.debtType) continue;
@@ -497,7 +496,7 @@ export async function syncDebtPaymentsToMonthlyBudget(): Promise<void> {
             categoryAggregates[categoryId].breakdown.push({ name: debt.name, amount });
         }
 
-        // 3. Update or create monthly budget items
+        // 3. Update or create monthly budget items inside the transaction
         for (const categoryId in categoryAggregates) {
             const { total, breakdown } = categoryAggregates[categoryId];
             
@@ -507,6 +506,7 @@ export async function syncDebtPaymentsToMonthlyBudget(): Promise<void> {
                 where('categoryId', '==', categoryId),
                 limit(1)
             );
+            // This read must be inside the transaction
             const snapshot = await getDocs(budgetItemQuery);
             
             const data = {
