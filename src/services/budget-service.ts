@@ -20,7 +20,7 @@ import {
   limit,
 } from 'firebase/firestore';
 import { isSameMonth, startOfMonth, getDate, getMonth, getYear, set, addWeeks, isAfter, isBefore, isLastDayOfMonth, lastDayOfMonth, addMonths, startOfDay, format } from 'date-fns';
-import { getDebts } from './debt-service';
+import { getDebts } from '@/app/debt/services/debt-service';
 import { getCategories as getBudgetCategories } from './budget-category-service';
 
 const BUDGET_COLLECTION = 'budget-items';
