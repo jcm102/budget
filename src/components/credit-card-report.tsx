@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { getTransactionsByDateRange } from '@/app/monthly-budget/services/monthly-budget-service';
 import { updateCreditCardReportLastRunDate, getCreditCardReportLastRunDate } from '@/services/settings-service';
 import type { Transaction, AccountDetails } from '@/types';
-import { useAccountDetails } from '@/hooks/use-transferees';
+import { useAccountDetails } from '@/hooks/use-account-details';
 import { Loader2, TrendingUp, ChevronDown, Printer } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -30,6 +30,13 @@ type ReportData = {
 
 type GroupedTransactions = {
   [key: string]: Transaction[];
+};
+
+const parseDate = (dateString: string) => {
+    // This safely parses a 'yyyy-MM-dd' string from a full ISO string into a local Date object.
+    const datePart = dateString.split('T')[0];
+    const [year, month, day] = datePart.split('-').map(Number);
+    return new Date(year, month - 1, day);
 };
 
 function CollapsibleTableRow({ item, groupedTransactions, showTransactions }: { item: ReportData, groupedTransactions: GroupedTransactions, showTransactions: boolean }) {
@@ -65,7 +72,7 @@ function CollapsibleTableRow({ item, groupedTransactions, showTransactions }: { 
                 <TableBody>
                   {groupedTransactions[item.cardId]?.map(tx => (
                     <TableRow key={tx.id} className="hover:bg-muted/70">
-                      <TableCell>{format(new Date(tx.date), 'PPP')}</TableCell>
+                      <TableCell>{format(parseDate(tx.date), 'PPP')}</TableCell>
                       <TableCell>{tx.description}</TableCell>
                       <TableCell className="text-right">{formatCurrency(tx.amount)}</TableCell>
                     </TableRow>
@@ -109,15 +116,12 @@ export function CreditCardReport() {
         });
         return;
     }
-    
-    const queryStartDate = new Date(`${startDate}T00:00:00`);
-    const queryEndDate = new Date(`${endDate}T23:59:59`);
 
     setIsLoading(true);
     setReportData([]);
     setGroupedTransactions({});
     try {
-      const transactions = await getTransactionsByDateRange(queryStartDate, queryEndDate);
+      const transactions = await getTransactionsByDateRange(startDate, endDate);
       
       const totalsByCard = new Map<string, number>();
       const transactionsByCard: GroupedTransactions = {};

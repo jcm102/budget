@@ -106,7 +106,6 @@ export async function getAccountDetails(accountId: string): Promise<AccountDetai
 
 export async function getTransactionsForMonth(month: string): Promise<Transaction[]> {
   const startDate = new Date(`${month}-01T00:00:00`);
-  const endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 1);
   
   const startString = `${month}-01`;
   const nextMonthDate = addMonths(new Date(startDate), 1);
@@ -122,11 +121,11 @@ export async function getTransactionsForMonth(month: string): Promise<Transactio
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
 }
 
-export async function getTransactionsByDateRange(startDate: Date, endDate: Date): Promise<Transaction[]> {
+export async function getTransactionsByDateRange(startDate: string, endDate: string): Promise<Transaction[]> {
   const q = query(
     collection(db, TRANSACTIONS_COLLECTION),
-    where('date', '>=', format(startDate, 'yyyy-MM-dd')),
-    where('date', '<=', format(endDate, 'yyyy-MM-dd')),
+    where('date', '>=', startDate),
+    where('date', '<=', endDate),
     orderBy('date', 'desc')
   );
   const querySnapshot = await getDocs(q);
