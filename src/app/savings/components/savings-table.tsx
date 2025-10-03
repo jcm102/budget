@@ -6,7 +6,7 @@ import type { SavingsItem, SubscriptionItem, AutoShipItem } from '@/types';
 import * as z from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { format, differenceInCalendarMonths, addMonths, getYear, getMonth, startOfToday, isBefore, isEqual, startOfMonth, parse } from 'date-fns';
+import { format, differenceInCalendarMonths, addMonths, getYear, getMonth, startOfToday, isBefore, isEqual, startOfMonth, parse, getDate } from 'date-fns';
 import type { ColumnVisibility } from '@/app/savings/page';
 
 import {
@@ -148,12 +148,40 @@ type SavingsTableProps = {
     columnVisibility: ColumnVisibility;
 }
 
-const parseDate = (dateString: string) => {
-    // This safely parses a 'yyyy-MM-dd' string from a full ISO string into a local Date object.
+const parseDate = (dateString: string): Date => {
+    // This function can handle both 'YYYY-MM-DD' and full ISO strings
+    // by focusing on the date part.
+    if (!dateString) return new Date();
     const datePart = dateString.split('T')[0];
     const [year, month, day] = datePart.split('-').map(Number);
+    // Note: month is 0-indexed in Date constructor
     return new Date(year, month - 1, day);
 };
+
+
+const calculateMonthlyAmount = (totalCost: number, amountSaved: number, dueDateStr: string | null): number => {
+    const remainingAmount = totalCost - amountSaved;
+    if (remainingAmount <= 0 || !dueDateStr) {
+      return 0;
+    }
+
+    const today = startOfToday();
+    const dueDate = parseDate(dueDateStr);
+
+    if (isBefore(dueDate, today) || isEqual(dueDate, today)) {
+      return remainingAmount;
+    }
+
+    const monthsRemaining = differenceInCalendarMonths(dueDate, today);
+
+    if (monthsRemaining <= 0) {
+      return remainingAmount;
+    }
+    
+    return remainingAmount / monthsRemaining;
+};
+
+
 
 export function SavingsTable({ columnVisibility }: SavingsTableProps) {
   const { 
@@ -190,21 +218,6 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
   };
   
-  const calculateMonthlyAmount = (totalCost: number, amountSaved: number, dueDateStr: string | null): number => {
-      const remainingAmount = totalCost - amountSaved;
-      if (remainingAmount <= 0 || !dueDateStr) return 0;
-    
-      const today = startOfToday();
-      const dueDate = parse(dueDateStr, 'yyyy-MM-dd', new Date());
-      
-      const monthsRemaining = differenceInCalendarMonths(dueDate, today);
-
-      if (monthsRemaining <= 0) {
-        return remainingAmount > 0 ? remainingAmount : 0;
-      }
-    
-      return remainingAmount / monthsRemaining;
-  };
 
   const enhancedSavingsItems = useMemo(() => {
     return savingsItems.map(item => {

@@ -45,6 +45,28 @@ const monthOptions = [
     { label: 'December', value: 12 },
 ];
 
+const calculateMonthlyAmount = (totalCost: number, amountSaved: number, dueDateStr: string | null): number => {
+    const remainingAmount = totalCost - amountSaved;
+    if (remainingAmount <= 0 || !dueDateStr) {
+      return 0;
+    }
+
+    const today = startOfToday();
+    const dueDate = parse(dueDateStr, "yyyy-MM-dd", new Date());
+
+    if (isBefore(dueDate, today) || isEqual(dueDate, today)) {
+      return remainingAmount;
+    }
+
+    const monthsRemaining = differenceInCalendarMonths(dueDate, today);
+
+    if (monthsRemaining <= 0) {
+      return remainingAmount;
+    }
+    
+    return remainingAmount / monthsRemaining;
+};
+
 
 const formSchema = z.object({
   name: z.string().min(2, 'Fund name must be at least 2 characters.'),
@@ -100,22 +122,11 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
     let newMonthlyGoal = 0;
     
     if (dueDate) {
-        const remainingAmount = costToUse - amount;
-        if (remainingAmount > 0) {
-            const today = startOfToday();
-            const due = parse(dueDate, "yyyy-MM-dd", new Date());
-            const monthsLeft = differenceInCalendarMonths(due, today);
-            
-            if (monthsLeft > 0) {
-                newMonthlyGoal = parseFloat((remainingAmount / monthsLeft).toFixed(2));
-            } else {
-                newMonthlyGoal = remainingAmount; // If it's due this month or past due, the full amount is needed.
-            }
-        }
+        newMonthlyGoal = calculateMonthlyAmount(costToUse, amount, dueDate);
     }
     
     if (newMonthlyGoal !== form.getValues('goal')) {
-      form.setValue('goal', newMonthlyGoal);
+      form.setValue('goal', newMonthlyGoal < 0 ? 0 : newMonthlyGoal);
     }
   }, [totalCost, savingsTarget, dueDate, amount, recurrence, primaryPaymentMonth, secondaryPaymentMonth, form]);
 
