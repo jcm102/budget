@@ -320,14 +320,11 @@ export function BudgetTable({ budgetItems, categories, transactions, isLoading, 
         tx.splits?.forEach(split => {
             if (split.type === 'expense' && split.categoryId === category.id) {
                 const budgetItemName = split.budgetItemName || 'Default';
-                if(totals.breakdown[budgetItemName]) {
-                    totals.breakdown[budgetItemName].actual += split.amount;
-                } else if (totals.breakdown['Default']) {
-                    // If the split item doesn't exist, attribute it to the default
-                    totals.breakdown['Default'].actual += split.amount;
-                } else if (budgetItemName === 'Default') {
-                   totals.breakdown['Default'] = { budgeted: 0, actual: split.amount };
+                // If the specific sub-category doesn't exist in the breakdown, create it.
+                if (!totals.breakdown[budgetItemName]) {
+                    totals.breakdown[budgetItemName] = { budgeted: 0, actual: 0 };
                 }
+                totals.breakdown[budgetItemName].actual += split.amount;
             }
         })
     });
