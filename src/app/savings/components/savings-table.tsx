@@ -135,7 +135,7 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
 
 const getNextBillingDate = (item: SubscriptionItem | AutoShipItem): Date => {
     if ('nextShipmentDate' in item) { // It's an AutoShipItem
-        return parse(item.nextShipmentDate, 'yyyy-MM-dd', new Date());
+        return parseDate(item.nextShipmentDate);
     }
     // It's a SubscriptionItem
     const today = new Date();
@@ -152,7 +152,8 @@ type SavingsTableProps = {
 const parseDate = (dateString: string) => {
     // This safely parses a 'yyyy-MM-dd' string from a full ISO string into a local Date object.
     const datePart = dateString.split('T')[0];
-    return parse(datePart, 'yyyy-MM-dd', new Date());
+    const [year, month, day] = datePart.split('-').map(Number);
+    return new Date(year, month - 1, day);
 };
 
 export function SavingsTable({ columnVisibility }: SavingsTableProps) {
@@ -194,18 +195,19 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
     const remainingAmount = totalCost - amountSaved;
     if (remainingAmount <= 0 || !dueDateStr) return 0;
   
-    const today = startOfToday();
-    const dueDate = parse(dueDateStr, "yyyy-MM-dd", new Date());
-  
-    const dueMonthStart = startOfMonth(dueDate);
-  
-    // If the due date is in the current month or has passed, the full remaining amount is due now.
-    if (!isBefore(today, dueMonthStart)) {
-      return remainingAmount > 0 ? remainingAmount : 0;
-    }
-  
-    const monthsRemaining = differenceInCalendarMonths(dueMonthStart, today);
+    const today = new Date();
+    const dueDate = parseDate(dueDateStr);
     
+    // Set both dates to the first of their respective months to count full months between them
+    const startOfCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const startOfDueMonth = new Date(dueDate.getFullYear(), dueDate.getMonth(), 1);
+
+    if (isBefore(startOfDueMonth, startOfCurrentMonth) || isEqual(startOfDueMonth, startOfCurrentMonth)) {
+        return remainingAmount > 0 ? remainingAmount : 0;
+    }
+    
+    const monthsRemaining = differenceInCalendarMonths(startOfDueMonth, startOfCurrentMonth);
+
     if (monthsRemaining <= 0) {
       return remainingAmount > 0 ? remainingAmount : 0;
     }
@@ -494,3 +496,4 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
     
 
     
+
