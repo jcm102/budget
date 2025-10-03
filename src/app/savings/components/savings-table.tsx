@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -6,7 +7,7 @@ import type { SavingsItem, SubscriptionItem, AutoShipItem } from '@/types';
 import * as z from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { format, differenceInMonths, addMonths } from 'date-fns';
+import { format, differenceInMonths, addMonths, getYear, getMonth } from 'date-fns';
 import type { ColumnVisibility } from '@/app/savings/page';
 
 import {
@@ -185,18 +186,27 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
   
   const calculateMonthlyAmount = (totalCost: number, amountSaved: number, dueDate: Date): number => {
       const today = new Date();
-      const monthsRemaining = differenceInMonths(dueDate, today);
+      // Ensure we only look at the date part, ignoring time
+      today.setHours(0, 0, 0, 0);
       
-      // Fully funded by the month before it's due.
-      const planningMonths = monthsRemaining > 0 ? monthsRemaining : 1; 
+      const targetDate = new Date(dueDate);
+      targetDate.setHours(0, 0, 0, 0);
+      
       const remainingAmount = totalCost - amountSaved;
+      if (remainingAmount <= 0) return 0;
       
-      return remainingAmount > 0 ? remainingAmount / planningMonths : 0;
+      const monthsRemaining = (getYear(targetDate) - getYear(today)) * 12 + (getMonth(targetDate) - getMonth(today));
+
+      if (monthsRemaining <= 0) {
+        return remainingAmount;
+      }
+      
+      return remainingAmount / monthsRemaining;
   };
 
   const enhancedSavingsItems = useMemo(() => {
     return savingsItems.map(item => {
-        const enhancedItem = { ...item };
+        const enhancedItem: SavingsItem & { monthlyAmount?: number } = { ...item };
 
         // Link to Subscription if not already fully defined
         const subscription = subscriptions.find(s => s.serviceName.toLowerCase() === item.name.toLowerCase());
@@ -470,5 +480,7 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
     </>
   );
 }
+
+    
 
     
