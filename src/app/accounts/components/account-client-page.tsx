@@ -26,6 +26,12 @@ import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
 import { useTransactions } from '@/app/monthly-budget/hooks/use-transactions';
 
+const parseDate = (dateString: string) => {
+    const [year, month, day] = dateString.split('T')[0].split('-').map(Number);
+    return new Date(year, month - 1, day);
+};
+
+
 export function AccountClientPage({
   account,
   initialTransactions,
@@ -163,7 +169,7 @@ export function AccountClientPage({
 
                             return (
                             <TableRow key={tx.id}>
-                                <TableCell>{format(new Date(tx.date), 'PPP')}</TableCell>
+                                <TableCell>{format(parseDate(tx.date), 'PPP')}</TableCell>
                                 <TableCell className="font-medium">{tx.description}</TableCell>
                                 <TableCell className="text-sm text-muted-foreground">
                                     {expenseSplits.length > 0 && transferSplits.length > 0

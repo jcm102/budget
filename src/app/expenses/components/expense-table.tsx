@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState } from 'react';
@@ -45,6 +46,11 @@ type ExpenseTableProps = {
   updateHonorarium: (id: string, item: Partial<Omit<Honorarium, 'id'>>) => void;
   isLoading: boolean;
   isArchived: boolean;
+};
+
+const parseDate = (dateString: string) => {
+    const [year, month, day] = dateString.split('T')[0].split('-').map(Number);
+    return new Date(year, month - 1, day);
 };
 
 export function ExpenseTable({ 
@@ -146,7 +152,7 @@ export function ExpenseTable({
                           disabled={isArchived || item.frequency === 'One-Time'}
                         />
                       </TableCell>
-                  <TableCell>{format(new Date(item.date), 'PPP')}</TableCell>
+                  <TableCell>{format(parseDate(item.date), 'PPP')}</TableCell>
                   <TableCell className={cn("font-medium", item.completed && "line-through")}>{item.description}</TableCell>
                   <TableCell>{item.category}</TableCell>
                   <TableCell>{item.transferee}</TableCell>

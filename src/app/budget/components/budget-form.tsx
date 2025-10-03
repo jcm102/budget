@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/select';
 import type { BudgetItem, BudgetItemType, BudgetItemFrequency, Category, MonthlyBudgetItem } from '@/types';
 import { useIncomeCategories } from '@/hooks/use-income-categories';
-import { useAccountDetails } from '@/hooks/use-transferees';
+import { useAccountDetails } from '@/hooks/use-account-details';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useGoals } from '@/app/savings/hooks/use-goals';
 import { useDebt } from '@/app/debt/hooks/use-debt';
@@ -87,21 +87,6 @@ type BudgetFormProps = {
   addBudgetItem: (item: Omit<BudgetItem, 'id'>) => void;
   updateBudgetItem: (id: string, item: Omit<BudgetItem, 'id'>) => void;
   editingItem: BudgetItem | null;
-};
-
-const toLocalISOString = (dateString: string) => {
-    const date = new Date(dateString);
-    const tzOffset = -date.getTimezoneOffset();
-    const diff = tzOffset >= 0 ? '+' : '-';
-    const pad = (n: number) => `${Math.floor(Math.abs(n))}`.padStart(2, '0');
-    return date.getFullYear() +
-      '-' + pad(date.getMonth() + 1) +
-      '-' + pad(date.getDate()) +
-      'T' + pad(date.getHours()) +
-      ':' + pad(date.getMinutes()) +
-      ':' + pad(date.getSeconds()) +
-      diff + pad(tzOffset / 60) +
-      ':' + pad(tzOffset % 60);
 };
 
 export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem, editingItem }: BudgetFormProps) {
@@ -225,7 +210,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
 
     const submissionData = {
       ...values,
-      date: toLocalISOString(values.date),
+      date: values.date, // Just pass the YYYY-MM-DD string
       type: values.type as BudgetItemType,
       frequency: values.frequency as BudgetItemFrequency,
       budgetCategoryId: values.budgetCategoryId === 'null-value' ? null : values.budgetCategoryId,

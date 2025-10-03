@@ -39,6 +39,11 @@ type SortConfig = {
     direction: 'ascending' | 'descending';
 } | null;
 
+const parseDate = (dateString: string) => {
+    const [year, month, day] = dateString.split('T')[0].split('-').map(Number);
+    return new Date(year, month - 1, day);
+};
+
 const SortableHeader = ({ column, label, sortConfig, requestSort, className }: { column: keyof BudgetItem, label: string, sortConfig: SortConfig, requestSort: (key: keyof BudgetItem) => void, className?: string }) => {
   const isSorted = sortConfig?.key === column;
   const direction = isSorted ? sortConfig.direction : 'ascending';
@@ -92,8 +97,8 @@ export function IncomeTable() {
         let aValue, bValue;
 
         if (sortConfig.key === 'date') {
-            aValue = new Date(a.date).getTime();
-            bValue = new Date(b.date).getTime();
+            aValue = parseDate(a.date).getTime();
+            bValue = parseDate(b.date).getTime();
         } else {
             aValue = a[sortConfig.key as keyof BudgetItem];
             bValue = b[sortConfig.key as keyof BudgetItem];
@@ -163,7 +168,7 @@ export function IncomeTable() {
                             </div>
                         </TableCell>
                         <TableCell>{item.category}</TableCell>
-                        <TableCell>{format(new Date(item.date), 'PPP')}</TableCell>
+                        <TableCell>{format(parseDate(item.date), 'PPP')}</TableCell>
                         <TableCell>
                         {item.frequency !== 'One-Time' ? (
                             <Badge variant="secondary" className="gap-1 items-center">

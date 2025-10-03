@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState } from 'react';
@@ -42,6 +43,11 @@ type HonorariumTableProps = {
   deleteHonorarium: (id: string) => void;
   isLoading: boolean;
   isArchived: boolean;
+};
+
+const parseDate = (dateString: string) => {
+    const [year, month, day] = dateString.split('T')[0].split('-').map(Number);
+    return new Date(year, month - 1, day);
 };
 
 export function HonorariumTable({ 
@@ -123,7 +129,7 @@ export function HonorariumTable({
             ) : honorariums.length > 0 ? (
               honorariums.map((item) => (
                 <TableRow key={item.id}>
-                  <TableCell>{format(new Date(item.date), 'PPP')}</TableCell>
+                  <TableCell>{format(parseDate(item.date), 'PPP')}</TableCell>
                   <TableCell className="font-medium">{item.description}</TableCell>
                   <TableCell className="text-right">{formatCurrency(item.amount)}</TableCell>
                   {!isArchived && (

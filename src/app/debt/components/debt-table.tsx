@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState } from 'react';
@@ -56,6 +57,12 @@ export type ColumnVisibility = {
 
 type DebtView = 'current' | 'next';
 
+const parseDate = (dateString: string) => {
+    const [year, month, day] = dateString.split('T')[0].split('-').map(Number);
+    return new Date(year, month - 1, day);
+};
+
+
 type SortableDebtRowProps = {
   debt: Debt;
   view: DebtView;
@@ -109,7 +116,7 @@ function SortableDebtRow({ debt, view, onEdit, onDelete, onTogglePaid, formatCur
         {columnVisibility.interestRate && <TableCell className="text-right">{interestRate ? `${interestRate}%` : '-'}</TableCell>}
         {columnVisibility.minimumPayment && <TableCell className="text-right">{formatCurrency(minPayment || 0)}</TableCell>}
         {columnVisibility.plannedPayment && isCurrentView && <TableCell className="text-right font-bold">{formatCurrency(plannedPayment || 0)}</TableCell>}
-        {columnVisibility.dueDate && <TableCell>{dueDate ? format(new Date(dueDate), 'PPP') : '-'}</TableCell>}
+        {columnVisibility.dueDate && <TableCell>{dueDate ? format(parseDate(dueDate), 'PPP') : '-'}</TableCell>}
         {columnVisibility.actions && <TableCell className="text-right">
         <div className="flex justify-end gap-2">
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(debt)}>

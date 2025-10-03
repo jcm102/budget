@@ -51,22 +51,6 @@ type DebtFormProps = {
   editingDebt: Debt | null;
 };
 
-// This function ensures the date from a YYYY-MM-DD string is treated as local timezone, not UTC.
-const toLocalISOString = (dateString: string) => {
-    const date = new Date(dateString);
-    const tzOffset = -date.getTimezoneOffset();
-    const diff = tzOffset >= 0 ? '+' : '-';
-    const pad = (n: number) => `${Math.floor(Math.abs(n))}`.padStart(2, '0');
-    return date.getFullYear() +
-      '-' + pad(date.getMonth() + 1) +
-      '-' + pad(date.getDate()) +
-      'T' + pad(date.getHours()) +
-      ':' + pad(date.getMinutes()) +
-      ':' + pad(date.getSeconds()) +
-      diff + pad(tzOffset / 60) +
-      ':' + pad(tzOffset % 60);
-};
-
 export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt }: DebtFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -120,8 +104,8 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const submissionData = { 
         ...values, 
-        dueDate: toLocalISOString(values.dueDate),
-        nextDueDate: values.nextDueDate ? toLocalISOString(values.nextDueDate) : undefined,
+        dueDate: values.dueDate,
+        nextDueDate: values.nextDueDate,
         debtType: values.debtType as DebtType,
     };
 

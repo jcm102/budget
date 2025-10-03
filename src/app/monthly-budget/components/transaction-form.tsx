@@ -74,22 +74,6 @@ type TransactionFormProps = {
   isPage?: boolean;
 };
 
-// This function ensures the date from a YYYY-MM-DD string is treated as local timezone, not UTC.
-const toLocalISOString = (dateString: string) => {
-    const date = new Date(dateString);
-    const tzOffset = -date.getTimezoneOffset();
-    const diff = tzOffset >= 0 ? '+' : '-';
-    const pad = (n: number) => `${Math.floor(Math.abs(n))}`.padStart(2, '0');
-    return date.getFullYear() +
-      '-' + pad(date.getMonth() + 1) +
-      '-' + pad(date.getDate()) +
-      'T' + pad(date.getHours()) +
-      ':' + pad(date.getMinutes()) +
-      ':' + pad(date.getSeconds()) +
-      diff + pad(tzOffset / 60) +
-      ':' + pad(tzOffset % 60);
-};
-
 export function TransactionForm({ open, onOpenChange, accounts, addTransaction, updateTransaction, editingTransaction, isPage = false }: TransactionFormProps) {
   const { categories, budgetItems } = useMonthlyBudget();
   const { toast } = useToast();
@@ -171,7 +155,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const submissionData = { 
         ...values,
-        date: toLocalISOString(values.date)
+        date: values.date // Just pass the YYYY-MM-DD string
     };
     if (editingTransaction) {
       updateTransaction(editingTransaction.id, submissionData);
@@ -195,14 +179,14 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
     }
   }
 
-  const renderCategoryOptions = (nodes: CategoryWithChildren[], level = 0) => {
+  const renderCategoryOptions = (nodes: CategoryWithChildren[], level = 0): JSX.Element[] => {
     if (!Array.isArray(nodes)) {
-        return null;
+        return [];
     }
     let options: JSX.Element[] = [];
     nodes.forEach(node => {
         options.push(
-            <SelectItem key={node.id} value={node.id} style={{ paddingLeft: `${1 + level * 1}rem` }}>
+            <SelectItem key={node.id} value={node.id} style={{ paddingLeft: `${1 + level * 1.5}rem` }}>
                 {node.name}
             </SelectItem>
         );
@@ -325,10 +309,10 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                                                         <SelectContent>
                                                           {categoryTree.map(node => (
                                                               <SelectGroup key={node.id}>
-                                                                  <SelectItem value={node.id} style={{ fontWeight: 500 }}>
+                                                                  <SelectItem value={node.id} className="font-semibold">
                                                                       {node.name}
                                                                   </SelectItem>
-                                                                  {node.children.length > 0 && renderCategoryOptions(node.children, 1)}
+                                                                  {node.children && node.children.length > 0 && renderCategoryOptions(node.children, 1)}
                                                               </SelectGroup>
                                                           ))}
                                                         </SelectContent>

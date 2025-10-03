@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useMemo } from 'react';
@@ -15,6 +16,11 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
+
+const parseDate = (dateString: string) => {
+    const [year, month, day] = dateString.split('T')[0].split('-').map(Number);
+    return new Date(year, month - 1, day);
+};
 
 export function TransactionTable() {
   const { transactions, isLoading: isLoadingTransactions } = useTransactions();
@@ -60,7 +66,7 @@ export function TransactionTable() {
           ) : transactions.length > 0 ? (
             transactions.map((transaction) => (
               <TableRow key={transaction.id}>
-                <TableCell>{format(new Date(transaction.date), 'PPP')}</TableCell>
+                <TableCell>{format(parseDate(transaction.date), 'PPP')}</TableCell>
                 <TableCell className="font-medium">{transaction.description}</TableCell>
                 <TableCell>{(transaction.splits && transaction.splits.length > 0 && categoryMap[transaction.splits[0].categoryId || '']) || 'Uncategorized'}</TableCell>
                 <TableCell className="text-right">{formatCurrency(transaction.amount)}</TableCell>
