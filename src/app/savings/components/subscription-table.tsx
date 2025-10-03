@@ -47,6 +47,12 @@ type SortableHeaderProps = {
   className?: string;
 }
 
+const parseDate = (dateString: string) => {
+    if (!dateString) return new Date();
+    const datePart = dateString.split('T')[0];
+    return parse(datePart, 'yyyy-MM-dd', new Date());
+};
+
 const SortableHeader = ({ column, label, sortConfig, requestSort, className }: SortableHeaderProps) => {
   const isSorted = sortConfig?.key === column;
   const direction = isSorted ? sortConfig.direction : 'ascending';
@@ -198,7 +204,7 @@ export function SubscriptionTable() {
                             <TableCell className="font-medium">{item.serviceName}</TableCell>
                             <TableCell>{item.budgetCategoryId ? categoryMap[item.budgetCategoryId] : <span className="text-muted-foreground">-</span>}</TableCell>
                             <TableCell><Badge variant="secondary">{item.billingFrequency}</Badge></TableCell>
-                            <TableCell>{item.nextRenewalDate ? format(parse(item.nextRenewalDate, 'yyyy-MM-dd', new Date()), 'PPP') : '-'}</TableCell>
+                            <TableCell>{item.nextRenewalDate ? format(parseDate(item.nextRenewalDate), 'PPP') : '-'}</TableCell>
                             <TableCell className="text-right">{formatCurrency(item.cost)}</TableCell>
                             <TableCell className="text-right">{formatCurrency(getMonthlyCost(item))}</TableCell>
                             <TableCell className="text-right">

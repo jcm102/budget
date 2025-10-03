@@ -56,6 +56,12 @@ const getMonthlyCost = (item: AutoShipItem) => {
     return item.estimatedCost / months;
 };
 
+const parseDate = (dateString: string) => {
+    if (!dateString) return new Date();
+    const datePart = dateString.split('T')[0];
+    return parse(datePart, 'yyyy-MM-dd', new Date());
+};
+
 const SortableHeader = ({ column, label, sortConfig, requestSort, className }: { column: keyof AutoShipItem | 'monthlyCost', label: string, sortConfig: SortConfig, requestSort: (key: keyof AutoShipItem | 'monthlyCost') => void, className?: string }) => {
   const isSorted = sortConfig?.key === column;
   const direction = isSorted ? sortConfig.direction : 'ascending';
@@ -193,7 +199,7 @@ export function AutoShipTable() {
                         <TableRow key={item.id}>
                             <TableCell className="font-medium">{item.item}</TableCell>
                             <TableCell>{item.budgetCategoryId ? categoryMap[item.budgetCategoryId] : <span className="text-muted-foreground">-</span>}</TableCell>
-                            <TableCell>{format(parse(item.nextShipmentDate, 'yyyy-MM-dd', new Date()), 'PPP')}</TableCell>
+                            <TableCell>{format(parseDate(item.nextShipmentDate), 'PPP')}</TableCell>
                             <TableCell><Badge variant="secondary">{item.frequency}</Badge></TableCell>
                             <TableCell className="text-right">{formatCurrency(item.estimatedCost)}</TableCell>
                             <TableCell className="text-right">{formatCurrency(getMonthlyCost(item))}</TableCell>

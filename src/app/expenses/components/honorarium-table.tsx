@@ -46,7 +46,9 @@ type HonorariumTableProps = {
 };
 
 const parseDate = (dateString: string) => {
-    return parse(dateString.split('T')[0], 'yyyy-MM-dd', new Date());
+    if (!dateString) return new Date();
+    const datePart = dateString.split('T')[0];
+    return parse(datePart, 'yyyy-MM-dd', new Date());
 };
 
 export function HonorariumTable({ 

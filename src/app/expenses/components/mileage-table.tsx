@@ -48,7 +48,9 @@ type MileageTableProps = {
 };
 
 const parseDate = (dateString: string) => {
-    return parse(dateString.split('T')[0], 'yyyy-MM-dd', new Date());
+    if (!dateString) return new Date();
+    const datePart = dateString.split('T')[0];
+    return parse(datePart, 'yyyy-MM-dd', new Date());
 };
 
 export function MileageTable({ 
@@ -113,6 +115,7 @@ export function MileageTable({
         updateExpense={updateExpense}
         addMileage={addMileage}
         updateMileage={updateMileage}
+        deleteMileage={deleteMileage}
         addHonorarium={addHonorarium}
         updateHonorarium={updateHonorarium}
         editingItem={editingItem}
