@@ -149,6 +149,12 @@ type SavingsTableProps = {
     columnVisibility: ColumnVisibility;
 }
 
+const parseDate = (dateString: string) => {
+    // This safely parses a 'yyyy-MM-dd' string from a full ISO string into a local Date object.
+    const datePart = dateString.split('T')[0];
+    return parse(datePart, 'yyyy-MM-dd', new Date());
+};
+
 export function SavingsTable({ columnVisibility }: SavingsTableProps) {
   const { 
     savingsItems, 
@@ -187,22 +193,23 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
   const calculateMonthlyAmount = (totalCost: number, amountSaved: number, dueDateStr: string | null): number => {
     const remainingAmount = totalCost - amountSaved;
     if (remainingAmount <= 0 || !dueDateStr) return 0;
-
+  
     const today = startOfToday();
     const dueDate = parse(dueDateStr, "yyyy-MM-dd", new Date());
-
-    const dueMonth = startOfMonth(dueDate);
-
-    if (!isBefore(today, dueMonth)) {
+  
+    const dueMonthStart = startOfMonth(dueDate);
+  
+    // If the due date is in the current month or has passed, the full remaining amount is due now.
+    if (!isBefore(today, dueMonthStart)) {
       return remainingAmount > 0 ? remainingAmount : 0;
     }
-
-    const monthsRemaining = differenceInCalendarMonths(dueMonth, today);
+  
+    const monthsRemaining = differenceInCalendarMonths(dueMonthStart, today);
     
     if (monthsRemaining <= 0) {
       return remainingAmount > 0 ? remainingAmount : 0;
     }
-
+  
     return remainingAmount / monthsRemaining;
   };
 
@@ -361,7 +368,7 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
                                     </div>
                                 )}
                             </TableCell>}
-                             {columnVisibility.dueDate && <TableCell className="text-right">{item.dueDate ? format(parse(item.dueDate, 'yyyy-MM-dd', new Date()), 'PPP') : '-'}</TableCell>}
+                             {columnVisibility.dueDate && <TableCell className="text-right">{item.dueDate ? format(parseDate(item.dueDate), 'PPP') : '-'}</TableCell>}
                              {columnVisibility.recurrence && <TableCell>
                                 {item.recurrence && item.recurrence !== 'None' ? (
                                     <Badge variant="secondary" className="gap-1 items-center">
