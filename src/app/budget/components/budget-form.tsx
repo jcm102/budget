@@ -89,6 +89,21 @@ type BudgetFormProps = {
   editingItem: BudgetItem | null;
 };
 
+const toLocalISOString = (dateString: string) => {
+    const date = new Date(dateString);
+    const tzOffset = -date.getTimezoneOffset();
+    const diff = tzOffset >= 0 ? '+' : '-';
+    const pad = (n: number) => `${Math.floor(Math.abs(n))}`.padStart(2, '0');
+    return date.getFullYear() +
+      '-' + pad(date.getMonth() + 1) +
+      '-' + pad(date.getDate()) +
+      'T' + pad(date.getHours()) +
+      ':' + pad(date.getMinutes()) +
+      ':' + pad(date.getSeconds()) +
+      diff + pad(tzOffset / 60) +
+      ':' + pad(tzOffset % 60);
+};
+
 export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem, editingItem }: BudgetFormProps) {
   const { categories: incomeCategories } = useIncomeCategories();
   const { categories: budgetCategories } = useMonthlyBudget();
@@ -143,21 +158,6 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
         form.setValue('allocationAmount', 0);
     }
   }, [amount, showCalculator, form]);
-
-
-  const toLocalISOString = (date: Date) => {
-    const tzOffset = -date.getTimezoneOffset();
-    const diff = tzOffset >= 0 ? '+' : '-';
-    const pad = (n: number) => `${Math.floor(Math.abs(n))}`.padStart(2, '0');
-    return date.getFullYear() +
-      '-' + pad(date.getMonth() + 1) +
-      '-' + pad(date.getDate()) +
-      'T' + pad(date.getHours()) +
-      ':' + pad(date.getMinutes()) +
-      ':' + pad(date.getSeconds()) +
-      diff + pad(tzOffset / 60) +
-      ':' + pad(tzOffset % 60);
-  };
   
   useEffect(() => {
     if (open) {
@@ -222,12 +222,10 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
-    const [year, month, day] = values.date.split('-').map(Number);
-    const localDate = new Date(year, month - 1, day);
 
     const submissionData = {
       ...values,
-      date: toLocalISOString(localDate),
+      date: toLocalISOString(values.date),
       type: values.type as BudgetItemType,
       frequency: values.frequency as BudgetItemFrequency,
       budgetCategoryId: values.budgetCategoryId === 'null-value' ? null : values.budgetCategoryId,

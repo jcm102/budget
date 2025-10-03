@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -35,7 +36,7 @@ import type { Transaction, TransactionSplit, AccountDetails, Category, MonthlyBu
 import { useMonthlyBudget } from '../hooks/use-monthly-budget';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 type CategoryWithChildren = Category & { children: CategoryWithChildren[] };
 
@@ -75,8 +76,7 @@ type TransactionFormProps = {
 
 // This function ensures the date from a YYYY-MM-DD string is treated as local timezone, not UTC.
 const toLocalISOString = (dateString: string) => {
-    const [year, month, day] = dateString.split('-').map(Number);
-    const date = new Date(year, month - 1, day);
+    const date = new Date(dateString);
     const tzOffset = -date.getTimezoneOffset();
     const diff = tzOffset >= 0 ? '+' : '-';
     const pad = (n: number) => `${Math.floor(Math.abs(n))}`.padStart(2, '0');
@@ -199,14 +199,18 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
     if (!Array.isArray(nodes)) {
         return null;
     }
-    return nodes.map(node => (
-        <SelectGroup key={node.id}>
-            <SelectItem value={node.id} style={{ paddingLeft: `${1 + level * 1.5}rem`, fontWeight: 500 }}>
+    let options: JSX.Element[] = [];
+    nodes.forEach(node => {
+        options.push(
+            <SelectItem key={node.id} value={node.id} style={{ paddingLeft: `${1 + level * 1}rem` }}>
                 {node.name}
             </SelectItem>
-            {node.children && node.children.length > 0 && renderCategoryOptions(node.children, level + 1)}
-        </SelectGroup>
-    ));
+        );
+        if (node.children.length > 0) {
+            options = options.concat(renderCategoryOptions(node.children, level + 1));
+        }
+    });
+    return options;
   };
 
 
@@ -319,7 +323,14 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                                                         <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
                                                         </FormControl>
                                                         <SelectContent>
-                                                            {categoryTree.map(node => renderCategoryOptions([node]))}
+                                                          {categoryTree.map(node => (
+                                                              <SelectGroup key={node.id}>
+                                                                  <SelectItem value={node.id} style={{ fontWeight: 500 }}>
+                                                                      {node.name}
+                                                                  </SelectItem>
+                                                                  {node.children.length > 0 && renderCategoryOptions(node.children, 1)}
+                                                              </SelectGroup>
+                                                          ))}
                                                         </SelectContent>
                                                     </Select>
                                                     <FormMessage />
