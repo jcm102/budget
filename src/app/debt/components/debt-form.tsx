@@ -78,10 +78,10 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
           balance: editingDebt.balance,
           minimumPayment: editingDebt.minimumPayment,
           plannedPayment: editingDebt.plannedPayment,
-          dueDate: new Date(editingDebt.dueDate).toISOString().split('T')[0],
+          dueDate: editingDebt.dueDate,
           nextBalance: editingDebt.nextBalance || 0,
           nextMinimumPayment: editingDebt.nextMinimumPayment || 0,
-          nextDueDate: editingDebt.nextDueDate ? new Date(editingDebt.nextDueDate).toISOString().split('T')[0] : '',
+          nextDueDate: editingDebt.nextDueDate || '',
         });
       } else {
         const today = new Date().toISOString().split('T')[0];
@@ -104,8 +104,6 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const submissionData = { 
         ...values, 
-        dueDate: values.dueDate,
-        nextDueDate: values.nextDueDate,
         debtType: values.debtType as DebtType,
     };
 

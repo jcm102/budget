@@ -49,7 +49,7 @@ export async function addDebt(debtData: Omit<Debt, 'id' | 'order'>): Promise<Deb
     plannedPayment: debtData.plannedPayment || 0,
    };
   const docRef = doc(collection(db, DEBT_COLLECTION));
-  await setDoc(docRef, { ...newDebt, dueDate: newDebt.dueDate.split('T')[0], nextDueDate: newDebt.nextDueDate?.split('T')[0] });
+  await setDoc(docRef, newDebt);
   return { ...newDebt, id: docRef.id };
 }
 
@@ -58,10 +58,7 @@ export async function updateDebt(id: string, debtData: Partial<Omit<Debt, 'id' |
   const docSnap = await getDoc(debtRef);
 
   if (docSnap.exists()) {
-    const dataToUpdate = { ...debtData };
-    if (dataToUpdate.dueDate) dataToUpdate.dueDate = dataToUpdate.dueDate.split('T')[0];
-    if (dataToUpdate.nextDueDate) dataToUpdate.nextDueDate = dataToUpdate.nextDueDate.split('T')[0];
-    await updateDoc(debtRef, dataToUpdate);
+    await updateDoc(debtRef, debtData);
   } else {
     console.warn(`Attempted to update a debt document that does not exist: ${id}`);
   }

@@ -3,7 +3,7 @@
 'use client';
 
 import { useState } from 'react';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import { Pencil, Trash2, PlusCircle, GripVertical } from 'lucide-react';
 import type { Debt } from '@/types';
 import {
@@ -58,8 +58,7 @@ export type ColumnVisibility = {
 type DebtView = 'current' | 'next';
 
 const parseDate = (dateString: string) => {
-    const [year, month, day] = dateString.split('T')[0].split('-').map(Number);
-    return new Date(year, month - 1, day);
+    return parse(dateString, 'yyyy-MM-dd', new Date());
 };
 
 

@@ -3,7 +3,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import { useTransactions } from '../hooks/use-transactions';
 import { useBudgetCategories } from '@/hooks/use-budget-categories';
 import {
@@ -18,8 +18,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 
 const parseDate = (dateString: string) => {
-    const [year, month, day] = dateString.split('T')[0].split('-').map(Number);
-    return new Date(year, month - 1, day);
+    return parse(dateString.split('T')[0], 'yyyy-MM-dd', new Date());
 };
 
 export function TransactionTable() {

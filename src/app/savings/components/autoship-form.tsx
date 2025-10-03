@@ -103,7 +103,7 @@ export function AutoShipForm({ open, onOpenChange, addAutoShipItem, updateAutoSh
         form.reset({
           accountId: editingItem.accountId,
           item: editingItem.item,
-          nextShipmentDate: new Date(editingItem.nextShipmentDate).toISOString().split('T')[0],
+          nextShipmentDate: editingItem.nextShipmentDate,
           frequency: editingItem.frequency,
           estimatedCost: editingItem.estimatedCost,
           budgetCategoryId: editingItem.budgetCategoryId || '',
@@ -122,12 +122,9 @@ export function AutoShipForm({ open, onOpenChange, addAutoShipItem, updateAutoSh
   }, [editingItem, open, form, accounts]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    const [year, month, day] = values.nextShipmentDate.split('-').map(Number);
-    const localDate = new Date(year, month - 1, day);
     
     const submissionData = { 
         ...values, 
-        nextShipmentDate: localDate.toISOString(),
         frequency: values.frequency as AutoShipFrequency,
         budgetCategoryId: values.budgetCategoryId === 'null' ? undefined : values.budgetCategoryId,
     };

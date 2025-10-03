@@ -127,18 +127,18 @@ export async function getAutoShipItems(accountId: string): Promise<AutoShipItem[
 export async function addAutoShipItem(itemData: Omit<AutoShipItem, 'id'>): Promise<AutoShipItem> {
   const docRef = await runTransaction(db, async (transaction) => {
         const newItemRef = doc(collection(db, AUTOSHIP_COLLECTION));
-        const newItem = { id: newItemRef.id, ...itemData };
+        const newAutoShipItem = { id: newItemRef.id, ...itemData };
         
         // --- Start READS ---
-        const sinkingFundQuery = query(collection(db, SINKING_FUNDS_COLLECTION), where('name', '==', newItem.item), where('accountId', '==', newItem.accountId));
+        const sinkingFundQuery = query(collection(db, SINKING_FUNDS_COLLECTION), where('name', '==', newAutoShipItem.item), where('accountId', '==', newAutoShipItem.accountId));
         
         let budgetItemsQuery = null;
-        if (newItem.budgetCategoryId) {
+        if (newAutoShipItem.budgetCategoryId) {
              const currentMonth = new Date().toISOString().slice(0, 7);
              budgetItemsQuery = query(
                 collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION),
                 where('month', '==', currentMonth),
-                where('categoryId', '==', newItem.budgetCategoryId)
+                where('categoryId', '==', newAutoShipItem.budgetCategoryId)
             );
         }
 
@@ -149,9 +149,9 @@ export async function addAutoShipItem(itemData: Omit<AutoShipItem, 'id'>): Promi
         // --- Start WRITES ---
         transaction.set(newItemRef, itemData);
 
-        await updateLinkedSinkingFund(transaction, sinkingFundSnapshot, newItem);
-        if (newItem.budgetCategoryId) {
-            await updateMonthlyBudget(transaction, budgetItemsSnapshot, null, newItem);
+        await updateLinkedSinkingFund(transaction, sinkingFundSnapshot, newAutoShipItem);
+        if (newAutoShipItem.budgetCategoryId) {
+            await updateMonthlyBudget(transaction, budgetItemsSnapshot, null, newAutoShipItem);
         }
         
         return newItemRef;
@@ -265,6 +265,6 @@ export async function advanceShipmentDate(id: string): Promise<void> {
     const newShipmentDate = addMonths(new Date(item.nextShipmentDate), monthsToAdd);
 
     await updateDoc(itemRef, {
-        nextShipmentDate: newShipmentDate.toISOString(),
+        nextShipmentDate: format(newShipmentDate, 'yyyy-MM-dd'),
     });
 }

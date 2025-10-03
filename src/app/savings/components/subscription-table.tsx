@@ -4,7 +4,7 @@
 
 import { useState, useMemo } from 'react';
 import { Pencil, Trash2, PlusCircle, ArrowUpDown } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import type { SubscriptionItem } from '@/types';
 
 import {
@@ -107,8 +107,8 @@ export function SubscriptionTable() {
             aValue = getMonthlyCost(a);
             bValue = getMonthlyCost(b);
         } else if (sortConfig.key === 'nextRenewalDate') {
-            aValue = a.nextRenewalDate ? new Date(a.nextRenewalDate).getTime() : 0;
-            bValue = b.nextRenewalDate ? new Date(b.nextRenewalDate).getTime() : 0;
+            aValue = a.nextRenewalDate ? parse(a.nextRenewalDate, 'yyyy-MM-dd', new Date()).getTime() : 0;
+            bValue = b.nextRenewalDate ? parse(b.nextRenewalDate, 'yyyy-MM-dd', new Date()).getTime() : 0;
         }
         else {
             aValue = a[sortConfig.key as keyof SubscriptionItem];
@@ -198,7 +198,7 @@ export function SubscriptionTable() {
                             <TableCell className="font-medium">{item.serviceName}</TableCell>
                             <TableCell>{item.budgetCategoryId ? categoryMap[item.budgetCategoryId] : <span className="text-muted-foreground">-</span>}</TableCell>
                             <TableCell><Badge variant="secondary">{item.billingFrequency}</Badge></TableCell>
-                            <TableCell>{item.nextRenewalDate ? format(new Date(item.nextRenewalDate), 'PPP') : '-'}</TableCell>
+                            <TableCell>{item.nextRenewalDate ? format(parse(item.nextRenewalDate, 'yyyy-MM-dd', new Date()), 'PPP') : '-'}</TableCell>
                             <TableCell className="text-right">{formatCurrency(item.cost)}</TableCell>
                             <TableCell className="text-right">{formatCurrency(getMonthlyCost(item))}</TableCell>
                             <TableCell className="text-right">

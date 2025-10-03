@@ -3,7 +3,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import { Pencil, Trash2, PlusCircle, Repeat, Info, ChevronsUpDown, ArrowUpDown, RotateCcw } from 'lucide-react';
 import type { BudgetItem, Category } from '@/types';
 import {
@@ -47,8 +47,7 @@ type SortConfig = {
 } | null;
 
 const parseDate = (dateString: string) => {
-    const [year, month, day] = dateString.split('T')[0].split('-').map(Number);
-    return new Date(year, month - 1, day);
+    return parse(dateString.split('T')[0], 'yyyy-MM-dd', new Date());
 };
 
 const SortableHeader = ({ column, label, sortConfig, requestSort, className }: { column: keyof BudgetItem, label: string, sortConfig: SortConfig, requestSort: (key: keyof BudgetItem) => void, className?: string }) => {

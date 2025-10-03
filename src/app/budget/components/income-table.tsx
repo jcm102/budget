@@ -3,7 +3,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import { Pencil, Trash2, PlusCircle, Repeat, ArrowUpDown, ArrowRight } from 'lucide-react';
 import type { BudgetItem } from '@/types';
 import {
@@ -40,8 +40,7 @@ type SortConfig = {
 } | null;
 
 const parseDate = (dateString: string) => {
-    const [year, month, day] = dateString.split('T')[0].split('-').map(Number);
-    return new Date(year, month - 1, day);
+    return parse(dateString.split('T')[0], 'yyyy-MM-dd', new Date());
 };
 
 const SortableHeader = ({ column, label, sortConfig, requestSort, className }: { column: keyof BudgetItem, label: string, sortConfig: SortConfig, requestSort: (key: keyof BudgetItem) => void, className?: string }) => {
@@ -115,7 +114,7 @@ export function IncomeTable() {
   const renderLoadingSkeleton = () => (
     Array.from({ length: 2 }).map((_, i) => (
       <TableRow key={`skeleton-income-${i}`}>
-        <TableCell colSpan={5}><Skeleton className="h-8 w-full" /></TableCell>
+        <TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell>
       </TableRow>
     ))
   );

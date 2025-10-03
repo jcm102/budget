@@ -3,7 +3,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import { Pencil, Trash2, PlusCircle, RotateCw, ArrowUpDown } from 'lucide-react';
 import type { AutoShipItem } from '@/types';
 
@@ -111,8 +111,8 @@ export function AutoShipTable() {
       sortableItems.sort((a, b) => {
         let aValue, bValue;
         if (sortConfig.key === 'nextShipmentDate') {
-            aValue = new Date(a.nextShipmentDate).getTime();
-            bValue = new Date(b.nextShipmentDate).getTime();
+            aValue = parse(a.nextShipmentDate, 'yyyy-MM-dd', new Date()).getTime();
+            bValue = parse(b.nextShipmentDate, 'yyyy-MM-dd', new Date()).getTime();
         } else if (sortConfig.key === 'monthlyCost') {
             aValue = getMonthlyCost(a);
             bValue = getMonthlyCost(b);
@@ -193,7 +193,7 @@ export function AutoShipTable() {
                         <TableRow key={item.id}>
                             <TableCell className="font-medium">{item.item}</TableCell>
                             <TableCell>{item.budgetCategoryId ? categoryMap[item.budgetCategoryId] : <span className="text-muted-foreground">-</span>}</TableCell>
-                            <TableCell>{format(new Date(item.nextShipmentDate), 'PPP')}</TableCell>
+                            <TableCell>{format(parse(item.nextShipmentDate, 'yyyy-MM-dd', new Date()), 'PPP')}</TableCell>
                             <TableCell><Badge variant="secondary">{item.frequency}</Badge></TableCell>
                             <TableCell className="text-right">{formatCurrency(item.estimatedCost)}</TableCell>
                             <TableCell className="text-right">{formatCurrency(getMonthlyCost(item))}</TableCell>

@@ -87,7 +87,7 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
                 allGeneratedItems.push({
                     ...item,
                     id: instanceId,
-                    date: currentDate.toISOString(),
+                    date: format(currentDate, 'yyyy-MM-dd'),
                     completed: item.completed || false
                 });
             }
@@ -107,7 +107,7 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
                 allGeneratedItems.push({
                     ...item,
                     id: instanceId, 
-                    date: currentDate.toISOString(),
+                    date: format(currentDate, 'yyyy-MM-dd'),
                     completed: item.completed || false
                 });
               }
@@ -154,7 +154,7 @@ export async function addBudgetItem(itemData: Omit<BudgetItem, 'id'>): Promise<B
     const destAccountSnap = destAccountQuery ? await transaction.get(destAccountQuery) : null;
     
     // --- ALL WRITES AFTER READS ---
-    transaction.set(newDocRef, { ...dataWithCompleted, date: itemData.date.split('T')[0]});
+    transaction.set(newDocRef, dataWithCompleted);
     
     if (itemData.type === 'Income' && destAccountSnap?.exists() && !itemData.forNextMonth) {
         const currentBalance = destAccountSnap.data().balance || 0;
@@ -504,7 +504,7 @@ export async function syncDebtPaymentsToMonthlyBudget(): Promise<void> {
             const { total, breakdown } = categoryAggregates[categoryId];
             
             const budgetItemQuery = query(
-                collection(db, MONTHLY_BUDGET_COLLECTION),
+                collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION),
                 where('month', '==', nextMonth),
                 where('categoryId', '==', categoryId),
                 limit(1)
@@ -520,7 +520,7 @@ export async function syncDebtPaymentsToMonthlyBudget(): Promise<void> {
             };
 
             if (snapshot.empty) {
-                const newDocRef = doc(collection(db, MONTHLY_BUDGET_COLLECTION));
+                const newDocRef = doc(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION));
                 transaction.set(newDocRef, data);
             } else {
                 const docRef = snapshot.docs[0].ref;

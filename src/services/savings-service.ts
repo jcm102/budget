@@ -16,7 +16,7 @@ import {
   orderBy,
   where,
 } from 'firebase/firestore';
-import { addMonths, set } from 'date-fns';
+import { addMonths, set, format } from 'date-fns';
 
 const SAVINGS_COLLECTION = 'sinking-funds';
 
@@ -82,13 +82,13 @@ export async function updateSavingsItem(id: string, itemData: Partial<Omit<Savin
               // Current due date was the secondary month, next is the primary month in the *next* year.
               nextDueDate = set(currentDueDate, { year: currentDueDate.getFullYear() + 1, month: p1 - 1 });
           }
-          itemData.dueDate = nextDueDate.toISOString();
+          itemData.dueDate = format(nextDueDate, 'yyyy-MM-dd');
 
       } else {
           const monthsToAdd = recurrenceIntervalMap[existingData.recurrence];
           if (monthsToAdd > 0) {
             const newDueDate = addMonths(new Date(existingData.dueDate), monthsToAdd);
-            itemData.dueDate = newDueDate.toISOString();
+            itemData.dueDate = format(newDueDate, 'yyyy-MM-dd');
           }
       }
       

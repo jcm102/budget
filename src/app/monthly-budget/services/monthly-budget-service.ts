@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -108,8 +109,8 @@ export async function getTransactionsForMonth(month: string): Promise<Transactio
   const endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 1);
   
   const startString = `${month}-01`;
-  const nextMonthDate = new Date(startDate.setMonth(startDate.getMonth() + 1));
-  const nextMonthString = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}-01`;
+  const nextMonthDate = addMonths(new Date(startDate), 1);
+  const nextMonthString = format(nextMonthDate, 'yyyy-MM-dd');
 
   const q = query(
     collection(db, TRANSACTIONS_COLLECTION), 
@@ -198,7 +199,7 @@ export async function addTransaction(transactionData: Omit<Transaction, 'id'>): 
 
         // --- Start WRITES ---
         const newTransactionRef = doc(collection(db, TRANSACTIONS_COLLECTION));
-        transaction.set(newTransactionRef, { ...transactionData, date: transactionData.date.split('T')[0] });
+        transaction.set(newTransactionRef, transactionData);
 
         // Debit/Credit source account
         if (sourceAccountData.type === 'Credit' && linkedDebtRef && linkedDebtSnap) {
@@ -373,9 +374,7 @@ export async function updateTransaction(id: string, transactionData: Partial<Omi
         await revertTransaction(transaction, oldData, accountSnapsMap, debtSnapsMap);
         await applyTransaction(transaction, newData, accountSnapsMap, debtSnapsMap);
         
-        const dataToUpdate = { ...transactionData };
-        if(dataToUpdate.date) dataToUpdate.date = dataToUpdate.date.split('T')[0];
-        transaction.update(transactionRef, dataToUpdate);
+        transaction.update(transactionRef, transactionData);
     });
 }
 

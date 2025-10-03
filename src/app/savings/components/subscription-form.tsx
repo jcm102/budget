@@ -119,7 +119,7 @@ export function SubscriptionForm({ open, onOpenChange, addSubscription, updateSu
           serviceName: editingItem.serviceName,
           billingFrequency: editingItem.billingFrequency,
           cost: editingItem.cost,
-          nextRenewalDate: editingItem.nextRenewalDate ? new Date(editingItem.nextRenewalDate).toISOString().split('T')[0] : '',
+          nextRenewalDate: editingItem.nextRenewalDate,
           budgetCategoryId: editingItem.budgetCategoryId || '',
           includeInSinkingFund: editingItem.includeInSinkingFund ?? (editingItem.billingFrequency !== 'Monthly'),
         });
@@ -138,13 +138,9 @@ export function SubscriptionForm({ open, onOpenChange, addSubscription, updateSu
   }, [editingItem, open, form, accounts]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    const [year, month, day] = values.nextRenewalDate.split('-').map(Number);
-    const localDate = new Date(year, month - 1, day);
-    
     const submissionData = { 
         ...values,
         billingFrequency: values.billingFrequency as SubscriptionBillingFrequency,
-        nextRenewalDate: localDate.toISOString(),
         budgetCategoryId: values.budgetCategoryId === 'null' ? undefined : values.budgetCategoryId,
     };
 
