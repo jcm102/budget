@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -192,27 +191,19 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
   };
   
   const calculateMonthlyAmount = (totalCost: number, amountSaved: number, dueDateStr: string | null): number => {
-    const remainingAmount = totalCost - amountSaved;
-    if (remainingAmount <= 0 || !dueDateStr) return 0;
-  
-    const today = new Date();
-    const dueDate = parseDate(dueDateStr);
+      const remainingAmount = totalCost - amountSaved;
+      if (remainingAmount <= 0 || !dueDateStr) return 0;
     
-    // Set both dates to the first of their respective months to count full months between them
-    const startOfCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const startOfDueMonth = new Date(dueDate.getFullYear(), dueDate.getMonth(), 1);
+      const today = startOfToday();
+      const dueDate = parse(dueDateStr, 'yyyy-MM-dd', new Date());
+      
+      const monthsRemaining = differenceInCalendarMonths(dueDate, today);
 
-    if (isBefore(startOfDueMonth, startOfCurrentMonth) || isEqual(startOfDueMonth, startOfCurrentMonth)) {
+      if (monthsRemaining <= 0) {
         return remainingAmount > 0 ? remainingAmount : 0;
-    }
+      }
     
-    const monthsRemaining = differenceInCalendarMonths(startOfDueMonth, startOfCurrentMonth);
-
-    if (monthsRemaining <= 0) {
-      return remainingAmount > 0 ? remainingAmount : 0;
-    }
-  
-    return remainingAmount / monthsRemaining;
+      return remainingAmount / monthsRemaining;
   };
 
   const enhancedSavingsItems = useMemo(() => {
@@ -490,10 +481,3 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
     </>
   );
 }
-
-    
-
-    
-
-    
-
