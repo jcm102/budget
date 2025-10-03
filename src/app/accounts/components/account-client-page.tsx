@@ -27,8 +27,9 @@ import { buttonVariants } from '@/components/ui/button';
 import { useTransactions } from '@/app/monthly-budget/hooks/use-transactions';
 
 const parseDate = (dateString: string) => {
-    // This safely parses a 'yyyy-MM-dd' string into a local Date object.
-    return parse(dateString, 'yyyy-MM-dd', new Date());
+    // This safely parses a 'yyyy-MM-dd' string from a full ISO string into a local Date object.
+    const datePart = dateString.split('T')[0];
+    return parse(datePart, 'yyyy-MM-dd', new Date());
 };
 
 
