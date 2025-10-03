@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -7,7 +6,7 @@ import type { SavingsItem, SubscriptionItem, AutoShipItem } from '@/types';
 import * as z from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { format, differenceInMonths, addMonths, getYear, getMonth, startOfMonth, isBefore, isEqual } from 'date-fns';
+import { format, differenceInCalendarMonths, addMonths, getYear, getMonth, startOfToday, isBefore, isEqual, startOfMonth } from 'date-fns';
 import type { ColumnVisibility } from '@/app/savings/page';
 
 import {
@@ -184,19 +183,14 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
   };
   
-  const calculateMonthlyAmount = (totalCost: number, amountSaved: number, dueDate: Date): number => {
+  const calculateMonthlyAmount = (totalCost: number, amountSaved: number, dueDateStr: string): number => {
       const remainingAmount = totalCost - amountSaved;
       if (remainingAmount <= 0) return 0;
   
-      const today = startOfMonth(new Date());
-      const targetDate = startOfMonth(new Date(dueDate));
-
-      // If the target is in the past or the current month, the full remaining amount is due now.
-      if (isBefore(targetDate, today) || isEqual(targetDate, today)) {
-          return remainingAmount;
-      }
+      const today = startOfToday();
+      const dueDate = new Date(dueDateStr);
       
-      const monthsRemaining = differenceInMonths(targetDate, today);
+      const monthsRemaining = differenceInCalendarMonths(dueDate, today);
 
       if (monthsRemaining <= 0) {
         return remainingAmount;
@@ -232,8 +226,7 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
         // Calculate monthly amount if possible
         const costToUse = (enhancedItem.savingsTarget && enhancedItem.savingsTarget > 0) ? enhancedItem.savingsTarget : enhancedItem.totalCost;
         if (costToUse && enhancedItem.dueDate) {
-            const dueDate = new Date(enhancedItem.dueDate);
-            enhancedItem.monthlyAmount = calculateMonthlyAmount(costToUse, enhancedItem.amount, dueDate);
+            enhancedItem.monthlyAmount = calculateMonthlyAmount(costToUse, enhancedItem.amount, enhancedItem.dueDate);
         }
 
         return enhancedItem;
