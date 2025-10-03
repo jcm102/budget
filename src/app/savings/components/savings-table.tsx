@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -54,7 +53,7 @@ import { useSavings } from '../hooks/use-savings';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
-import { Pencil, Trash2, PlusCircle, ArrowUpDown, DollarSign, MinusCircle, Info, Repeat } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, ArrowUpDown, DollarSign, MinusCircle, Info, Repeat, PiggyBank } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
@@ -320,7 +319,7 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
                 {columnVisibility.dueDate && <SortableHeader column="dueDate" label="Due Date" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[140px]"/>}
                 {columnVisibility.recurrence && <SortableHeader column="recurrence" label="Recurrence" sortConfig={sortConfig} requestSort={requestSort} className="w-[150px]"/>}
                 {columnVisibility.monthlyAmount && <SortableHeader column="monthlyAmount" label="Monthly Amount" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[160px]"/>}
-                {columnVisibility.actions && <TableHead className="w-[140px] text-right">Actions</TableHead>}
+                {columnVisibility.actions && <TableHead className="w-[180px] text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -381,6 +380,29 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
                             </TableCell>}
                             {columnVisibility.actions && <TableCell className="text-right">
                                 <div className="flex justify-end gap-1">
+                                    <AlertDialog>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <AlertDialogTrigger asChild>
+                                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700" disabled={monthlyAmount <= 0}><PiggyBank className="h-4 w-4" /></Button>
+                                                </AlertDialogTrigger>
+                                            </TooltipTrigger>
+                                            <TooltipContent><p>Fund Monthly Amount</p></TooltipContent>
+                                        </Tooltip>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Fund Sinking Fund?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    This will add {formatCurrency(monthlyAmount, item.currency)} to your saved amount for &quot;{item.name}&quot;.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleTransaction(item, monthlyAmount, 'deposit')}>Confirm</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+
                                      <TransactionDialog item={item} transactionType='deposit' onSave={(amount) => handleTransaction(item, amount, 'deposit')}>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
@@ -448,3 +470,5 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
     </>
   );
 }
+
+    
