@@ -22,7 +22,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Trash2, PlusCircle, User, Users, Info, Copy } from 'lucide-react';
@@ -175,23 +175,26 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
     }
   }
 
-  const renderCategoryOptions = (nodes: CategoryWithChildren[], level = 0) => {
-    let options: JSX.Element[] = [];
-     if (!Array.isArray(nodes)) {
-      return options;
-    }
-    nodes.forEach(node => {
-        options.push(
-            <SelectItem key={node.id} value={node.id} style={{ paddingLeft: `${1 + level * 1}rem` }}>
-                {node.name}
+  const renderCategoryOptions = (nodes: CategoryWithChildren[], level = 0): (JSX.Element | null)[] => {
+    return nodes.map(node => {
+      if (node.children.length > 0) {
+        return (
+          <SelectGroup key={node.id}>
+            <SelectItem value={node.id} style={{ paddingLeft: `${1 + level * 1.5}rem`, fontWeight: 500 }}>
+              {node.name}
             </SelectItem>
+            {renderCategoryOptions(node.children, level + 1)}
+          </SelectGroup>
         );
-        if (node.children.length > 0) {
-            options = options.concat(renderCategoryOptions(node.children, level + 1));
-        }
+      }
+      return (
+        <SelectItem key={node.id} value={node.id} style={{ paddingLeft: `${1 + level * 1.5}rem` }}>
+          {node.name}
+        </SelectItem>
+      );
     });
-    return options;
   };
+
 
   const formContent = (
     <Form {...form}>
@@ -302,7 +305,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                                                         <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
                                                         </FormControl>
                                                         <SelectContent>
-                                                          {categoryTree.map(node => renderCategoryOptions([node]))}
+                                                            {renderCategoryOptions(categoryTree)}
                                                         </SelectContent>
                                                     </Select>
                                                     <FormMessage />
