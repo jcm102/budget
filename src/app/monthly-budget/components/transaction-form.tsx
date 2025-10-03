@@ -35,7 +35,7 @@ import type { Transaction, TransactionSplit, AccountDetails, Category, MonthlyBu
 import { useMonthlyBudget } from '../hooks/use-monthly-budget';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 
 type CategoryWithChildren = Category & { children: CategoryWithChildren[] };
 
@@ -71,6 +71,23 @@ type TransactionFormProps = {
   deleteTransaction: (id: string) => void;
   editingTransaction: Transaction | null;
   isPage?: boolean;
+};
+
+// This function ensures the date from a YYYY-MM-DD string is treated as local timezone, not UTC.
+const toLocalISOString = (dateString: string) => {
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    const tzOffset = -date.getTimezoneOffset();
+    const diff = tzOffset >= 0 ? '+' : '-';
+    const pad = (n: number) => `${Math.floor(Math.abs(n))}`.padStart(2, '0');
+    return date.getFullYear() +
+      '-' + pad(date.getMonth() + 1) +
+      '-' + pad(date.getDate()) +
+      'T' + pad(date.getHours()) +
+      ':' + pad(date.getMinutes()) +
+      ':' + pad(date.getSeconds()) +
+      diff + pad(tzOffset / 60) +
+      ':' + pad(tzOffset % 60);
 };
 
 export function TransactionForm({ open, onOpenChange, accounts, addTransaction, updateTransaction, editingTransaction, isPage = false }: TransactionFormProps) {
@@ -152,7 +169,10 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
   };
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    const submissionData = { ...values };
+    const submissionData = { 
+        ...values,
+        date: toLocalISOString(values.date)
+    };
     if (editingTransaction) {
       updateTransaction(editingTransaction.id, submissionData);
     } else {
@@ -175,24 +195,18 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
     }
   }
 
-  const renderCategoryOptions = (nodes: CategoryWithChildren[], level = 0): (JSX.Element | null)[] => {
-    return nodes.map(node => {
-      if (node.children.length > 0) {
-        return (
-          <SelectGroup key={node.id}>
+  const renderCategoryOptions = (nodes: CategoryWithChildren[], level = 0) => {
+    if (!Array.isArray(nodes)) {
+        return null;
+    }
+    return nodes.map(node => (
+        <SelectGroup key={node.id}>
             <SelectItem value={node.id} style={{ paddingLeft: `${1 + level * 1.5}rem`, fontWeight: 500 }}>
-              {node.name}
+                {node.name}
             </SelectItem>
-            {renderCategoryOptions(node.children, level + 1)}
-          </SelectGroup>
-        );
-      }
-      return (
-        <SelectItem key={node.id} value={node.id} style={{ paddingLeft: `${1 + level * 1.5}rem` }}>
-          {node.name}
-        </SelectItem>
-      );
-    });
+            {node.children && node.children.length > 0 && renderCategoryOptions(node.children, level + 1)}
+        </SelectGroup>
+    ));
   };
 
 
@@ -305,7 +319,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                                                         <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
                                                         </FormControl>
                                                         <SelectContent>
-                                                            {renderCategoryOptions(categoryTree)}
+                                                            {categoryTree.map(node => renderCategoryOptions([node]))}
                                                         </SelectContent>
                                                     </Select>
                                                     <FormMessage />
