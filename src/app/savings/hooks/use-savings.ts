@@ -1,13 +1,14 @@
 
+
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { SavingsItem, SubscriptionItem, AutoShipItem } from '@/types';
-import { useToast } from './use-toast';
+import { useToast } from '@/hooks/use-toast';
 import * as SavingsService from '@/services/savings-service';
 import * as SubscriptionService from '@/services/subscription-service';
 import * as AutoShipService from '@/services/autoship-service';
-import { useSelectedAccount } from './use-selected-account';
+import { useSelectedAccount } from '@/hooks/use-selected-account';
 import { differenceInCalendarMonths, parse, startOfToday, isBefore, format, addMonths } from 'date-fns';
 
 const parseDate = (dateString: string): Date => {
@@ -34,16 +35,23 @@ const calculateMonthlyAmount = (totalCost: number, amountSaved: number, dueDateS
 
     const today = startOfToday();
     const dueDate = parseDate(dueDateStr);
+    
+    // If due date is in the past or this month, the full remaining amount is due now.
+    if (isBefore(dueDate, addMonths(today, 1))) {
+        return remainingAmount;
+    }
 
+    // Calculate the number of full months between today and the due date.
     let monthsRemaining = differenceInCalendarMonths(dueDate, today);
 
-    // If the due date is in the future but the saving period for this month is over, reduce months remaining by 1
-    if (isBefore(dueDate, today)) {
-        monthsRemaining = 0;
+    // If the due date is in a future month, but the day of the month is before today's day,
+    // we should subtract a month because we don't have a full savings cycle for the last month.
+    if (dueDate.getDate() < today.getDate()) {
+        monthsRemaining -=1;
     }
-    
+
     if (monthsRemaining <= 0) {
-        return remainingAmount > 0 ? remainingAmount : 0;
+        return remainingAmount;
     }
 
     return remainingAmount / monthsRemaining;
