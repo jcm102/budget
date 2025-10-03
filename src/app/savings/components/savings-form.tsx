@@ -28,6 +28,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { SavingsItem, SavingsRecurrence } from '@/types';
 import { useAccounts } from '@/hooks/use-accounts';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const monthOptions = [
     { label: 'January', value: 1 },
@@ -152,7 +153,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
           goal: editingItem.goal || 0,
           totalCost: editingItem.totalCost || 0,
           savingsTarget: editingItem.savingsTarget || 0,
-          dueDate: editingItem.dueDate ? new Date(editingItem.dueDate).toISOString().split('T')[0] : '',
+          dueDate: editingItem.dueDate ? editingItem.dueDate.split('T')[0] : '',
           recurrence: editingItem.recurrence || 'None',
           primaryPaymentMonth: editingItem.primaryPaymentMonth || undefined,
           secondaryPaymentMonth: editingItem.secondaryPaymentMonth || undefined,
@@ -184,7 +185,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
       goal: values.goal || 0,
       totalCost: values.totalCost || null,
       savingsTarget: values.savingsTarget || null,
-      dueDate: values.dueDate ? new Date(values.dueDate).toISOString() : null,
+      dueDate: values.dueDate ? values.dueDate.split('T')[0] : null,
       recurrence: values.recurrence as SavingsRecurrence,
       primaryPaymentMonth: values.recurrence === 'Semi-Annually (Custom)' ? values.primaryPaymentMonth : null,
       secondaryPaymentMonth: values.recurrence === 'Semi-Annually (Custom)' ? values.secondaryPaymentMonth : null,
@@ -216,156 +217,158 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField control={form.control} name="name" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Fund Name</FormLabel>
-                  <FormControl><Input placeholder="e.g., Car Maintenance" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="accountId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Account</FormLabel>
-                   <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingAccounts}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select an account" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {accounts.map(account => (
-                        <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-             <FormField control={form.control} name="currency" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Currency</FormLabel>
-                   <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent>
-                        <SelectItem value="CAD">CAD</SelectItem>
-                        <SelectItem value="USD">USD</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField control={form.control} name="amount" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Current Amount Saved</FormLabel>
-                  <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-             <FormField control={form.control} name="totalCost" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Total Cost (Optional)</FormLabel>
-                  <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField control={form.control} name="savingsTarget" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>My Savings Target (Optional)</FormLabel>
-                  <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-             <div className="flex gap-2 -mt-2">
-                {[25, 50, 75, 100].map(p => (
-                  <Button 
-                    key={p} 
-                    type="button" 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => setSavingsTargetPercentage(p)}
-                    disabled={!totalCost || totalCost <= 0}
-                    className="flex-1"
-                  >
-                    {p}%
-                  </Button>
-                ))}
-            </div>
-             <FormField control={form.control} name="dueDate" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Due Date (Optional)</FormLabel>
-                  <FormControl><Input type="date" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField control={form.control} name="recurrence" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Recurrence</FormLabel>
-                   <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent>
-                        <SelectItem value="None">None (One-Time)</SelectItem>
-                        <SelectItem value="Quarterly">Quarterly</SelectItem>
-                        <SelectItem value="Semi-Annually">Semi-Annually</SelectItem>
-                        <SelectItem value="Semi-Annually (Custom)">Semi-Annually (Custom)</SelectItem>
-                        <SelectItem value="Annually">Annually</SelectItem>
-                        <SelectItem value="Bi-Annually">Bi-Annually</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            {recurrence === 'Semi-Annually (Custom)' && (
-              <div className="grid grid-cols-2 gap-4">
-                <FormField control={form.control} name="primaryPaymentMonth" render={({ field }) => (
+          <ScrollArea className="h-[60vh]">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pr-6">
+              <FormField control={form.control} name="name" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>First Payment</FormLabel>
-                     <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Month" /></SelectTrigger></FormControl>
-                        <SelectContent>
-                            {monthOptions.map(m => <SelectItem key={m.value} value={m.value.toString()}>{m.label}</SelectItem>)}
-                        </SelectContent>
+                    <FormLabel>Fund Name</FormLabel>
+                    <FormControl><Input placeholder="e.g., Car Maintenance" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="accountId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Account</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingAccounts}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select an account" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {accounts.map(account => (
+                          <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>
+                        ))}
+                      </SelectContent>
                     </Select>
                     <FormMessage />
                   </FormItem>
-                )}/>
-                 <FormField control={form.control} name="secondaryPaymentMonth" render={({ field }) => (
+                )}
+              />
+              <FormField control={form.control} name="currency" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Second Payment</FormLabel>
-                     <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Month" /></SelectTrigger></FormControl>
-                        <SelectContent>
-                            {monthOptions.map(m => <SelectItem key={m.value} value={m.value.toString()}>{m.label}</SelectItem>)}
-                        </SelectContent>
+                    <FormLabel>Currency</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                      <SelectContent>
+                          <SelectItem value="CAD">CAD</SelectItem>
+                          <SelectItem value="USD">USD</SelectItem>
+                      </SelectContent>
                     </Select>
                     <FormMessage />
                   </FormItem>
-                )}/>
+                )}
+              />
+              <FormField control={form.control} name="amount" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Current Amount Saved</FormLabel>
+                    <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField control={form.control} name="totalCost" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Total Cost (Optional)</FormLabel>
+                    <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField control={form.control} name="savingsTarget" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>My Savings Target (Optional)</FormLabel>
+                    <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex gap-2 -mt-2">
+                  {[25, 50, 75, 100].map(p => (
+                    <Button 
+                      key={p} 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setSavingsTargetPercentage(p)}
+                      disabled={!totalCost || totalCost <= 0}
+                      className="flex-1"
+                    >
+                      {p}%
+                    </Button>
+                  ))}
               </div>
-            )}
-            <FormField control={form.control} name="goal" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Monthly Contribution Goal (Optional)</FormLabel>
-                  <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
-                   <FormMessage />
-                </FormItem>
+              <FormField control={form.control} name="dueDate" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Due Date (Optional)</FormLabel>
+                    <FormControl><Input type="date" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField control={form.control} name="recurrence" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Recurrence</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                      <SelectContent>
+                          <SelectItem value="None">None (One-Time)</SelectItem>
+                          <SelectItem value="Quarterly">Quarterly</SelectItem>
+                          <SelectItem value="Semi-Annually">Semi-Annually</SelectItem>
+                          <SelectItem value="Semi-Annually (Custom)">Semi-Annually (Custom)</SelectItem>
+                          <SelectItem value="Annually">Annually</SelectItem>
+                          <SelectItem value="Bi-Annually">Bi-Annually</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {recurrence === 'Semi-Annually (Custom)' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField control={form.control} name="primaryPaymentMonth" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>First Payment</FormLabel>
+                      <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                          <FormControl><SelectTrigger><SelectValue placeholder="Month" /></SelectTrigger></FormControl>
+                          <SelectContent>
+                              {monthOptions.map(m => <SelectItem key={m.value} value={m.value.toString()}>{m.label}</SelectItem>)}
+                          </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}/>
+                  <FormField control={form.control} name="secondaryPaymentMonth" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Second Payment</FormLabel>
+                      <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                          <FormControl><SelectTrigger><SelectValue placeholder="Month" /></SelectTrigger></FormControl>
+                          <SelectContent>
+                              {monthOptions.map(m => <SelectItem key={m.value} value={m.value.toString()}>{m.label}</SelectItem>)}
+                          </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}/>
+                </div>
               )}
-            />
-            <DialogFooter>
-              <Button type="submit">{editingItem ? 'Save Changes' : 'Add Fund'}</Button>
-            </DialogFooter>
-          </form>
+              <FormField control={form.control} name="goal" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Monthly Contribution Goal (Optional)</FormLabel>
+                    <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter className="sticky bottom-0 bg-background py-4">
+                <Button type="submit">{editingItem ? 'Save Changes' : 'Add Fund'}</Button>
+              </DialogFooter>
+            </form>
+          </ScrollArea>
         </Form>
       </DialogContent>
     </Dialog>
