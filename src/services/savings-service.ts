@@ -69,7 +69,7 @@ export async function updateSavingsItem(id: string, itemData: Partial<Omit<Savin
     if (savingsTarget > 0 && amountWithdrawn >= savingsTarget) {
       if (existingData.recurrence === 'Semi-Annually (Custom)' && existingData.primaryPaymentMonth && existingData.secondaryPaymentMonth) {
           const currentDueDate = new Date(existingData.dueDate);
-          const currentDueMonth = currentDueDate.getMonth() + 1; // 1-indexed
+          const currentDueMonth = currentDueDate.getUTCMonth() + 1; // Use UTC month
           const p1 = existingData.primaryPaymentMonth;
           const p2 = existingData.secondaryPaymentMonth;
 
@@ -80,7 +80,7 @@ export async function updateSavingsItem(id: string, itemData: Partial<Omit<Savin
               nextDueDate = set(currentDueDate, { month: p2 - 1 });
           } else {
               // Current due date was the secondary month, next is the primary month in the *next* year.
-              nextDueDate = set(currentDueDate, { year: currentDueDate.getFullYear() + 1, month: p1 - 1 });
+              nextDueDate = set(currentDueDate, { year: currentDueDate.getUTCFullYear() + 1, month: p1 - 1 });
           }
           itemData.dueDate = format(nextDueDate, 'yyyy-MM-dd');
 
@@ -97,6 +97,11 @@ export async function updateSavingsItem(id: string, itemData: Partial<Omit<Savin
       if(itemData.amount < 0) itemData.amount = 0;
     }
   }
+  
+  if (itemData.dueDate) {
+      itemData.dueDate = itemData.dueDate.split('T')[0];
+  }
+
 
   // Firestore does not allow undefined values. We need to clean the object.
   const cleanItemData = Object.fromEntries(Object.entries(itemData).filter(([_, v]) => v !== undefined));
@@ -108,3 +113,4 @@ export async function deleteSavingsItem(id: string): Promise<void> {
   const itemRef = doc(db, SAVINGS_COLLECTION, id);
   await deleteDoc(itemRef);
 }
+
