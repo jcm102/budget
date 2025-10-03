@@ -175,6 +175,24 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
     }
   }
 
+  const renderCategoryOptions = (nodes: CategoryWithChildren[], level = 0) => {
+    let options: JSX.Element[] = [];
+     if (!Array.isArray(nodes)) {
+      return options;
+    }
+    nodes.forEach(node => {
+        options.push(
+            <SelectItem key={node.id} value={node.id} style={{ paddingLeft: `${1 + level * 1}rem` }}>
+                {node.name}
+            </SelectItem>
+        );
+        if (node.children.length > 0) {
+            options = options.concat(renderCategoryOptions(node.children, level + 1));
+        }
+    });
+    return options;
+  };
+
   const formContent = (
     <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 h-full flex flex-col">
@@ -284,7 +302,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                                                         <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
                                                         </FormControl>
                                                         <SelectContent>
-                                                            {categoryTree.map(renderCategoryOptions)}
+                                                          {categoryTree.map(node => renderCategoryOptions([node]))}
                                                         </SelectContent>
                                                     </Select>
                                                     <FormMessage />
@@ -348,22 +366,6 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
   if (isPage) {
     return formContent;
   }
-
-  const renderCategoryOptions = (nodes: CategoryWithChildren[], level = 0) => {
-    let options: JSX.Element[] = [];
-    nodes.forEach(node => {
-        options.push(
-            <SelectItem key={node.id} value={node.id} style={{ paddingLeft: `${1 + level * 1}rem` }}>
-                {node.name}
-            </SelectItem>
-        );
-        if (node.children.length > 0) {
-            options = options.concat(renderCategoryOptions(node.children, level + 1));
-        }
-    });
-    return options;
-  };
-
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
