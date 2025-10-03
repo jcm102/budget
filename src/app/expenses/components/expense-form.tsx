@@ -33,7 +33,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import type { Expense, MileageLog, Honorarium, BudgetItemFrequency, TripType } from '@/types';
 import { useWorkCategories } from '@/hooks/use-work-categories';
-import { useAccountDetails } from '@/hooks/use-transferees';
+import { useAccountDetails } from '@/hooks/use-account-details';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useMileageRate } from '@/hooks/use-mileage-rate';
 import { calculateDistance } from '@/ai/flows/calculate-distance';

@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { BudgetItem } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import * as BudgetService from '@/app/budget/services/budget-service';
-import { useAccountDetails } from '@/hooks/use-transferees';
+import { useAccountDetails } from '@/hooks/use-account-details';
 
 export function useBudget() {
   const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
