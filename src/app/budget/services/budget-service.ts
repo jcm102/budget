@@ -154,7 +154,7 @@ export async function addBudgetItem(itemData: Omit<BudgetItem, 'id'>): Promise<B
     const destAccountSnap = destAccountQuery ? await transaction.get(destAccountQuery) : null;
     
     // --- ALL WRITES AFTER READS ---
-    transaction.set(newDocRef, dataWithCompleted);
+    transaction.set(newDocRef, { ...dataWithCompleted, date: itemData.date.split('T')[0]});
     
     if (itemData.type === 'Income' && destAccountSnap?.exists() && !itemData.forNextMonth) {
         const currentBalance = destAccountSnap.data().balance || 0;
@@ -286,13 +286,15 @@ export async function updateBudgetItem(id: string, itemData: Partial<Omit<Budget
                 ...itemData,
                 frequency: 'One-Time',
                 originalId: id,
-                date: new Date(parseInt(id.split('-')[1])).toISOString(),
+                date: new Date(parseInt(id.split('-')[1])).toISOString().split('T')[0],
                 completed: itemData.completed ?? oldItemData!.completed,
             };
-            if (itemData.date) newDocData.date = itemData.date;
+            if (itemData.date) newDocData.date = itemData.date.split('T')[0];
             transaction.set(originalItemRef, newDocData);
         } else {
-             transaction.update(originalItemRef, itemData);
+             const dataToUpdate = { ...itemData };
+             if(dataToUpdate.date) dataToUpdate.date = dataToUpdate.date.split('T')[0];
+             transaction.update(originalItemRef, dataToUpdate);
         }
         
         if (oldCategoryId && oldBudgetItemSnap?.exists()) {

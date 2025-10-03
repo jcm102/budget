@@ -1,3 +1,4 @@
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -103,13 +104,17 @@ export async function getAccountDetails(accountId: string): Promise<AccountDetai
 }
 
 export async function getTransactionsForMonth(month: string): Promise<Transaction[]> {
-  const startDate = new Date(`${month}-01T00:00:00.000Z`);
+  const startDate = new Date(`${month}-01T00:00:00`);
   const endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 1);
   
+  const startString = `${month}-01`;
+  const nextMonthDate = new Date(startDate.setMonth(startDate.getMonth() + 1));
+  const nextMonthString = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}-01`;
+
   const q = query(
     collection(db, TRANSACTIONS_COLLECTION), 
-    where('date', '>=', startDate.toISOString()),
-    where('date', '<', endDate.toISOString()),
+    where('date', '>=', startString),
+    where('date', '<', nextMonthString),
     orderBy('date', 'desc')
   );
   const querySnapshot = await getDocs(q);
@@ -119,8 +124,8 @@ export async function getTransactionsForMonth(month: string): Promise<Transactio
 export async function getTransactionsByDateRange(startDate: Date, endDate: Date): Promise<Transaction[]> {
   const q = query(
     collection(db, TRANSACTIONS_COLLECTION),
-    where('date', '>=', startDate.toISOString()),
-    where('date', '<=', endDate.toISOString()),
+    where('date', '>=', format(startDate, 'yyyy-MM-dd')),
+    where('date', '<=', format(endDate, 'yyyy-MM-dd')),
     orderBy('date', 'desc')
   );
   const querySnapshot = await getDocs(q);
@@ -193,7 +198,7 @@ export async function addTransaction(transactionData: Omit<Transaction, 'id'>): 
 
         // --- Start WRITES ---
         const newTransactionRef = doc(collection(db, TRANSACTIONS_COLLECTION));
-        transaction.set(newTransactionRef, transactionData);
+        transaction.set(newTransactionRef, { ...transactionData, date: transactionData.date.split('T')[0] });
 
         // Debit/Credit source account
         if (sourceAccountData.type === 'Credit' && linkedDebtRef && linkedDebtSnap) {
@@ -368,7 +373,9 @@ export async function updateTransaction(id: string, transactionData: Partial<Omi
         await revertTransaction(transaction, oldData, accountSnapsMap, debtSnapsMap);
         await applyTransaction(transaction, newData, accountSnapsMap, debtSnapsMap);
         
-        transaction.update(transactionRef, transactionData);
+        const dataToUpdate = { ...transactionData };
+        if(dataToUpdate.date) dataToUpdate.date = dataToUpdate.date.split('T')[0];
+        transaction.update(transactionRef, dataToUpdate);
     });
 }
 

@@ -49,7 +49,7 @@ export async function addDebt(debtData: Omit<Debt, 'id' | 'order'>): Promise<Deb
     plannedPayment: debtData.plannedPayment || 0,
    };
   const docRef = doc(collection(db, DEBT_COLLECTION));
-  await setDoc(docRef, newDebt);
+  await setDoc(docRef, { ...newDebt, dueDate: newDebt.dueDate.split('T')[0], nextDueDate: newDebt.nextDueDate?.split('T')[0] });
   return { ...newDebt, id: docRef.id };
 }
 
@@ -58,7 +58,10 @@ export async function updateDebt(id: string, debtData: Partial<Omit<Debt, 'id' |
   const docSnap = await getDoc(debtRef);
 
   if (docSnap.exists()) {
-    await updateDoc(debtRef, debtData);
+    const dataToUpdate = { ...debtData };
+    if (dataToUpdate.dueDate) dataToUpdate.dueDate = dataToUpdate.dueDate.split('T')[0];
+    if (dataToUpdate.nextDueDate) dataToUpdate.nextDueDate = dataToUpdate.nextDueDate.split('T')[0];
+    await updateDoc(debtRef, dataToUpdate);
   } else {
     console.warn(`Attempted to update a debt document that does not exist: ${id}`);
   }
@@ -104,11 +107,11 @@ export async function resetDebtValues(): Promise<void> {
         balance: 0,
         minimumPayment: 0,
         plannedPayment: 0,
-        dueDate: new Date().toISOString(),
+        dueDate: new Date().toISOString().split('T')[0],
         paid: false,
         nextBalance: 0,
         nextMinimumPayment: 0,
-        nextDueDate: new Date().toISOString(),
+        nextDueDate: new Date().toISOString().split('T')[0],
         nextPaid: false,
     };
     batch.update(debtRef, updatedData);
@@ -130,12 +133,12 @@ export async function cycleToNextMonth(): Promise<void> {
     batch.update(debtRef, {
       balance: debt.nextBalance || 0,
       minimumPayment: debt.nextMinimumPayment || 0,
-      dueDate: debt.nextDueDate || new Date().toISOString(),
+      dueDate: debt.nextDueDate || new Date().toISOString().split('T')[0],
       paid: debt.nextPaid || false,
       // Clear out the 'next' fields
       nextBalance: 0,
       nextMinimumPayment: 0,
-      nextDueDate: new Date().toISOString(),
+      nextDueDate: new Date().toISOString().split('T')[0],
       nextPaid: false,
     });
   });

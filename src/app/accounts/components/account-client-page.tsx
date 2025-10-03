@@ -27,7 +27,10 @@ import { buttonVariants } from '@/components/ui/button';
 import { useTransactions } from '@/app/monthly-budget/hooks/use-transactions';
 
 const parseDate = (dateString: string) => {
+    if (!dateString) return new Date();
     const [year, month, day] = dateString.split('T')[0].split('-').map(Number);
+    // Be careful with timezones. Using new Date(year, monthIndex, day) will use the local timezone.
+    // This is generally safer than new Date('YYYY-MM-DD') which can be interpreted as UTC.
     return new Date(year, month - 1, day);
 };
 

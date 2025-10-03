@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -112,7 +113,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
         form.reset({
           description: editingTransaction.description,
           amount: editingTransaction.amount,
-          date: new Date(editingTransaction.date).toISOString().split('T')[0],
+          date: editingTransaction.date.split('T')[0],
           sourceAccountId: editingTransaction.sourceAccountId,
           splits: editingTransaction.splits || [],
         });
@@ -155,7 +156,6 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const submissionData = { 
         ...values,
-        date: values.date // Just pass the YYYY-MM-DD string
     };
     if (editingTransaction) {
       updateTransaction(editingTransaction.id, submissionData);
@@ -307,14 +307,12 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                                                         <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
                                                         </FormControl>
                                                         <SelectContent>
-                                                          {categoryTree.map(node => (
-                                                              <SelectGroup key={node.id}>
-                                                                  <SelectItem value={node.id} className="font-semibold">
-                                                                      {node.name}
-                                                                  </SelectItem>
-                                                                  {node.children && node.children.length > 0 && renderCategoryOptions(node.children, 1)}
-                                                              </SelectGroup>
-                                                          ))}
+                                                            {categoryTree.map(node => (
+                                                                <SelectGroup key={node.id}>
+                                                                    <SelectItem value={node.id} className="font-semibold">{node.name}</SelectItem>
+                                                                    {renderCategoryOptions(node.children, 1)}
+                                                                </SelectGroup>
+                                                            ))}
                                                         </SelectContent>
                                                     </Select>
                                                     <FormMessage />

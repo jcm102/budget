@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -152,7 +153,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
           category: editingItem.category,
           amount: editingItem.amount,
           type: editingItem.type,
-          date: new Date(editingItem.date).toISOString().split('T')[0],
+          date: editingItem.date.split('T')[0],
           frequency: editingItem.frequency || 'One-Time',
           transferFrom: editingItem.transferFrom || '',
           transferTo: editingItem.transferTo || '',
@@ -210,7 +211,6 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
 
     const submissionData = {
       ...values,
-      date: values.date, // Just pass the YYYY-MM-DD string
       type: values.type as BudgetItemType,
       frequency: values.frequency as BudgetItemFrequency,
       budgetCategoryId: values.budgetCategoryId === 'null-value' ? null : values.budgetCategoryId,
