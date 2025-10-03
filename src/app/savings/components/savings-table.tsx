@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -6,7 +7,7 @@ import type { SavingsItem, SubscriptionItem, AutoShipItem } from '@/types';
 import * as z from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { format, differenceInCalendarMonths, addMonths, getYear, getMonth, startOfToday, isBefore, isEqual, startOfMonth, parse, getDate, isSameMonth } from 'date-fns';
+import { format, parse, isBefore } from 'date-fns';
 import type { ColumnVisibility } from '@/app/savings/page';
 
 import {
@@ -132,65 +133,19 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
   )
 }
 
-const getNextBillingDate = (item: SubscriptionItem | AutoShipItem): Date => {
-    if ('nextShipmentDate' in item) { // It's an AutoShipItem
-        return parseDate(item.nextShipmentDate);
-    }
-    // It's a SubscriptionItem
-    const today = new Date();
-    const monthsToAdd = { 'Monthly': 1, 'Quarterly': 3, 'Annually': 12 };
-    // This is a simplification; for a real app, you'd store the initial subscription date.
-    // For now, we'll just project from today.
-    return addMonths(today, monthsToAdd[item.billingFrequency]);
-}
-
 type SavingsTableProps = {
     columnVisibility: ColumnVisibility;
 }
 
 const parseDate = (dateString: string): Date => {
-    // This function can handle both 'YYYY-MM-DD' and full ISO strings
-    // by focusing on the date part.
     if (!dateString) return new Date();
     const datePart = dateString.split('T')[0];
-    const [year, month, day] = datePart.split('-').map(Number);
-    // Note: month is 0-indexed in Date constructor
-    return new Date(year, month - 1, day);
+    return parse(datePart, 'yyyy-MM-dd', new Date());
 };
-
-
-const calculateMonthlyAmount = (totalCost: number, amountSaved: number, dueDateStr: string | null): number => {
-    const remainingAmount = totalCost - amountSaved;
-    if (remainingAmount <= 0 || !dueDateStr) {
-      return 0;
-    }
-
-    const today = startOfToday();
-    const dueDate = parseDate(dueDateStr);
-    
-    if (isBefore(dueDate, today) || isSameMonth(dueDate, today)) {
-        return remainingAmount;
-    }
-
-    const monthsRemaining = differenceInCalendarMonths(dueDate, today);
-
-    if (monthsRemaining <= 0) {
-        return remainingAmount;
-    }
-    
-    // The number of payments is the number of full months *between* today and the due date.
-    // e.g. if today is Oct and due is Dec, the months between are Nov (1 month).
-    const numberOfPayments = monthsRemaining;
-
-    return remainingAmount / numberOfPayments;
-};
-
 
 export function SavingsTable({ columnVisibility }: SavingsTableProps) {
   const { 
     savingsItems, 
-    subscriptions,
-    autoShipItems,
     addSavingsItem, 
     updateSavingsItem, 
     deleteSavingsItem, 
@@ -220,41 +175,6 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
   const formatCurrency = (amount: number, currency: 'CAD' | 'USD' = 'CAD') => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
   };
-  
-
-  const enhancedSavingsItems = useMemo(() => {
-    return savingsItems.map(item => {
-        const enhancedItem: SavingsItem & { monthlyAmount?: number } = { ...item };
-
-        // Link to Subscription if not already fully defined
-        const subscription = subscriptions.find(s => s.serviceName.toLowerCase() === item.name.toLowerCase());
-        if (subscription && !item.dueDate) {
-            const dueDate = getNextBillingDate(subscription);
-            enhancedItem.dueDate = format(dueDate, 'yyyy-MM-dd');
-        }
-        if (subscription && !item.totalCost) {
-            enhancedItem.totalCost = item.totalCost ?? subscription.cost;
-        }
-        
-        // Link to Auto-Ship if not already fully defined
-        const autoShip = autoShipItems.find(a => a.item.toLowerCase() === item.name.toLowerCase());
-        if (autoShip && !item.dueDate) {
-            const dueDate = getNextBillingDate(autoShip);
-            enhancedItem.dueDate = format(dueDate, 'yyyy-MM-dd');
-        }
-        if (autoShip && !item.totalCost) {
-            enhancedItem.totalCost = item.totalCost ?? autoShip.estimatedCost;
-        }
-
-        // Calculate monthly amount if possible
-        const costToUse = (enhancedItem.savingsTarget && enhancedItem.savingsTarget > 0) ? enhancedItem.savingsTarget : enhancedItem.totalCost;
-        if (costToUse && enhancedItem.dueDate) {
-            enhancedItem.monthlyAmount = calculateMonthlyAmount(costToUse, enhancedItem.amount, enhancedItem.dueDate);
-        }
-
-        return enhancedItem;
-    });
-  }, [savingsItems, subscriptions, autoShipItems]);
 
   const requestSort = (key: SortConfig['key']) => {
     if (!key) return;
@@ -266,7 +186,7 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
   };
   
   const sortedItems = useMemo(() => {
-    let sortableItems = [...enhancedSavingsItems];
+    let sortableItems = [...savingsItems];
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
         let aValue: any = a[sortConfig.key as keyof SavingsItem];
@@ -281,7 +201,7 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
       });
     }
     return sortableItems;
-  }, [enhancedSavingsItems, sortConfig]);
+  }, [savingsItems, sortConfig]);
 
   const handleTransaction = (item: SavingsItem, amount: number, type: 'deposit' | 'withdraw') => {
     const currentAmount = item.amount;
