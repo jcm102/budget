@@ -7,7 +7,7 @@ import type { SavingsItem, SubscriptionItem, AutoShipItem } from '@/types';
 import * as z from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { format, differenceInCalendarMonths, addMonths, getYear, getMonth, startOfToday, isBefore, isEqual, startOfMonth } from 'date-fns';
+import { format, differenceInCalendarMonths, addMonths, getYear, getMonth, startOfToday, isBefore, isEqual, startOfMonth, parse } from 'date-fns';
 import type { ColumnVisibility } from '@/app/savings/page';
 
 import {
@@ -135,7 +135,7 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
 
 const getNextBillingDate = (item: SubscriptionItem | AutoShipItem): Date => {
     if ('nextShipmentDate' in item) { // It's an AutoShipItem
-        return new Date(item.nextShipmentDate);
+        return parse(item.nextShipmentDate, 'yyyy-MM-dd', new Date());
     }
     // It's a SubscriptionItem
     const today = new Date();
@@ -184,27 +184,26 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
   };
   
-  const calculateMonthlyAmount = (totalCost: number, amountSaved: number, dueDateStr: string): number => {
+  const calculateMonthlyAmount = (totalCost: number, amountSaved: number, dueDateStr: string | null): number => {
     const remainingAmount = totalCost - amountSaved;
-    if (remainingAmount <= 0) return 0;
-  
+    if (remainingAmount <= 0 || !dueDateStr) return 0;
+
     const today = startOfToday();
-    const dueDate = new Date(dueDateStr.split('T')[0] + 'T12:00:00Z'); // Treat as noon UTC to avoid timezone shifts
-  
-    const dueYear = dueDate.getFullYear();
-    const dueMonth = dueDate.getMonth();
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth();
-  
-    // Calculate total months from today's year/month to the due date's year/month
-    const totalMonthsDiff = (dueYear - currentYear) * 12 + (dueMonth - currentMonth);
-  
-    if (totalMonthsDiff <= 0) {
-      // Due date is this month or in the past, so the full remaining amount is the goal.
-      return remainingAmount;
+    const dueDate = parse(dueDateStr, "yyyy-MM-dd", new Date());
+
+    const dueMonth = startOfMonth(dueDate);
+
+    if (!isBefore(today, dueMonth)) {
+      return remainingAmount > 0 ? remainingAmount : 0;
     }
-  
-    return remainingAmount / totalMonthsDiff;
+
+    const monthsRemaining = differenceInCalendarMonths(dueMonth, today);
+    
+    if (monthsRemaining <= 0) {
+      return remainingAmount > 0 ? remainingAmount : 0;
+    }
+
+    return remainingAmount / monthsRemaining;
   };
 
   const enhancedSavingsItems = useMemo(() => {
@@ -215,7 +214,7 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
         const subscription = subscriptions.find(s => s.serviceName.toLowerCase() === item.name.toLowerCase());
         if (subscription && !item.dueDate) {
             const dueDate = getNextBillingDate(subscription);
-            enhancedItem.dueDate = dueDate.toISOString();
+            enhancedItem.dueDate = format(dueDate, 'yyyy-MM-dd');
         }
         if (subscription && !item.totalCost) {
             enhancedItem.totalCost = item.totalCost ?? subscription.cost;
@@ -225,7 +224,7 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
         const autoShip = autoShipItems.find(a => a.item.toLowerCase() === item.name.toLowerCase());
         if (autoShip && !item.dueDate) {
             const dueDate = getNextBillingDate(autoShip);
-            enhancedItem.dueDate = dueDate.toISOString();
+            enhancedItem.dueDate = format(dueDate, 'yyyy-MM-dd');
         }
         if (autoShip && !item.totalCost) {
             enhancedItem.totalCost = item.totalCost ?? autoShip.estimatedCost;
@@ -362,7 +361,7 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
                                     </div>
                                 )}
                             </TableCell>}
-                             {columnVisibility.dueDate && <TableCell className="text-right">{item.dueDate ? format(new Date(item.dueDate), 'PPP') : '-'}</TableCell>}
+                             {columnVisibility.dueDate && <TableCell className="text-right">{item.dueDate ? format(parse(item.dueDate, 'yyyy-MM-dd', new Date()), 'PPP') : '-'}</TableCell>}
                              {columnVisibility.recurrence && <TableCell>
                                 {item.recurrence && item.recurrence !== 'None' ? (
                                     <Badge variant="secondary" className="gap-1 items-center">

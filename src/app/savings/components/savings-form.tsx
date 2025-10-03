@@ -6,7 +6,7 @@ import { useEffect, useMemo } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { differenceInMonths, set, getYear, isBefore } from 'date-fns';
+import { differenceInMonths, set, getYear, isBefore, differenceInCalendarMonths, startOfMonth, parse } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -99,6 +99,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
 
     let newMonthlyGoal = 0;
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     if (recurrence === 'Semi-Annually (Custom)' && primaryPaymentMonth && secondaryPaymentMonth) {
         const halfCost = costToUse / 2;
@@ -113,8 +114,8 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
         const nextPayment1 = isBefore(date1, today) ? set(date1, { year: currentYear + 1}) : date1;
         const nextPayment2 = isBefore(date2, today) ? set(date2, { year: currentYear + 1}) : date2;
         
-        const monthsToPayment1 = differenceInMonths(nextPayment1, today) + 1;
-        const monthsBetweenPayments = differenceInMonths(nextPayment2, nextPayment1);
+        const monthsToPayment1 = differenceInCalendarMonths(nextPayment1, today);
+        const monthsBetweenPayments = differenceInCalendarMonths(nextPayment2, nextPayment1);
 
         const goal1 = monthsToPayment1 > 0 ? halfCost / monthsToPayment1 : 0;
         const goal2 = monthsBetweenPayments > 0 ? halfCost / monthsBetweenPayments : 0;
@@ -122,15 +123,14 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
         newMonthlyGoal = parseFloat(Math.max(goal1, goal2).toFixed(2));
 
     } else if (dueDate) {
-        const [year, month, day] = dueDate.split('-').map(Number);
-        if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
-            const effectiveDueDate = new Date(year, month - 1, day);
-            if (isBefore(today, effectiveDueDate)) {
-                const monthsRemaining = differenceInMonths(effectiveDueDate, today) + 1;
-                const remainingAmount = costToUse - amount;
-                if (remainingAmount > 0 && monthsRemaining > 0) {
-                    newMonthlyGoal = parseFloat((remainingAmount / monthsRemaining).toFixed(2));
-                }
+        const effectiveDueDate = parse(dueDate, "yyyy-MM-dd", new Date());
+        const dueMonth = startOfMonth(effectiveDueDate);
+
+        if (isBefore(today, dueMonth)) {
+            const monthsRemaining = differenceInCalendarMonths(dueMonth, today);
+            const remainingAmount = costToUse - amount;
+            if (remainingAmount > 0 && monthsRemaining > 0) {
+                newMonthlyGoal = parseFloat((remainingAmount / monthsRemaining).toFixed(2));
             }
         }
     }
