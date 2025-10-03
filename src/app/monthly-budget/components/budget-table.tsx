@@ -20,7 +20,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { cn } from '@/lib/utils';
 import type { Transaction, Category, MonthlyBudgetItem, BudgetSubItem } from '@/types';
 import { Separator } from '@/components/ui/separator';
-import { useAccountDetails } from '@/hooks/use-transferees';
+import { useAccountDetails } from '@/hooks/use-account-details';
 import { useToast } from '@/hooks/use-toast';
 import { useMonthlyBudget } from '../hooks/use-monthly-budget';
 
@@ -325,9 +325,8 @@ export function BudgetTable({ budgetItems, categories, transactions, isLoading, 
                 } else if (totals.breakdown['Default']) {
                     // If the split item doesn't exist, attribute it to the default
                     totals.breakdown['Default'].actual += split.amount;
-                } else {
-                    // If there's no default and no matching item, create one on the fly
-                    totals.breakdown[budgetItemName] = { budgeted: 0, actual: split.amount };
+                } else if (budgetItemName === 'Default') {
+                   totals.breakdown['Default'] = { budgeted: 0, actual: split.amount };
                 }
             }
         })
