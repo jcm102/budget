@@ -35,6 +35,7 @@ import type { Transaction, TransactionSplit, AccountDetails, Category, MonthlyBu
 import { useMonthlyBudget } from '../hooks/use-monthly-budget';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 type CategoryWithChildren = Category & { children: CategoryWithChildren[] };
 
