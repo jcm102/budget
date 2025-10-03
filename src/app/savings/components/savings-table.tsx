@@ -6,7 +6,7 @@ import type { SavingsItem, SubscriptionItem, AutoShipItem } from '@/types';
 import * as z from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { format, differenceInCalendarMonths, addMonths, getYear, getMonth, startOfToday, isBefore, isEqual, startOfMonth, parse, getDate } from 'date-fns';
+import { format, differenceInCalendarMonths, addMonths, getYear, getMonth, startOfToday, isBefore, isEqual, startOfMonth, parse, getDate, isSameMonth } from 'date-fns';
 import type { ColumnVisibility } from '@/app/savings/page';
 
 import {
@@ -167,20 +167,23 @@ const calculateMonthlyAmount = (totalCost: number, amountSaved: number, dueDateS
 
     const today = startOfToday();
     const dueDate = parseDate(dueDateStr);
-
-    if (isBefore(dueDate, today) || isEqual(dueDate, today)) {
-      return remainingAmount;
+    
+    if (isBefore(dueDate, today) || isSameMonth(dueDate, today)) {
+        return remainingAmount;
     }
 
     const monthsRemaining = differenceInCalendarMonths(dueDate, today);
 
     if (monthsRemaining <= 0) {
-      return remainingAmount;
+        return remainingAmount;
     }
     
-    return remainingAmount / monthsRemaining;
-};
+    // The number of payments is the number of full months *between* today and the due date.
+    // e.g. if today is Oct and due is Dec, the months between are Nov (1 month).
+    const numberOfPayments = monthsRemaining;
 
+    return remainingAmount / numberOfPayments;
+};
 
 
 export function SavingsTable({ columnVisibility }: SavingsTableProps) {
