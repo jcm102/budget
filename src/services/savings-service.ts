@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -16,7 +15,7 @@ import {
   orderBy,
   where,
 } from 'firebase/firestore';
-import { addMonths, set, format, startOfToday, parse, differenceInCalendarMonths, isBefore } from 'date-fns';
+import { addMonths, set, format, startOfToday, parse, isBefore } from 'date-fns';
 
 const SAVINGS_COLLECTION = 'sinking-funds';
 
@@ -32,7 +31,7 @@ const recurrenceIntervalMap: Record<SavingsRecurrence, number> = {
 
 const calculateMonthlyAmount = (item: SavingsItem): number => {
     const { totalCost, savingsTarget, amount, dueDate, goal } = item;
-    
+
     if (goal && goal > 0) return goal;
 
     const costToUse = savingsTarget && savingsTarget > 0 ? savingsTarget : totalCost;
@@ -45,35 +44,19 @@ const calculateMonthlyAmount = (item: SavingsItem): number => {
       return 0;
     }
 
-    const today = startOfToday();
+    const today = new Date();
     const due = parse(dueDate, 'yyyy-MM-dd', new Date());
 
     if (isBefore(due, today)) {
         return remainingAmount; // Past due
     }
     
-    let monthsRemaining = differenceInCalendarMonths(due, today);
-
-    // If the due date is this month, there are no full future months to save.
-    if (monthsRemaining === 0) {
-        return remainingAmount;
-    }
-    
-    // The logic is to have the money by the START of the due month.
-    // So, we don't count the due month as a saving month.
-    // `differenceInCalendarMonths` already does this correctly. 
-    // Example: Oct to Dec is 2 months (Oct, Nov). Wait, no it's not. It's just 2.
-    // Let's rethink. Oct 15 to Dec 17. Months are Oct, Nov, Dec. Diff is 2.
-    // We only have November to save. So it's diff - 1.
-    // But what about Oct 15 to Nov 15? Diff is 1. We have 0 months to save. So it's diff - 1.
-    // Let's try again.
-    
     const currentYear = today.getFullYear();
     const currentMonth = today.getMonth(); // 0-indexed
     const dueYear = due.getFullYear();
     const dueMonth = due.getMonth(); // 0-indexed
 
-    monthsRemaining = (dueYear - currentYear) * 12 + (dueMonth - currentMonth);
+    const monthsRemaining = (dueYear - currentYear) * 12 + (dueMonth - currentMonth);
 
     if (monthsRemaining <= 0) {
         return remainingAmount;

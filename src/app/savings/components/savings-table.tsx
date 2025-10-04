@@ -139,6 +139,7 @@ type SavingsTableProps = {
 
 const parseDate = (dateString: string): Date => {
     if (!dateString) return new Date();
+    // Handles both 'YYYY-MM-DD' and full ISO strings by splitting on 'T'
     const datePart = dateString.split('T')[0];
     return parse(datePart, 'yyyy-MM-dd', new Date());
 };
