@@ -245,6 +245,7 @@ export interface MonthlyBudgetItem {
 
 export interface TransactionSplit {
     id: string; // A unique ID for the split itself
+    type: 'expense' | 'transfer';
     amount: number;
     
     // An expense against a category
