@@ -44,35 +44,6 @@ const monthOptions = [
     { label: 'December', value: 12 },
 ];
 
-const calculateMonthlyAmount = (item: Partial<SavingsItem>): number => {
-    const { totalCost, amount, dueDate: dueDateStr, goal } = item;
-
-    if (goal && goal > 0) return goal;
-    if (!dueDateStr || !totalCost || totalCost <= 0) return 0;
-
-    const remainingAmount = totalCost - (amount || 0);
-    if (remainingAmount <= 0) return 0;
-
-    const today = startOfToday();
-    const dueDate = parse(dueDateStr, "yyyy-MM-dd", new Date());
-
-    if (isBefore(dueDate, today)) {
-        return remainingAmount > 0 ? remainingAmount : 0;
-    }
-    
-    let monthsRemaining = differenceInCalendarMonths(dueDate, today);
-    
-    if (monthsRemaining > 0) {
-      monthsRemaining -= 1;
-    }
-    
-    if (monthsRemaining <= 0) {
-        return remainingAmount;
-    }
-
-    return remainingAmount / (monthsRemaining);
-};
-
 const formSchema = z.object({
   name: z.string().min(2, 'Fund name must be at least 2 characters.'),
   amount: z.coerce.number().min(0, 'Amount must be a positive number.'),
@@ -113,6 +84,35 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
   });
   
   const watchedValues = form.watch();
+
+  const calculateMonthlyAmount = (item: Partial<SavingsItem>): number => {
+    const { totalCost, amount, dueDate: dueDateStr, goal } = item;
+
+    if (goal && goal > 0) return goal;
+    if (!dueDateStr || !totalCost || totalCost <= 0) return 0;
+
+    const remainingAmount = totalCost - (amount || 0);
+    if (remainingAmount <= 0) return 0;
+
+    const today = startOfToday();
+    const dueDate = parse(dueDateStr, "yyyy-MM-dd", new Date());
+
+    if (isBefore(dueDate, today)) {
+        return remainingAmount > 0 ? remainingAmount : 0;
+    }
+    
+    let monthsRemaining = differenceInCalendarMonths(dueDate, today);
+    
+    if (monthsRemaining > 0) {
+      monthsRemaining -= 1;
+    }
+    
+    if (monthsRemaining <= 0) {
+        return remainingAmount;
+    }
+
+    return remainingAmount / (monthsRemaining);
+  };
 
    useEffect(() => {
     const newMonthlyGoal = calculateMonthlyAmount(watchedValues as Partial<SavingsItem>);
