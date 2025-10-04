@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -59,6 +58,10 @@ import { Progress } from '@/components/ui/progress';
 const transactionSchema = z.object({
   amount: z.coerce.number().min(0.01, 'Amount must be greater than zero.'),
 });
+
+const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+};
 
 function TransactionDialog({ item, transactionType, onSave, children }: { item: Goal, transactionType: 'deposit' | 'withdraw', onSave: (amount: number) => void, children: React.ReactNode }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -144,10 +147,6 @@ export function GoalTable() {
     if (!isOpen) {
       setEditingItem(null);
     }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
 
   const requestSort = (key: SortConfig['key']) => {

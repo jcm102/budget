@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -43,6 +42,10 @@ const parseDate = (dateString: string) => {
     return parse(dateString.split('T')[0], 'yyyy-MM-dd', new Date());
 };
 
+const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+};
+
 const SortableHeader = ({ column, label, sortConfig, requestSort, className }: { column: keyof BudgetItem, label: string, sortConfig: SortConfig, requestSort: (key: keyof BudgetItem) => void, className?: string }) => {
   const isSorted = sortConfig?.key === column;
   const direction = isSorted ? sortConfig.direction : 'ascending';
@@ -77,10 +80,6 @@ export function IncomeTable() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
-  };
-  
   const requestSort = (key: keyof BudgetItem) => {
     let direction: 'ascending' | 'descending' = 'ascending';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {

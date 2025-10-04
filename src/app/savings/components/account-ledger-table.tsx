@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -57,6 +56,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 const transactionSchema = z.object({
   amount: z.coerce.number().min(0.01, 'Amount must be greater than zero.'),
 });
+
+const formatCurrency = (amount: number, currency: 'CAD' | 'USD' = 'USD') => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
+};
 
 function TransactionDialog({ item, transactionType, onSave, children }: { item: AccountLedgerItem, transactionType: 'deposit' | 'withdraw', onSave: (amount: number) => void, children: React.ReactNode }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -151,10 +154,6 @@ export function AccountLedgerTable({
     if (!isOpen) {
       setEditingItem(null);
     }
-  };
-
-  const formatCurrency = (amount: number, currency: 'CAD' | 'USD' = 'USD') => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
   };
 
   const requestSort = (key: SortConfig['key']) => {

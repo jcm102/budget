@@ -259,6 +259,7 @@ export function SplitCalculator() {
                             <Input
                                 type="number"
                                 placeholder="Amount"
+                                step="0.01"
                                 value={item.amount || ''}
                                 onChange={(e) => handleItemChange(item.id, 'amount', parseFloat(e.target.value) || 0)}
                             />

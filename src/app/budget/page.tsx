@@ -29,6 +29,9 @@ import { TransfersTable } from '@/app/budget/components/transfers-table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DebtPaymentsTable } from '@/app/budget/components/debt-payments-table';
 
+const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+};
 
 export default function BudgetPage() {
   const { budgetItems, isLoading, fetchBudgetItems } = useBudget();
@@ -43,10 +46,6 @@ export default function BudgetPage() {
   const remainingPAPayments = budgetItems
     .filter(i => i.type === 'Pre-Authorized Payments' && !i.completed)
     .reduce((acc, i) => acc + i.amount, 0);
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
-  };
 
   const renderSummarySkeleton = () => (
     Array.from({ length: 4 }).map((_, i) => (

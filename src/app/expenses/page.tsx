@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -29,6 +30,9 @@ import {
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
 
+const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+};
 
 export default function ExpensesPage() {
     const [view, setView] = useState<'current' | 'next'>('current');
@@ -189,10 +193,6 @@ export default function ExpensesPage() {
           </div>
         ))
     );
-    
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
-    };
 
     return (
         <div className="container mx-auto max-w-7xl p-4 md:p-8">

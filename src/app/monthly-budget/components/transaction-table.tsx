@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useMemo } from 'react';
@@ -21,6 +20,10 @@ const parseDate = (dateString: string) => {
     return parse(dateString.split('T')[0], 'yyyy-MM-dd', new Date());
 };
 
+const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+};
+
 export function TransactionTable() {
   const { transactions, isLoading: isLoadingTransactions } = useTransactions();
   const { categories, isLoading: isLoadingCategories } = useBudgetCategories();
@@ -34,10 +37,6 @@ export function TransactionTable() {
     }, {} as Record<string, string>);
   }, [categories]);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
-  };
-  
   const totalSpent = transactions.reduce((acc, item) => acc + item.amount, 0);
 
   const renderLoadingSkeleton = () => (

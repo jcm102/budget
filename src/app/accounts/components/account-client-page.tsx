@@ -32,6 +32,9 @@ const parseDate = (dateString: string) => {
     return parse(datePart, 'yyyy-MM-dd', new Date());
 };
 
+const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+};
 
 export function AccountClientPage({
   account,
@@ -82,10 +85,6 @@ export function AccountClientPage({
     if (!isOpen) {
       setEditingTransaction(null);
     }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
 
   if (!account) {

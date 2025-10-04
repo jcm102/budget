@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Trash2, PlusCircle, RotateCcw } from 'lucide-react';
-import { useDebt } from '@/hooks/use-debt';
+import { useDebt } from '@/app/debt/hooks/use-debt';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Skeleton } from './ui/skeleton';
 import { usePaymentCalendar } from '@/hooks/use-payment-calendar';
@@ -148,6 +148,7 @@ export function PaymentCalendar() {
                                     <Input
                                         type="number"
                                         placeholder="Amount"
+                                        step="0.01"
                                         defaultValue={row.values[col.id] || ''}
                                         onBlur={(e) => handleRowChange(row.id, 'value', e.target.value, col.id)}
                                     />
