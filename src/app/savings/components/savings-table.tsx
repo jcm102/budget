@@ -49,7 +49,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { SavingsForm } from './savings-form';
 import { useSavings } from '../hooks/use-savings';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -163,8 +162,9 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
   const isLoading = isLoadingSavings || isLoadingRate;
 
   const handleEdit = (item: SavingsItem) => {
-    setEditingItem(item);
-    setIsFormOpen(true);
+    // Editing functionality is temporarily disabled.
+    // setEditingItem(item);
+    // setIsFormOpen(true);
   };
 
   const handleFormOpenChange = (isOpen: boolean) => {
@@ -246,18 +246,11 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
 
   return (
     <>
-      <SavingsForm
-        open={isFormOpen}
-        onOpenChange={handleFormOpenChange}
-        addSavingsItem={addSavingsItem}
-        updateSavingsItem={updateSavingsItem}
-        editingItem={editingItem}
-      />
       <div className="flex justify-end items-center mb-6 gap-2">
-          <Button onClick={() => setIsFormOpen(true)}>
+          {/* <Button onClick={() => setIsFormOpen(true)}>
             <PlusCircle className="mr-2 h-5 w-5" />
             Add Fund
-          </Button>
+          </Button> */}
       </div>
 
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
