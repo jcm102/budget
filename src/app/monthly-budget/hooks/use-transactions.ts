@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -62,33 +63,15 @@ export function useTransactions(month?: string) {
   }, [selectedMonth]);
 
   const addTransaction = useCallback(async (transactionData: Omit<Transaction, 'id'>) => {
-    try {
-      await MonthlyBudgetService.addTransaction(transactionData);
-      // Refetch all relevant data
-      await Promise.all([fetchTransactions(), fetchBudget(), fetchAccounts(), fetchBudgetItems()]); 
-    } catch (error) {
-      console.error('Failed to add transaction:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to add the new transaction.',
-        variant: 'destructive',
-      });
-    }
-  }, [toast, fetchTransactions, fetchBudget, fetchAccounts, fetchBudgetItems]);
+    await MonthlyBudgetService.addTransaction(transactionData);
+    // Refetch all relevant data
+    await Promise.all([fetchTransactions(), fetchBudget(), fetchAccounts(), fetchBudgetItems()]); 
+  }, [fetchTransactions, fetchBudget, fetchAccounts, fetchBudgetItems]);
 
   const updateTransaction = useCallback(async (id: string, transactionData: Partial<Omit<Transaction, 'id'>>) => {
-    try {
-      await MonthlyBudgetService.updateTransaction(id, transactionData);
-      await Promise.all([fetchTransactions(), fetchBudget(), fetchAccounts(), fetchBudgetItems()]); // Refetch all
-    } catch (error) {
-      console.error('Failed to update transaction:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to update transaction.',
-        variant: 'destructive',
-      });
-    }
-  }, [toast, fetchTransactions, fetchBudget, fetchAccounts, fetchBudgetItems]);
+    await MonthlyBudgetService.updateTransaction(id, transactionData);
+    await Promise.all([fetchTransactions(), fetchBudget(), fetchAccounts(), fetchBudgetItems()]); // Refetch all
+  }, [fetchTransactions, fetchBudget, fetchAccounts, fetchBudgetItems]);
 
   const deleteTransaction = useCallback(async (id: string, accountId?: string) => {
     try {

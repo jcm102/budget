@@ -27,7 +27,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Trash2, PlusCircle, User, Users, Info, Copy } from 'lucide-react';
+import { Trash2, PlusCircle, User, Users, Info, Copy, Loader2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
@@ -68,8 +68,8 @@ type TransactionFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   accounts: AccountDetails[];
-  addTransaction: (item: Omit<Transaction, 'id'>) => void;
-  updateTransaction: (id: string, item: Partial<Omit<Transaction, 'id'>>) => void;
+  addTransaction: (item: Omit<Transaction, 'id'>) => Promise<void>;
+  updateTransaction: (id: string, item: Partial<Omit<Transaction, 'id'>>) => Promise<void>;
   deleteTransaction: (id: string) => void;
   editingTransaction: Transaction | null;
   isPage?: boolean;
@@ -78,6 +78,7 @@ type TransactionFormProps = {
 export function TransactionForm({ open, onOpenChange, accounts, addTransaction, updateTransaction, editingTransaction, isPage = false }: TransactionFormProps) {
   const { categories, budgetItems } = useMonthlyBudget();
   const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -153,12 +154,12 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
     return budgetItem?.breakdown?.filter(b => b.name !== 'Default') || [];
   };
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsSubmitting(true);
     const finalSplits = values.splits.map(split => {
       if (split.type === 'expense') {
         return { ...split, destinationAccountId: undefined };
       }
-      // For transfers, we keep both categoryId and destinationAccountId if they exist
       return split;
     });
 
@@ -166,12 +167,31 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
         ...values,
         splits: finalSplits,
     };
-    if (editingTransaction) {
-      updateTransaction(editingTransaction.id, submissionData);
-    } else {
-      addTransaction(submissionData);
+
+    try {
+        if (editingTransaction) {
+          await updateTransaction(editingTransaction.id, submissionData);
+           toast({
+            title: "Transaction Updated",
+            description: "Your transaction has been successfully updated.",
+          });
+        } else {
+          await addTransaction(submissionData);
+           toast({
+            title: "Transaction Added",
+            description: "Your new transaction has been successfully added.",
+          });
+        }
+        onOpenChange(false);
+    } catch (error) {
+         toast({
+            title: "Error",
+            description: "There was a problem saving your transaction.",
+            variant: "destructive"
+        });
+    } finally {
+        setIsSubmitting(false);
     }
-    onOpenChange(false);
   }
 
   const handleUseCalculatorResult = (index: number) => (result: string) => {
@@ -376,7 +396,10 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
             </div>
           </ScrollArea>
            <DialogFooter className={cn(isPage && "mt-auto")}>
-              <Button type="submit">{editingTransaction ? 'Save Changes' : 'Add Transaction'}</Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {editingTransaction ? 'Save Changes' : 'Add Transaction'}
+              </Button>
             </DialogFooter>
         </form>
     </Form>
