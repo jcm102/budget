@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useDebt } from '../hooks/use-debt';
 import { useToast } from '@/hooks/use-toast';
 import * as DebtService from '../services/debt-service';
+import { Switch } from '@/components/ui/switch';
 
 interface ScheduleEntry {
   month: number;
@@ -36,6 +37,7 @@ export function DebtSnowballCalculator({ debts: initialDebts }: { debts: Debt[] 
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState(false);
+  const [planView, setPlanView] = useState<'current' | 'next'>('current');
   const { toast } = useToast();
 
   const debts = useMemo(() => liveDebts.length > 0 ? liveDebts : initialDebts, [liveDebts, initialDebts]);
@@ -44,10 +46,11 @@ export function DebtSnowballCalculator({ debts: initialDebts }: { debts: Debt[] 
     const savedState = localStorage.getItem('debtCalculatorState');
     if (savedState) {
       try {
-        const { totalMonthlyPayment, extraPayment, extraPaymentTarget } = JSON.parse(savedState);
+        const { totalMonthlyPayment, extraPayment, extraPaymentTarget, planView } = JSON.parse(savedState);
         setTotalMonthlyPayment(totalMonthlyPayment || 0);
         setExtraPayment(extraPayment || 0);
         setExtraPaymentTarget(extraPaymentTarget || 'highest_interest');
+        setPlanView(planView || 'current');
       } catch (e) {
         console.error("Failed to parse debt calculator state from localStorage", e);
       }
@@ -59,14 +62,15 @@ export function DebtSnowballCalculator({ debts: initialDebts }: { debts: Debt[] 
       totalMonthlyPayment,
       extraPayment,
       extraPaymentTarget,
+      planView,
     };
     localStorage.setItem('debtCalculatorState', JSON.stringify(stateToSave));
-  }, [totalMonthlyPayment, extraPayment, extraPaymentTarget]);
+  }, [totalMonthlyPayment, extraPayment, extraPaymentTarget, planView]);
 
 
   const totalMinimumPayment = useMemo(() => {
-    return debts.reduce((sum, debt) => sum + (debt.nextMinimumPayment || 0), 0);
-  }, [debts]);
+    return debts.reduce((sum, debt) => sum + (planView === 'current' ? debt.minimumPayment : (debt.nextMinimumPayment || 0)), 0);
+  }, [debts, planView]);
 
 
   useEffect(() => {
@@ -86,14 +90,14 @@ export function DebtSnowballCalculator({ debts: initialDebts }: { debts: Debt[] 
         }
         
         let currentDebts = debts
-            .filter(d => (d.nextBalance || 0) > 0)
             .map(d => ({ 
                 id: d.id, 
                 name: d.name,
-                balance: d.nextBalance || 0,
+                balance: planView === 'current' ? d.balance : (d.nextBalance || 0),
                 interestRate: d.interestRate / 100, 
-                minimumPayment: d.nextMinimumPayment || 0 
-            }));
+                minimumPayment: planView === 'current' ? d.minimumPayment : (d.nextMinimumPayment || 0),
+            }))
+            .filter(d => d.balance > 0);
 
         if (currentDebts.length === 0) {
             setSchedule([]); 
@@ -153,7 +157,7 @@ export function DebtSnowballCalculator({ debts: initialDebts }: { debts: Debt[] 
             
             const monthlyBalances: Record<string, number> = {};
             let totalMonthPayment = 0;
-            debts.forEach(debt => {
+            debts.filter(d => (planView === 'current' ? d.balance : (d.nextBalance || 0)) > 0).forEach(debt => {
                 const currentDebtState = currentDebts.find(d => d.id === debt.id);
                 monthlyBalances[debt.id] = currentDebtState ? Math.max(0, currentDebtState.balance) : 0;
                 totalMonthPayment += (monthlyPayments[debt.id] || 0);
@@ -172,7 +176,7 @@ export function DebtSnowballCalculator({ debts: initialDebts }: { debts: Debt[] 
     };
 
     calculateSchedule();
-  }, [totalMonthlyPayment, extraPayment, extraPaymentTarget, debts, totalMinimumPayment]);
+  }, [totalMonthlyPayment, extraPayment, extraPaymentTarget, debts, totalMinimumPayment, planView]);
   
   const handleApplySchedule = async () => {
     if (schedule.length === 0) {
@@ -216,6 +220,16 @@ export function DebtSnowballCalculator({ debts: initialDebts }: { debts: Debt[] 
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="flex items-center space-x-2">
+            <Label htmlFor="plan-view-switch">Base Plan On:</Label>
+            <span className={planView === 'current' ? 'font-semibold' : 'text-muted-foreground'}>Current Month</span>
+            <Switch
+                id="plan-view-switch"
+                checked={planView === 'next'}
+                onCheckedChange={(checked) => setPlanView(checked ? 'next' : 'current')}
+            />
+            <span className={planView === 'next' ? 'font-semibold' : 'text-muted-foreground'}>Next Month</span>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
             <div className="grid w-full items-center gap-1.5">
                 <Label htmlFor="total-payment">Total Monthly Debt Payment</Label>
@@ -245,7 +259,7 @@ export function DebtSnowballCalculator({ debts: initialDebts }: { debts: Debt[] 
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="highest_interest">Highest Interest Rate (Default)</SelectItem>
-                        {debts.filter(d => (d.nextBalance || 0) > 0).map(debt => (
+                        {debts.filter(d => (planView === 'current' ? d.balance : (d.nextBalance || 0)) > 0).map(debt => (
                             <SelectItem key={debt.id} value={debt.id}>{debt.name}</SelectItem>
                         ))}
                     </SelectContent>
@@ -268,7 +282,7 @@ export function DebtSnowballCalculator({ debts: initialDebts }: { debts: Debt[] 
                             Based on your inputs, it will take an estimated <Badge variant="secondary">{schedule.length} months</Badge> to become debt-free.
                         </div>
                     </div>
-                    <Button onClick={handleApplySchedule} disabled={isApplying}>
+                    <Button onClick={handleApplySchedule} disabled={isApplying || planView === 'current'}>
                         {isApplying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Apply Plan to Next Month
                     </Button>
@@ -280,7 +294,7 @@ export function DebtSnowballCalculator({ debts: initialDebts }: { debts: Debt[] 
                         <TableHeader className="sticky top-0 bg-secondary z-10">
                             <TableRow>
                                 <TableHead className="w-[80px]">Month</TableHead>
-                                {debts.filter(d => (d.nextBalance || 0) > 0).map(debt => (
+                                {debts.filter(d => (planView === 'current' ? d.balance : d.nextBalance || 0) > 0).map(debt => (
                                     <TableHead key={debt.id} className="text-right min-w-[120px]">{debt.name}</TableHead>
                                 ))}
                                 <TableHead className="text-right font-bold">Total Paid</TableHead>
@@ -290,7 +304,7 @@ export function DebtSnowballCalculator({ debts: initialDebts }: { debts: Debt[] 
                             {schedule.map(entry => (
                                 <TableRow key={entry.month}>
                                     <TableCell>{entry.month}</TableCell>
-                                    {debts.filter(d => (d.nextBalance || 0) > 0).map(debt => {
+                                    {debts.filter(d => (planView === 'current' ? d.balance : d.nextBalance || 0) > 0).map(debt => {
                                         const payment = entry.payments[debt.id];
                                         const balance = entry.balances[debt.id];
                                         
