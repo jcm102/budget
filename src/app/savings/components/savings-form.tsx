@@ -6,7 +6,7 @@ import { useEffect, useMemo } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { differenceInMonths, set, getYear, isBefore, differenceInCalendarMonths, startOfMonth, parse, startOfToday } from 'date-fns';
+import { differenceInMonths, set, getYear, isBefore, differenceInCalendarMonths, startOfMonth, parse, startOfToday, isEqual } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
