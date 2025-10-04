@@ -347,8 +347,8 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
               )}
               <FormField control={form.control} name="goal" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Monthly Contribution Goal (Optional)</FormLabel>
-                    <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                    <FormLabel>Monthly Contribution Goal</FormLabel>
+                    <FormControl><Input type="number" step="0.01" {...field} disabled /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
