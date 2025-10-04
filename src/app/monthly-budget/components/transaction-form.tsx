@@ -154,8 +154,17 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
   };
 
   function onSubmit(values: z.infer<typeof formSchema>) {
+    const finalSplits = values.splits.map(split => {
+      if (split.type === 'expense') {
+        return { ...split, destinationAccountId: undefined };
+      }
+      // For transfers, we keep both categoryId and destinationAccountId if they exist
+      return split;
+    });
+
     const submissionData = { 
         ...values,
+        splits: finalSplits,
     };
     if (editingTransaction) {
       updateTransaction(editingTransaction.id, submissionData);
@@ -297,7 +306,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                                             <FormMessage />
                                         </FormItem>
                                      )}/>
-                                      {split.type === 'expense' && (
+                                      {(split.type === 'expense' || split.type === 'transfer') && (
                                         <>
                                            <FormField control={form.control} name={`splits.${index}.categoryId`} render={({ field }) => (
                                                 <FormItem>

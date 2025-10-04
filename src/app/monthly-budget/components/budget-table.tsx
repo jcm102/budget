@@ -318,7 +318,7 @@ export function BudgetTable({ budgetItems, categories, transactions, isLoading, 
     // Sum up actuals from transactions
     transactions.forEach(tx => {
         tx.splits?.forEach(split => {
-            if (split.type === 'expense' && split.categoryId === category.id) {
+            if (split.categoryId === category.id) {
                 const budgetItemName = split.budgetItemName || 'Default';
                 // If the specific sub-category doesn't exist in the breakdown, create it.
                 if (!totals.breakdown[budgetItemName]) {

@@ -251,11 +251,11 @@ export interface TransactionSplit {
     type: SplitType;
     amount: number;
     
-    // For 'expense' type
+    // An expense against a category
     categoryId?: string;
     budgetItemName?: string;
     
-    // For 'transfer' type
+    // A transfer to another account
     destinationAccountId?: string;
 }
 
