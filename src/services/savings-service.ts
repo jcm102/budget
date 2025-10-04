@@ -35,36 +35,33 @@ const calculateMonthlyAmount = (item: SavingsItem): number => {
 
     if (goal && goal > 0) return goal;
 
+    if (!dueDate) return 0;
+
     const costToUse = savingsTarget && savingsTarget > 0 ? savingsTarget : totalCost;
-    if (!costToUse || !dueDate) {
-      return 0;
-    }
+    if (!costToUse || costToUse <= 0) return 0;
 
     const remainingAmount = costToUse - amount;
-    if (remainingAmount <= 0) {
-      return 0;
-    }
+    if (remainingAmount <= 0) return 0;
 
     const today = startOfToday();
-    const due = parse(dueDate, 'yyyy-MM-dd', new Date());
+    const due = parse(dueDate, "yyyy-MM-dd", new Date());
 
-    if (isBefore(due, today)) {
-        return remainingAmount; // Past due
-    }
-    
     let monthsRemaining = differenceInCalendarMonths(due, today);
 
-    // If the due date is in a future month, we cannot use that month for saving.
-    // The number of payment periods is the number of full months *between* now and then.
     if (monthsRemaining > 0) {
-      monthsRemaining -= 1;
-    }
-
-    if (monthsRemaining <= 0) {
-      return remainingAmount;
+        monthsRemaining -= 1;
     }
     
-    return remainingAmount / monthsRemaining;
+    if (monthsRemaining < 0) { // Past due
+        return remainingAmount;
+    }
+
+    // If due this month or next, it's 1 payment period (the next month)
+    if (monthsRemaining === 0) {
+        return remainingAmount;
+    }
+    
+    return remainingAmount / (monthsRemaining);
 };
 
 
@@ -76,14 +73,14 @@ export async function getSavingsItems(accountId: string): Promise<SavingsItem[]>
   const items = querySnapshot.docs.map(doc => {
     const data = { id: doc.id, ...doc.data() } as SavingsItem;
     // Calculate and attach the monthly amount on the server
-    data.monthlyAmount = calculateMonthlyAmount(data);
-    return data;
+    const monthlyAmount = calculateMonthlyAmount(data);
+    return { ...data, monthlyAmount };
   });
 
   return items.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export async function addSavingsItem(itemData: Omit<SavingsItem, 'id'>): Promise<SavingsItem> {
+export async function addSavingsItem(itemData: Omit<SavingsItem, 'id' | 'monthlyAmount'>): Promise<SavingsItem> {
   const docRef = await addDoc(collection(db, SAVINGS_COLLECTION), itemData);
   const docSnap = await getDoc(docRef);
   const newItem = { id: docSnap.id, ...(docSnap.data() as Omit<SavingsItem, 'id'>) };
@@ -93,7 +90,7 @@ export async function addSavingsItem(itemData: Omit<SavingsItem, 'id'>): Promise
   }
 }
 
-export async function updateSavingsItem(id: string, itemData: Partial<Omit<SavingsItem, 'id'>>): Promise<void> {
+export async function updateSavingsItem(id: string, itemData: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>): Promise<void> {
   const itemRef = doc(db, SAVINGS_COLLECTION, id);
   const docSnap = await getDoc(itemRef);
 

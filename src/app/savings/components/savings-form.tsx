@@ -45,31 +45,31 @@ const monthOptions = [
     { label: 'December', value: 12 },
 ];
 
-const calculateMonthlyAmount = (totalCost: number, amountSaved: number, dueDateStr: string | null): number => {
-    const remainingAmount = totalCost - amountSaved;
-    if (remainingAmount <= 0 || !dueDateStr) {
-      return 0;
-    }
+const calculateMonthlyAmount = (item: Partial<SavingsItem>): number => {
+    const { totalCost, savingsTarget, amount, dueDate } = item;
+
+    if (!dueDate) return 0;
+
+    const costToUse = savingsTarget && savingsTarget > 0 ? savingsTarget : totalCost;
+    if (!costToUse || costToUse <= 0) return 0;
+
+    const remainingAmount = costToUse - (amount || 0);
+    if (remainingAmount <= 0) return 0;
 
     const today = startOfToday();
-    const dueDate = parse(dueDateStr, "yyyy-MM-dd", new Date());
+    const due = parse(dueDate, "yyyy-MM-dd", new Date());
 
-    if (isBefore(dueDate, today)) {
-      return remainingAmount;
-    }
+    let monthsRemaining = differenceInCalendarMonths(due, today);
 
-    let monthsRemaining = differenceInCalendarMonths(dueDate, today);
-
-    // If the due date is in a future month, we cannot use that month for saving.
     if (monthsRemaining > 0) {
         monthsRemaining -= 1;
     }
 
     if (monthsRemaining <= 0) {
-      return remainingAmount;
+        return remainingAmount;
     }
-    
-    return remainingAmount / monthsRemaining;
+
+    return remainingAmount / (monthsRemaining + 1);
 };
 
 
@@ -90,8 +90,8 @@ const formSchema = z.object({
 type SavingsFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  addSavingsItem: (item: Omit<SavingsItem, 'id'>) => void;
-  updateSavingsItem: (id: string, item: Partial<Omit<SavingsItem, 'id'>>) => void;
+  addSavingsItem: (item: Omit<SavingsItem, 'id' | 'monthlyAmount'>) => void;
+  updateSavingsItem: (id: string, item: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>) => void;
   editingItem: SavingsItem | null;
 };
 
@@ -114,26 +114,14 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
     },
   });
   
-  const { totalCost, savingsTarget, dueDate, amount, recurrence, primaryPaymentMonth, secondaryPaymentMonth } = form.watch();
+  const watchedValues = form.watch();
 
    useEffect(() => {
-    const costToUse = (savingsTarget && savingsTarget > 0) ? savingsTarget : (totalCost || 0);
-
-    if (costToUse <= 0) {
-      if (form.getValues('goal') !== 0) form.setValue('goal', 0);
-      return;
-    }
-
-    let newMonthlyGoal = 0;
-    
-    if (dueDate) {
-        newMonthlyGoal = calculateMonthlyAmount(costToUse, amount, dueDate);
-    }
-    
+    const newMonthlyGoal = calculateMonthlyAmount(watchedValues as Partial<SavingsItem>);
     if (newMonthlyGoal !== form.getValues('goal')) {
       form.setValue('goal', newMonthlyGoal < 0 ? 0 : newMonthlyGoal);
     }
-  }, [totalCost, savingsTarget, dueDate, amount, recurrence, primaryPaymentMonth, secondaryPaymentMonth, form]);
+  }, [watchedValues, form]);
 
 
   useEffect(() => {
@@ -289,7 +277,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
                       variant="outline" 
                       size="sm"
                       onClick={() => setSavingsTargetPercentage(p)}
-                      disabled={!totalCost || totalCost <= 0}
+                      disabled={!watchedValues.totalCost || watchedValues.totalCost <= 0}
                       className="flex-1"
                     >
                       {p}%
@@ -322,7 +310,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
                   </FormItem>
                 )}
               />
-              {recurrence === 'Semi-Annually (Custom)' && (
+              {watchedValues.recurrence === 'Semi-Annually (Custom)' && (
                 <div className="grid grid-cols-2 gap-4">
                   <FormField control={form.control} name="primaryPaymentMonth" render={({ field }) => (
                     <FormItem>
@@ -357,7 +345,6 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
                     <FormMessage />
                   </FormItem>
                 )}
-              />
               <DialogFooter className="sticky bottom-0 bg-background py-4">
                 <Button type="submit">{editingItem ? 'Save Changes' : 'Add Fund'}</Button>
               </DialogFooter>

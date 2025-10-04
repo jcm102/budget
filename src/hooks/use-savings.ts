@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { SavingsItem, SubscriptionItem, AutoShipItem } from '@/types';
 import { useToast } from './use-toast';
 import * as SavingsService from '@/services/savings-service';
-import { useSelectedAccount } from '@/hooks/use-selected-account';
+import { useSelectedAccount } from './use-selected-account';
 
 
 export function useSavings() {
@@ -42,7 +42,7 @@ export function useSavings() {
     fetchAllData(selectedAccountId);
   }, [selectedAccountId, fetchAllData]);
 
-  const addSavingsItem = useCallback(async (itemData: Omit<SavingsItem, 'id'>) => {
+  const addSavingsItem = useCallback(async (itemData: Omit<SavingsItem, 'id' | 'monthlyAmount'>) => {
     try {
       // The service now returns the new item with the monthlyAmount calculated
       const newItem = await SavingsService.addSavingsItem(itemData);
@@ -57,7 +57,7 @@ export function useSavings() {
     }
   }, [toast]);
 
-  const updateSavingsItem = useCallback(async (id: string, itemData: Partial<Omit<SavingsItem, 'id'>>) => {
+  const updateSavingsItem = useCallback(async (id: string, itemData: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>) => {
     try {
       await SavingsService.updateSavingsItem(id, itemData);
       // After any update, refetch everything to get recalculated values

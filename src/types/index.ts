@@ -156,7 +156,7 @@ export interface SavingsItem {
   primaryPaymentMonth?: number | null; // For "Semi-Annually (Custom)"
   secondaryPaymentMonth?: number | null; // For "Semi-Annually (Custom)"
   parentId?: string | null;
-  monthlyAmount: number; // Calculated field
+  monthlyAmount?: number; // Calculated field
 }
 
 
@@ -248,7 +248,6 @@ export type SplitType = 'expense' | 'transfer';
 
 export interface TransactionSplit {
     id: string; // A unique ID for the split itself
-    type: SplitType;
     amount: number;
     
     // An expense against a category
