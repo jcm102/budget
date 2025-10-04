@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -31,16 +30,13 @@ const recurrenceIntervalMap: Record<SavingsRecurrence, number> = {
 
 
 const calculateMonthlyAmount = (item: SavingsItem): number => {
-    const { totalCost, savingsTarget, amount, dueDate, goal } = item;
+    const { totalCost, amount, dueDate, goal } = item;
 
     if (goal && goal > 0) return goal;
 
-    if (!dueDate) return 0;
+    if (!dueDate || !totalCost || totalCost <= 0) return 0;
 
-    const costToUse = savingsTarget && savingsTarget > 0 ? savingsTarget : totalCost;
-    if (!costToUse || costToUse <= 0) return 0;
-
-    const remainingAmount = costToUse - amount;
+    const remainingAmount = totalCost - amount;
     if (remainingAmount <= 0) return 0;
 
     const today = startOfToday();
@@ -106,13 +102,14 @@ export async function updateSavingsItem(id: string, itemData: Partial<Omit<Savin
     wasWithdrawal &&
     existingData.recurrence &&
     existingData.recurrence !== 'None' &&
-    existingData.dueDate
+    existingData.dueDate &&
+    existingData.totalCost &&
+    existingData.totalCost > 0
   ) {
-    const savingsTarget = existingData.savingsTarget || existingData.totalCost || 0;
     const amountWithdrawn = existingData.amount - itemData.amount!;
 
-    // If they withdrew at least the target amount, reset the date.
-    if (savingsTarget > 0 && amountWithdrawn >= savingsTarget) {
+    // If they withdrew at least the total cost, reset the date.
+    if (amountWithdrawn >= existingData.totalCost) {
       if (existingData.recurrence === 'Semi-Annually (Custom)' && existingData.primaryPaymentMonth && existingData.secondaryPaymentMonth) {
           const currentDueDate = parse(existingData.dueDate, 'yyyy-MM-dd', new Date());
           const currentDueMonth = currentDueDate.getMonth() + 1;
@@ -136,7 +133,7 @@ export async function updateSavingsItem(id: string, itemData: Partial<Omit<Savin
           }
       }
       
-      itemData.amount = existingData.amount - savingsTarget;
+      itemData.amount = existingData.amount - existingData.totalCost;
       if(itemData.amount < 0) itemData.amount = 0;
     }
   }

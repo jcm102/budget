@@ -45,15 +45,12 @@ const monthOptions = [
 ];
 
 const calculateMonthlyAmount = (item: Partial<SavingsItem>): number => {
-    const { totalCost, savingsTarget, amount, dueDate: dueDateStr, goal } = item;
+    const { totalCost, amount, dueDate: dueDateStr, goal } = item;
 
     if (goal && goal > 0) return goal;
-    if (!dueDateStr) return 0;
+    if (!dueDateStr || !totalCost || totalCost <= 0) return 0;
 
-    const costToUse = savingsTarget && savingsTarget > 0 ? savingsTarget : totalCost;
-    if (!costToUse || costToUse <= 0) return 0;
-
-    const remainingAmount = costToUse - (amount || 0);
+    const remainingAmount = totalCost - (amount || 0);
     if (remainingAmount <= 0) return 0;
 
     const today = startOfToday();
@@ -83,7 +80,6 @@ const formSchema = z.object({
   currency: z.enum(['CAD', 'USD']),
   goal: z.coerce.number().optional(), // Monthly contribution goal
   totalCost: z.coerce.number().optional(),
-  savingsTarget: z.coerce.number().optional(),
   dueDate: z.string().optional(),
   recurrence: z.enum(['None', 'Quarterly', 'Semi-Annually', 'Annually', 'Bi-Annually', 'Semi-Annually (Custom)']).optional(),
   primaryPaymentMonth: z.coerce.number().optional(),
@@ -109,7 +105,6 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
       currency: 'CAD',
       goal: 0,
       totalCost: 0,
-      savingsTarget: 0,
       dueDate: '',
       recurrence: 'None',
       primaryPaymentMonth: undefined,
@@ -136,7 +131,6 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
           currency: editingItem.currency || 'CAD',
           goal: editingItem.goal || 0,
           totalCost: editingItem.totalCost || 0,
-          savingsTarget: editingItem.savingsTarget || 0,
           dueDate: editingItem.dueDate ? editingItem.dueDate.split('T')[0] : '',
           recurrence: editingItem.recurrence || 'None',
           primaryPaymentMonth: editingItem.primaryPaymentMonth || undefined,
@@ -150,7 +144,6 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
           currency: 'CAD',
           goal: 0,
           totalCost: 0,
-          savingsTarget: 0,
           dueDate: '',
           recurrence: 'None',
           primaryPaymentMonth: undefined,
@@ -168,7 +161,6 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
       currency: values.currency,
       goal: values.goal || 0,
       totalCost: values.totalCost || null,
-      savingsTarget: values.savingsTarget || null,
       dueDate: values.dueDate ? values.dueDate.split('T')[0] : null,
       recurrence: values.recurrence as SavingsRecurrence,
       primaryPaymentMonth: values.recurrence === 'Semi-Annually (Custom)' ? values.primaryPaymentMonth : null,
@@ -181,14 +173,6 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
       addSavingsItem(submissionData);
     }
     onOpenChange(false);
-  }
-
-  function setSavingsTargetPercentage(percentage: number) {
-    const totalCostValue = form.getValues('totalCost')
-    if (totalCostValue && totalCostValue > 0) {
-      const target = (totalCostValue * percentage) / 100;
-      form.setValue('savingsTarget', parseFloat(target.toFixed(2)), { shouldValidate: true });
-    }
   }
 
   return (
@@ -264,29 +248,6 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
                   </FormItem>
                 )}
                 />
-                <FormField control={form.control} name="savingsTarget" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>My Savings Target (Optional)</FormLabel>
-                    <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-                />
-                <div className="flex gap-2 -mt-2">
-                  {[25, 50, 75, 100].map(p => (
-                    <Button
-                      key={p}
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSavingsTargetPercentage(p)}
-                      disabled={!watchedValues.totalCost || watchedValues.totalCost <= 0}
-                      className="flex-1"
-                    >
-                      {p}%
-                    </Button>
-                  ))}
-                </div>
                 <FormField control={form.control} name="dueDate" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Due Date (Optional)</FormLabel>

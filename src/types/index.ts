@@ -150,7 +150,6 @@ export interface SavingsItem {
   currency: 'CAD' | 'USD';
   goal?: number; // Monthly contribution goal
   totalCost?: number | null; // Optional total cost for the fund
-  savingsTarget?: number | null; // Optional personal savings goal if different from totalCost
   dueDate?: string | null; // Optional due date for the fund
   recurrence?: SavingsRecurrence | null;
   primaryPaymentMonth?: number | null; // For "Semi-Annually (Custom)"
@@ -243,8 +242,6 @@ export interface MonthlyBudgetItem {
     month: string; // YYYY-MM format
     breakdown?: BudgetSubItem[];
 }
-
-export type SplitType = 'expense' | 'transfer';
 
 export interface TransactionSplit {
     id: string; // A unique ID for the split itself
