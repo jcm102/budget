@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -15,7 +16,7 @@ import {
   orderBy,
   where,
 } from 'firebase/firestore';
-import { addMonths, set, format, startOfToday, parse, isBefore } from 'date-fns';
+import { addMonths, set, format, startOfToday, parse, isBefore, differenceInCalendarMonths } from 'date-fns';
 
 const SAVINGS_COLLECTION = 'sinking-funds';
 
@@ -44,22 +45,23 @@ const calculateMonthlyAmount = (item: SavingsItem): number => {
       return 0;
     }
 
-    const today = new Date();
+    const today = startOfToday();
     const due = parse(dueDate, 'yyyy-MM-dd', new Date());
 
     if (isBefore(due, today)) {
         return remainingAmount; // Past due
     }
     
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth(); // 0-indexed
-    const dueYear = due.getFullYear();
-    const dueMonth = due.getMonth(); // 0-indexed
+    let monthsRemaining = differenceInCalendarMonths(due, today);
 
-    const monthsRemaining = (dueYear - currentYear) * 12 + (dueMonth - currentMonth);
+    // If the due date is in a future month, we cannot use that month for saving.
+    // The number of payment periods is the number of full months *between* now and then.
+    if (monthsRemaining > 0) {
+      monthsRemaining -= 1;
+    }
 
     if (monthsRemaining <= 0) {
-        return remainingAmount;
+      return remainingAmount;
     }
     
     return remainingAmount / monthsRemaining;

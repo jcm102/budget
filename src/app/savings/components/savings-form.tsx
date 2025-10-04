@@ -6,7 +6,7 @@ import { useEffect, useMemo } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { differenceInMonths, set, getYear, isBefore, differenceInCalendarMonths, startOfMonth, parse, startOfToday, isEqual } from 'date-fns';
+import { differenceInMonths, set, getYear, isBefore, differenceInCalendarMonths, startOfToday, parse } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -54,11 +54,16 @@ const calculateMonthlyAmount = (totalCost: number, amountSaved: number, dueDateS
     const today = startOfToday();
     const dueDate = parse(dueDateStr, "yyyy-MM-dd", new Date());
 
-    if (isBefore(dueDate, today) || isEqual(dueDate, today)) {
+    if (isBefore(dueDate, today)) {
       return remainingAmount;
     }
 
-    const monthsRemaining = differenceInCalendarMonths(dueDate, today);
+    let monthsRemaining = differenceInCalendarMonths(dueDate, today);
+
+    // If the due date is in a future month, we cannot use that month for saving.
+    if (monthsRemaining > 0) {
+        monthsRemaining -= 1;
+    }
 
     if (monthsRemaining <= 0) {
       return remainingAmount;
