@@ -114,6 +114,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
     return remainingAmount / (monthsRemaining);
   };
 
+
    useEffect(() => {
     const newMonthlyGoal = calculateMonthlyAmount(watchedValues as Partial<SavingsItem>);
     if (newMonthlyGoal !== form.getValues('goal')) {
