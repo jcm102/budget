@@ -57,14 +57,6 @@ const formSchema = z.object({
   secondaryPaymentMonth: z.coerce.number().optional(),
 });
 
-type SavingsFormProps = {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  addSavingsItem: (item: Omit<SavingsItem, 'id' | 'monthlyAmount'>) => void;
-  updateSavingsItem: (id: string, item: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>) => void;
-  editingItem: SavingsItem | null;
-};
-
 const calculateMonthlyAmount = (item: Partial<z.infer<typeof formSchema>>): number => {
   const { totalCost, amount, dueDate: dueDateStr, goal } = item;
 
@@ -92,6 +84,14 @@ const calculateMonthlyAmount = (item: Partial<z.infer<typeof formSchema>>): numb
   }
 
   return remainingAmount / (monthsRemaining);
+};
+
+type SavingsFormProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  addSavingsItem: (item: Omit<SavingsItem, 'id' | 'monthlyAmount'>) => void;
+  updateSavingsItem: (id: string, item: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>) => void;
+  editingItem: SavingsItem | null;
 };
 
 export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsItem, editingItem }: SavingsFormProps) {
