@@ -139,7 +139,6 @@ type SavingsTableProps = {
 
 const parseDate = (dateString: string): Date => {
     if (!dateString) return new Date();
-    // Handles both 'YYYY-MM-DD' and full ISO strings by splitting on 'T'
     const datePart = dateString.split('T')[0];
     return parse(datePart, 'yyyy-MM-dd', new Date());
 };
@@ -221,12 +220,16 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
 
   const { totalSaved, totalCost, totalSavingsTarget, totalMonthlyContribution } = useMemo(() => {
     const totals = sortedItems.reduce((acc, item) => {
-        acc.saved += item.amount || 0;
-        acc.cost += item.totalCost || 0;
-        acc.target += item.savingsTarget || 0;
+        const rate = exchangeRate || 1.0;
+        const savedAmount = item.currency === 'USD' ? item.amount * rate : item.amount;
+        const costAmount = item.totalCost ? (item.currency === 'USD' ? item.totalCost * rate : item.totalCost) : 0;
+        const targetAmount = item.savingsTarget ? (item.currency === 'USD' ? item.savingsTarget * rate : item.savingsTarget) : 0;
+
+        acc.saved += savedAmount;
+        acc.cost += costAmount;
+        acc.target += targetAmount;
         
         const monthlyAmt = item.monthlyAmount || 0;
-        const rate = exchangeRate || 1.0;
         const convertedAmt = item.currency === 'USD' ? monthlyAmt * rate : monthlyAmt;
         acc.monthly += convertedAmt;
         return acc;
