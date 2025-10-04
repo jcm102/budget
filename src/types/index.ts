@@ -156,9 +156,7 @@ export interface SavingsItem {
   primaryPaymentMonth?: number | null; // For "Semi-Annually (Custom)"
   secondaryPaymentMonth?: number | null; // For "Semi-Annually (Custom)"
   parentId?: string | null;
-  
-  // These fields are calculated at runtime for display
-  monthlyAmount?: number;
+  monthlyAmount?: number; // Calculated field
 }
 
 

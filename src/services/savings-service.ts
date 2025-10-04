@@ -16,7 +16,7 @@ import {
   orderBy,
   where,
 } from 'firebase/firestore';
-import { addMonths, set, format } from 'date-fns';
+import { addMonths, set, format, startOfToday, parse } from 'date-fns';
 
 const SAVINGS_COLLECTION = 'sinking-funds';
 
@@ -30,18 +30,62 @@ const recurrenceIntervalMap: Record<SavingsRecurrence, number> = {
 };
 
 
+const calculateMonthlyAmount = (item: SavingsItem): number => {
+    const { totalCost, savingsTarget, amount, dueDate, goal } = item;
+    
+    if(goal && goal > 0) return goal;
+
+    const costToUse = savingsTarget && savingsTarget > 0 ? savingsTarget : totalCost;
+    if (!costToUse || !dueDate) {
+      return 0;
+    }
+
+    const remainingAmount = costToUse - amount;
+    if (remainingAmount <= 0) {
+      return 0;
+    }
+
+    const today = startOfToday();
+    const due = parse(dueDate, 'yyyy-MM-dd', new Date());
+
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth(); // 0-indexed
+    const dueYear = due.getFullYear();
+    const dueMonth = due.getMonth(); // 0-indexed
+    
+    let monthsRemaining = (dueYear - currentYear) * 12 + (dueMonth - currentMonth);
+
+    if (monthsRemaining <= 0) {
+      return remainingAmount; // Due this month or past due
+    }
+    
+    return remainingAmount / monthsRemaining;
+};
+
+
 export async function getSavingsItems(accountId: string): Promise<SavingsItem[]> {
   const savingsCollection = collection(db, SAVINGS_COLLECTION);
   const q = query(savingsCollection, where('accountId', '==', accountId));
   const querySnapshot = await getDocs(q);
-  const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SavingsItem));
+  
+  const items = querySnapshot.docs.map(doc => {
+    const data = { id: doc.id, ...doc.data() } as SavingsItem;
+    // Calculate and attach the monthly amount on the server
+    data.monthlyAmount = calculateMonthlyAmount(data);
+    return data;
+  });
+
   return items.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function addSavingsItem(itemData: Omit<SavingsItem, 'id'>): Promise<SavingsItem> {
   const docRef = await addDoc(collection(db, SAVINGS_COLLECTION), itemData);
   const docSnap = await getDoc(docRef);
-  return { id: docSnap.id, ...(docSnap.data() as Omit<SavingsItem, 'id'>) };
+  const newItem = { id: docSnap.id, ...(docSnap.data() as Omit<SavingsItem, 'id'>) };
+  return {
+    ...newItem,
+    monthlyAmount: calculateMonthlyAmount(newItem as SavingsItem),
+  }
 }
 
 export async function updateSavingsItem(id: string, itemData: Partial<Omit<SavingsItem, 'id'>>): Promise<void> {
@@ -113,4 +157,3 @@ export async function deleteSavingsItem(id: string): Promise<void> {
   const itemRef = doc(db, SAVINGS_COLLECTION, id);
   await deleteDoc(itemRef);
 }
-

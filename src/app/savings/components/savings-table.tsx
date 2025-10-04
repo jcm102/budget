@@ -139,9 +139,11 @@ type SavingsTableProps = {
 
 const parseDate = (dateString: string): Date => {
     if (!dateString) return new Date();
+    // Handles both 'YYYY-MM-DD' and full ISO strings by splitting on 'T'
     const datePart = dateString.split('T')[0];
     return parse(datePart, 'yyyy-MM-dd', new Date());
 };
+
 
 export function SavingsTable({ columnVisibility }: SavingsTableProps) {
   const { 
@@ -223,7 +225,7 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
         acc.cost += item.totalCost || 0;
         acc.target += item.savingsTarget || 0;
         
-        const monthlyAmt = item.monthlyAmount || item.goal || 0;
+        const monthlyAmt = item.monthlyAmount || 0;
         const rate = exchangeRate || 1.0;
         const convertedAmt = item.currency === 'USD' ? monthlyAmt * rate : monthlyAmt;
         acc.monthly += convertedAmt;
@@ -277,7 +279,7 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
                         const costToUse = (item.savingsTarget && item.savingsTarget > 0) ? item.savingsTarget : item.totalCost;
                         const progress = costToUse && costToUse > 0 ? (item.amount / costToUse) * 100 : 0;
                         
-                        const monthlyAmount = item.monthlyAmount || item.goal || 0;
+                        const monthlyAmount = item.monthlyAmount || 0;
                         const isUsd = item.currency === 'USD';
                         const convertedMonthlyAmount = isUsd ? monthlyAmount * (exchangeRate || 1) : monthlyAmount;
 
