@@ -65,6 +65,35 @@ type SavingsFormProps = {
   editingItem: SavingsItem | null;
 };
 
+const calculateMonthlyAmount = (item: Partial<z.infer<typeof formSchema>>): number => {
+  const { totalCost, amount, dueDate: dueDateStr, goal } = item;
+
+  if (goal && goal > 0) return goal;
+  if (!dueDateStr || !totalCost || totalCost <= 0) return 0;
+
+  const remainingAmount = totalCost - (amount || 0);
+  if (remainingAmount <= 0) return 0;
+
+  const today = startOfToday();
+  const dueDate = parse(dueDateStr, "yyyy-MM-dd", new Date());
+
+  if (isBefore(dueDate, today)) {
+      return remainingAmount > 0 ? remainingAmount : 0;
+  }
+  
+  let monthsRemaining = differenceInCalendarMonths(dueDate, today);
+  
+  if (monthsRemaining > 0) {
+    monthsRemaining -= 1;
+  }
+  
+  if (monthsRemaining <= 0) {
+      return remainingAmount;
+  }
+
+  return remainingAmount / (monthsRemaining);
+};
+
 export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsItem, editingItem }: SavingsFormProps) {
   const { accounts, isLoading: isLoadingAccounts } = useAccounts();
   const form = useForm<z.infer<typeof formSchema>>({
@@ -85,40 +114,10 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
   
   const watchedValues = form.watch();
 
-  const calculateMonthlyAmount = (item: Partial<SavingsItem>): number => {
-    const { totalCost, amount, dueDate: dueDateStr, goal } = item;
-
-    if (goal && goal > 0) return goal;
-    if (!dueDateStr || !totalCost || totalCost <= 0) return 0;
-
-    const remainingAmount = totalCost - (amount || 0);
-    if (remainingAmount <= 0) return 0;
-
-    const today = startOfToday();
-    const dueDate = parse(dueDateStr, "yyyy-MM-dd", new Date());
-
-    if (isBefore(dueDate, today)) {
-        return remainingAmount > 0 ? remainingAmount : 0;
-    }
-    
-    let monthsRemaining = differenceInCalendarMonths(dueDate, today);
-    
-    if (monthsRemaining > 0) {
-      monthsRemaining -= 1;
-    }
-    
-    if (monthsRemaining <= 0) {
-        return remainingAmount;
-    }
-
-    return remainingAmount / (monthsRemaining);
-  };
-
-
    useEffect(() => {
-    const newMonthlyGoal = calculateMonthlyAmount(watchedValues as Partial<SavingsItem>);
-    if (newMonthlyGoal !== form.getValues('goal')) {
-      form.setValue('goal', newMonthlyGoal < 0 ? 0 : newMonthlyGoal);
+    const newMonthlyGoal = calculateMonthlyAmount(watchedValues);
+    if (newMonthlyGoal >= 0 && newMonthlyGoal !== form.getValues('goal')) {
+      form.setValue('goal', newMonthlyGoal);
     }
   }, [watchedValues, form]);
 
