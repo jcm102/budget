@@ -29,6 +29,7 @@ import { Label } from '@/components/ui/label';
 import { useSavings } from './hooks/use-savings';
 import { useGoals } from './hooks/use-goals';
 import type { SavingsItem } from '@/types';
+import { useExchangeRate } from '@/hooks/use-exchange-rate';
 
 
 export type ColumnVisibility = {
@@ -41,6 +42,8 @@ export default function SavingsPage() {
   const { includeGoalSavings, setIncludeGoalSavings, includeSinkingFunds, setIncludeSinkingFunds } = useLedgerSettings();
   const { savingsItems, isLoading: isLoadingSavings } = useSavings();
   const { goals, isLoading: isLoadingGoals } = useGoals();
+  const { exchangeRate } = useExchangeRate();
+
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
     name: true,
     amount: true,
@@ -70,16 +73,24 @@ export default function SavingsPage() {
   const selectedAccount = accounts.find(a => a.id === selectedAccountId);
 
   const { sinkingFundsTotal, goalsTotal } = useMemo(() => {
-    const fundsTotal = includeSinkingFunds 
-        ? savingsItems.reduce((acc, item) => acc + item.amount, 0)
-        : 0;
+    const rate = exchangeRate || 1.0;
+    
+    const fundsTotal = includeSinkingFunds
+      ? savingsItems.reduce((acc, item) => {
+          const amountInCad = item.currency === 'USD' ? item.amount * rate : item.amount;
+          return acc + amountInCad;
+        }, 0)
+      : 0;
 
     const goalsSum = includeGoalSavings
-        ? goals.reduce((acc, goal) => acc + goal.amount, 0)
-        : 0;
+      ? goals.reduce((acc, goal) => {
+          // Assuming goals are always in CAD as there is no currency field
+          return acc + goal.amount;
+        }, 0)
+      : 0;
 
     return { sinkingFundsTotal: fundsTotal, goalsTotal: goalsSum };
-  }, [savingsItems, goals, includeSinkingFunds, includeGoalSavings]);
+  }, [savingsItems, goals, includeSinkingFunds, includeGoalSavings, exchangeRate]);
 
   return (
     <div className="container mx-auto max-w-7xl p-4 md:p-8">
