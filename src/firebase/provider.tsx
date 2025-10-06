@@ -3,7 +3,7 @@
 
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore, doc, setDoc } from 'firebase/firestore';
+import { Firestore, doc, setDoc, getDoc } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 import { errorEmitter } from './error-emitter';
@@ -81,23 +81,24 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
     const unsubscribe = onAuthStateChanged(
       auth,
-      (firebaseUser) => { // Auth state determined
+      async (firebaseUser) => { // Auth state determined
         if (firebaseUser) {
             const userRef = doc(firestore, 'users', firebaseUser.uid);
-            const userData = {
-                id: firebaseUser.uid,
-                email: firebaseUser.email,
-                name: firebaseUser.displayName,
-            };
-            // Non-blocking write with contextual error handling
-            setDoc(userRef, userData, { merge: true }).catch(error => {
-                const permissionError = new FirestorePermissionError({
-                    path: userRef.path,
-                    operation: 'write',
-                    requestResourceData: userData
-                });
-                errorEmitter.emit('permission-error', permissionError);
-            });
+            
+            try {
+              const userDoc = await getDoc(userRef);
+              if (!userDoc.exists()) {
+                // User document doesn't exist, so create it.
+                const userData = {
+                    id: firebaseUser.uid,
+                    email: firebaseUser.email,
+                    name: firebaseUser.displayName,
+                };
+                await setDoc(userRef, userData, { merge: true });
+              }
+            } catch (error) {
+               console.error("Error checking or creating user document:", error);
+            }
         }
         setUserAuthState({ user: firebaseUser, isUserLoading: false, userError: null });
       },
