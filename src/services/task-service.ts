@@ -15,8 +15,6 @@ import {
   updateDoc
 } from 'firebase/firestore';
 import { isBefore, startOfToday, startOfWeek, startOfMonth as fnsStartOfMonth } from 'date-fns';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 
 const TASKS_COLLECTION = 'tasks';
 
