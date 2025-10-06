@@ -3,6 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { SidebarProvider, Sidebar, SidebarInset, SidebarTrigger, SidebarHeader } from '@/components/ui/sidebar';
 import { AppNav } from '@/components/app-nav';
+import { FirebaseClientProvider } from '@/firebase';
 
 export const metadata: Metadata = {
   title: 'TaskTrack Budget',
@@ -22,19 +23,21 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased">
-            <SidebarProvider>
-                <Sidebar>
-                    <AppNav />
-                </Sidebar>
-                <SidebarInset className="flex flex-col">
-                    <SidebarHeader>
-                        <SidebarTrigger />
-                    </SidebarHeader>
-                    <div className="flex-1 overflow-y-auto">
-                        {children}
-                    </div>
-                </SidebarInset>
-            </SidebarProvider>
+        <FirebaseClientProvider>
+          <SidebarProvider>
+              <Sidebar>
+                  <AppNav />
+              </Sidebar>
+              <SidebarInset className="flex flex-col">
+                  <SidebarHeader>
+                      <SidebarTrigger />
+                  </SidebarHeader>
+                  <div className="flex-1 overflow-y-auto">
+                      {children}
+                  </div>
+              </SidebarInset>
+          </SidebarProvider>
+        </FirebaseClientProvider>
         <Toaster />
       </body>
     </html>
