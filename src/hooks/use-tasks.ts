@@ -6,6 +6,8 @@ import type { Task, Subtask, LinkGroup } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import * as TaskService from '@/services/task-service';
 import * as LinkGroupService from '@/services/link-group-service';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 
 export function useTasks() {
@@ -18,15 +20,29 @@ export function useTasks() {
     try {
       setIsLoading(true);
       const [fetchedTasks, fetchedLinkGroups] = await Promise.all([
-        TaskService.getTasks(),
-        LinkGroupService.getLinkGroups(),
+        TaskService.getTasks().catch(error => {
+          if (error.code === 'permission-denied') {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+              path: 'tasks',
+              operation: 'list'
+            }));
+          }
+          throw error; // re-throw other errors
+        }),
+        LinkGroupService.getLinkGroups().catch(error => {
+          if (error.code === 'permission-denied') {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+              path: 'link-groups',
+              operation: 'list'
+            }));
+          }
+          throw error;
+        }),
       ]);
       setTasks(fetchedTasks);
       setLinkGroups(fetchedLinkGroups);
     } catch (error: any) {
-      // The service now emits the detailed error, so we just log the generic one
-      // if it's not a permission error (which would be handled globally).
-      if (error.name !== 'FirebaseError') {
+      if (error.name !== 'FirebaseError') { // Don't toast for permission errors that are handled globally
         console.error('Failed to load tasks or link groups:', error);
         toast({
           title: 'Error',
@@ -49,8 +65,7 @@ export function useTasks() {
       const newTask = await TaskService.addTask(taskData, newOrder);
       setTasks((prevTasks) => [...prevTasks, newTask]);
     } catch (error) {
-      // Error is handled by service emitter, but we can toast a generic message
-      toast({
+       toast({
         title: 'Error',
         description: 'Failed to add the new task.',
         variant: 'destructive',
@@ -61,8 +76,7 @@ export function useTasks() {
   const updateTask = useCallback(async (id: string, taskData: Partial<Omit<Task, 'id'>>) => {
     try {
       await TaskService.updateTask(id, taskData);
-       // Refetch all data to ensure consistency
-      await fetchData();
+       await fetchData();
     } catch (error) {
       toast({
         title: 'Error',
@@ -73,7 +87,6 @@ export function useTasks() {
   }, [toast, fetchData]);
 
   const updateTaskOrder = useCallback(async (reorderedTasks: Task[]) => {
-    // Optimistically update the UI
     setTasks(reorderedTasks);
     try {
       await TaskService.updateTaskOrder(reorderedTasks);
@@ -164,7 +177,6 @@ export function useTasks() {
 
   const toggleSubtask = useCallback(async (taskId: string, subtaskId: string) => {
     const originalTasks = tasks;
-    // Optimistically update UI
      setTasks(prevTasks => prevTasks.map(task => {
       if (task.id === taskId) {
         const updatedSubtasks = (task.subtasks || []).map(st => 

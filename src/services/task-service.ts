@@ -56,38 +56,26 @@ export async function getTasks(): Promise<Task[]> {
   const tasksCollection = collection(db, TASKS_COLLECTION);
   const q = query(tasksCollection);
 
-  try {
-    const querySnapshot = await getDocs(q);
-    const batch = writeBatch(db);
-    let hasChanges = false;
+  const querySnapshot = await getDocs(q);
+  const batch = writeBatch(db);
+  let hasChanges = false;
 
-    const tasks = querySnapshot.docs.map(doc => {
-      const taskData = { id: doc.id, ...doc.data() } as Task;
-      const updatedTask = checkAndResetTask(taskData);
-      if (JSON.stringify(taskData) !== JSON.stringify(updatedTask)) {
-        hasChanges = true;
-        const taskRef = doc.ref;
-        batch.set(taskRef, updatedTask);
-      }
-      return updatedTask;
-    });
-
-    if (hasChanges) {
-      await batch.commit();
+  const tasks = querySnapshot.docs.map(doc => {
+    const taskData = { id: doc.id, ...doc.data() } as Task;
+    const updatedTask = checkAndResetTask(taskData);
+    if (JSON.stringify(taskData) !== JSON.stringify(updatedTask)) {
+      hasChanges = true;
+      const taskRef = doc.ref;
+      batch.set(taskRef, updatedTask);
     }
+    return updatedTask;
+  });
 
-    return tasks;
-  } catch (error: any) {
-    if (error.code === 'permission-denied') {
-      const contextualError = new FirestorePermissionError({
-        operation: 'list',
-        path: TASKS_COLLECTION,
-      });
-      errorEmitter.emit('permission-error', contextualError);
-    }
-    // Re-throw other errors or handle them as needed
-    throw error;
+  if (hasChanges) {
+    await batch.commit();
   }
+
+  return tasks;
 }
 
 export async function addTask(taskData: Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks' | 'order'>, order: number): Promise<Task> {
@@ -103,16 +91,7 @@ export async function addTask(taskData: Omit<Task, 'id' | 'completed' | 'complet
   };
   const docRef = doc(collection(db, TASKS_COLLECTION));
   
-  setDoc(docRef, newTask).catch(error => {
-    errorEmitter.emit(
-      'permission-error',
-      new FirestorePermissionError({
-        path: docRef.path,
-        operation: 'create',
-        requestResourceData: newTask,
-      })
-    );
-  });
+  await setDoc(docRef, newTask);
 
   return { ...newTask, id: docRef.id };
 }
@@ -122,16 +101,7 @@ export async function updateTask(id: string, taskData: Partial<Omit<Task, 'id'>>
   const docSnap = await getDoc(taskRef);
   if (docSnap.exists()) {
     const dataToUpdate = { ...taskData };
-    updateDoc(taskRef, dataToUpdate).catch(error => {
-      errorEmitter.emit(
-        'permission-error',
-        new FirestorePermissionError({
-          path: taskRef.path,
-          operation: 'update',
-          requestResourceData: dataToUpdate,
-        })
-      );
-    });
+    await updateDoc(taskRef, dataToUpdate);
   } else {
     throw new Error(`Task with id ${id} not found.`);
   }
@@ -144,28 +114,12 @@ export async function updateTaskOrder(tasks: Task[]): Promise<void> {
     batch.update(taskRef, { order: index });
   });
   
-  batch.commit().catch(error => {
-     errorEmitter.emit(
-        'permission-error',
-        new FirestorePermissionError({
-          path: TASKS_COLLECTION,
-          operation: 'write', // Batch writes are generic
-        })
-      );
-  });
+  await batch.commit();
 }
 
 export async function deleteTask(id: string): Promise<void> {
   const taskRef = doc(db, TASKS_COLLECTION, id);
-  deleteDoc(taskRef).catch(error => {
-    errorEmitter.emit(
-      'permission-error',
-      new FirestorePermissionError({
-        path: taskRef.path,
-        operation: 'delete',
-      })
-    );
-  });
+  await deleteDoc(taskRef);
 }
 
 export async function addSubtask(taskId: string, data: Omit<Subtask, 'id' | 'completed' | 'order'>): Promise<void> {
@@ -186,16 +140,7 @@ export async function addSubtask(taskId: string, data: Omit<Subtask, 'id' | 'com
   };
   const updatedSubtasks = [...(task.subtasks || []), newSubtask];
   
-  updateDoc(taskRef, { subtasks: updatedSubtasks, completed: false, completedAt: null }).catch(error => {
-    errorEmitter.emit(
-      'permission-error',
-      new FirestorePermissionError({
-        path: taskRef.path,
-        operation: 'update',
-        requestResourceData: { subtasks: updatedSubtasks },
-      })
-    );
-  });
+  await updateDoc(taskRef, { subtasks: updatedSubtasks, completed: false, completedAt: null });
 }
 
 export async function updateSubtask(taskId: string, subtaskId: string, subtaskData: Partial<Omit<Subtask, 'id' | 'completed' | 'order'>>): Promise<void> {
@@ -208,16 +153,7 @@ export async function updateSubtask(taskId: string, subtaskId: string, subtaskDa
       subtask.id === subtaskId ? { ...subtask, ...subtaskData } : subtask
     );
 
-    updateDoc(taskRef, { subtasks: updatedSubtasks }).catch(error => {
-      errorEmitter.emit(
-        'permission-error',
-        new FirestorePermissionError({
-          path: taskRef.path,
-          operation: 'update',
-          requestResourceData: { subtasks: updatedSubtasks },
-        })
-      );
-    });
+    await updateDoc(taskRef, { subtasks: updatedSubtasks });
 }
 
 export async function updateSubtaskOrder(taskId: string, subtasks: Subtask[]): Promise<void> {
@@ -227,16 +163,7 @@ export async function updateSubtaskOrder(taskId: string, subtasks: Subtask[]): P
   
   const updatedSubtasks = subtasks.map((subtask, index) => ({...subtask, order: index}));
 
-  updateDoc(taskRef, { subtasks: updatedSubtasks }).catch(error => {
-     errorEmitter.emit(
-        'permission-error',
-        new FirestorePermissionError({
-          path: taskRef.path,
-          operation: 'update',
-          requestResourceData: { subtasks: updatedSubtasks },
-        })
-      );
-  });
+  await updateDoc(taskRef, { subtasks: updatedSubtasks });
 }
 
 export async function toggleSubtask(taskId: string, subtaskId: string): Promise<void> {
@@ -256,16 +183,7 @@ export async function toggleSubtask(taskId: string, subtaskId: string): Promise<
         completed: allSubtasksCompleted,
         completedAt: allSubtasksCompleted ? new Date().toISOString() : null,
     };
-    updateDoc(taskRef, updatedTask).catch(error => {
-       errorEmitter.emit(
-        'permission-error',
-        new FirestorePermissionError({
-          path: taskRef.path,
-          operation: 'update',
-          requestResourceData: updatedTask,
-        })
-      );
-    });
+    await updateDoc(taskRef, updatedTask);
 }
 
 export async function deleteSubtask(taskId: string, subtaskId: string): Promise<void> {
@@ -282,14 +200,5 @@ export async function deleteSubtask(taskId: string, subtaskId: string): Promise<
         completed: allSubtasksCompleted,
         completedAt: allSubtasksCompleted ? new Date().toISOString() : null,
     };
-    updateDoc(taskRef, updatedTask).catch(error => {
-       errorEmitter.emit(
-        'permission-error',
-        new FirestorePermissionError({
-          path: taskRef.path,
-          operation: 'update',
-          requestResourceData: updatedTask,
-        })
-      );
-    });
+    await updateDoc(taskRef, updatedTask);
 }
