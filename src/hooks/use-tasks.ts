@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Task, Subtask, LinkGroup } from '@/types';
-import { useToast } from './use-toast';
+import { useToast } from '@/hooks/use-toast';
 import * as TaskService from '@/services/task-service';
 import * as LinkGroupService from '@/services/link-group-service';
 
@@ -23,13 +23,17 @@ export function useTasks() {
       ]);
       setTasks(fetchedTasks);
       setLinkGroups(fetchedLinkGroups);
-    } catch (error) {
-      console.error('Failed to load tasks or link groups:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load data from the database.',
-        variant: 'destructive',
-      });
+    } catch (error: any) {
+      // The service now emits the detailed error, so we just log the generic one
+      // if it's not a permission error (which would be handled globally).
+      if (error.name !== 'FirebaseError') {
+        console.error('Failed to load tasks or link groups:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load data from the database.',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -45,7 +49,7 @@ export function useTasks() {
       const newTask = await TaskService.addTask(taskData, newOrder);
       setTasks((prevTasks) => [...prevTasks, newTask]);
     } catch (error) {
-      console.error('Failed to add task:', error);
+      // Error is handled by service emitter, but we can toast a generic message
       toast({
         title: 'Error',
         description: 'Failed to add the new task.',
@@ -60,7 +64,6 @@ export function useTasks() {
        // Refetch all data to ensure consistency
       await fetchData();
     } catch (error) {
-      console.error('Failed to update task:', error);
       toast({
         title: 'Error',
         description: 'Failed to update the task.',
@@ -75,8 +78,6 @@ export function useTasks() {
     try {
       await TaskService.updateTaskOrder(reorderedTasks);
     } catch (error) {
-      console.error('Failed to update task order:', error);
-      // Revert on error - though fetching might be better
       toast({
         title: 'Error',
         description: 'Failed to save the new task order.',
@@ -101,7 +102,6 @@ export function useTasks() {
     try {
       await TaskService.updateTask(id, { completed: newCompleted, completedAt: newCompletedAt, subtasks: updatedSubtasks });
     } catch (error) {
-      console.error('Failed to toggle task:', error);
       setTasks(originalTasks);
       toast({
         title: 'Error',
@@ -117,7 +117,6 @@ export function useTasks() {
     try {
       await TaskService.deleteTask(id);
     } catch (error) {
-      console.error('Failed to delete task:', error);
       setTasks(originalTasks);
       toast({
         title: 'Error',
@@ -132,7 +131,6 @@ export function useTasks() {
       await TaskService.addSubtask(taskId, data);
       await fetchData();
     } catch (error) {
-      console.error('Failed to add subtask:', error);
       toast({ title: 'Error', description: 'Failed to add subtask.', variant: 'destructive' });
     }
   }, [fetchData, toast]);
@@ -142,7 +140,6 @@ export function useTasks() {
       await TaskService.updateSubtask(taskId, subtaskId, data);
       await fetchData();
     } catch (error) {
-      console.error('Failed to update subtask:', error);
       toast({ title: 'Error', description: 'Failed to update subtask.', variant: 'destructive' });
     }
   }, [fetchData, toast]);
@@ -160,7 +157,6 @@ export function useTasks() {
     try {
         await TaskService.updateSubtaskOrder(taskId, reorderedSubtasks);
     } catch (error) {
-        console.error('Failed to update subtask order:', error);
         setTasks(originalTasks);
         toast({ title: 'Error', description: 'Failed to save subtask order.', variant: 'destructive' });
     }
@@ -188,7 +184,6 @@ export function useTasks() {
     try {
         await TaskService.toggleSubtask(taskId, subtaskId);
     } catch (error) {
-        console.error('Failed to toggle subtask:', error);
         setTasks(originalTasks); // Revert on error
         toast({ title: 'Error', description: 'Failed to toggle subtask status.', variant: 'destructive' });
     }
@@ -212,7 +207,6 @@ export function useTasks() {
     try {
         await TaskService.deleteSubtask(taskId, subtaskId);
     } catch (error) {
-        console.error('Failed to delete subtask:', error);
         setTasks(originalTasks);
         toast({ title: 'Error', description: 'Failed to delete subtask.', variant: 'destructive' });
     }

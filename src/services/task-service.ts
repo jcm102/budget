@@ -15,6 +15,8 @@ import {
   updateDoc
 } from 'firebase/firestore';
 import { isBefore, startOfToday, startOfWeek, startOfMonth as fnsStartOfMonth } from 'date-fns';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const TASKS_COLLECTION = 'tasks';
 
@@ -53,26 +55,39 @@ const checkAndResetTask = (task: Task): Task => {
 export async function getTasks(): Promise<Task[]> {
   const tasksCollection = collection(db, TASKS_COLLECTION);
   const q = query(tasksCollection);
-  const querySnapshot = await getDocs(q);
-  const batch = writeBatch(db);
-  let hasChanges = false;
 
-  const tasks = querySnapshot.docs.map(doc => {
-    const taskData = { id: doc.id, ...doc.data() } as Task;
-    const updatedTask = checkAndResetTask(taskData);
-    if (JSON.stringify(taskData) !== JSON.stringify(updatedTask)) {
-      hasChanges = true;
-      const taskRef = doc.ref;
-      batch.set(taskRef, updatedTask);
+  try {
+    const querySnapshot = await getDocs(q);
+    const batch = writeBatch(db);
+    let hasChanges = false;
+
+    const tasks = querySnapshot.docs.map(doc => {
+      const taskData = { id: doc.id, ...doc.data() } as Task;
+      const updatedTask = checkAndResetTask(taskData);
+      if (JSON.stringify(taskData) !== JSON.stringify(updatedTask)) {
+        hasChanges = true;
+        const taskRef = doc.ref;
+        batch.set(taskRef, updatedTask);
+      }
+      return updatedTask;
+    });
+
+    if (hasChanges) {
+      await batch.commit();
     }
-    return updatedTask;
-  });
 
-  if (hasChanges) {
-    await batch.commit();
+    return tasks;
+  } catch (error: any) {
+    if (error.code === 'permission-denied') {
+      const contextualError = new FirestorePermissionError({
+        operation: 'list',
+        path: TASKS_COLLECTION,
+      });
+      errorEmitter.emit('permission-error', contextualError);
+    }
+    // Re-throw other errors or handle them as needed
+    throw error;
   }
-
-  return tasks;
 }
 
 export async function addTask(taskData: Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks' | 'order'>, order: number): Promise<Task> {
@@ -87,7 +102,18 @@ export async function addTask(taskData: Omit<Task, 'id' | 'completed' | 'complet
     internalLink: taskData.internalLink || null,
   };
   const docRef = doc(collection(db, TASKS_COLLECTION));
-  await setDoc(docRef, newTask);
+  
+  setDoc(docRef, newTask).catch(error => {
+    errorEmitter.emit(
+      'permission-error',
+      new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'create',
+        requestResourceData: newTask,
+      })
+    );
+  });
+
   return { ...newTask, id: docRef.id };
 }
 
@@ -96,7 +122,16 @@ export async function updateTask(id: string, taskData: Partial<Omit<Task, 'id'>>
   const docSnap = await getDoc(taskRef);
   if (docSnap.exists()) {
     const dataToUpdate = { ...taskData };
-    await updateDoc(taskRef, dataToUpdate);
+    updateDoc(taskRef, dataToUpdate).catch(error => {
+      errorEmitter.emit(
+        'permission-error',
+        new FirestorePermissionError({
+          path: taskRef.path,
+          operation: 'update',
+          requestResourceData: dataToUpdate,
+        })
+      );
+    });
   } else {
     throw new Error(`Task with id ${id} not found.`);
   }
@@ -108,12 +143,29 @@ export async function updateTaskOrder(tasks: Task[]): Promise<void> {
     const taskRef = doc(db, TASKS_COLLECTION, task.id);
     batch.update(taskRef, { order: index });
   });
-  await batch.commit();
+  
+  batch.commit().catch(error => {
+     errorEmitter.emit(
+        'permission-error',
+        new FirestorePermissionError({
+          path: TASKS_COLLECTION,
+          operation: 'write', // Batch writes are generic
+        })
+      );
+  });
 }
 
 export async function deleteTask(id: string): Promise<void> {
   const taskRef = doc(db, TASKS_COLLECTION, id);
-  await deleteDoc(taskRef);
+  deleteDoc(taskRef).catch(error => {
+    errorEmitter.emit(
+      'permission-error',
+      new FirestorePermissionError({
+        path: taskRef.path,
+        operation: 'delete',
+      })
+    );
+  });
 }
 
 export async function addSubtask(taskId: string, data: Omit<Subtask, 'id' | 'completed' | 'order'>): Promise<void> {
@@ -133,7 +185,17 @@ export async function addSubtask(taskId: string, data: Omit<Subtask, 'id' | 'com
     internalLink: data.internalLink || null,
   };
   const updatedSubtasks = [...(task.subtasks || []), newSubtask];
-  await updateDoc(taskRef, { subtasks: updatedSubtasks, completed: false, completedAt: null });
+  
+  updateDoc(taskRef, { subtasks: updatedSubtasks, completed: false, completedAt: null }).catch(error => {
+    errorEmitter.emit(
+      'permission-error',
+      new FirestorePermissionError({
+        path: taskRef.path,
+        operation: 'update',
+        requestResourceData: { subtasks: updatedSubtasks },
+      })
+    );
+  });
 }
 
 export async function updateSubtask(taskId: string, subtaskId: string, subtaskData: Partial<Omit<Subtask, 'id' | 'completed' | 'order'>>): Promise<void> {
@@ -145,18 +207,36 @@ export async function updateSubtask(taskId: string, subtaskId: string, subtaskDa
     const updatedSubtasks = (task.subtasks || []).map(subtask => 
       subtask.id === subtaskId ? { ...subtask, ...subtaskData } : subtask
     );
-    await updateDoc(taskRef, { subtasks: updatedSubtasks });
+
+    updateDoc(taskRef, { subtasks: updatedSubtasks }).catch(error => {
+      errorEmitter.emit(
+        'permission-error',
+        new FirestorePermissionError({
+          path: taskRef.path,
+          operation: 'update',
+          requestResourceData: { subtasks: updatedSubtasks },
+        })
+      );
+    });
 }
 
 export async function updateSubtaskOrder(taskId: string, subtasks: Subtask[]): Promise<void> {
   const taskRef = doc(db, TASKS_COLLECTION, taskId);
   const docSnap = await getDoc(taskRef);
   if (!docSnap.exists()) throw new Error(`Task with id ${taskId} not found.`);
-  const task = docSnap.data() as Task;
   
   const updatedSubtasks = subtasks.map((subtask, index) => ({...subtask, order: index}));
 
-  await updateDoc(taskRef, { subtasks: updatedSubtasks });
+  updateDoc(taskRef, { subtasks: updatedSubtasks }).catch(error => {
+     errorEmitter.emit(
+        'permission-error',
+        new FirestorePermissionError({
+          path: taskRef.path,
+          operation: 'update',
+          requestResourceData: { subtasks: updatedSubtasks },
+        })
+      );
+  });
 }
 
 export async function toggleSubtask(taskId: string, subtaskId: string): Promise<void> {
@@ -172,12 +252,20 @@ export async function toggleSubtask(taskId: string, subtaskId: string): Promise<
     const allSubtasksCompleted = updatedSubtasks.every(st => st.completed);
 
     const updatedTask = {
-        ...task,
         subtasks: updatedSubtasks,
         completed: allSubtasksCompleted,
         completedAt: allSubtasksCompleted ? new Date().toISOString() : null,
     };
-    await updateDoc(taskRef, updatedTask);
+    updateDoc(taskRef, updatedTask).catch(error => {
+       errorEmitter.emit(
+        'permission-error',
+        new FirestorePermissionError({
+          path: taskRef.path,
+          operation: 'update',
+          requestResourceData: updatedTask,
+        })
+      );
+    });
 }
 
 export async function deleteSubtask(taskId: string, subtaskId: string): Promise<void> {
@@ -190,10 +278,18 @@ export async function deleteSubtask(taskId: string, subtaskId: string): Promise<
     const allSubtasksCompleted = updatedSubtasks.length > 0 && updatedSubtasks.every(st => st.completed);
 
     const updatedTask = {
-        ...task,
         subtasks: updatedSubtasks,
         completed: allSubtasksCompleted,
         completedAt: allSubtasksCompleted ? new Date().toISOString() : null,
     };
-    await updateDoc(taskRef, updatedTask);
+    updateDoc(taskRef, updatedTask).catch(error => {
+       errorEmitter.emit(
+        'permission-error',
+        new FirestorePermissionError({
+          path: taskRef.path,
+          operation: 'update',
+          requestResourceData: updatedTask,
+        })
+      );
+    });
 }
