@@ -8,39 +8,48 @@ import * as TaskService from '@/services/task-service';
 import * as LinkGroupService from '@/services/link-group-service';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-
+import { collection, getDocs, query } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
 
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [linkGroups, setLinkGroups] = useState<LinkGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const firestore = useFirestore();
 
   const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const [fetchedTasks, fetchedLinkGroups] = await Promise.all([
-        TaskService.getTasks().catch(error => {
+      
+      const tasksPromise = getDocs(query(collection(firestore, 'tasks'))).catch(error => {
           if (error.code === 'permission-denied') {
             errorEmitter.emit('permission-error', new FirestorePermissionError({
               path: 'tasks',
               operation: 'list'
             }));
           }
-          throw error; // re-throw other errors
-        }),
-        LinkGroupService.getLinkGroups().catch(error => {
-          if (error.code === 'permission-denied') {
+          throw error;
+      });
+
+      const linkGroupsPromise = getDocs(query(collection(firestore, 'link-groups'))).catch(error => {
+        if (error.code === 'permission-denied') {
             errorEmitter.emit('permission-error', new FirestorePermissionError({
               path: 'link-groups',
               operation: 'list'
             }));
           }
           throw error;
-        }),
-      ]);
+      });
+
+      const [tasksSnapshot, linkGroupsSnapshot] = await Promise.all([tasksPromise, linkGroupsPromise]);
+
+      const fetchedTasks = tasksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Task[];
+      const fetchedLinkGroups = linkGroupsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as LinkGroup[];
+
       setTasks(fetchedTasks);
       setLinkGroups(fetchedLinkGroups);
+
     } catch (error: any) {
       if (error.name !== 'FirebaseError') { // Don't toast for permission errors that are handled globally
         console.error('Failed to load tasks or link groups:', error);
@@ -53,7 +62,7 @@ export function useTasks() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, firestore]);
 
   useEffect(() => {
     fetchData();
