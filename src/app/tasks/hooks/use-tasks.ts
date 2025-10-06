@@ -6,9 +6,6 @@ import type { Task, Subtask, LinkGroup } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import * as TaskService from '@/services/task-service';
 import * as LinkGroupService from '@/services/link-group-service';
-import { FirestorePermissionError } from '@/firebase/errors';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirebaseError } from 'firebase/app';
 
 
 export function useTasks() {
@@ -28,24 +25,11 @@ export function useTasks() {
       setLinkGroups(fetchedLinkGroups);
     } catch (error) {
       console.error('Failed to load tasks or link groups:', error);
-       if (error instanceof FirebaseError && error.code === 'permission-denied') {
-        // Handle tasks error
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: 'tasks',
-          operation: 'list',
-        }));
-        // Handle link-groups error
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: 'link-groups',
-            operation: 'list',
-        }));
-      } else {
-        toast({
-          title: 'Error',
-          description: 'Failed to load data from the database.',
-          variant: 'destructive',
-        });
-      }
+      toast({
+        title: 'Error',
+        description: 'Failed to load data from the database.',
+        variant: 'destructive',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -184,7 +168,6 @@ export function useTasks() {
 
   const toggleSubtask = useCallback(async (taskId: string, subtaskId: string) => {
     const originalTasks = tasks;
-    // Optimistically update UI
      setTasks(prevTasks => prevTasks.map(task => {
       if (task.id === taskId) {
         const updatedSubtasks = (task.subtasks || []).map(st => 
