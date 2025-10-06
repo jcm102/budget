@@ -1,45 +1,33 @@
 /**
- * @file Firestore Security Rules for TaskTrack Budget Application
+ * @fileoverview Firestore Security Rules for TaskTrack Budget application.
  *
- * @core_philosophy This ruleset enforces a strict user-ownership model. Each user has exclusive
- *   access to their profile, tasks, and sessions. All data is nested under the `/users/{userId}`
- *   path, ensuring clear ownership and simplifying security rules.
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model. Each user can only
+ * access and manipulate data directly associated with their own user ID.
  *
- * @data_structure
- *   - `/users/{userId}`: Stores user profiles. Only the authenticated user with matching `userId`
- *     can read or write their profile.
- *   - `/users/{userId}/tasks/{taskId}`: Stores tasks for a specific user. Only the owning user
- *     can manage their tasks.
- *   - `/users/{userId}/sessions/{sessionId}`: Stores session data for each user.
- *     Only the owning user can manage their sessions.
+ * Data Structure:
+ * - /users/{userId}: Stores user profiles.
+ * - /users/{userId}/tasks/{taskId}: Stores tasks owned by a specific user.
+ * - /users/{userId}/sessions/{sessionId}: Stores user sessions.
  *
- * @key_security_decisions
- *   - User listing is disallowed. This prevents potential information leakage.
- *   - Data validation is relaxed in this prototyping phase to allow for rapid iteration. Only
- *     authorization-critical fields (e.g., `userId` on `create`) are validated.
- *   - The rules explicitly deny any unauthorized access, ensuring a secure-by-default posture.
+ * Key Security Decisions:
+ * - Users can only create, read, update, and delete their own profiles, tasks, and sessions.
+ * - Listing operations are allowed for all user-scoped subcollections, enabling clients to view their own data.
+ * - No public data access is permitted; all data is private and user-specific.
  *
- * @denormalization_for_authorization
- *   - The Task and Session documents have a `userId` field, which is redundant with the path
- *     `/users/{userId}/...` but dramatically simplifies the security rules and avoids the need
- *     for complex `get()` operations.
- *
- * @structural_segregation
- *   - All private user data is stored under the `/users/{userId}` path, isolating it from other
- *     users and simplifying access control.
+ * Denormalization for Authorization:
+ * - The `userId` is embedded in both the task and session documents to easily enforce ownership.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows users to manage their own profiles.
+     * @description Protects the user profile.  Allows a user to read and write their own profile.
      * @path /users/{userId}
-     * @allow (create) User with matching ID can create their profile.
-     * @allow (get, update, delete) Authenticated user with matching ID can access and modify their profile.
-     * @deny (create) User cannot create a profile with an ID that doesn't match their auth UID.
-     * @deny (get, update, delete) Unauthorized user cannot access or modify another user's profile.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) User with ID 'user123' creates their own profile document.
+     * @deny (create) User with ID 'user123' attempts to create a profile for 'user456'.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
      */
     match /users/{userId} {
       function isSignedIn() {
@@ -47,34 +35,22 @@ service cloud.firestore {
       }
 
       function isOwner(userId) {
-        return request.auth.uid == userId;
+        return isSignedIn() && request.auth.uid == userId;
       }
 
-      // Allow the user to create their own profile, but only if the userId matches their auth.uid.
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
-
-      // Allow read access if the user is signed in and the requested userId matches their auth.uid.
-      allow get: if isSignedIn() && isOwner(userId);
-
-      // Allow update if the user is signed in, the requested userId matches their auth.uid,
-      // and the userId field in the data matches the userId in the path to prevent changing ownership.
-      allow update: if isSignedIn() && isOwner(userId) && resource.data.id == userId;
-
-      // Allow delete if the user is signed in and the requested userId matches their auth.uid.
-      allow delete: if isSignedIn() && isOwner(userId) && resource.data.id == userId;
-
-      // Prevent listing of all users.
+      allow get: if isOwner(userId);
       allow list: if false;
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
     }
 
     /**
-     * @description Allows users to manage their own tasks.
+     * @description Protects tasks under a user's profile. Allows a user to manage their own tasks.
      * @path /users/{userId}/tasks/{taskId}
-     * @allow (create) Authenticated user with matching userId can create tasks.
-     * @allow (get, list, update, delete) Authenticated user with matching userId can access and modify their tasks.
-     * @deny (create) User cannot create a task with a userId that doesn't match their auth UID.
-     * @deny (get, list, update, delete) Unauthorized user cannot access or modify another user's tasks.
-     * @principle Enforces document ownership for all operations within the user's task collection.
+     * @allow (create) User with ID 'user123' creates a task under their profile.
+     * @deny (update) User with ID 'user123' attempts to update a task under 'user456' profile.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
      */
     match /users/{userId}/tasks/{taskId} {
       function isSignedIn() {
@@ -82,34 +58,26 @@ service cloud.firestore {
       }
 
       function isOwner(userId) {
-        return request.auth.uid == userId;
+        return isSignedIn() && request.auth.uid == userId;
+      }
+      
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
       }
 
-      // Allow creating a task if the user is signed in and the userId matches their auth.uid.
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
-
-      // Allow read access if the user is signed in and the userId matches their auth.uid.
-      allow get: if isSignedIn() && isOwner(userId);
-
-      // Allow listing tasks if the user is signed in and the userId matches their auth.uid.
-      allow list: if isSignedIn() && isOwner(userId);
-
-      // Allow updating a task if the user is signed in, the userId matches their auth.uid,
-      // and the userId field in the data matches the userId in the path to prevent changing ownership.
-      allow update: if isSignedIn() && isOwner(userId) && resource.data.userId == userId;
-
-      // Allow deleting a task if the user is signed in and the userId matches their auth.uid.
-      allow delete: if isSignedIn() && isOwner(userId) && resource.data.userId == userId;
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == userId;
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Allows users to manage their own sessions.
+     * @description Protects sessions under a user's profile. Allows a user to manage their own sessions.
      * @path /users/{userId}/sessions/{sessionId}
-     * @allow (create) Authenticated user with matching userId can create sessions.
-     * @allow (get, list, update, delete) Authenticated user with matching userId can access and modify their sessions.
-     * @deny (create) User cannot create a session with a userId that doesn't match their auth UID.
-     * @deny (get, list, update, delete) Unauthorized user cannot access or modify another user's sessions.
-     * @principle Enforces document ownership for all operations within the user's session collection.
+     * @allow (create) User with ID 'user123' creates a session under their profile.
+     * @deny (delete) User with ID 'user123' attempts to delete a session under 'user456' profile.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
      */
     match /users/{userId}/sessions/{sessionId} {
       function isSignedIn() {
@@ -117,24 +85,18 @@ service cloud.firestore {
       }
 
       function isOwner(userId) {
-        return request.auth.uid == userId;
+        return isSignedIn() && request.auth.uid == userId;
       }
 
-      // Allow creating a session if the user is signed in and the userId matches their auth.uid.
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
 
-      // Allow read access if the user is signed in and the userId matches their auth.uid.
-      allow get: if isSignedIn() && isOwner(userId);
-
-      // Allow listing sessions if the user is signed in and the userId matches their auth.uid.
-      allow list: if isSignedIn() && isOwner(userId);
-
-      // Allow updating a session if the user is signed in, the userId matches their auth.uid,
-      // and the userId field in the data matches the userId in the path to prevent changing ownership.
-      allow update: if isSignedIn() && isOwner(userId) && resource.data.userId == userId;
-
-      // Allow deleting a session if the user is signed in and the userId matches their auth.uid.
-      allow delete: if isSignedIn() && isOwner(userId) && resource.data.userId == userId;
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == userId;
+      allow delete: if isExistingOwner(userId);
     }
   }
 }
