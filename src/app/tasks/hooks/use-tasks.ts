@@ -22,41 +22,22 @@ export function useTasks() {
     return query(collection(firestore, 'link-groups'), orderBy('name'));
   }, [firestore]);
 
-  const { data: tasksData, isLoading: isLoadingTasks, error: tasksError } = useCollection<Task>(tasksQuery);
-  const { data: linkGroupsData, isLoading: isLoadingLinkGroups, error: linkGroupsError } = useCollection<LinkGroup>(linkGroupsQuery);
-  
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [linkGroups, setLinkGroups] = useState<LinkGroup[]>([]);
+  const { data: tasks, isLoading: isLoadingTasks, error: tasksError } = useCollection<Task>(tasksQuery);
+  const { data: linkGroups, isLoading: isLoadingLinkGroups, error: linkGroupsError } = useCollection<LinkGroup>(linkGroupsQuery);
   
   const isLoading = isLoadingTasks || isLoadingLinkGroups;
-
-  const fetchData = useCallback(async () => {
-    // This function is now mostly handled by the useCollection hooks.
-    // We can keep it for any potential manual refetch logic in the future.
-  }, []);
-
-  useEffect(() => {
-    if (tasksData) {
-      setTasks(tasksData);
-    }
-  }, [tasksData]);
-  
-  useEffect(() => {
-    if (linkGroupsData) {
-      setLinkGroups(linkGroupsData);
-    }
-  }, [linkGroupsData]);
   
   const addTask = useCallback(async (taskData: Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks' | 'order'>) => {
     if (!firestore) return;
     try {
-      const newOrder = tasks.filter(t => t.frequency === taskData.frequency).length;
+      const currentTasks = tasks || [];
+      const newOrder = currentTasks.filter(t => t.frequency === taskData.frequency).length;
       const newTask: Omit<Task, 'id'> = {
         ...taskData,
         completed: false,
         completedAt: null,
         subtasks: [],
-        order,
+        order: newOrder,
         linkGroupId: taskData.linkGroupId || null,
         links: taskData.links || [],
         internalLink: taskData.internalLink || null,
@@ -90,7 +71,6 @@ export function useTasks() {
 
   const updateTaskOrder = useCallback(async (reorderedTasks: Task[]) => {
     if (!firestore) return;
-    setTasks(reorderedTasks); // Optimistic update
     try {
       const batch = writeBatch(firestore);
       reorderedTasks.forEach((task, index) => {
@@ -100,7 +80,6 @@ export function useTasks() {
       await batch.commit();
     } catch (error) {
       console.error('Failed to update task order:', error);
-      // Revert on error would require fetching data again, useCollection handles this.
       toast({
         title: 'Error',
         description: 'Failed to save the new task order.',
@@ -110,7 +89,7 @@ export function useTasks() {
   }, [firestore, toast]);
 
   const toggleTask = useCallback(async (id: string) => {
-    if (!firestore) return;
+    if (!firestore || !tasks) return;
     const taskToToggle = tasks.find((t) => t.id === id);
     if (!taskToToggle) return;
 
@@ -146,7 +125,7 @@ export function useTasks() {
   }, [firestore, toast]);
 
   const addSubtask = useCallback(async (taskId: string, data: Omit<Subtask, 'id' | 'completed' | 'order'>) => {
-    if (!firestore) return;
+    if (!firestore || !tasks) return;
     const taskRef = doc(firestore, 'tasks', taskId);
     const taskToUpdate = tasks.find(t => t.id === taskId);
     if (!taskToUpdate) return;
@@ -171,7 +150,7 @@ export function useTasks() {
   }, [firestore, tasks, toast]);
   
   const updateSubtask = useCallback(async (taskId: string, subtaskId: string, data: Partial<Omit<Subtask, 'id' | 'completed' | 'order'>>) => {
-    if (!firestore) return;
+    if (!firestore || !tasks) return;
     const taskRef = doc(firestore, 'tasks', taskId);
     const taskToUpdate = tasks.find(t => t.id === taskId);
     if (!taskToUpdate) return;
@@ -200,7 +179,7 @@ export function useTasks() {
   }, [firestore, toast]);
 
   const toggleSubtask = useCallback(async (taskId: string, subtaskId: string) => {
-    if (!firestore) return;
+    if (!firestore || !tasks) return;
     const taskRef = doc(firestore, 'tasks', taskId);
     const taskToUpdate = tasks.find(t => t.id === taskId);
     if (!taskToUpdate) return;
@@ -225,7 +204,7 @@ export function useTasks() {
   }, [firestore, tasks, toast]);
 
   const deleteSubtask = useCallback(async (taskId: string, subtaskId: string) => {
-    if (!firestore) return;
+    if (!firestore || !tasks) return;
     const taskRef = doc(firestore, 'tasks', taskId);
     const taskToUpdate = tasks.find(t => t.id === taskId);
     if (!taskToUpdate) return;
@@ -247,5 +226,5 @@ export function useTasks() {
   }, [firestore, tasks, toast]);
 
 
-  return { tasks, linkGroups, addTask, updateTask, toggleTask, deleteTask, isLoading, updateTaskOrder, addSubtask, updateSubtask, updateSubtaskOrder, toggleSubtask, deleteSubtask, fetchData };
+  return { tasks: tasks || [], linkGroups: linkGroups || [], addTask, updateTask, toggleTask, deleteTask, isLoading, updateTaskOrder, addSubtask, updateSubtask, updateSubtaskOrder, toggleSubtask, deleteSubtask };
 }

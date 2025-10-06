@@ -2,9 +2,16 @@
 
 import React, { useMemo, type ReactNode } from 'react';
 import { initializeFirebase } from '@/firebase';
+import { FirebaseProvider } from './provider';
 
-// This provider is now effectively a passthrough and doesn't do much.
-// It's kept for structural consistency in case Firebase services are re-introduced later.
+// This provider ensures Firebase is initialized only once on the client
+// and passes the instances to the core FirebaseProvider.
 export function FirebaseClientProvider({ children }: { children: ReactNode }) {
-  return <>{children}</>;
+  const { firebaseApp, firestore, auth } = useMemo(() => initializeFirebase(), []);
+
+  return (
+    <FirebaseProvider firebaseApp={firebaseApp} firestore={firestore} auth={auth}>
+      {children}
+    </FirebaseProvider>
+  );
 }
