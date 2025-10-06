@@ -5,6 +5,8 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Debt } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import * as DebtService from '../services/debt-service';
+import { errorEmitter } from '@/firebase';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 type DebtView = 'current' | 'next';
 
@@ -18,8 +20,17 @@ export function useDebt() {
         setIsLoading(true);
         const fetchedDebts = await DebtService.getDebts();
         setDebts(fetchedDebts);
-    } catch (error) {
+    } catch (error: any) {
         console.error('Failed to load debts:', error);
+        
+        if (error.message.includes('permission-denied') || error.message.includes('Missing or insufficient permissions')) {
+            const contextualError = new FirestorePermissionError({
+              path: 'debts',
+              operation: 'list',
+            });
+            errorEmitter.emit('permission-error', contextualError);
+        }
+
         toast({
             title: 'Error',
             description: 'Failed to load debts from the database.',
