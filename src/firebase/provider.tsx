@@ -104,8 +104,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
                     });
                 }
             } catch (error: any) {
-                // Catch errors from getDoc as well, though less likely to be permissions here
-                console.error("FirebaseProvider: Error getting user document:", error);
+                // This will catch errors from getDoc, e.g. if rules prevent reads
                 const permissionError = new FirestorePermissionError({
                     path: userRef.path,
                     operation: 'get',
