@@ -1,92 +1,114 @@
 /**
- * @file Firestore Security Rules for TaskTrack Budget Application
- * @core_philosophy This ruleset enforces a strict user-ownership model, where each user has full control over their own data,
- *                 and no access to other users' data. This is achieved through path-based authorization. All read and write
- *                 operations are scoped to the authenticated user's ID.
- * @data_structure The data is structured hierarchically under `/users/{userId}`, with subcollections for `tasks` and `sessions`.
- *                 This structure allows for simple and efficient security rules based on the user's ID.
- * @key_security_decisions User listing is disallowed to prevent unauthorized enumeration of user accounts.  Data validation is relaxed
- *                         in this prototyping phase, focusing on ownership and relational integrity checks.
- * @denormalization There is no denormalization in this ruleset.
- * @structural_segregation All data is private and scoped to individual users.
+ * @fileoverview Firestore Security Rules for TaskTrack Budget application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for all data. Users can only
+ * access their own data, ensuring privacy and data isolation. This is achieved
+ * primarily through path-based authorization. No listing of all users is allowed.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profiles.
+ * - /users/{userId}/tasks/{taskId}: Stores tasks owned by a specific user.
+ * - /users/{userId}/sessions/{sessionId}: Stores session information for each user.
+ *
+ * Key Security Decisions:
+ * - Strict User Ownership: Only the authenticated user can read or write their own data.
+ * - No Public Listing: Listing of all users is explicitly denied.
+ *
+ * Denormalization for Authorization:
+ *  - Not used, all authorization is based on path.
+ * Structural Segregation:
+ *  - User data is segregated into subcollections under the /users/{userId} path.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profile documents.
+     * @description Controls access to the /users/{userId} collection.
      * @path /users/{userId}
-     * @allow (create) User with ID 'user_abc' can create their profile.
-     *        Request: auth.uid = 'user_abc', resource.data.id = 'user_abc'
-     * @allow (get) User with ID 'user_abc' can read their profile.
-     *        Request: auth.uid = 'user_abc'
-     * @allow (update) User with ID 'user_abc' can update their profile.
-     *        Request: auth.uid = 'user_abc', resource.data.id = 'user_abc'
-     * @allow (delete) User with ID 'user_abc' can delete their profile.
-     *        Request: auth.uid = 'user_abc'
-     * @deny   (create) User with ID 'user_xyz' cannot create a profile for 'user_abc'.
-     *        Request: auth.uid = 'user_xyz', resource.data.id = 'user_abc'
-     * @deny   (update) User with ID 'user_xyz' cannot update the profile of 'user_abc'.
-     *        Request: auth.uid = 'user_xyz'
-     * @principle Enforces document ownership for writes, restricts access to a user's own data tree, validates relational integrity between documents.
+     * @allow (create) - Authenticated user can create their own user document.
+     * @allow (get, update, delete) - Authenticated user can access their own user document.
+     * @deny (list) - Listing all users is prohibited.
+     * @deny (create, update, delete) - Non-authenticated users cannot create or modify user documents.
+     * @principle Enforces document ownership and prevents unauthorized data access.
      */
     match /users/{userId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if true;
-      allow update: if true;
-      allow delete: if true;
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isOwner(userId);
     }
 
     /**
-     * @description Controls access to task documents within a user's profile.
+     * @description Controls access to the /users/{userId}/tasks/{taskId} collection.
      * @path /users/{userId}/tasks/{taskId}
-     * @allow (create) User with ID 'user_abc' can create a task under their profile.
-     *        Request: auth.uid = 'user_abc', resource.data.userId = 'user_abc'
-     * @allow (get) User with ID 'user_abc' can read a task under their profile.
-     *        Request: auth.uid = 'user_abc'
-     * @allow (update) User with ID 'user_abc' can update a task under their profile.
-     *        Request: auth.uid = 'user_abc', resource.data.userId = 'user_abc'
-     * @allow (delete) User with ID 'user_abc' can delete a task under their profile.
-     *        Request: auth.uid = 'user_abc'
-     * @deny   (create) User with ID 'user_xyz' cannot create a task for user 'user_abc'.
-     *        Request: auth.uid = 'user_xyz', resource.data.userId = 'user_abc'
-     * @deny   (update) User with ID 'user_xyz' cannot update a task under the profile of 'user_abc'.
-     *        Request: auth.uid = 'user_xyz'
-     * @principle Enforces document ownership for writes, restricts access to a user's own data tree, validates relational integrity between documents.
+     * @allow (create) - Authenticated user can create tasks under their own user document.
+     * @allow (get, list, update, delete) - Authenticated user can access their own tasks.
+     * @deny (create, update, delete) - Non-authenticated users cannot create or modify tasks.
+     * @principle Enforces document ownership for tasks and prevents unauthorized modifications.
      */
     match /users/{userId}/tasks/{taskId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if true;
-      allow update: if true;
-      allow delete: if true;
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isOwner(userId);
     }
 
     /**
-     * @description Controls access to session documents within a user's profile.
+     * @description Controls access to the /users/{userId}/sessions/{sessionId} collection.
      * @path /users/{userId}/sessions/{sessionId}
-     * @allow (create) User with ID 'user_abc' can create a session under their profile.
-     *        Request: auth.uid = 'user_abc', resource.data.userId = 'user_abc'
-     * @allow (get) User with ID 'user_abc' can read a session under their profile.
-     *        Request: auth.uid = 'user_abc'
-     * @allow (update) User with ID 'user_abc' can update a session under their profile.
-     *        Request: auth.uid = 'user_abc', resource.data.userId = 'user_abc'
-     * @allow (delete) User with ID 'user_abc' can delete a session under their profile.
-     *        Request: auth.uid = 'user_abc'
-     * @deny   (create) User with ID 'user_xyz' cannot create a session for user 'user_abc'.
-     *        Request: auth.uid = 'user_xyz', resource.data.userId = 'user_abc'
-     * @deny   (update) User with ID 'user_xyz' cannot update a session under the profile of 'user_abc'.
-     *        Request: auth.uid = 'user_xyz'
-     * @principle Enforces document ownership for writes, restricts access to a user's own data tree, validates relational integrity between documents.
+     * @allow (create) - Authenticated user can create sessions under their own user document.
+     * @allow (get, list, update, delete) - Authenticated user can access their own sessions.
+     * @deny (create, update, delete) - Non-authenticated users cannot create or modify sessions.
+     * @principle Enforces document ownership for sessions and prevents unauthorized modifications.
      */
     match /users/{userId}/sessions/{sessionId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if true;
-      allow update: if true;
-      allow delete: if true;
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isOwner(userId);
     }
+    
+     /**
+      * @description  Denies access to the `link-groups` collection.
+      * @path /link-groups
+      * @allow None
+      * @deny Any request.
+      * @principle Access to this collection is completely restricted.
+      */
+     match /link-groups/{document} {
+        allow get: if false;
+        allow list: if false;
+        allow create: if false;
+        allow update: if false;
+        allow delete: if false;
+     }
+
   }
 }
