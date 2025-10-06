@@ -86,18 +86,31 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
             const userRef = doc(firestore, 'users', firebaseUser.uid);
             
             try {
-              const userDoc = await getDoc(userRef);
-              if (!userDoc.exists()) {
-                // User document doesn't exist, so create it.
-                const userData = {
-                    id: firebaseUser.uid,
-                    email: firebaseUser.email,
-                    name: firebaseUser.displayName,
-                };
-                await setDoc(userRef, userData, { merge: true });
-              }
-            } catch (error) {
-               console.error("Error checking or creating user document:", error);
+                const userDoc = await getDoc(userRef);
+                if (!userDoc.exists()) {
+                    const userData = {
+                        id: firebaseUser.uid,
+                        email: firebaseUser.email,
+                        name: firebaseUser.displayName,
+                    };
+                    // Set document with proper error handling
+                    setDoc(userRef, userData, { merge: true }).catch(async (serverError) => {
+                        const permissionError = new FirestorePermissionError({
+                            path: userRef.path,
+                            operation: 'create',
+                            requestResourceData: userData,
+                        });
+                        errorEmitter.emit('permission-error', permissionError);
+                    });
+                }
+            } catch (error: any) {
+                // Catch errors from getDoc as well, though less likely to be permissions here
+                console.error("FirebaseProvider: Error getting user document:", error);
+                const permissionError = new FirestorePermissionError({
+                    path: userRef.path,
+                    operation: 'get',
+                });
+                errorEmitter.emit('permission-error', permissionError);
             }
         }
         setUserAuthState({ user: firebaseUser, isUserLoading: false, userError: null });
