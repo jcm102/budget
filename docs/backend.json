@@ -1,43 +1,14 @@
-
 {
   "entities": {
-    "User": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "User",
-      "type": "object",
-      "description": "Represents a user of the TaskTrack Budget application.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the user.",
-          "format": "uuid"
-        },
-        "email": {
-          "type": "string",
-          "description": "Email address of the user.",
-          "format": "email"
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the user."
-        }
-      },
-      "required": [
-        "id",
-        "email",
-        "name"
-      ]
-    },
     "Task": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Task",
       "type": "object",
-      "description": "Represents a task within the TaskTrack Budget application.",
+      "description": "Represents a task in the TaskTrack Budget application.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the task.",
-          "format": "uuid"
+          "description": "Unique identifier for the Task entity."
         },
         "description": {
           "type": "string",
@@ -45,16 +16,17 @@
         },
         "dueDate": {
           "type": "string",
-          "description": "Due date of the task.",
+          "description": "The due date for the task.",
           "format": "date-time"
         },
         "frequency": {
           "type": "string",
-          "description": "Frequency of the task (daily, weekly, monthly)."
+          "description": "Frequency of the task (daily, weekly, monthly).",
+          "format": "string"
         },
         "completed": {
           "type": "boolean",
-          "description": "Indicates if the task is completed."
+          "description": "Indicates whether the task is completed or not."
         }
       },
       "required": [
@@ -67,19 +39,26 @@
     }
   },
   "auth": {
-    "providers": []
+    "providers": [
+      "password",
+      "anonymous"
+    ]
   },
   "firestore": {
     "structure": [
       {
-        "path": "/tasks/{taskId}",
+        "path": "/users/{userId}/tasks/{taskId}",
         "definition": {
           "entityName": "Task",
           "schema": {
             "$ref": "#/backend/entities/Task"
           },
-          "description": "Collection to store tasks. Open to all users.",
+          "description": "Stores tasks associated with a specific user. Path-based ownership enables simple security rules based on `request.auth.uid`. The `userId` path parameter represents the unique ID of the user, and the `taskId` path parameter represents the unique ID of the task.",
           "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            },
             {
               "name": "taskId",
               "description": "The unique identifier of the task."
@@ -87,6 +66,7 @@
           ]
         }
       }
-    ]
+    ],
+    "reasoning": "The data structure is designed to store tasks for a task tracking application named \"TaskTrack Budget\". The structure prioritizes authorization independence by storing tasks under a user-specific path, `/users/{userId}/tasks/{taskId}`. This eliminates the need for complex security rules involving `get()` calls to parent documents, ensuring atomic operations and easier debugging.  Since tasks are owned by individual users, there is no need for denormalized data to manage shared access or team-based permissions. The structure is segregated by storing all tasks within a specific user's document, enabling simple ownership-based security rules.  This structure supports secure list operations (QAPs) as Firestore rules can easily filter tasks based on the `userId` in the path."
   }
 }
