@@ -1,94 +1,42 @@
+import type {Metadata} from 'next';
+import './globals.css';
+import { Toaster } from "@/components/ui/toaster";
+import { SidebarProvider, Sidebar, SidebarInset, SidebarTrigger, SidebarHeader } from '@/components/ui/sidebar';
+import { AppNav } from '@/components/app-nav';
 
-'use client';
+export const metadata: Metadata = {
+  title: 'TaskTrack Budget',
+  description: 'Track your daily, weekly, and monthly budgeting tasks.',
+};
 
-import React, { createContext, useContext, ReactNode, useMemo } from 'react';
-import { FirebaseApp } from 'firebase/app';
-import { Firestore } from 'firebase/firestore';
-import { Auth } from 'firebase/auth';
-
-interface FirebaseProviderProps {
-  children: ReactNode;
-  firebaseApp: FirebaseApp;
-  firestore: Firestore;
-}
-
-export interface FirebaseContextState {
-  firebaseApp: FirebaseApp | null;
-  firestore: Firestore | null;
-  auth: Auth | null;
-}
-
-export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
-
-export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
+export default function RootLayout({
   children,
-  firebaseApp,
-  firestore,
-}) => {
-  const contextValue = useMemo((): FirebaseContextState => {
-    return {
-      firebaseApp: firebaseApp,
-      firestore: firestore,
-      auth: null,
-    };
-  }, [firebaseApp, firestore]);
-
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
-    <FirebaseContext.Provider value={contextValue}>
-      {children}
-    </FirebaseContext.Provider>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
+      </head>
+      <body className="font-body antialiased">
+          <SidebarProvider>
+              <Sidebar>
+                  <AppNav />
+              </Sidebar>
+              <SidebarInset className="flex flex-col">
+                  <SidebarHeader>
+                      <SidebarTrigger />
+                  </SidebarHeader>
+                  <div className="flex-1 overflow-y-auto">
+                      {children}
+                  </div>
+              </SidebarInset>
+          </SidebarProvider>
+        <Toaster />
+      </body>
+    </html>
   );
-};
-
-export const useFirebase = (): Omit<FirebaseContextState, 'auth'> => {
-  const context = useContext(FirebaseContext);
-
-  if (context === undefined) {
-    throw new Error('useFirebase must be used within a FirebaseProvider.');
-  }
-
-  if (!context.firebaseApp || !context.firestore) {
-    throw new Error('Firebase core services not available. Check FirebaseProvider props.');
-  }
-
-  return {
-    firebaseApp: context.firebaseApp,
-    firestore: context.firestore,
-    auth: null,
-  };
-};
-
-export const useFirestore = (): Firestore => {
-  const { firestore } = useFirebase();
-  if (!firestore) {
-      throw new Error("Firestore is not available");
-  }
-  return firestore;
-};
-
-export const useFirebaseApp = (): FirebaseApp => {
-  const { firebaseApp } = useFirebase();
-   if (!firebaseApp) {
-      throw new Error("FirebaseApp is not available");
-  }
-  return firebaseApp;
-};
-
-type MemoFirebase <T> = T & {__memo?: boolean};
-
-export function useMemoFirebase<T>(factory: () => T, deps: React.DependencyList): T | (MemoFirebase<T>) {
-  const memoized = useMemo(factory, deps);
-  
-  if(typeof memoized !== 'object' || memoized === null) return memoized;
-  (memoized as MemoFirebase<T>).__memo = true;
-  
-  return memoized;
-}
-
-// Remove useUser and useAuth hooks as they are no longer needed
-export const useAuth = (): null => {
-    return null;
-}
-export const useUser = () => {
-    return { user: null, isUserLoading: false, userError: null };
 }
