@@ -5,6 +5,8 @@ import { useState, useEffect, useCallback } from 'react';
 import type { LinkGroup } from '@/types';
 import { useToast } from './use-toast';
 import * as LinkGroupService from '@/services/link-group-service';
+import { FirestorePermissionError } from '@/firebase/errors';
+import { errorEmitter } from '@/firebase/error-emitter';
 
 export function useLinkGroups() {
   const [linkGroups, setLinkGroups] = useState<LinkGroup[]>([]);
@@ -16,8 +18,15 @@ export function useLinkGroups() {
       setIsLoading(true);
       const fetchedLinkGroups = await LinkGroupService.getLinkGroups();
       setLinkGroups(fetchedLinkGroups);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load link groups:', error);
+       if (error.code === 'permission-denied') {
+          const contextualError = new FirestorePermissionError({
+            operation: 'list',
+            path: 'link-groups',
+          });
+          errorEmitter.emit('permission-error', contextualError);
+        }
       toast({
         title: 'Error',
         description: 'Failed to load link groups from the database.',
