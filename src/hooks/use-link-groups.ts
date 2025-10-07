@@ -3,7 +3,7 @@
 
 import { useCallback } from 'react';
 import { collection, doc } from 'firebase/firestore';
-import { useCollection, useFirestore } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import type { LinkGroup } from '@/types';
 import { useToast } from './use-toast';
 import {
@@ -15,12 +15,17 @@ import {
 export function useLinkGroups() {
   const { toast } = useToast();
   const firestore = useFirestore();
-  const linkGroupsCollection = collection(firestore, 'link-groups');
+  
+  const linkGroupsCollection = useMemoFirebase(
+      () => collection(firestore, 'link-groups'),
+      [firestore]
+  );
 
   const { data: linkGroups, isLoading } = useCollection<LinkGroup>(linkGroupsCollection);
 
   const addLinkGroup = useCallback(
     async (name: string, links: string[]) => {
+      if (!linkGroupsCollection) return;
       try {
         await addDocumentNonBlocking(linkGroupsCollection, { name, links });
       } catch (error) {

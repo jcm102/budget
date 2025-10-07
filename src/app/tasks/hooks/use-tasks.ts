@@ -8,7 +8,7 @@ import {
   updateDoc,
   writeBatch,
 } from 'firebase/firestore';
-import { useCollection, useFirestore } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import type { Task, Subtask, LinkGroup } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -21,12 +21,21 @@ export function useTasks() {
   const { toast } = useToast();
   const firestore = useFirestore();
 
+  const tasksCollection = useMemoFirebase(
+    () => collection(firestore, 'tasks'),
+    [firestore]
+  );
+  const linkGroupsCollection = useMemoFirebase(
+    () => collection(firestore, 'link-groups'),
+    [firestore]
+  );
+
   // Real-time data fetching with useCollection
   const { data: tasks, isLoading: isLoadingTasks } = useCollection<Task>(
-    collection(firestore, 'tasks')
+    tasksCollection
   );
   const { data: linkGroups, isLoading: isLoadingLinkGroups } =
-    useCollection<LinkGroup>(collection(firestore, 'link-groups'));
+    useCollection<LinkGroup>(linkGroupsCollection);
 
   const isLoading = isLoadingTasks || isLoadingLinkGroups;
 
@@ -37,7 +46,7 @@ export function useTasks() {
         'id' | 'completed' | 'completedAt' | 'subtasks' | 'order'
       >
     ) => {
-      if (!tasks) return;
+      if (!tasks || !tasksCollection) return;
       try {
         const newOrder =
           tasks.filter((t) => t.frequency === taskData.frequency).length || 0;
@@ -49,7 +58,7 @@ export function useTasks() {
           order: newOrder,
         };
         await addDocumentNonBlocking(
-          collection(firestore, 'tasks'),
+          tasksCollection,
           newTaskData
         );
       } catch (error) {
@@ -61,7 +70,7 @@ export function useTasks() {
         });
       }
     },
-    [firestore, tasks, toast]
+    [firestore, tasks, toast, tasksCollection]
   );
 
   const updateTask = useCallback(
