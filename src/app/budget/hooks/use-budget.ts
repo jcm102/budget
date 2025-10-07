@@ -7,6 +7,8 @@ import type { BudgetItem } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import * as BudgetService from '@/app/budget/services/budget-service';
 import { useAccountDetails } from '@/hooks/use-account-details';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export function useBudget() {
   const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
@@ -20,8 +22,17 @@ export function useBudget() {
         setIsLoading(true);
         const fetchedItems = await BudgetService.getBudgetItems();
         setBudgetItems(fetchedItems);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to load budget items:', error);
+        
+        if (error.code === 'permission-denied') {
+          const contextualError = new FirestorePermissionError({
+            operation: 'list',
+            path: 'budget-items',
+          });
+          errorEmitter.emit('permission-error', contextualError);
+        }
+
         toast({
           title: 'Error',
           description: 'Failed to load budget items from the database.',
