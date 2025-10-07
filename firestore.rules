@@ -3,76 +3,72 @@
  *
  * Core Philosophy:
  * This ruleset enforces a strict user-ownership model for tasks. Each user can only
- * access the tasks associated with their own user ID. This ensures data privacy and
- * prevents unauthorized access to other users' tasks.
+ * access the tasks that belong to them.
  *
  * Data Structure:
- * All tasks are nested under the `/users/{userId}/tasks/{taskId}` path, ensuring
- * clear ownership and easy management of user-specific data.
+ * All task data is nested under `/users/{userId}/tasks/{taskId}`. This path-based
+ * ownership makes security rules simple and efficient.
  *
  * Key Security Decisions:
- * - Users can only create, read, update, and delete tasks associated with their own ID.
- * - List operations are restricted to the owner of the tasks.
- * - Data validation is minimized to allow for flexible prototyping, but key ownership
- *   relationships are strictly enforced to prevent data leakage.
- *
- * Denormalization for Authorization:
- * The task's data is stored under a user-specific path `/users/{userId}/tasks/{taskId}`.
- * The authorization decision is then based on checking if the `request.auth.uid`
- * matches the `userId` path parameter. This avoids costly `get()` calls.
- *
- * Structural Segregation:
- * By storing tasks under a user-specific path, we avoid the need for complex queries
- * and ensure that each user's tasks are isolated from other users.
+ * - Users can only list tasks that belong to them.
+ * - Data validation is minimal to allow for rapid prototyping. Only authorization-critical
+ *   fields are validated.
  */
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Manages access to task documents for individual users.
+     * @description Secures the task collection for a specific user.
      * @path /users/{userId}/tasks/{taskId}
      * @allow (create) - A user can create a task under their own user ID.
-     *   Example: request.auth.uid = "user123", path = "/users/user123/tasks/task456"
-     * @allow (get, list, update, delete) - A user can access and modify tasks associated with their user ID.
-     *   Example: request.auth.uid = "user123", path = "/users/user123/tasks/task456"
+     * @allow (update) - A user can update a task under their own user ID if the task exists.
+     * @allow (delete) - A user can delete a task under their own user ID if the task exists.
+     * @allow (get) - A user can get a task under their own user ID.
+     * @allow (list) - A user can list tasks under their own user ID.
      * @deny (create) - A user cannot create a task under another user's ID.
-     *   Example: request.auth.uid = "user456", path = "/users/user123/tasks/task456"
-     * @deny (get, list, update, delete) - A user cannot access or modify tasks associated with another user's ID.
-     *   Example: request.auth.uid = "user456", path = "/users/user123/tasks/task456"
-     * @principle Enforces document ownership for all operations.
+     * @deny (update) - A user cannot update a task under another user's ID.
+     * @deny (delete) - A user cannot delete a task under another user's ID.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId}/tasks/{taskId} {
-      // Helper function to check if the request is made by the owner of the document.
+      // Helpers
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
       function isOwner(userId) {
         return request.auth.uid == userId;
       }
 
-      // Helper function to check if the request is made by an existing owner of the document.
       function isExistingOwner(userId) {
         return isOwner(userId) && resource != null;
       }
 
-      // Allow anyone to get a task if they are authenticated
+      // Read Permissions
       allow get: if isSignedIn() && isOwner(userId);
-
-      // Allow the user to list their own tasks.
       allow list: if isSignedIn() && isOwner(userId);
 
-      // Allow the user to create a task if the userId matches the authenticated user's ID.
+      // Write Permissions
       allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == taskId;
-
-      // Allow the user to update a task if they are the owner of the task and the document exists.
-      allow update: if isSignedIn() && isExistingOwner(userId) && resource.data.id == request.resource.data.id;
-
-      // Allow the user to delete a task if they are the owner of the task and the document exists.
+      allow update: if isSignedIn() && isExistingOwner(userId) && request.resource.data.id == resource.data.id;
       allow delete: if isSignedIn() && isExistingOwner(userId);
     }
-  }
 
-  // Helper function to check if a user is signed in.
-  function isSignedIn() {
-    return request.auth != null;
+      /**
+       * @description Prevents unauthorized listing of link-groups
+       * @path /link-groups
+       * @allow None
+       * @deny All list requests
+       * @principle Explicitly deny listing on link-groups
+       */
+    match /link-groups {
+        allow get: if false;
+        allow list: if false;
+        allow create: if false;
+        allow update: if false;
+        allow delete: if false;
+    }
+
   }
 }

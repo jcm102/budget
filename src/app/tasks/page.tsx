@@ -12,18 +12,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PlusCircle, Sunrise, CalendarDays, CalendarRange, Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Task, Subtask } from '@/types';
+import { useAuth, useUser, initiateAnonymousSignIn } from '@/firebase';
 
 export default function TasksPage() {
   const router = useRouter();
   const isMobile = useIsMobile();
+  const auth = useAuth();
+  const { user, isUserLoading } = useUser();
 
-  const { 
+  const {
     tasks,
     linkGroups,
-    addTask, 
-    updateTask, 
-    toggleTask, 
-    deleteTask, 
+    addTask,
+    updateTask,
+    toggleTask,
+    deleteTask,
     isLoading,
     updateTaskOrder,
     addSubtask,
@@ -32,9 +35,19 @@ export default function TasksPage() {
     toggleSubtask,
     deleteSubtask,
   } = useTasks();
+
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  
+
+  useEffect(() => {
+    // When the component mounts and we're not loading the user,
+    // and the user is not logged in, initiate anonymous sign-in.
+    if (!isUserLoading && !user) {
+      initiateAnonymousSignIn(auth);
+    }
+  }, [isUserLoading, user, auth]);
+
+
   const handleEdit = (task: Task) => {
     setEditingTask(task);
     setIsFormOpen(true);
@@ -65,6 +78,14 @@ export default function TasksPage() {
       <Skeleton className="h-20 w-full" />
     </div>
   );
+  
+  if (isUserLoading || isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <>
