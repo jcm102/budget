@@ -1,66 +1,21 @@
-/**
- * @description This ruleset enforces a strict user-ownership model for tasks,
- *              allowing only authenticated users to access and manage their own tasks.
- *              Tasks are stored under the `/users/{userId}/tasks/{taskId}` path,
- *              where {userId} corresponds to the authenticated user's UID.
- * @dataStructure All data is nested under /users/{userId}/tasks/{taskId},
- *                with `userId` representing the owner of the task.
- * @keySecurityDecisions Listing all users is disallowed for privacy.
- *                       Read-only collections are not applicable in this data model.
- *                       The default security posture for ambiguous relationships is strict owner-only access.
- */
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
+    // A user can read and write to their own documents.
+    match /users/{userId} {
+      // User can manage their own user document
+      allow read, write: if request.auth.uid == userId;
 
-    /**
-     * @description Secures the /link-groups collection, disallowing all operations.
-     * @path /databases/{database}/documents/link-groups
-     * @allow (get) N/A - Always denied.
-     * @deny (get) An unauthenticated user attempts to read a link group.
-     * @principle Denies all access to this collection as a safety measure.
-     */
-    match /link-groups {
-        allow get: if false;
-        allow list: if false;
-        allow create: if false;
-        allow update: if false;
-        allow delete: if false;
+      // User can manage their own tasks
+      match /tasks/{taskId} {
+        allow read, write: if request.auth.uid == userId;
+      }
+      
+      // User can manage their own link groups
+      match /link-groups/{linkGroupId} {
+        allow read, write: if request.auth.uid == userId;
+      }
     }
-
-    /**
-     * @description Enforces user-ownership for tasks. Only the authenticated user
-     *              matching the {userId} path parameter can create, read, update,
-     *              or delete tasks under their own user ID.
-     * @path /users/{userId}/tasks/{taskId}
-     * @allow (create) An authenticated user with UID 'user123' creates a new task under /users/user123/tasks/task456.
-     * @allow (get) An authenticated user with UID 'user123' reads task /users/user123/tasks/task456.
-     * @allow (update) An authenticated user with UID 'user123' updates task /users/user123/tasks/task456.
-     * @allow (delete) An authenticated user with UID 'user123' deletes task /users/user123/tasks/task456.
-     * @deny (create) An authenticated user with UID 'user123' attempts to create a task under /users/user456/tasks/task789.
-     * @deny (get) An unauthenticated user attempts to read task /users/user123/tasks/task456.
-     * @deny (update) An unauthenticated user attempts to update task /users/user123/tasks/task456.
-     * @deny (delete) An unauthenticated user attempts to delete task /users/user123/tasks/task456.
-     * @principle Enforces document ownership for all CRUD operations.
-     */
-    match /users/{userId}/tasks/{taskId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isSignedIn() && isExistingOwner(userId) && resource.data.id == request.resource.data.id;
-      allow delete: if isSignedIn() && isExistingOwner(userId);
-    }
-  }
-
-  function isSignedIn() {
-    return request.auth != null;
-  }
-
-  function isOwner(userId) {
-    return request.auth.uid == userId;
-  }
-
-  function isExistingOwner(userId) {
-    return isSignedIn() && isOwner(userId) && resource != null;
   }
 }
