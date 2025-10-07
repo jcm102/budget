@@ -1,120 +1,102 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { Task, Subtask, LinkGroup } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, updateDoc, writeBatch, addDoc, deleteDoc } from 'firebase/firestore';
+import * as TaskService from '@/services/task-service';
+import * as LinkGroupService from '@/services/link-group-service';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 
 
 export function useTasks() {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [linkGroups, setLinkGroups] = useState<LinkGroup[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
-  const firestore = useFirestore();
 
-  const tasksQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'tasks'), orderBy('order'));
-  }, [firestore]);
-
-  const linkGroupsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'link-groups'), orderBy('name'));
-  }, [firestore]);
-
-  const { data: tasks, isLoading: isLoadingTasks, error: tasksError } = useCollection<Task>(tasksQuery);
-  const { data: linkGroups, isLoading: isLoadingLinkGroups, error: linkGroupsError } = useCollection<LinkGroup>(linkGroupsQuery);
-  
-  const isLoading = isLoadingTasks || isLoadingLinkGroups;
-  
-  const addTask = useCallback(async (taskData: Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks' | 'order'>) => {
-    if (!firestore) return;
+  const fetchData = useCallback(async () => {
     try {
-      const currentTasks = tasks || [];
-      const newOrder = currentTasks.filter(t => t.frequency === taskData.frequency).length;
-      const newTask: Omit<Task, 'id'> = {
-        ...taskData,
-        completed: false,
-        completedAt: null,
-        subtasks: [],
-        order: newOrder,
-        linkGroupId: taskData.linkGroupId || null,
-        links: taskData.links || [],
-        internalLink: taskData.internalLink || null,
-      };
-      await addDoc(collection(firestore, 'tasks'), newTask);
-      // No need to set state, useCollection will update
+      setIsLoading(true);
+      const [fetchedTasks, fetchedLinkGroups] = await Promise.all([
+        TaskService.getTasks(),
+        LinkGroupService.getLinkGroups(),
+      ]);
+      setTasks(fetchedTasks);
+      setLinkGroups(fetchedLinkGroups);
     } catch (error: any) {
+      console.error('Failed to load tasks or link groups:', error);
+      if (error.code === 'permission-denied') {
+        const path = error.message.includes('tasks') ? 'tasks' : 'link-groups';
+        const contextualError = new FirestorePermissionError({
+          operation: 'list',
+          path: path,
+        });
+        errorEmitter.emit('permission-error', contextualError);
+      }
+      toast({
+        title: 'Error',
+        description: 'Failed to load data from the database.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const addTask = useCallback(async (taskData: Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks' | 'order'>) => {
+    try {
+      const newOrder = tasks.filter(t => t.frequency === taskData.frequency).length;
+      const newTask = await TaskService.addTask(taskData, newOrder);
+      setTasks((prevTasks) => [...prevTasks, newTask]);
+    } catch (error) {
       console.error('Failed to add task:', error);
-       if (error.code === 'permission-denied') {
-          const contextualError = new FirestorePermissionError({
-            operation: 'create',
-            path: 'tasks',
-            requestResourceData: taskData,
-          });
-          errorEmitter.emit('permission-error', contextualError);
-        }
       toast({
         title: 'Error',
         description: 'Failed to add the new task.',
         variant: 'destructive',
       });
     }
-  }, [firestore, tasks, toast]);
+  }, [toast, tasks]);
 
   const updateTask = useCallback(async (id: string, taskData: Partial<Omit<Task, 'id'>>) => {
-     if (!firestore) return;
     try {
-      const taskRef = doc(firestore, 'tasks', id);
-      await updateDoc(taskRef, taskData);
-    } catch (error: any) {
+      await TaskService.updateTask(id, taskData);
+       // Refetch all data to ensure consistency
+      await fetchData();
+    } catch (error) {
       console.error('Failed to update task:', error);
-      if (error.code === 'permission-denied') {
-        const contextualError = new FirestorePermissionError({
-          operation: 'update',
-          path: `tasks/${id}`,
-          requestResourceData: taskData,
-        });
-        errorEmitter.emit('permission-error', contextualError);
-      }
       toast({
         title: 'Error',
         description: 'Failed to update the task.',
         variant: 'destructive',
       });
     }
-  }, [firestore, toast]);
+  }, [toast, fetchData]);
 
   const updateTaskOrder = useCallback(async (reorderedTasks: Task[]) => {
-    if (!firestore) return;
+    // Optimistically update the UI
+    setTasks(reorderedTasks);
     try {
-      const batch = writeBatch(firestore);
-      reorderedTasks.forEach((task, index) => {
-        const taskRef = doc(firestore, 'tasks', task.id);
-        batch.update(taskRef, { order: index });
-      });
-      await batch.commit();
-    } catch (error: any) {
+      await TaskService.updateTaskOrder(reorderedTasks);
+    } catch (error) {
       console.error('Failed to update task order:', error);
-       if (error.code === 'permission-denied') {
-          const contextualError = new FirestorePermissionError({
-            operation: 'write',
-            path: 'tasks',
-          });
-          errorEmitter.emit('permission-error', contextualError);
-        }
+      // Revert on error - though fetching might be better
       toast({
         title: 'Error',
         description: 'Failed to save the new task order.',
         variant: 'destructive',
       });
     }
-  }, [firestore, toast]);
+  }, [toast]);
 
   const toggleTask = useCallback(async (id: string) => {
-    if (!firestore || !tasks) return;
+    const originalTasks = tasks;
     const taskToToggle = tasks.find((t) => t.id === id);
     if (!taskToToggle) return;
 
@@ -122,183 +104,129 @@ export function useTasks() {
     const newCompletedAt = newCompleted ? new Date().toISOString() : null;
     const updatedSubtasks = (taskToToggle.subtasks || []).map(st => ({...st, completed: newCompleted}));
 
+    const updatedTask = { ...taskToToggle, completed: newCompleted, completedAt: newCompletedAt, subtasks: updatedSubtasks };
+
+    setTasks(tasks.map((t) => (t.id === id ? updatedTask : t)));
+
     try {
-      const taskRef = doc(firestore, 'tasks', id);
-      await updateDoc(taskRef, { completed: newCompleted, completedAt: newCompletedAt, subtasks: updatedSubtasks });
-    } catch (error: any) {
+      await TaskService.updateTask(id, { completed: newCompleted, completedAt: newCompletedAt, subtasks: updatedSubtasks });
+    } catch (error) {
       console.error('Failed to toggle task:', error);
-       if (error.code === 'permission-denied') {
-          const contextualError = new FirestorePermissionError({
-            operation: 'update',
-            path: `tasks/${id}`,
-          });
-          errorEmitter.emit('permission-error', contextualError);
-        }
-       toast({
+      setTasks(originalTasks);
+      toast({
         title: 'Error',
         description: 'Failed to update the task status.',
         variant: 'destructive',
       });
     }
-  }, [firestore, tasks, toast]);
+  }, [tasks, toast]);
 
   const deleteTask = useCallback(async (id: string) => {
-    if (!firestore) return;
+    const originalTasks = tasks;
+    setTasks((prevTasks) => prevTasks.filter((task) => task.id !== id));
     try {
-      await deleteDoc(doc(firestore, 'tasks', id));
-    } catch (error: any) {
+      await TaskService.deleteTask(id);
+    } catch (error) {
       console.error('Failed to delete task:', error);
-       if (error.code === 'permission-denied') {
-          const contextualError = new FirestorePermissionError({
-            operation: 'delete',
-            path: `tasks/${id}`,
-          });
-          errorEmitter.emit('permission-error', contextualError);
-        }
+      setTasks(originalTasks);
       toast({
         title: 'Error',
         description: 'Failed to delete the task.',
         variant: 'destructive',
       });
     }
-  }, [firestore, toast]);
+  }, [tasks, toast]);
 
   const addSubtask = useCallback(async (taskId: string, data: Omit<Subtask, 'id' | 'completed' | 'order'>) => {
-    if (!firestore || !tasks) return;
-    const taskRef = doc(firestore, 'tasks', taskId);
-    const taskToUpdate = tasks.find(t => t.id === taskId);
-    if (!taskToUpdate) return;
-    
-    const newOrder = taskToUpdate.subtasks ? taskToUpdate.subtasks.length : 0;
-    const newSubtask: Subtask = {
-      id: crypto.randomUUID(),
-      description: data.description,
-      completed: false,
-      order: newOrder,
-      links: data.links || [],
-      linkGroupId: data.linkGroupId || null,
-      internalLink: data.internalLink || null,
-    };
-    const updatedSubtasks = [...(taskToUpdate.subtasks || []), newSubtask];
     try {
-      await updateDoc(taskRef, { subtasks: updatedSubtasks, completed: false, completedAt: null });
-    } catch (error: any) {
-       console.error('Failed to add subtask:', error);
-       if (error.code === 'permission-denied') {
-          const contextualError = new FirestorePermissionError({
-            operation: 'update',
-            path: `tasks/${taskId}`,
-          });
-          errorEmitter.emit('permission-error', contextualError);
-        }
-       toast({ title: 'Error', description: 'Failed to add subtask.', variant: 'destructive' });
+      await TaskService.addSubtask(taskId, data);
+      await fetchData();
+    } catch (error) {
+      console.error('Failed to add subtask:', error);
+      toast({ title: 'Error', description: 'Failed to add subtask.', variant: 'destructive' });
     }
-  }, [firestore, tasks, toast]);
+  }, [fetchData, toast]);
   
   const updateSubtask = useCallback(async (taskId: string, subtaskId: string, data: Partial<Omit<Subtask, 'id' | 'completed' | 'order'>>) => {
-    if (!firestore || !tasks) return;
-    const taskRef = doc(firestore, 'tasks', taskId);
-    const taskToUpdate = tasks.find(t => t.id === taskId);
-    if (!taskToUpdate) return;
-
-    const updatedSubtasks = (taskToUpdate.subtasks || []).map(subtask => 
-      subtask.id === subtaskId ? { ...subtask, ...data } : subtask
-    );
-     try {
-      await updateDoc(taskRef, { subtasks: updatedSubtasks });
-    } catch (error: any) {
-       console.error('Failed to update subtask:', error);
-       if (error.code === 'permission-denied') {
-          const contextualError = new FirestorePermissionError({
-            operation: 'update',
-            path: `tasks/${taskId}`,
-          });
-          errorEmitter.emit('permission-error', contextualError);
-        }
-       toast({ title: 'Error', description: 'Failed to update subtask.', variant: 'destructive' });
-    }
-  }, [firestore, tasks, toast]);
-
-  const updateSubtaskOrder = useCallback(async (taskId: string, subtasks: Subtask[]) => {
-    if (!firestore) return;
-    const taskRef = doc(firestore, 'tasks', taskId);
-    const updatedSubtasks = subtasks.map((subtask, index) => ({...subtask, order: index}));
     try {
-      await updateDoc(taskRef, { subtasks: updatedSubtasks });
-    } catch (error: any) {
-       console.error('Failed to update subtask order:', error);
-        if (error.code === 'permission-denied') {
-          const contextualError = new FirestorePermissionError({
-            operation: 'update',
-            path: `tasks/${taskId}`,
-          });
-          errorEmitter.emit('permission-error', contextualError);
-        }
-       toast({ title: 'Error', description: 'Failed to save subtask order.', variant: 'destructive' });
+      await TaskService.updateSubtask(taskId, subtaskId, data);
+      await fetchData();
+    } catch (error) {
+      console.error('Failed to update subtask:', error);
+      toast({ title: 'Error', description: 'Failed to update subtask.', variant: 'destructive' });
     }
-  }, [firestore, toast]);
+  }, [fetchData, toast]);
+
+  const updateSubtaskOrder = useCallback(async (taskId: string, reorderedSubtasks: Subtask[]) => {
+    const originalTasks = [...tasks];
+    const newTasks = tasks.map(task => {
+        if (task.id === taskId) {
+            return { ...task, subtasks: reorderedSubtasks };
+        }
+        return task;
+    });
+    setTasks(newTasks);
+
+    try {
+        await TaskService.updateSubtaskOrder(taskId, reorderedSubtasks);
+    } catch (error) {
+        console.error('Failed to update subtask order:', error);
+        setTasks(originalTasks);
+        toast({ title: 'Error', description: 'Failed to save subtask order.', variant: 'destructive' });
+    }
+  }, [tasks, toast]);
 
   const toggleSubtask = useCallback(async (taskId: string, subtaskId: string) => {
-    if (!firestore || !tasks) return;
-    const taskRef = doc(firestore, 'tasks', taskId);
-    const taskToUpdate = tasks.find(t => t.id === taskId);
-    if (!taskToUpdate) return;
+    const originalTasks = tasks;
+     setTasks(prevTasks => prevTasks.map(task => {
+      if (task.id === taskId) {
+        const updatedSubtasks = (task.subtasks || []).map(st => 
+            st.id === subtaskId ? { ...st, completed: !st.completed } : st
+        );
+        const allSubtasksCompleted = updatedSubtasks.every(st => st.completed);
+        return {
+          ...task,
+          subtasks: updatedSubtasks,
+          completed: allSubtasksCompleted,
+          completedAt: allSubtasksCompleted ? new Date().toISOString() : null,
+        };
+      }
+      return task;
+    }));
 
-    const updatedSubtasks = (taskToUpdate.subtasks || []).map(st => 
-        st.id === subtaskId ? { ...st, completed: !st.completed } : st
-    );
-
-    const allSubtasksCompleted = updatedSubtasks.every(st => st.completed);
-
-    const updatedTaskData = {
-        subtasks: updatedSubtasks,
-        completed: allSubtasksCompleted,
-        completedAt: allSubtasksCompleted ? new Date().toISOString() : null,
-    };
     try {
-      await updateDoc(taskRef, updatedTaskData as any);
-    } catch (error: any) {
-       console.error('Failed to toggle subtask:', error);
-       if (error.code === 'permission-denied') {
-          const contextualError = new FirestorePermissionError({
-            operation: 'update',
-            path: `tasks/${taskId}`,
-          });
-          errorEmitter.emit('permission-error', contextualError);
-        }
-       toast({ title: 'Error', description: 'Failed to toggle subtask status.', variant: 'destructive' });
+        await TaskService.toggleSubtask(taskId, subtaskId);
+    } catch (error) {
+        console.error('Failed to toggle subtask:', error);
+        setTasks(originalTasks); // Revert on error
+        toast({ title: 'Error', description: 'Failed to toggle subtask status.', variant: 'destructive' });
     }
-  }, [firestore, tasks, toast]);
+  }, [tasks, toast]);
 
   const deleteSubtask = useCallback(async (taskId: string, subtaskId: string) => {
-    if (!firestore || !tasks) return;
-    const taskRef = doc(firestore, 'tasks', taskId);
-    const taskToUpdate = tasks.find(t => t.id === taskId);
-    if (!taskToUpdate) return;
-
-    const updatedSubtasks = (taskToUpdate.subtasks || []).filter(st => st.id !== subtaskId);
-    const allSubtasksCompleted = updatedSubtasks.length > 0 && updatedSubtasks.every(st => st.completed);
-
-    const updatedTaskData = {
-        subtasks: updatedSubtasks,
-        completed: allSubtasksCompleted,
-        completedAt: allSubtasksCompleted ? new Date().toISOString() : null,
-    };
-     try {
-      await updateDoc(taskRef, updatedTaskData as any);
-    } catch (error: any) {
-       console.error('Failed to delete subtask:', error);
-       if (error.code === 'permission-denied') {
-          const contextualError = new FirestorePermissionError({
-            operation: 'update',
-            path: `tasks/${taskId}`,
-          });
-          errorEmitter.emit('permission-error', contextualError);
+    const originalTasks = tasks;
+     setTasks(prevTasks => prevTasks.map(task => {
+        if (task.id === taskId) {
+            const updatedSubtasks = (task.subtasks || []).filter(st => st.id !== subtaskId);
+            const allSubtasksCompleted = updatedSubtasks.length > 0 && updatedSubtasks.every(st => st.completed);
+            return { 
+                ...task, 
+                subtasks: updatedSubtasks,
+                completed: allSubtasksCompleted,
+                completedAt: allSubtasksCompleted ? new Date().toISOString() : null,
+            };
         }
-       toast({ title: 'Error', description: 'Failed to delete subtask.', variant: 'destructive' });
+        return task;
+    }));
+    try {
+        await TaskService.deleteSubtask(taskId, subtaskId);
+    } catch (error) {
+        console.error('Failed to delete subtask:', error);
+        setTasks(originalTasks);
+        toast({ title: 'Error', description: 'Failed to delete subtask.', variant: 'destructive' });
     }
-  }, [firestore, tasks, toast]);
+  }, [tasks, toast]);
 
 
-  return { tasks: tasks || [], linkGroups: linkGroups || [], addTask, updateTask, toggleTask, deleteTask, isLoading, updateTaskOrder, addSubtask, updateSubtask, updateSubtaskOrder, toggleSubtask, deleteSubtask };
+  return { tasks, linkGroups, addTask, updateTask, toggleTask, deleteTask, isLoading, updateTaskOrder, addSubtask, updateSubtask, updateSubtaskOrder, toggleSubtask, deleteSubtask };
 }
