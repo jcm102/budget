@@ -2,84 +2,83 @@
  * @fileoverview Firestore Security Rules for TaskTrack Budget application.
  *
  * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for tasks and link groups.
- * Each user has complete control over their own data, and no access to other users' data.
+ * This ruleset enforces a strict user-ownership model. Each user can only access data
+ * explicitly associated with their user ID. This ensures data privacy and prevents
+ * unauthorized access.
  *
  * Data Structure:
- * All data is nested under /users/{userId}, with separate collections for tasks and link groups.
- *  - /users/{userId}/tasks/{taskId}
- *  - /users/{userId}/link-groups/{linkGroupId}
+ * All data is nested under /users/{userId}. Tasks are stored under /users/{userId}/tasks/{taskId},
+ * and link groups are stored under /users/{userId}/link-groups/{linkGroupId}.
  *
  * Key Security Decisions:
- *  - Users can only access their own tasks and link groups.
- *  - Data types and required fields are NOT validated in this prototype.
- *  - Users can list their own documents in tasks and link-groups.
+ * - Users can only access their own tasks and link groups.
+ * - Data schema validation is relaxed to allow for rapid prototyping. Only the `id`
+ *   field is validated on creation to ensure path consistency.
+ * - List operations are allowed for the owner of a user subcollection.
  *
  * Denormalization for Authorization:
- *  - The userId is derived from the path and is matched against request.auth.uid.
+ *  N/A - The current structure inherently supports straightforward ownership checks
+ *  based on the `/users/{userId}` path.  No denormalization is needed at this time.
+ *
+ * Structural Segregation:
+ *  N/A - Private user subcollections are being used.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user task documents.
+     * @description Checks if the request is made by a signed-in user.
+     * @principle Verified Identity
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the request is made by the owner of the user ID.
+     * @param {string} userId - The user ID to check against.
+     * @principle Ownership
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the request is made by the owner of the user ID and that resource exists.
+     * @param {string} userId - The user ID to check against.
+     * @principle Ownership & Existence
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Enforces document ownership for writes.
      * @path /users/{userId}/tasks/{taskId}
-     * @allow (create) - User 'user123' can create a new task under their own user ID.
-     *    Request: { "auth": { "uid": "user123" }, "resource.data": { "id": "user123", "description": "Grocery Shopping", "dueDate": "2024-01-01T10:00:00Z", "frequency": "weekly", "completed": false } }
-     * @allow (get, update, delete) - User 'user123' can read, update, and delete a task under their own user ID.
-     *    Request: { "auth": { "uid": "user123" } }
-     * @deny (create) - User 'user456' cannot create a task under user 'user123''s user ID.
-     *    Request: { "auth": { "uid": "user456" }, "resource.data": { "id": "user123", "description": "Grocery Shopping", "dueDate": "2024-01-01T10:00:00Z", "frequency": "weekly", "completed": false } }
-     * @deny (get, update, delete) - User 'user456' cannot read, update, and delete a task under user 'user123''s user ID.
-     *    Request: { "auth": { "uid": "user456" } }
-     * @principle Enforces document ownership for all operations on task documents.
+     * @allow (create) - User 'user_abc' creates a task with task.id == 'user_abc'.
+     * @deny (create) - User 'user_xyz' attempts to create a task under /users/user_abc/.
+     * @principle Enforces document ownership for writes
      */
     match /users/{userId}/tasks/{taskId} {
-      // Helper function to check if the request is made by the owner
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
-      }
-
-      // Helper function to check if the request is made by an existing owner
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow create: if isOwner(userId) && request.resource.data.id == taskId;
       allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to user link group documents.
+     * @description Enforces document ownership for Link Groups.
      * @path /users/{userId}/link-groups/{linkGroupId}
-     * @allow (create) - User 'user123' can create a new link group under their own user ID.
-     *    Request: { "auth": { "uid": "user123" }, "resource.data": { "id": "user123", "name": "My Links", "links": ["http://example.com"] } }
-     * @allow (get, update, delete) - User 'user123' can read, update, and delete a link group under their own user ID.
-     *    Request: { "auth": { "uid": "user123" } }
-     * @deny (create) - User 'user456' cannot create a link group under user 'user123''s user ID.
-     *    Request: { "auth": { "uid": "user456" }, "resource.data": { "id": "user123", "name": "My Links", "links": ["http://example.com"] } }
-     * @deny (get, update, delete) - User 'user456' cannot read, update, and delete a link group under user 'user123''s user ID.
-     *    Request: { "auth": { "uid": "user456" } }
-     * @principle Enforces document ownership for all operations on link group documents.
+     * @allow (create) - User 'user_abc' creates a link group with linkGroup.id == 'link_group_123'.
+     * @deny (create) - User 'user_xyz' attempts to create a link group under /users/user_abc/.
+     * @principle Enforces document ownership for writes
      */
     match /users/{userId}/link-groups/{linkGroupId} {
-      // Helper function to check if the request is made by the owner
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
-      }
-
-      // Helper function to check if the request is made by an existing owner
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow create: if isOwner(userId) && request.resource.data.id == linkGroupId;
       allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
       allow delete: if isExistingOwner(userId);
     }

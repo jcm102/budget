@@ -1,340 +1,220 @@
 'use client';
 
-import { useCallback } from 'react';
-import { collection, doc, writeBatch } from 'firebase/firestore';
-import {
-  useCollection,
-  useFirestore,
-  useMemoFirebase,
-  useUser,
-} from '@/firebase';
+import { useState, useEffect, useCallback } from 'react';
 import type { Task, Subtask, LinkGroup } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import {
-  addDocumentNonBlocking,
-  updateDocumentNonBlocking,
-  deleteDocumentNonBlocking,
-} from '@/firebase/non-blocking-updates';
+import * as TaskService from '@/services/task-service';
+import * as LinkGroupService from '@/services/link-group-service';
 
 export function useTasks() {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [linkGroups, setLinkGroups] = useState<LinkGroup[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
-  const firestore = useFirestore();
-  const { user, isUserLoading } = useUser();
 
-  const tasksCollection = useMemoFirebase(
-    () =>
-      !isUserLoading && user
-        ? collection(firestore, 'users', user.uid, 'tasks')
-        : null,
-    [firestore, user, isUserLoading]
-  );
-  const linkGroupsCollection = useMemoFirebase(
-    () =>
-      !isUserLoading && user
-        ? collection(firestore, 'users', user.uid, 'link-groups')
-        : null,
-    [firestore, user, isUserLoading]
-  );
+  const fetchData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const [fetchedTasks, fetchedLinkGroups] = await Promise.all([
+        TaskService.getTasks(),
+        LinkGroupService.getLinkGroups(),
+      ]);
+      setTasks(fetchedTasks);
+      setLinkGroups(fetchedLinkGroups);
+    } catch (error) {
+      console.error('Failed to load tasks or link groups:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load data from the database.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
 
-  const { data: tasks, isLoading: isLoadingTasks } = useCollection<Task>(
-    tasksCollection
-  );
-  const { data: linkGroups, isLoading: isLoadingLinkGroups } =
-    useCollection<LinkGroup>(linkGroupsCollection);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
-  const isLoading = isUserLoading || isLoadingTasks || isLoadingLinkGroups;
+  const addTask = useCallback(async (taskData: Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks' | 'order'>) => {
+    try {
+      const newOrder = tasks.filter(t => t.frequency === taskData.frequency).length;
+      const newTask = await TaskService.addTask(taskData, newOrder);
+      setTasks((prevTasks) => [...prevTasks, newTask]);
+    } catch (error) {
+      console.error('Failed to add task:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to add the new task.',
+        variant: 'destructive',
+      });
+    }
+  }, [toast, tasks]);
 
-  const addTask = useCallback(
-    async (
-      taskData: Omit<
-        Task,
-        'id' | 'completed' | 'completedAt' | 'subtasks' | 'order'
-      >
-    ) => {
-      if (!tasks || !tasksCollection) return;
-      try {
-        const newOrder =
-          tasks.filter((t) => t.frequency === taskData.frequency).length || 0;
-        const newTaskData = {
-          ...taskData,
-          completed: false,
-          completedAt: null,
-          subtasks: [],
-          order: newOrder,
-        };
-        addDocumentNonBlocking(tasksCollection, newTaskData);
-      } catch (error) {
-        console.error('Failed to add task:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to add the new task.',
-          variant: 'destructive',
-        });
-      }
-    },
-    [tasks, toast, tasksCollection]
-  );
+  const updateTask = useCallback(async (id: string, taskData: Partial<Omit<Task, 'id'>>) => {
+    try {
+      await TaskService.updateTask(id, taskData);
+       // Refetch all data to ensure consistency
+      await fetchData();
+    } catch (error) {
+      console.error('Failed to update task:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update the task.',
+        variant: 'destructive',
+      });
+    }
+  }, [toast, fetchData]);
 
-  const updateTask = useCallback(
-    async (id: string, taskData: Partial<Omit<Task, 'id' | 'subtasks'>>) => {
-      if (!user) return;
-      try {
-        const taskRef = doc(firestore, 'users', user.uid, 'tasks', id);
-        updateDocumentNonBlocking(taskRef, taskData);
-      } catch (error) {
-        console.error('Failed to update task:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to update the task.',
-          variant: 'destructive',
-        });
-      }
-    },
-    [firestore, toast, user]
-  );
+  const updateTaskOrder = useCallback(async (reorderedTasks: Task[]) => {
+    // Optimistically update the UI
+    setTasks(reorderedTasks);
+    try {
+      await TaskService.updateTaskOrder(reorderedTasks);
+    } catch (error) {
+      console.error('Failed to update task order:', error);
+      // Revert on error - though fetching might be better
+      toast({
+        title: 'Error',
+        description: 'Failed to save the new task order.',
+        variant: 'destructive',
+      });
+    }
+  }, [toast]);
 
-  const updateTaskOrder = useCallback(
-    async (reorderedTasks: Task[]) => {
-      if (!user) return;
-      try {
-        const batch = writeBatch(firestore);
-        reorderedTasks.forEach((task, index) => {
-          const taskRef = doc(firestore, 'users', user.uid, 'tasks', task.id);
-          batch.update(taskRef, { order: index });
-        });
-        await batch.commit();
-      } catch (error) {
-        console.error('Failed to update task order:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to save the new task order.',
-          variant: 'destructive',
-        });
-      }
-    },
-    [firestore, toast, user]
-  );
+  const toggleTask = useCallback(async (id: string) => {
+    const originalTasks = tasks;
+    const taskToToggle = tasks.find((t) => t.id === id);
+    if (!taskToToggle) return;
 
-  const toggleTask = useCallback(
-    async (id: string) => {
-      if (!tasks || !user) return;
-      const taskToToggle = tasks.find((t) => t.id === id);
-      if (!taskToToggle) return;
+    const newCompleted = !taskToToggle.completed;
+    const newCompletedAt = newCompleted ? new Date().toISOString() : null;
+    const updatedSubtasks = (taskToToggle.subtasks || []).map(st => ({...st, completed: newCompleted}));
 
-      const newCompleted = !taskToToggle.completed;
-      const newCompletedAt = newCompleted ? new Date().toISOString() : null;
-      const updatedSubtasks = (taskToToggle.subtasks || []).map((st) => ({
-        ...st,
-        completed: newCompleted,
-      }));
+    const updatedTask = { ...taskToToggle, completed: newCompleted, completedAt: newCompletedAt, subtasks: updatedSubtasks };
 
-      try {
-        const taskRef = doc(firestore, 'users', user.uid, 'tasks', id);
-        updateDocumentNonBlocking(taskRef, {
-          completed: newCompleted,
-          completedAt: newCompletedAt,
-          subtasks: updatedSubtasks,
-        });
-      } catch (error) {
-        console.error('Failed to toggle task:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to update the task status.',
-          variant: 'destructive',
-        });
-      }
-    },
-    [firestore, tasks, toast, user]
-  );
+    setTasks(tasks.map((t) => (t.id === id ? updatedTask : t)));
 
-  const deleteTask = useCallback(
-    async (id: string) => {
-      if (!user) return;
-      try {
-        const taskRef = doc(firestore, 'users', user.uid, 'tasks', id);
-        deleteDocumentNonBlocking(taskRef);
-      } catch (error) {
-        console.error('Failed to delete task:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to delete the task.',
-          variant: 'destructive',
-        });
-      }
-    },
-    [firestore, toast, user]
-  );
+    try {
+      await TaskService.updateTask(id, { completed: newCompleted, completedAt: newCompletedAt, subtasks: updatedSubtasks });
+    } catch (error) {
+      console.error('Failed to toggle task:', error);
+      setTasks(originalTasks);
+      toast({
+        title: 'Error',
+        description: 'Failed to update the task status.',
+        variant: 'destructive',
+      });
+    }
+  }, [tasks, toast]);
 
-  const addSubtask = useCallback(
-    async (
-      taskId: string,
-      data: Omit<Subtask, 'id' | 'completed' | 'order'>
-    ) => {
-      if (!tasks || !user) return;
-      const task = tasks.find((t) => t.id === taskId);
-      if (!task) return;
+  const deleteTask = useCallback(async (id: string) => {
+    const originalTasks = tasks;
+    setTasks((prevTasks) => prevTasks.filter((task) => task.id !== id));
+    try {
+      await TaskService.deleteTask(id);
+    } catch (error) {
+      console.error('Failed to delete task:', error);
+      setTasks(originalTasks);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete the task.',
+        variant: 'destructive',
+      });
+    }
+  }, [tasks, toast]);
 
-      try {
-        const newOrder = task.subtasks ? task.subtasks.length : 0;
-        const newSubtask: Subtask = {
-          id: crypto.randomUUID(),
-          description: data.description,
-          completed: false,
-          order: newOrder,
-          links: data.links || [],
-          linkGroupId: data.linkGroupId || null,
-          internalLink: data.internalLink || null,
-        };
-        const updatedSubtasks = [...(task.subtasks || []), newSubtask];
-        const taskRef = doc(firestore, 'users', user.uid, 'tasks', taskId);
-        updateDocumentNonBlocking(taskRef, {
-          subtasks: updatedSubtasks,
-          completed: false,
-          completedAt: null,
-        });
-      } catch (error) {
-        console.error('Failed to add subtask:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to add subtask.',
-          variant: 'destructive',
-        });
-      }
-    },
-    [firestore, tasks, toast, user]
-  );
+  const addSubtask = useCallback(async (taskId: string, data: Omit<Subtask, 'id' | 'completed' | 'order'>) => {
+    try {
+      await TaskService.addSubtask(taskId, data);
+      await fetchData();
+    } catch (error) {
+      console.error('Failed to add subtask:', error);
+      toast({ title: 'Error', description: 'Failed to add subtask.', variant: 'destructive' });
+    }
+  }, [fetchData, toast]);
+  
+  const updateSubtask = useCallback(async (taskId: string, subtaskId: string, data: Partial<Omit<Subtask, 'id' | 'completed' | 'order'>>) => {
+    try {
+      await TaskService.updateSubtask(taskId, subtaskId, data);
+      await fetchData();
+    } catch (error) {
+      console.error('Failed to update subtask:', error);
+      toast({ title: 'Error', description: 'Failed to update subtask.', variant: 'destructive' });
+    }
+  }, [fetchData, toast]);
 
-  const updateSubtask = useCallback(
-    async (
-      taskId: string,
-      subtaskId: string,
-      data: Partial<Omit<Subtask, 'id' | 'completed' | 'order'>>
-    ) => {
-      if (!tasks || !user) return;
-      const task = tasks.find((t) => t.id === taskId);
-      if (!task) return;
+  const updateSubtaskOrder = useCallback(async (taskId: string, reorderedSubtasks: Subtask[]) => {
+    const originalTasks = [...tasks];
+    const newTasks = tasks.map(task => {
+        if (task.id === taskId) {
+            return { ...task, subtasks: reorderedSubtasks };
+        }
+        return task;
+    });
+    setTasks(newTasks);
 
-      try {
-        const updatedSubtasks = (task.subtasks || []).map((subtask) =>
-          subtask.id === subtaskId ? { ...subtask, ...data } : subtask
-        );
-        const taskRef = doc(firestore, 'users', user.uid, 'tasks', taskId);
-        updateDocumentNonBlocking(taskRef, { subtasks: updatedSubtasks });
-      } catch (error) {
-        console.error('Failed to update subtask:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to update subtask.',
-          variant: 'destructive',
-        });
-      }
-    },
-    [firestore, tasks, toast, user]
-  );
-
-  const updateSubtaskOrder = useCallback(
-    async (taskId: string, reorderedSubtasks: Subtask[]) => {
-      if (!user) return;
-      try {
-        const taskRef = doc(firestore, 'users', user.uid, 'tasks', taskId);
-        const updatedSubtasks = reorderedSubtasks.map((subtask, index) => ({
-          ...subtask,
-          order: index,
-        }));
-        updateDocumentNonBlocking(taskRef, {
-          subtasks: updatedSubtasks,
-        });
-      } catch (error) {
+    try {
+        await TaskService.updateSubtaskOrder(taskId, reorderedSubtasks);
+    } catch (error) {
         console.error('Failed to update subtask order:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to save subtask order.',
-          variant: 'destructive',
-        });
-      }
-    },
-    [firestore, toast, user]
-  );
+        setTasks(originalTasks);
+        toast({ title: 'Error', description: 'Failed to save subtask order.', variant: 'destructive' });
+    }
+  }, [tasks, toast]);
 
-  const toggleSubtask = useCallback(
-    async (taskId: string, subtaskId: string) => {
-      if (!tasks || !user) return;
-      const task = tasks.find((t) => t.id === taskId);
-      if (!task) return;
-
-      try {
-        const updatedSubtasks = (task.subtasks || []).map((st) =>
-          st.id === subtaskId ? { ...st, completed: !st.completed } : st
+  const toggleSubtask = useCallback(async (taskId: string, subtaskId: string) => {
+    const originalTasks = tasks;
+     setTasks(prevTasks => prevTasks.map(task => {
+      if (task.id === taskId) {
+        const updatedSubtasks = (task.subtasks || []).map(st => 
+            st.id === subtaskId ? { ...st, completed: !st.completed } : st
         );
-
-        const allSubtasksCompleted = updatedSubtasks.every((st) => st.completed);
-
-        const updatedTaskData: Partial<Task> = {
+        const allSubtasksCompleted = updatedSubtasks.every(st => st.completed);
+        return {
+          ...task,
           subtasks: updatedSubtasks,
           completed: allSubtasksCompleted,
           completedAt: allSubtasksCompleted ? new Date().toISOString() : null,
         };
-        const taskRef = doc(firestore, 'users', user.uid, 'tasks', taskId);
-        updateDocumentNonBlocking(taskRef, updatedTaskData as any);
-      } catch (error) {
+      }
+      return task;
+    }));
+
+    try {
+        await TaskService.toggleSubtask(taskId, subtaskId);
+    } catch (error) {
         console.error('Failed to toggle subtask:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to toggle subtask status.',
-          variant: 'destructive',
-        });
-      }
-    },
-    [firestore, tasks, toast, user]
-  );
+        setTasks(originalTasks); // Revert on error
+        toast({ title: 'Error', description: 'Failed to toggle subtask status.', variant: 'destructive' });
+    }
+  }, [tasks, toast]);
 
-  const deleteSubtask = useCallback(
-    async (taskId: string, subtaskId: string) => {
-      if (!tasks || !user) return;
-      const task = tasks.find((t) => t.id === taskId);
-      if (!task) return;
-
-      try {
-        const updatedSubtasks = (task.subtasks || []).filter(
-          (st) => st.id !== subtaskId
-        );
-        const allSubtasksCompleted =
-          updatedSubtasks.length > 0 &&
-          updatedSubtasks.every((st) => st.completed);
-
-        const updatedTaskData: Partial<Task> = {
-          subtasks: updatedSubtasks,
-          completed: allSubtasksCompleted,
-          completedAt: allSubtasksCompleted ? new Date().toISOString() : null,
-        };
-
-        const taskRef = doc(firestore, 'users', user.uid, 'tasks', taskId);
-        updateDocumentNonBlocking(taskRef, updatedTaskData as any);
-      } catch (error) {
+  const deleteSubtask = useCallback(async (taskId: string, subtaskId: string) => {
+    const originalTasks = tasks;
+     setTasks(prevTasks => prevTasks.map(task => {
+        if (task.id === taskId) {
+            const updatedSubtasks = (task.subtasks || []).filter(st => st.id !== subtaskId);
+            const allSubtasksCompleted = updatedSubtasks.length > 0 && updatedSubtasks.every(st => st.completed);
+            return { 
+                ...task, 
+                subtasks: updatedSubtasks,
+                completed: allSubtasksCompleted,
+                completedAt: allSubtasksCompleted ? new Date().toISOString() : null,
+            };
+        }
+        return task;
+    }));
+    try {
+        await TaskService.deleteSubtask(taskId, subtaskId);
+    } catch (error) {
         console.error('Failed to delete subtask:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to delete subtask.',
-          variant: 'destructive',
-        });
-      }
-    },
-    [firestore, tasks, toast, user]
-  );
+        setTasks(originalTasks);
+        toast({ title: 'Error', description: 'Failed to delete subtask.', variant: 'destructive' });
+    }
+  }, [tasks, toast]);
 
-  return {
-    tasks: tasks || [],
-    linkGroups: linkGroups || [],
-    addTask,
-    updateTask,
-    toggleTask,
-    deleteTask,
-    isLoading,
-    updateTaskOrder,
-    addSubtask,
-    updateSubtask,
-    updateSubtaskOrder,
-    toggleSubtask,
-    deleteSubtask,
-  };
+
+  return { tasks, linkGroups, addTask, updateTask, toggleTask, deleteTask, isLoading, updateTaskOrder, addSubtask, updateSubtask, updateSubtaskOrder, toggleSubtask, deleteSubtask };
 }
