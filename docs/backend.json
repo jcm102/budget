@@ -36,6 +36,30 @@
         "frequency",
         "completed"
       ]
+    },
+    "LinkGroup": {
+      "title": "Link Group",
+      "type": "object",
+      "description": "A group of links that can be associated with a task.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the LinkGroup entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the link group."
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          },
+          "description": "A list of URLs in the group."
+        }
+      },
+      "required": ["id", "name", "links"]
     }
   },
   "auth": {
@@ -49,24 +73,21 @@
       {
         "path": "/users/{userId}/tasks/{taskId}",
         "definition": {
-          "entityName": "Task",
           "schema": {
-            "$ref": "#/backend/entities/Task"
+            "$ref": "#/entities/Task"
           },
-          "description": "Stores tasks associated with a specific user. Path-based ownership enables simple security rules based on `request.auth.uid`. The `userId` path parameter represents the unique ID of the user, and the `taskId` path parameter represents the unique ID of the task.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user."
-            },
-            {
-              "name": "taskId",
-              "description": "The unique identifier of the task."
-            }
-          ]
+          "description": "Stores tasks for a specific user."
+        }
+      },
+      {
+        "path": "/users/{userId}/link-groups/{linkGroupId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/entities/LinkGroup"
+          },
+          "description": "Stores link groups for a specific user."
         }
       }
-    ],
-    "reasoning": "The data structure is designed to store tasks for a task tracking application named \"TaskTrack Budget\". The structure prioritizes authorization independence by storing tasks under a user-specific path, `/users/{userId}/tasks/{taskId}`. This eliminates the need for complex security rules involving `get()` calls to parent documents, ensuring atomic operations and easier debugging.  Since tasks are owned by individual users, there is no need for denormalized data to manage shared access or team-based permissions. The structure is segregated by storing all tasks within a specific user's document, enabling simple ownership-based security rules.  This structure supports secure list operations (QAPs) as Firestore rules can easily filter tasks based on the `userId` in the path."
+    ]
   }
 }

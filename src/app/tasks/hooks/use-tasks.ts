@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useCallback } from 'react';
@@ -20,26 +19,29 @@ import {
 export function useTasks() {
   const { toast } = useToast();
   const firestore = useFirestore();
-  const { user, isUserLoading } = useUser(); // Get user state
+  const { user, isUserLoading } = useUser();
 
-  // Only create collection references if the user is authenticated and not loading
   const tasksCollection = useMemoFirebase(
-    () => (!isUserLoading && user ? collection(firestore, 'tasks') : null),
+    () =>
+      !isUserLoading && user
+        ? collection(firestore, 'users', user.uid, 'tasks')
+        : null,
     [firestore, user, isUserLoading]
   );
   const linkGroupsCollection = useMemoFirebase(
-    () => (!isUserLoading && user ? collection(firestore, 'link-groups') : null),
+    () =>
+      !isUserLoading && user
+        ? collection(firestore, 'users', user.uid, 'link-groups')
+        : null,
     [firestore, user, isUserLoading]
   );
 
-  // Real-time data fetching with useCollection
   const { data: tasks, isLoading: isLoadingTasks } = useCollection<Task>(
     tasksCollection
   );
   const { data: linkGroups, isLoading: isLoadingLinkGroups } =
     useCollection<LinkGroup>(linkGroupsCollection);
 
-  // The overall loading state depends on both auth and data fetching
   const isLoading = isUserLoading || isLoadingTasks || isLoadingLinkGroups;
 
   const addTask = useCallback(
@@ -75,8 +77,9 @@ export function useTasks() {
 
   const updateTask = useCallback(
     async (id: string, taskData: Partial<Omit<Task, 'id' | 'subtasks'>>) => {
+      if (!user) return;
       try {
-        const taskRef = doc(firestore, 'tasks', id);
+        const taskRef = doc(firestore, 'users', user.uid, 'tasks', id);
         updateDocumentNonBlocking(taskRef, taskData);
       } catch (error) {
         console.error('Failed to update task:', error);
@@ -87,15 +90,16 @@ export function useTasks() {
         });
       }
     },
-    [firestore, toast]
+    [firestore, toast, user]
   );
 
   const updateTaskOrder = useCallback(
     async (reorderedTasks: Task[]) => {
+      if (!user) return;
       try {
         const batch = writeBatch(firestore);
         reorderedTasks.forEach((task, index) => {
-          const taskRef = doc(firestore, 'tasks', task.id);
+          const taskRef = doc(firestore, 'users', user.uid, 'tasks', task.id);
           batch.update(taskRef, { order: index });
         });
         await batch.commit();
@@ -108,12 +112,12 @@ export function useTasks() {
         });
       }
     },
-    [firestore, toast]
+    [firestore, toast, user]
   );
 
   const toggleTask = useCallback(
     async (id: string) => {
-      if (!tasks) return;
+      if (!tasks || !user) return;
       const taskToToggle = tasks.find((t) => t.id === id);
       if (!taskToToggle) return;
 
@@ -125,7 +129,7 @@ export function useTasks() {
       }));
 
       try {
-        const taskRef = doc(firestore, 'tasks', id);
+        const taskRef = doc(firestore, 'users', user.uid, 'tasks', id);
         updateDocumentNonBlocking(taskRef, {
           completed: newCompleted,
           completedAt: newCompletedAt,
@@ -140,13 +144,14 @@ export function useTasks() {
         });
       }
     },
-    [firestore, tasks, toast]
+    [firestore, tasks, toast, user]
   );
 
   const deleteTask = useCallback(
     async (id: string) => {
+      if (!user) return;
       try {
-        const taskRef = doc(firestore, 'tasks', id);
+        const taskRef = doc(firestore, 'users', user.uid, 'tasks', id);
         deleteDocumentNonBlocking(taskRef);
       } catch (error) {
         console.error('Failed to delete task:', error);
@@ -157,7 +162,7 @@ export function useTasks() {
         });
       }
     },
-    [firestore, toast]
+    [firestore, toast, user]
   );
 
   const addSubtask = useCallback(
@@ -165,7 +170,7 @@ export function useTasks() {
       taskId: string,
       data: Omit<Subtask, 'id' | 'completed' | 'order'>
     ) => {
-      if (!tasks) return;
+      if (!tasks || !user) return;
       const task = tasks.find((t) => t.id === taskId);
       if (!task) return;
 
@@ -181,7 +186,7 @@ export function useTasks() {
           internalLink: data.internalLink || null,
         };
         const updatedSubtasks = [...(task.subtasks || []), newSubtask];
-        const taskRef = doc(firestore, 'tasks', taskId);
+        const taskRef = doc(firestore, 'users', user.uid, 'tasks', taskId);
         updateDocumentNonBlocking(taskRef, {
           subtasks: updatedSubtasks,
           completed: false,
@@ -196,7 +201,7 @@ export function useTasks() {
         });
       }
     },
-    [firestore, tasks, toast]
+    [firestore, tasks, toast, user]
   );
 
   const updateSubtask = useCallback(
@@ -205,7 +210,7 @@ export function useTasks() {
       subtaskId: string,
       data: Partial<Omit<Subtask, 'id' | 'completed' | 'order'>>
     ) => {
-      if (!tasks) return;
+      if (!tasks || !user) return;
       const task = tasks.find((t) => t.id === taskId);
       if (!task) return;
 
@@ -213,7 +218,7 @@ export function useTasks() {
         const updatedSubtasks = (task.subtasks || []).map((subtask) =>
           subtask.id === subtaskId ? { ...subtask, ...data } : subtask
         );
-        const taskRef = doc(firestore, 'tasks', taskId);
+        const taskRef = doc(firestore, 'users', user.uid, 'tasks', taskId);
         updateDocumentNonBlocking(taskRef, { subtasks: updatedSubtasks });
       } catch (error) {
         console.error('Failed to update subtask:', error);
@@ -224,13 +229,14 @@ export function useTasks() {
         });
       }
     },
-    [firestore, tasks, toast]
+    [firestore, tasks, toast, user]
   );
 
   const updateSubtaskOrder = useCallback(
     async (taskId: string, reorderedSubtasks: Subtask[]) => {
+      if (!user) return;
       try {
-        const taskRef = doc(firestore, 'tasks', taskId);
+        const taskRef = doc(firestore, 'users', user.uid, 'tasks', taskId);
         const updatedSubtasks = reorderedSubtasks.map((subtask, index) => ({
           ...subtask,
           order: index,
@@ -247,12 +253,12 @@ export function useTasks() {
         });
       }
     },
-    [firestore, toast]
+    [firestore, toast, user]
   );
 
   const toggleSubtask = useCallback(
     async (taskId: string, subtaskId: string) => {
-      if (!tasks) return;
+      if (!tasks || !user) return;
       const task = tasks.find((t) => t.id === taskId);
       if (!task) return;
 
@@ -268,7 +274,7 @@ export function useTasks() {
           completed: allSubtasksCompleted,
           completedAt: allSubtasksCompleted ? new Date().toISOString() : null,
         };
-        const taskRef = doc(firestore, 'tasks', taskId);
+        const taskRef = doc(firestore, 'users', user.uid, 'tasks', taskId);
         updateDocumentNonBlocking(taskRef, updatedTaskData as any);
       } catch (error) {
         console.error('Failed to toggle subtask:', error);
@@ -279,12 +285,12 @@ export function useTasks() {
         });
       }
     },
-    [firestore, tasks, toast]
+    [firestore, tasks, toast, user]
   );
 
   const deleteSubtask = useCallback(
     async (taskId: string, subtaskId: string) => {
-      if (!tasks) return;
+      if (!tasks || !user) return;
       const task = tasks.find((t) => t.id === taskId);
       if (!task) return;
 
@@ -302,7 +308,7 @@ export function useTasks() {
           completedAt: allSubtasksCompleted ? new Date().toISOString() : null,
         };
 
-        const taskRef = doc(firestore, 'tasks', taskId);
+        const taskRef = doc(firestore, 'users', user.uid, 'tasks', taskId);
         updateDocumentNonBlocking(taskRef, updatedTaskData as any);
       } catch (error) {
         console.error('Failed to delete subtask:', error);
@@ -313,7 +319,7 @@ export function useTasks() {
         });
       }
     },
-    [firestore, tasks, toast]
+    [firestore, tasks, toast, user]
   );
 
   return {
