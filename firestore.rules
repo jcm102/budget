@@ -1,74 +1,70 @@
 /**
- * @fileoverview Firestore Security Rules for TaskTrack Budget application.
- *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for tasks. Each user can only
- * access the tasks that belong to them.
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a strict user-ownership model for managing tasks in the TaskTrack Budget application.
  *
  * Data Structure:
- * All task data is nested under `/users/{userId}/tasks/{taskId}`. This path-based
- * ownership makes security rules simple and efficient.
+ * All task data is nested under `/users/{userId}/tasks/{taskId}`, ensuring that tasks are isolated to individual users.
  *
  * Key Security Decisions:
- * - Users can only list tasks that belong to them.
- * - Data validation is minimal to allow for rapid prototyping. Only authorization-critical
- *   fields are validated.
+ * - Users can only access their own tasks.
+ * - Listing tasks is restricted to the owner.
+ * - Data validation is minimized to focus on authorization and relational integrity, allowing for flexible data shapes during prototyping.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Secures the task collection for a specific user.
+     * @description Enforces access control for tasks, ensuring only the task owner can create, read, update, and delete.
      * @path /users/{userId}/tasks/{taskId}
-     * @allow (create) - A user can create a task under their own user ID.
-     * @allow (update) - A user can update a task under their own user ID if the task exists.
-     * @allow (delete) - A user can delete a task under their own user ID if the task exists.
-     * @allow (get) - A user can get a task under their own user ID.
-     * @allow (list) - A user can list tasks under their own user ID.
-     * @deny (create) - A user cannot create a task under another user's ID.
-     * @deny (update) - A user cannot update a task under another user's ID.
-     * @deny (delete) - A user cannot delete a task under another user's ID.
-     * @principle Enforces document ownership for writes.
+     * @allow (create) - Authenticated user with UID "user123" can create a task under /users/user123/tasks/task456 if request.auth.uid == userId.
+     * @allow (get) - Authenticated user with UID "user123" can read a task under /users/user123/tasks/task456.
+     * @allow (update) - Authenticated user with UID "user123" can update a task under /users/user123/tasks/task456.
+     * @allow (delete) - Authenticated user with UID "user123" can delete a task under /users/user123/tasks/task456.
+     * @allow (list) - Authenticated user with UID "user123" can list tasks under /users/user123/tasks.
+     * @deny (create) - Authenticated user with UID "user456" cannot create a task under /users/user123/tasks/task456.
+     * @deny (get) - Authenticated user with UID "user456" cannot read a task under /users/user123/tasks/task456.
+     * @deny (update) - Authenticated user with UID "user456" cannot update a task under /users/user123/tasks/task456.
+     * @deny (delete) - Authenticated user with UID "user456" cannot delete a task under /users/user123/tasks/task456.
+     * @principle Enforces document ownership for writes, restricts access to a user's own data tree, and validates relational integrity between documents.
      */
     match /users/{userId}/tasks/{taskId} {
-      // Helpers
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-
-      // Read Permissions
+      // Allow reads: get and list
       allow get: if isSignedIn() && isOwner(userId);
       allow list: if isSignedIn() && isOwner(userId);
 
-      // Write Permissions
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == taskId;
-      allow update: if isSignedIn() && isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      // Allow writes: create, update, delete
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isSignedIn() && isExistingOwner(userId) && resource.data.id == userId;
       allow delete: if isSignedIn() && isExistingOwner(userId);
     }
 
-      /**
-       * @description Prevents unauthorized listing of link-groups
-       * @path /link-groups
-       * @allow None
-       * @deny All list requests
-       * @principle Explicitly deny listing on link-groups
-       */
+    /**
+     * @description Restricts listing of link-groups.
+     * @path /link-groups
+     * @allow (get) - Anyone can read a link-group.
+     * @deny (list) - No one can list link-groups.
+     * @principle Denies listing of link-groups.
+     */
     match /link-groups {
-        allow get: if false;
-        allow list: if false;
-        allow create: if false;
-        allow update: if false;
-        allow delete: if false;
+      allow get: if true;
+      allow list: if false;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
+  }
 
+  // Helper functions
+  function isSignedIn() {
+    return request.auth != null;
+  }
+
+  function isOwner(userId) {
+    return request.auth.uid == userId;
+  }
+
+  function isExistingOwner(userId) {
+    return isOwner(userId) && resource != null;
   }
 }
