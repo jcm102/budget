@@ -1,9 +1,11 @@
+
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { SidebarProvider, Sidebar, SidebarInset, SidebarTrigger, SidebarHeader } from '@/components/ui/sidebar';
 import { AppNav } from '@/components/app-nav';
 import { FirebaseClientProvider } from '@/firebase';
+import { AuthGuard } from '@/components/AuthGuard';
 
 export const metadata: Metadata = {
   title: 'TaskTrack Budget',
@@ -24,19 +26,21 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <FirebaseClientProvider>
-          <SidebarProvider>
-              <Sidebar>
-                  <AppNav />
-              </Sidebar>
-              <SidebarInset className="flex flex-col">
-                  <SidebarHeader>
-                      <SidebarTrigger />
-                  </SidebarHeader>
-                  <div className="flex-1 overflow-y-auto">
-                      {children}
-                  </div>
-              </SidebarInset>
-          </SidebarProvider>
+          <AuthGuard>
+            <SidebarProvider>
+                <Sidebar>
+                    <AppNav />
+                </Sidebar>
+                <SidebarInset className="flex flex-col">
+                    <SidebarHeader>
+                        <SidebarTrigger />
+                    </SidebarHeader>
+                    <div className="flex-1 overflow-y-auto">
+                        {children}
+                    </div>
+                </SidebarInset>
+            </SidebarProvider>
+          </AuthGuard>
         </FirebaseClientProvider>
         <Toaster />
       </body>

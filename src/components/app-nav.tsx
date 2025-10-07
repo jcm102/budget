@@ -2,8 +2,8 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Banknote, CreditCard, Home, Lightbulb, PiggyBank, Settings, Users, Wallet, Briefcase, LayoutGrid, Landmark, Calculator, TrendingUp, FileClock, ClipboardList } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { Banknote, CreditCard, Home, Lightbulb, PiggyBank, Settings, Users, Wallet, Briefcase, LayoutGrid, Landmark, Calculator, TrendingUp, FileClock, ClipboardList, LogOut } from 'lucide-react';
 import {
   SidebarContent,
   SidebarMenu,
@@ -14,6 +14,8 @@ import {
 } from '@/components/ui/sidebar';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Button } from './ui/button';
+import { useAuth } from '@/firebase';
+import { signOut } from 'firebase/auth';
 
 const navItems = [
     { href: '/tasks', icon: ClipboardList, label: 'Tasks' },
@@ -31,6 +33,14 @@ const navItems = [
 
 export function AppNav() {
   const pathname = usePathname();
+  const router = useRouter();
+  const auth = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut(auth);
+    router.push('/login');
+  };
+
 
   return (
     <>
@@ -84,6 +94,10 @@ export function AppNav() {
             <span>Settings</span>
           </SidebarMenuButton>
         </Link>
+        <SidebarMenuButton onClick={handleSignOut} tooltip="Sign Out">
+          <LogOut />
+          <span>Sign Out</span>
+        </SidebarMenuButton>
       </SidebarFooter>
     </>
   );
