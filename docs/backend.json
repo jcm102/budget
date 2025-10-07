@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -38,10 +39,6 @@
           "description": "Unique identifier for the task.",
           "format": "uuid"
         },
-        "userId": {
-          "type": "string",
-          "description": "Reference to the User who owns this task. (Relationship: User 1:N Task)"
-        },
         "description": {
           "type": "string",
           "description": "Description of the task."
@@ -62,110 +59,34 @@
       },
       "required": [
         "id",
-        "userId",
         "description",
         "dueDate",
         "frequency",
         "completed"
       ]
-    },
-    "Session": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Session",
-      "type": "object",
-      "description": "Represents a user session for securing the application.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the session.",
-          "format": "uuid"
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to the User who owns this session. (Relationship: User 1:N Session)"
-        },
-        "token": {
-          "type": "string",
-          "description": "Session token for authentication."
-        },
-        "expiryDate": {
-          "type": "string",
-          "description": "Expiration date and time of the session.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "userId",
-        "token",
-        "expiryDate"
-      ]
     }
   },
   "auth": {
-    "providers": [
-      "google.com"
-    ]
+    "providers": []
   },
   "firestore": {
     "structure": [
       {
-        "path": "/users/{userId}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Collection to store user profiles. Each document represents a user.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/tasks/{taskId}",
+        "path": "/tasks/{taskId}",
         "definition": {
           "entityName": "Task",
           "schema": {
             "$ref": "#/backend/entities/Task"
           },
-          "description": "Collection to store tasks for a specific user. Path-based ownership ensures only the user can access these tasks.",
+          "description": "Collection to store tasks. Open to all users.",
           "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user."
-            },
             {
               "name": "taskId",
               "description": "The unique identifier of the task."
             }
           ]
         }
-      },
-      {
-        "path": "/users/{userId}/sessions/{sessionId}",
-        "definition": {
-          "entityName": "Session",
-          "schema": {
-            "$ref": "#/backend/entities/Session"
-          },
-          "description": "Collection to store user sessions. Path-based ownership ensures only the user can manage these sessions.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user."
-            },
-            {
-              "name": "sessionId",
-              "description": "The unique identifier of the session."
-            }
-          ]
-        }
       }
-    ],
-    "reasoning": "The Firestore structure is designed to ensure security and scalability for the TaskTrack Budget application, emphasizing authorization independence. We leverage path-based ownership for user-specific data and denormalization where necessary to avoid using `get()` calls in security rules, thus enhancing atomicity and debuggability.\n\nThe structure focuses on isolating user data within their own paths (e.g., `/users/{userId}/tasks/{taskId}`) to simplify security rules and ensure that users can only access their own data.  This ensures that `list` operations are inherently secure as they only return data accessible to the authenticated user, fulfilling the QAP requirement.\n\nTo enhance security, the session tokens are stored in the `/users/{userId}/sessions/{sessionId}` path. This allows for secure management of user sessions and token validation.\n\nThis design facilitates secure `list` operations because the data is segregated by user ID, preventing unauthorized access to other users' data.  Since security rules can validate `request.auth.uid` against the `userId` path parameter, filtering is not necessary."
+    ]
   }
 }
