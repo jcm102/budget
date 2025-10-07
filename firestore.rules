@@ -1,16 +1,33 @@
+/**
+ * @fileoverview Firestore Security Rules for TaskTrack Budget application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model. Each user can only
+ * access their own data, which is nested under their respective user ID.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profiles.
+ * - /users/{userId}/tasks/{taskId}: Stores tasks belonging to a specific user.
+ * - /users/{userId}/sessions/{sessionId}: Stores session tokens for a specific user.
+ *
+ * Key Security Decisions:
+ * - Users can only create, read, update, and delete their own profiles.
+ * - Users can only manage tasks and sessions associated with their user ID.
+ * - Listing all users is disallowed.
+ * - Data required for authorization is denormalized onto the documents themselves to avoid costly `get()` calls.
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Rules for user profiles.
+     * @description Enforces access control for user profiles.
      * @path /users/{userId}
-     * @allow (create) - User with UID 'user_abc' can create their own profile at /users/user_abc.
-     * @allow (get) - User with UID 'user_abc' can get their own profile at /users/user_abc.
-     * @allow (update) - User with UID 'user_abc' can update their own profile at /users/user_abc.
-     * @allow (delete) - User with UID 'user_abc' can delete their own profile at /users/user_abc.
-     * @deny (create) - User with UID 'user_xyz' cannot create a profile at /users/user_abc.
-     * @deny (update) - User with UID 'user_xyz' cannot update the profile at /users/user_abc.
+     * @allow (create) - Authenticated user can create their own profile with matching user ID.
+     * @allow (get) - Authenticated user can get their own profile with matching user ID.
+     * @allow (update) - Authenticated user can update their own profile with matching user ID.
+     * @allow (delete) - Authenticated user can delete their own profile with matching user ID.
+     * @deny (create) - Authenticated user cannot create a profile with a mismatched user ID.
      * @principle Enforces document ownership for all operations.
      */
     match /users/{userId} {
@@ -22,24 +39,26 @@ service cloud.firestore {
         return request.auth.uid == userId;
       }
 
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false; // Listing users is not permitted.
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Rules for tasks under a specific user.
+     * @description Enforces access control for tasks under a specific user.
      * @path /users/{userId}/tasks/{taskId}
-     * @allow (create) - User with UID 'user_abc' can create a task under /users/user_abc/tasks/task_123, if task.userId == 'user_abc'.
-     * @allow (get) - User with UID 'user_abc' can get their own task at /users/user_abc/tasks/task_123.
-     * @allow (list) - User with UID 'user_abc' can list tasks under /users/user_abc/tasks.
-     * @allow (update) - User with UID 'user_abc' can update their task at /users/user_abc/tasks/task_123.
-     * @allow (delete) - User with UID 'user_abc' can delete their task at /users/user_abc/tasks/task_123.
-     * @deny (create) - User with UID 'user_xyz' cannot create a task under /users/user_abc/tasks/task_123.
-     * @deny (update) - User with UID 'user_xyz' cannot update the task at /users/user_abc/tasks/task_123.
-     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
+     * @allow (create) - Authenticated user can create a task under their own user ID.
+     * @allow (get) - Authenticated user can get a task under their own user ID.
+     * @allow (update) - Authenticated user can update a task under their own user ID.
+     * @allow (delete) - Authenticated user can delete a task under their own user ID.
+     * @deny (create) - Authenticated user cannot create a task under a different user ID.
+     * @principle Enforces document ownership and path-based authorization.
      */
     match /users/{userId}/tasks/{taskId} {
       function isSignedIn() {
@@ -50,24 +69,26 @@ service cloud.firestore {
         return request.auth.uid == userId;
       }
 
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Rules for sessions under a specific user.
+     * @description Enforces access control for sessions under a specific user.
      * @path /users/{userId}/sessions/{sessionId}
-     * @allow (create) - User with UID 'user_abc' can create a session under /users/user_abc/sessions/session_123, if session.userId == 'user_abc'.
-     * @allow (get) - User with UID 'user_abc' can get their own session at /users/user_abc/sessions/session_123.
-     * @allow (list) - User with UID 'user_abc' can list sessions under /users/user_abc/sessions.
-     * @allow (update) - User with UID 'user_abc' can update their session at /users/user_abc/sessions/session_123.
-     * @allow (delete) - User with UID 'user_abc' can delete their session at /users/user_abc/sessions/session_123.
-     * @deny (create) - User with UID 'user_xyz' cannot create a session under /users/user_abc/sessions/session_123.
-     * @deny (update) - User with UID 'user_xyz' cannot update the session at /users/user_abc/sessions/session_123.
-     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
+     * @allow (create) - Authenticated user can create a session under their own user ID.
+     * @allow (get) - Authenticated user can get a session under their own user ID.
+     * @allow (update) - Authenticated user can update a session under their own user ID.
+     * @allow (delete) - Authenticated user can delete a session under their own user ID.
+     * @deny (create) - Authenticated user cannot create a session under a different user ID.
+     * @principle Enforces document ownership and path-based authorization for session management.
      */
     match /users/{userId}/sessions/{sessionId} {
       function isSignedIn() {
@@ -78,11 +99,15 @@ service cloud.firestore {
         return request.auth.uid == userId;
       }
 
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(userId);
     }
   }
 }
