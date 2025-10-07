@@ -22,14 +22,14 @@ export function useTasks() {
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser(); // Get user state
 
-  // Only create collection references if the user is authenticated
+  // Only create collection references if the user is authenticated and not loading
   const tasksCollection = useMemoFirebase(
-    () => (user ? collection(firestore, 'tasks') : null),
-    [firestore, user]
+    () => (!isUserLoading && user ? collection(firestore, 'tasks') : null),
+    [firestore, user, isUserLoading]
   );
   const linkGroupsCollection = useMemoFirebase(
-    () => (user ? collection(firestore, 'link-groups') : null),
-    [firestore, user]
+    () => (!isUserLoading && user ? collection(firestore, 'link-groups') : null),
+    [firestore, user, isUserLoading]
   );
 
   // Real-time data fetching with useCollection
