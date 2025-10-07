@@ -1,86 +1,59 @@
 /**
- * @fileoverview Firestore Security Rules for TaskTrack Budget application.
- *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for tasks. Each user can only
- * access the tasks that belong to them.
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a strict user-ownership model for managing tasks in the TaskTrack Budget application.
  *
  * Data Structure:
- * All task data is nested under `/users/{userId}/tasks/{taskId}`. This hierarchical
- * structure simplifies authorization based on the user ID in the path.
+ * All tasks are nested under /users/{userId}/tasks/{taskId}, ensuring that each user's tasks are isolated and accessible only to them.
  *
  * Key Security Decisions:
- * - Users can only list tasks under their own user ID.
- * - Users cannot create tasks directly at the root level.
- * - Data validation is relaxed to allow rapid prototyping and iteration.
- *
- * Denormalization for Authorization:
- * The chosen data structure denormalizes user ownership directly into the path. This allows
- * rules to avoid `get()` calls and other complex queries, improving performance and security.
+ * - Users can only access their own tasks.
+ * - Listing other user's tasks is explicitly denied.
+ * - Schema validation is relaxed in favor of rapid prototyping. Only relational integrity is enforced.
+ * - Read-only collections are not used in this data model.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Defines the global function `isSignedIn()` to check if a user is authenticated.
-     * @returns {boolean} True if the user is signed in, false otherwise.
-     * @example
-     * allow read: if isSignedIn();
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Defines the global function `isOwner(userId)` to check if the request is made by the owner of the document.
-     * @param {string} userId - The user ID to compare against the request's auth UID.
-     * @returns {boolean} True if the request is made by the owner, false otherwise.
-     * @example
-     * allow read: if isOwner(userId);
-     */
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    /**
-     * @description Defines the global function `isExistingOwner(userId)` to check if the request is made by an owner of an existing document.
-     * @param {string} userId - The user ID to compare against the request's auth UID.
-     * @returns {boolean} True if the request is made by the owner of an existing document, false otherwise.
-     * @example
-     * allow update, delete: if isExistingOwner(userId);
-     */
-    function isExistingOwner(userId) {
-      return request.auth.uid == userId && existsAfter(/databases/$(database)/documents/users/$(userId)/tasks/$(taskId));
-    }
-
-
-    /**
-     * @description Enforces ownership-based access control for tasks.  Users can only
-     *              read, create, update, and delete tasks associated with their own user ID.
+     * @description Manages tasks associated with a specific user.
      * @path /users/{userId}/tasks/{taskId}
-     * @allow (create) - User KTxToiUNJYRdeESKnMhxKovxpB53 can create a task under /users/KTxToiUNJYRdeESKnMhxKovxpB53/tasks/{taskId} if request.auth.uid == userId.
-     * @allow (get, list) - User KTxToiUNJYRdeESKnMhxKovxpB53 can read and list tasks under /users/KTxToiUNJYRdeESKnMhxKovxpB53/tasks if request.auth.uid == userId.
-     * @allow (update, delete) - User KTxToiUNJYRdeESKnMhxKovxpB53 can update and delete a task under /users/KTxToiUNJYRdeESKnMhxKovxpB53/tasks/{taskId} if request.auth.uid == userId and the document exists.
-     * @deny (create) - User ABC cannot create a task under /users/KTxToiUNJYRdeESKnMhxKovxpB53/tasks/{taskId}.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) - A user with UID 'user123' can create a task with `id: 'user123'` under /users/user123/tasks/task456 if authenticated.
+     * @allow (update) - A user with UID 'user123' can update a task with `id: 'user123'` under /users/user123/tasks/task456 if authenticated.
+     * @allow (delete) - A user with UID 'user123' can delete a task under /users/user123/tasks/task456 if authenticated.
+     * @allow (get) - A user with UID 'user123' can get a task under /users/user123/tasks/task456 if authenticated.
+     * @allow (list) - A user with UID 'user123' can list tasks under /users/user123/tasks.
+     * @deny (create) - A user with UID 'user456' cannot create a task under /users/user123/tasks/task456.
+     * @deny (update) - A user with UID 'user456' cannot update a task under /users/user123/tasks/task456.
+     * @deny (delete) - A user with UID 'user456' cannot delete a task under /users/user123/tasks/task456.
+     * @deny (get) - A user with UID 'user456' cannot get a task under /users/user123/tasks/task456.
+     * @deny (list) - A user with UID 'user456' cannot list tasks under /users/user123/tasks.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId}/tasks/{taskId} {
+      // Helper function to check if the user is signed in
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      // Helper function to check if the user is the owner of the resource
+      function isOwner(userId) {
+        return isSignedIn() && request.auth.uid == userId;
+      }
+
+      // Helper function to check if the user is the owner of the existing resource
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
       // Read rules
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
 
       // Write rules
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
-      allow delete: if isOwner(userId);
-    }
-
-     match /users/{userId} {
-      allow get, list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
-      allow delete: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
     }
   }
 }
