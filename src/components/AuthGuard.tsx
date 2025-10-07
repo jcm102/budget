@@ -5,11 +5,13 @@ import { useUser } from '@/firebase';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const pathname = usePathname();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (isUserLoading) {
@@ -17,12 +19,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
     
     if (user && pathname === '/login') {
-      router.replace('/tasks');
+      const redirectPath = isMobile ? '/monthly-budget/add' : '/tasks';
+      router.replace(redirectPath);
     } else if (!user && pathname !== '/login') {
       router.replace('/login');
     }
 
-  }, [user, isUserLoading, router, pathname]);
+  }, [user, isUserLoading, router, pathname, isMobile]);
 
   if (isUserLoading || (!user && pathname !== '/login') || (user && pathname === '/login')) {
      return (
@@ -34,4 +37,3 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   return <>{children}</>;
 }
-
