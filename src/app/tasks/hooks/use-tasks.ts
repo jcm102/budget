@@ -6,6 +6,8 @@ import type { Task, Subtask, LinkGroup } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc, updateDoc, writeBatch, addDoc, deleteDoc } from 'firebase/firestore';
+import { FirestorePermissionError } from '@/firebase/errors';
+import { errorEmitter } from '@/firebase/error-emitter';
 
 
 export function useTasks() {
@@ -44,8 +46,16 @@ export function useTasks() {
       };
       await addDoc(collection(firestore, 'tasks'), newTask);
       // No need to set state, useCollection will update
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to add task:', error);
+       if (error.code === 'permission-denied') {
+          const contextualError = new FirestorePermissionError({
+            operation: 'create',
+            path: 'tasks',
+            requestResourceData: taskData,
+          });
+          errorEmitter.emit('permission-error', contextualError);
+        }
       toast({
         title: 'Error',
         description: 'Failed to add the new task.',
@@ -59,8 +69,16 @@ export function useTasks() {
     try {
       const taskRef = doc(firestore, 'tasks', id);
       await updateDoc(taskRef, taskData);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to update task:', error);
+      if (error.code === 'permission-denied') {
+        const contextualError = new FirestorePermissionError({
+          operation: 'update',
+          path: `tasks/${id}`,
+          requestResourceData: taskData,
+        });
+        errorEmitter.emit('permission-error', contextualError);
+      }
       toast({
         title: 'Error',
         description: 'Failed to update the task.',
@@ -78,8 +96,15 @@ export function useTasks() {
         batch.update(taskRef, { order: index });
       });
       await batch.commit();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to update task order:', error);
+       if (error.code === 'permission-denied') {
+          const contextualError = new FirestorePermissionError({
+            operation: 'write',
+            path: 'tasks',
+          });
+          errorEmitter.emit('permission-error', contextualError);
+        }
       toast({
         title: 'Error',
         description: 'Failed to save the new task order.',
@@ -100,8 +125,15 @@ export function useTasks() {
     try {
       const taskRef = doc(firestore, 'tasks', id);
       await updateDoc(taskRef, { completed: newCompleted, completedAt: newCompletedAt, subtasks: updatedSubtasks });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to toggle task:', error);
+       if (error.code === 'permission-denied') {
+          const contextualError = new FirestorePermissionError({
+            operation: 'update',
+            path: `tasks/${id}`,
+          });
+          errorEmitter.emit('permission-error', contextualError);
+        }
        toast({
         title: 'Error',
         description: 'Failed to update the task status.',
@@ -114,8 +146,15 @@ export function useTasks() {
     if (!firestore) return;
     try {
       await deleteDoc(doc(firestore, 'tasks', id));
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to delete task:', error);
+       if (error.code === 'permission-denied') {
+          const contextualError = new FirestorePermissionError({
+            operation: 'delete',
+            path: `tasks/${id}`,
+          });
+          errorEmitter.emit('permission-error', contextualError);
+        }
       toast({
         title: 'Error',
         description: 'Failed to delete the task.',
@@ -143,8 +182,15 @@ export function useTasks() {
     const updatedSubtasks = [...(taskToUpdate.subtasks || []), newSubtask];
     try {
       await updateDoc(taskRef, { subtasks: updatedSubtasks, completed: false, completedAt: null });
-    } catch (error) {
+    } catch (error: any) {
        console.error('Failed to add subtask:', error);
+       if (error.code === 'permission-denied') {
+          const contextualError = new FirestorePermissionError({
+            operation: 'update',
+            path: `tasks/${taskId}`,
+          });
+          errorEmitter.emit('permission-error', contextualError);
+        }
        toast({ title: 'Error', description: 'Failed to add subtask.', variant: 'destructive' });
     }
   }, [firestore, tasks, toast]);
@@ -160,8 +206,15 @@ export function useTasks() {
     );
      try {
       await updateDoc(taskRef, { subtasks: updatedSubtasks });
-    } catch (error) {
+    } catch (error: any) {
        console.error('Failed to update subtask:', error);
+       if (error.code === 'permission-denied') {
+          const contextualError = new FirestorePermissionError({
+            operation: 'update',
+            path: `tasks/${taskId}`,
+          });
+          errorEmitter.emit('permission-error', contextualError);
+        }
        toast({ title: 'Error', description: 'Failed to update subtask.', variant: 'destructive' });
     }
   }, [firestore, tasks, toast]);
@@ -172,8 +225,15 @@ export function useTasks() {
     const updatedSubtasks = subtasks.map((subtask, index) => ({...subtask, order: index}));
     try {
       await updateDoc(taskRef, { subtasks: updatedSubtasks });
-    } catch (error) {
+    } catch (error: any) {
        console.error('Failed to update subtask order:', error);
+        if (error.code === 'permission-denied') {
+          const contextualError = new FirestorePermissionError({
+            operation: 'update',
+            path: `tasks/${taskId}`,
+          });
+          errorEmitter.emit('permission-error', contextualError);
+        }
        toast({ title: 'Error', description: 'Failed to save subtask order.', variant: 'destructive' });
     }
   }, [firestore, toast]);
@@ -196,9 +256,16 @@ export function useTasks() {
         completedAt: allSubtasksCompleted ? new Date().toISOString() : null,
     };
     try {
-      await updateDoc(taskRef, updatedTaskData);
-    } catch (error) {
+      await updateDoc(taskRef, updatedTaskData as any);
+    } catch (error: any) {
        console.error('Failed to toggle subtask:', error);
+       if (error.code === 'permission-denied') {
+          const contextualError = new FirestorePermissionError({
+            operation: 'update',
+            path: `tasks/${taskId}`,
+          });
+          errorEmitter.emit('permission-error', contextualError);
+        }
        toast({ title: 'Error', description: 'Failed to toggle subtask status.', variant: 'destructive' });
     }
   }, [firestore, tasks, toast]);
@@ -218,9 +285,16 @@ export function useTasks() {
         completedAt: allSubtasksCompleted ? new Date().toISOString() : null,
     };
      try {
-      await updateDoc(taskRef, updatedTaskData);
-    } catch (error) {
+      await updateDoc(taskRef, updatedTaskData as any);
+    } catch (error: any) {
        console.error('Failed to delete subtask:', error);
+       if (error.code === 'permission-denied') {
+          const contextualError = new FirestorePermissionError({
+            operation: 'update',
+            path: `tasks/${taskId}`,
+          });
+          errorEmitter.emit('permission-error', contextualError);
+        }
        toast({ title: 'Error', description: 'Failed to delete subtask.', variant: 'destructive' });
     }
   }, [firestore, tasks, toast]);
