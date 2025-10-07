@@ -103,9 +103,7 @@
     }
   },
   "auth": {
-    "providers": [
-      "google.com"
-    ]
+    "providers": []
   },
   "firestore": {
     "structure": [
