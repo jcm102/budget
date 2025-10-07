@@ -12,29 +12,19 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!isUserLoading && !user && pathname !== '/login') {
+    if (isUserLoading) {
+      return; // Do nothing while loading
+    }
+    
+    if (user && pathname === '/login') {
+      router.replace('/tasks');
+    } else if (!user && pathname !== '/login') {
       router.replace('/login');
     }
+
   }, [user, isUserLoading, router, pathname]);
 
-  if (isUserLoading) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (!user && pathname !== '/login') {
-     return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-  
-  if(user && pathname === '/login'){
-    router.replace('/tasks');
+  if (isUserLoading || (!user && pathname !== '/login') || (user && pathname === '/login')) {
      return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -44,3 +34,4 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   return <>{children}</>;
 }
+
