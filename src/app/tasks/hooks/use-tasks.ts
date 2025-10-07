@@ -4,21 +4,20 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Task, Subtask, LinkGroup } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy, doc, updateDoc, writeBatch, addDoc, deleteDoc } from 'firebase/firestore';
 
 
 export function useTasks() {
   const { toast } = useToast();
   const firestore = useFirestore();
-
-  // A placeholder user ID. In a real app, you'd get this from your auth state.
-  const userId = "shared-user";
+  const { user } = useUser();
+  const userId = user?.uid;
 
   const tasksQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !userId) return null;
     return query(collection(firestore, 'users', userId, 'tasks'), orderBy('order'));
-  }, [firestore]);
+  }, [firestore, userId]);
 
   const linkGroupsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -31,7 +30,7 @@ export function useTasks() {
   const isLoading = isLoadingTasks || isLoadingLinkGroups;
   
   const addTask = useCallback(async (taskData: Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks' | 'order'>) => {
-    if (!firestore) return;
+    if (!firestore || !userId) return;
     try {
       const currentTasks = tasks || [];
       const newOrder = currentTasks.filter(t => t.frequency === taskData.frequency).length;
@@ -55,10 +54,10 @@ export function useTasks() {
         variant: 'destructive',
       });
     }
-  }, [firestore, tasks, toast]);
+  }, [firestore, userId, tasks, toast]);
 
   const updateTask = useCallback(async (id: string, taskData: Partial<Omit<Task, 'id'>>) => {
-     if (!firestore) return;
+     if (!firestore || !userId) return;
     try {
       const taskRef = doc(firestore, 'users', userId, 'tasks', id);
       await updateDoc(taskRef, taskData);
@@ -70,10 +69,10 @@ export function useTasks() {
         variant: 'destructive',
       });
     }
-  }, [firestore, toast]);
+  }, [firestore, userId, toast]);
 
   const updateTaskOrder = useCallback(async (reorderedTasks: Task[]) => {
-    if (!firestore) return;
+    if (!firestore || !userId) return;
     try {
       const batch = writeBatch(firestore);
       reorderedTasks.forEach((task, index) => {
@@ -89,10 +88,10 @@ export function useTasks() {
         variant: 'destructive',
       });
     }
-  }, [firestore, toast]);
+  }, [firestore, userId, toast]);
 
   const toggleTask = useCallback(async (id: string) => {
-    if (!firestore || !tasks) return;
+    if (!firestore || !tasks || !userId) return;
     const taskToToggle = tasks.find((t) => t.id === id);
     if (!taskToToggle) return;
 
@@ -111,10 +110,10 @@ export function useTasks() {
         variant: 'destructive',
       });
     }
-  }, [firestore, tasks, toast]);
+  }, [firestore, userId, tasks, toast]);
 
   const deleteTask = useCallback(async (id: string) => {
-    if (!firestore) return;
+    if (!firestore || !userId) return;
     try {
       await deleteDoc(doc(firestore, 'users', userId, 'tasks', id));
     } catch (error) {
@@ -125,10 +124,10 @@ export function useTasks() {
         variant: 'destructive',
       });
     }
-  }, [firestore, toast]);
+  }, [firestore, userId, toast]);
 
   const addSubtask = useCallback(async (taskId: string, data: Omit<Subtask, 'id' | 'completed' | 'order'>) => {
-    if (!firestore || !tasks) return;
+    if (!firestore || !tasks || !userId) return;
     const taskRef = doc(firestore, 'users', userId, 'tasks', taskId);
     const taskToUpdate = tasks.find(t => t.id === taskId);
     if (!taskToUpdate) return;
@@ -150,10 +149,10 @@ export function useTasks() {
        console.error('Failed to add subtask:', error);
        toast({ title: 'Error', description: 'Failed to add subtask.', variant: 'destructive' });
     }
-  }, [firestore, tasks, toast]);
+  }, [firestore, userId, tasks, toast]);
   
   const updateSubtask = useCallback(async (taskId: string, subtaskId: string, data: Partial<Omit<Subtask, 'id' | 'completed' | 'order'>>) => {
-    if (!firestore || !tasks) return;
+    if (!firestore || !tasks || !userId) return;
     const taskRef = doc(firestore, 'users', userId, 'tasks', taskId);
     const taskToUpdate = tasks.find(t => t.id === taskId);
     if (!taskToUpdate) return;
@@ -167,10 +166,10 @@ export function useTasks() {
        console.error('Failed to update subtask:', error);
        toast({ title: 'Error', description: 'Failed to update subtask.', variant: 'destructive' });
     }
-  }, [firestore, tasks, toast]);
+  }, [firestore, userId, tasks, toast]);
 
   const updateSubtaskOrder = useCallback(async (taskId: string, subtasks: Subtask[]) => {
-    if (!firestore) return;
+    if (!firestore || !userId) return;
     const taskRef = doc(firestore, 'users', userId, 'tasks', taskId);
     const updatedSubtasks = subtasks.map((subtask, index) => ({...subtask, order: index}));
     try {
@@ -179,10 +178,10 @@ export function useTasks() {
        console.error('Failed to update subtask order:', error);
        toast({ title: 'Error', description: 'Failed to save subtask order.', variant: 'destructive' });
     }
-  }, [firestore, toast]);
+  }, [firestore, userId, toast]);
 
   const toggleSubtask = useCallback(async (taskId: string, subtaskId: string) => {
-    if (!firestore || !tasks) return;
+    if (!firestore || !tasks || !userId) return;
     const taskRef = doc(firestore, 'users', userId, 'tasks', taskId);
     const taskToUpdate = tasks.find(t => t.id === taskId);
     if (!taskToUpdate) return;
@@ -204,10 +203,10 @@ export function useTasks() {
        console.error('Failed to toggle subtask:', error);
        toast({ title: 'Error', description: 'Failed to toggle subtask status.', variant: 'destructive' });
     }
-  }, [firestore, tasks, toast]);
+  }, [firestore, userId, tasks, toast]);
 
   const deleteSubtask = useCallback(async (taskId: string, subtaskId: string) => {
-    if (!firestore || !tasks) return;
+    if (!firestore || !tasks || !userId) return;
     const taskRef = doc(firestore, 'users', userId, 'tasks', taskId);
     const taskToUpdate = tasks.find(t => t.id === taskId);
     if (!taskToUpdate) return;
@@ -226,7 +225,7 @@ export function useTasks() {
        console.error('Failed to delete subtask:', error);
        toast({ title: 'Error', description: 'Failed to delete subtask.', variant: 'destructive' });
     }
-  }, [firestore, tasks, toast]);
+  }, [firestore, userId, tasks, toast]);
 
 
   return { tasks: tasks || [], linkGroups: linkGroups || [], addTask, updateTask, toggleTask, deleteTask, isLoading, updateTaskOrder, addSubtask, updateSubtask, updateSubtaskOrder, toggleSubtask, deleteSubtask };
