@@ -1,80 +1,79 @@
 
-
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
+import { collection, doc } from 'firebase/firestore';
+import { useCollection, useFirestore } from '@/firebase';
 import type { LinkGroup } from '@/types';
 import { useToast } from './use-toast';
-import * as LinkGroupService from '@/services/link-group-service';
+import {
+  addDocumentNonBlocking,
+  updateDocumentNonBlocking,
+  deleteDocumentNonBlocking,
+} from '@/firebase/non-blocking-updates';
 
 export function useLinkGroups() {
-  const [linkGroups, setLinkGroups] = useState<LinkGroup[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const firestore = useFirestore();
+  const linkGroupsCollection = collection(firestore, 'link-groups');
 
-  const fetchLinkGroups = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const fetchedLinkGroups = await LinkGroupService.getLinkGroups();
-      setLinkGroups(fetchedLinkGroups);
-    } catch (error: any) {
-      console.error('Failed to load link groups:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load link groups from the database.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [toast]);
+  const { data: linkGroups, isLoading } = useCollection<LinkGroup>(linkGroupsCollection);
 
-  useEffect(() => {
-    fetchLinkGroups();
-  }, [fetchLinkGroups]);
+  const addLinkGroup = useCallback(
+    async (name: string, links: string[]) => {
+      try {
+        await addDocumentNonBlocking(linkGroupsCollection, { name, links });
+      } catch (error) {
+        console.error('Failed to add link group:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to add the new link group.',
+          variant: 'destructive',
+        });
+      }
+    },
+    [firestore, toast, linkGroupsCollection]
+  );
 
-  const addLinkGroup = useCallback(async (name: string, links: string[]) => {
-    try {
-      await LinkGroupService.addLinkGroup(name, links);
-      await fetchLinkGroups();
-    } catch (error) {
-      console.error('Failed to add link group:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to add the new link group.',
-        variant: 'destructive',
-      });
-    }
-  }, [toast, fetchLinkGroups]);
+  const updateLinkGroup = useCallback(
+    async (id: string, name: string, links: string[]) => {
+      try {
+        const linkGroupRef = doc(firestore, 'link-groups', id);
+        await updateDocumentNonBlocking(linkGroupRef, { name, links });
+      } catch (error) {
+        console.error('Failed to update link group:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to update the link group.',
+          variant: 'destructive',
+        });
+      }
+    },
+    [firestore, toast]
+  );
 
-  const updateLinkGroup = useCallback(async (id: string, name: string, links: string[]) => {
-    try {
-      await LinkGroupService.updateLinkGroup(id, name, links);
-      await fetchLinkGroups();
-    } catch (error) {
-      console.error('Failed to update link group:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to update the link group.',
-        variant: 'destructive',
-      });
-    }
-  }, [toast, fetchLinkGroups]);
+  const deleteLinkGroup = useCallback(
+    async (id: string) => {
+      try {
+        const linkGroupRef = doc(firestore, 'link-groups', id);
+        await deleteDocumentNonBlocking(linkGroupRef);
+      } catch (error) {
+        console.error('Failed to delete link group:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to delete the link group.',
+          variant: 'destructive',
+        });
+      }
+    },
+    [firestore, toast]
+  );
 
-
-  const deleteLinkGroup = useCallback(async (id: string) => {
-    try {
-      await LinkGroupService.deleteLinkGroup(id);
-      await fetchLinkGroups();
-    } catch (error) {
-      console.error('Failed to delete link group:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete the link group.',
-        variant: 'destructive',
-      });
-    }
-  }, [toast, fetchLinkGroups]);
-
-  return { linkGroups, addLinkGroup, updateLinkGroup, deleteLinkGroup, isLoading };
+  return {
+    linkGroups: linkGroups || [],
+    addLinkGroup,
+    updateLinkGroup,
+    deleteLinkGroup,
+    isLoading,
+  };
 }
