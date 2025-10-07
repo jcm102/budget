@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -21,21 +20,20 @@ export function useDebt() {
         const fetchedDebts = await DebtService.getDebts();
         setDebts(fetchedDebts);
     } catch (error: any) {
-        console.error('Failed to load debts:', error);
-        
         if (error.message.includes('permission-denied') || error.message.includes('Missing or insufficient permissions')) {
             const contextualError = new FirestorePermissionError({
               path: 'debts',
               operation: 'list',
             });
             errorEmitter.emit('permission-error', contextualError);
+        } else {
+          console.error('Failed to load debts:', error);
+          toast({
+              title: 'Error',
+              description: 'Failed to load debts from the database.',
+              variant: 'destructive',
+          });
         }
-
-        toast({
-            title: 'Error',
-            description: 'Failed to load debts from the database.',
-            variant: 'destructive',
-        });
     } finally {
         setIsLoading(false);
     }
