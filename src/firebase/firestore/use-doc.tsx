@@ -71,9 +71,9 @@ export function useDoc<T = any>(
         setError(null); // Clear any previous error on successful snapshot (even if doc doesn't exist)
         setIsLoading(false);
       },
-      (error: FirestoreError) => {
-        let contextualError: Error = error;
-        if (error.code === 'permission-denied') {
+      (serverError: FirestoreError) => {
+        let contextualError: Error = serverError;
+        if (serverError.code === 'permission-denied') {
             contextualError = new FirestorePermissionError({
                 operation: 'get',
                 path: memoizedDocRef.path,

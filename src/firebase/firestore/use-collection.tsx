@@ -84,10 +84,10 @@ export function useCollection<T = any>(
         setError(null);
         setIsLoading(false);
       },
-      (error: FirestoreError) => {
-        let contextualError: Error = error;
+      (serverError: FirestoreError) => {
+        let contextualError: Error = serverError;
         // This logic extracts the path from either a ref or a query
-        if (error.code === 'permission-denied') {
+        if (serverError.code === 'permission-denied') {
           const path: string =
             memoizedTargetRefOrQuery.type === 'collection'
               ? (memoizedTargetRefOrQuery as CollectionReference).path
