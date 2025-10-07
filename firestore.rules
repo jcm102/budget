@@ -1,114 +1,114 @@
 /**
- * @fileoverview Firestore Security Rules for TaskTrack Budget application.
+ * @file Firestore Security Rules for TaskTrack Budget application.
  *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for all data. Users can only
- * access their own data, ensuring privacy and data isolation. This is achieved
- * primarily through path-based authorization. No listing of all users is allowed.
- *
- * Data Structure:
- * - /users/{userId}: Stores user profiles.
- * - /users/{userId}/tasks/{taskId}: Stores tasks owned by a specific user.
- * - /users/{userId}/sessions/{sessionId}: Stores session information for each user.
- *
- * Key Security Decisions:
- * - Strict User Ownership: Only the authenticated user can read or write their own data.
- * - No Public Listing: Listing of all users is explicitly denied.
- *
- * Denormalization for Authorization:
- *  - Not used, all authorization is based on path.
- * Structural Segregation:
- *  - User data is segregated into subcollections under the /users/{userId} path.
+ * @core_philosophy This ruleset enforces a strict user-ownership model.  Users can only
+ *   access data nested under their own user ID. This is achieved through path-based
+ *   authorization.
+ * @data_structure Data is organized hierarchically under `/users/{userId}`.  User profiles,
+ *   tasks, and sessions are stored as documents within user-specific subcollections.
+ * @key_security_decisions
+ *   - Users cannot list the entire `/users` collection.
+ *   - All write operations are restricted to the authenticated user's data.
+ *   - Schema validation is relaxed to allow for rapid prototyping.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to the /users/{userId} collection.
+     * @description Controls access to user profiles.
      * @path /users/{userId}
-     * @allow (create) - Authenticated user can create their own user document.
-     * @allow (get, update, delete) - Authenticated user can access their own user document.
-     * @deny (list) - Listing all users is prohibited.
-     * @deny (create, update, delete) - Non-authenticated users cannot create or modify user documents.
-     * @principle Enforces document ownership and prevents unauthorized data access.
+     * @allow (create) - If the user's ID matches the requested user ID.
+     * @allow (get) - If the user's ID matches the requested user ID.
+     * @allow (update) - If the user's ID matches the requested user ID and the document exists.
+     * @allow (delete) - If the user's ID matches the requested user ID and the document exists.
+     * @deny (list) - Listing all users is not allowed.
+     * @deny (create) - If the user's ID does not match the requested user ID.
+     * @deny (get) - If the user's ID does not match the requested user ID.
+     * @deny (update) - If the user's ID does not match the requested user ID or the document does not exist.
+     * @deny (delete) - If the user's ID does not match the requested user ID or the document does not exist.
+     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      allow get: if isSignedIn() && isOwner(userId);
+      allow get: if isOwner(userId);
       allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to the /users/{userId}/tasks/{taskId} collection.
+     * @description Controls access to tasks for a specific user.
      * @path /users/{userId}/tasks/{taskId}
-     * @allow (create) - Authenticated user can create tasks under their own user document.
-     * @allow (get, list, update, delete) - Authenticated user can access their own tasks.
-     * @deny (create, update, delete) - Non-authenticated users cannot create or modify tasks.
-     * @principle Enforces document ownership for tasks and prevents unauthorized modifications.
+     * @allow (create) - If the user's ID matches the requested user ID.
+     * @allow (get) - If the user's ID matches the requested user ID.
+     * @allow (list) - If the user's ID matches the requested user ID.
+     * @allow (update) - If the user's ID matches the requested user ID and the document exists.
+     * @allow (delete) - If the user's ID matches the requested user ID and the document exists.
+     * @deny (create) - If the user's ID does not match the requested user ID.
+     * @deny (get) - If the user's ID does not match the requested user ID.
+     * @deny (list) - If the user's ID does not match the requested user ID.
+     * @deny (update) - If the user's ID does not match the requested user ID or the document does not exist.
+     * @deny (delete) - If the user's ID does not match the requested user ID or the document does not exist.
+     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId}/tasks/{taskId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to the /users/{userId}/sessions/{sessionId} collection.
+     * @description Controls access to sessions for a specific user.
      * @path /users/{userId}/sessions/{sessionId}
-     * @allow (create) - Authenticated user can create sessions under their own user document.
-     * @allow (get, list, update, delete) - Authenticated user can access their own sessions.
-     * @deny (create, update, delete) - Non-authenticated users cannot create or modify sessions.
-     * @principle Enforces document ownership for sessions and prevents unauthorized modifications.
+     * @allow (create) - If the user's ID matches the requested user ID.
+     * @allow (get) - If the user's ID matches the requested user ID.
+     * @allow (list) - If the user's ID matches the requested user ID.
+     * @allow (update) - If the user's ID matches the requested user ID and the document exists.
+     * @allow (delete) - If the user's ID matches the requested user ID and the document exists.
+     * @deny (create) - If the user's ID does not match the requested user ID.
+     * @deny (get) - If the user's ID does not match the requested user ID.
+     * @deny (list) - If the user's ID does not match the requested user ID.
+     * @deny (update) - If the user's ID does not match the requested user ID or the document does not exist.
+     * @deny (delete) - If the user's ID does not match the requested user ID or the document does not exist.
+     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId}/sessions/{sessionId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(userId);
     }
-    
-     /**
-      * @description  Denies access to the `link-groups` collection.
-      * @path /link-groups
-      * @allow None
-      * @deny Any request.
-      * @principle Access to this collection is completely restricted.
-      */
-     match /link-groups/{document} {
+
+    /**
+     * @description Rules for link-groups collection.
+     * @path /link-groups
+     * @allow (list) - if true
+     */
+    match /link-groups {
+        allow list: if true;
         allow get: if false;
-        allow list: if false;
         allow create: if false;
         allow update: if false;
         allow delete: if false;
-     }
+    }
+  }
 
+  // Helper function to determine if the user is signed in.
+  function isSignedIn() {
+    return request.auth != null;
+  }
+
+  // Helper function to determine if the user is the owner of the resource.
+  function isOwner(userId) {
+    return isSignedIn() && request.auth.uid == userId;
+  }
+
+    // Helper function to determine if the user is the owner of the resource. And that resource exists.
+  function isExistingOwner(userId) {
+    return isOwner(userId) && resource != null;
   }
 }
