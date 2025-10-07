@@ -6,9 +6,6 @@ import type { Task, Subtask, LinkGroup } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import * as TaskService from '@/services/task-service';
 import * as LinkGroupService from '@/services/link-group-service';
-import { FirestorePermissionError } from '@/firebase/errors';
-import { errorEmitter } from '@/firebase/error-emitter';
-
 
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -25,16 +22,8 @@ export function useTasks() {
       ]);
       setTasks(fetchedTasks);
       setLinkGroups(fetchedLinkGroups);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to load tasks or link groups:', error);
-      if (error.code === 'permission-denied' || error.name === 'FirebaseError') {
-        const path = error.message.includes('tasks') ? 'tasks' : 'link-groups';
-        const contextualError = new FirestorePermissionError({
-          operation: 'list',
-          path: path,
-        });
-        errorEmitter.emit('permission-error', contextualError);
-      }
       toast({
         title: 'Error',
         description: 'Failed to load data from the database.',
