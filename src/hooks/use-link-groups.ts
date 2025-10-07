@@ -3,7 +3,7 @@
 
 import { useCallback } from 'react';
 import { collection, doc } from 'firebase/firestore';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { LinkGroup } from '@/types';
 import { useToast } from './use-toast';
 import {
@@ -15,10 +15,14 @@ import {
 export function useLinkGroups() {
   const { toast } = useToast();
   const firestore = useFirestore();
-  
+  const { user, isUserLoading } = useUser();
+
   const linkGroupsCollection = useMemoFirebase(
-      () => collection(firestore, 'link-groups'),
-      [firestore]
+    () =>
+      !isUserLoading && user
+        ? collection(firestore, 'users', user.uid, 'link-groups')
+        : null,
+    [firestore, user, isUserLoading]
   );
 
   const { data: linkGroups, isLoading } = useCollection<LinkGroup>(linkGroupsCollection);
@@ -42,8 +46,9 @@ export function useLinkGroups() {
 
   const updateLinkGroup = useCallback(
     async (id: string, name: string, links: string[]) => {
+      if (!user) return;
       try {
-        const linkGroupRef = doc(firestore, 'link-groups', id);
+        const linkGroupRef = doc(firestore, 'users', user.uid, 'link-groups', id);
         await updateDocumentNonBlocking(linkGroupRef, { name, links });
       } catch (error) {
         console.error('Failed to update link group:', error);
@@ -54,13 +59,14 @@ export function useLinkGroups() {
         });
       }
     },
-    [firestore, toast]
+    [firestore, toast, user]
   );
 
   const deleteLinkGroup = useCallback(
     async (id: string) => {
+      if (!user) return;
       try {
-        const linkGroupRef = doc(firestore, 'link-groups', id);
+        const linkGroupRef = doc(firestore, 'users', user.uid, 'link-groups', id);
         await deleteDocumentNonBlocking(linkGroupRef);
       } catch (error) {
         console.error('Failed to delete link group:', error);
@@ -71,7 +77,7 @@ export function useLinkGroups() {
         });
       }
     },
-    [firestore, toast]
+    [firestore, toast, user]
   );
 
   return {
@@ -79,6 +85,6 @@ export function useLinkGroups() {
     addLinkGroup,
     updateLinkGroup,
     deleteLinkGroup,
-    isLoading,
+    isLoading: isLoading || isUserLoading,
   };
 }
