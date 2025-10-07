@@ -1,42 +1,62 @@
-import type {Metadata} from 'next';
-import './globals.css';
-import { Toaster } from "@/components/ui/toaster";
-import { SidebarProvider, Sidebar, SidebarInset, SidebarTrigger, SidebarHeader } from '@/components/ui/sidebar';
-import { AppNav } from '@/components/app-nav';
 
-export const metadata: Metadata = {
-  title: 'TaskTrack Budget',
-  description: 'Track your daily, weekly, and monthly budgeting tasks.',
-};
+'use client';
 
-export default function RootLayout({
+import React, { createContext, useContext, ReactNode, useMemo } from 'react';
+import type { FirebaseApp } from 'firebase/app';
+import type { Firestore } from 'firebase/firestore';
+import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
+
+// Define the shape of the context
+interface FirebaseContextType {
+  firebaseApp: FirebaseApp;
+  firestore: Firestore;
+}
+
+// Create the context with a null default value
+const FirebaseContext = createContext<FirebaseContextType | null>(null);
+
+// Provider component
+interface FirebaseProviderProps {
+  children: ReactNode;
+  firebaseApp: FirebaseApp;
+  firestore: Firestore;
+}
+
+export function FirebaseProvider({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
-      </head>
-      <body className="font-body antialiased">
-          <SidebarProvider>
-              <Sidebar>
-                  <AppNav />
-              </Sidebar>
-              <SidebarInset className="flex flex-col">
-                  <SidebarHeader>
-                      <SidebarTrigger />
-                  </SidebarHeader>
-                  <div className="flex-1 overflow-y-auto">
-                      {children}
-                  </div>
-              </SidebarInset>
-          </SidebarProvider>
-        <Toaster />
-      </body>
-    </html>
+  firebaseApp,
+  firestore,
+}: FirebaseProviderProps) {
+  // Memoize the context value to prevent unnecessary re-renders
+  const value = useMemo(
+    () => ({
+      firebaseApp,
+      firestore,
+    }),
+    [firebaseApp, firestore]
   );
+
+  return (
+    <FirebaseContext.Provider value={value}>
+      {children}
+      <FirebaseErrorListener />
+    </FirebaseContext.Provider>
+  );
+}
+
+// Custom hooks for accessing Firebase instances
+export function useFirebase() {
+  const context = useContext(FirebaseContext);
+  if (!context) {
+    throw new Error('useFirebase must be used within a FirebaseProvider.');
+  }
+  return context;
+}
+
+export function useFirebaseApp() {
+  return useFirebase().firebaseApp;
+}
+
+export function useFirestore() {
+  return useFirebase().firestore;
 }
