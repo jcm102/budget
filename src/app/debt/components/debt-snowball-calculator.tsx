@@ -74,7 +74,7 @@ export function DebtSnowballCalculator({ debts: initialDebts }: { debts: Debt[] 
 
 
   useEffect(() => {
-    if (totalMinimumPayment > 0 && totalMonthlyPayment < totalMinimumPayment) {
+    if (totalMinimumPayment > 0 && totalMonthlyPayment === 0) {
       setTotalMonthlyPayment(totalMinimumPayment);
     }
   }, [totalMinimumPayment, totalMonthlyPayment]);
