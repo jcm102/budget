@@ -504,7 +504,7 @@ export async function syncDebtPaymentsToMonthlyBudget(): Promise<void> {
             const { total, breakdown } = categoryAggregates[categoryId];
             
             const budgetItemQuery = query(
-                collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION),
+                collection(db, MONTHLY_BUDGET_COLLECTION),
                 where('month', '==', nextMonth),
                 where('categoryId', '==', categoryId),
                 limit(1)
@@ -520,7 +520,7 @@ export async function syncDebtPaymentsToMonthlyBudget(): Promise<void> {
             };
 
             if (snapshot.empty) {
-                const newDocRef = doc(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION));
+                const newDocRef = doc(collection(db, MONTHLY_BUDGET_COLLECTION));
                 transaction.set(newDocRef, data);
             } else {
                 const docRef = snapshot.docs[0].ref;

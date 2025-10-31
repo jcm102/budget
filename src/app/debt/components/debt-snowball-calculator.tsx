@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -74,7 +75,7 @@ export function DebtSnowballCalculator({ debts: initialDebts }: { debts: Debt[] 
 
 
   useEffect(() => {
-    if (totalMinimumPayment > 0 && totalMonthlyPayment === 0) {
+    if (totalMinimumPayment > 0 && totalMonthlyPayment < totalMinimumPayment) {
       setTotalMonthlyPayment(totalMinimumPayment);
     }
   }, [totalMinimumPayment, totalMonthlyPayment]);

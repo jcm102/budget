@@ -130,6 +130,7 @@ export async function cycleToNextMonth(): Promise<void> {
     batch.update(debtRef, {
       balance: debt.nextBalance || 0,
       minimumPayment: debt.nextMinimumPayment || 0,
+      plannedPayment: debt.nextMinimumPayment || 0, // Set next month's planned payment from minimum
       dueDate: debt.nextDueDate || new Date().toISOString().split('T')[0],
       paid: debt.nextPaid || false,
       // Clear out the 'next' fields
@@ -152,9 +153,11 @@ export async function applyPaymentsToBudget(payments: Record<string, number>): P
             const paymentAmount = payments[debtId];
             const debt = allDebts.find(d => d.id === debtId);
 
-            if (!debt || paymentAmount <= 0) continue;
+            if (!debt) continue;
 
             const debtRef = doc(db, DEBT_COLLECTION, debtId);
+            
+            // This is the key fix: update `nextMinimumPayment` instead of `plannedPayment`
             transaction.update(debtRef, { nextMinimumPayment: paymentAmount });
         }
     });
