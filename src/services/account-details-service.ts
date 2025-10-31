@@ -52,8 +52,8 @@ export async function getAccounts(): Promise<AccountDetails[]> {
 
   const [accountSnapshot, debtSnapshot, ledgerSnapshot] = await Promise.all([
     getDocs(query(accountCollection, orderBy('name'))),
-    getDocs(debtCollection),
-    getDocs(ledgerCollection)
+    getDocs(query(debtCollection)),
+    getDocs(query(ledgerCollection))
   ]);
   
   const debtsMap = new Map(debtSnapshot.docs.map(doc => [doc.id, doc.data() as Debt]));
