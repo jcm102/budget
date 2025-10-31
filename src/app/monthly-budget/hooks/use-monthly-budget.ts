@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -111,6 +112,23 @@ export function useMonthlyBudget(month?: string) {
     }
   }, [previousMonthBudgetItems, updateBudgetItem, toast]);
 
+  const copyBudgetItemToNextMonth = useCallback(async (budgetItem: MonthlyBudgetItem) => {
+    try {
+      await MonthlyBudgetService.copyBudgetItemToNextMonth(budgetItem);
+      toast({
+        title: 'Success!',
+        description: `Budget item copied to next month's plan.`,
+      });
+    } catch (error) {
+      console.error('Failed to copy budget item:', error);
+      toast({
+        title: 'Error',
+        description: 'Could not copy the budget item.',
+        variant: 'destructive',
+      });
+    }
+  }, [toast]);
+
   const cycleToNextMonth = useCallback(async () => {
     try {
       await MonthlyBudgetService.cycleToNextMonth();
@@ -132,5 +150,5 @@ export function useMonthlyBudget(month?: string) {
   }, [fetchBudget, fetchBudgetItems, toast]);
 
 
-  return { budgetItems, categories, updateBudgetItem, updateBudgetItemWithBreakdown, isLoading, fetchBudget, copyCategoryFromPreviousMonth, cycleToNextMonth };
+  return { budgetItems, categories, updateBudgetItem, updateBudgetItemWithBreakdown, isLoading, fetchBudget, copyCategoryFromPreviousMonth, cycleToNextMonth, copyBudgetItemToNextMonth };
 }

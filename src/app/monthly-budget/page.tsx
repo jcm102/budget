@@ -45,7 +45,7 @@ export default function MonthlyBudgetPage() {
   const selectedMonthString = view === 'current' ? currentMonthString : nextMonthString;
 
   const { transactions, accounts, addTransaction, updateTransaction, deleteTransaction, isLoading: isLoadingTransactions } = useTransactions(selectedMonthString);
-  const { budgetItems: monthlyBudgetItems, categories, updateBudgetItemWithBreakdown, isLoading: isLoadingBudget, updateBudgetItem, copyCategoryFromPreviousMonth, cycleToNextMonth } = useMonthlyBudget(selectedMonthString);
+  const { budgetItems: monthlyBudgetItems, categories, updateBudgetItemWithBreakdown, isLoading: isLoadingBudget, updateBudgetItem, copyCategoryFromPreviousMonth, copyBudgetItemToNextMonth, cycleToNextMonth } = useMonthlyBudget(selectedMonthString);
   const { budgetItems: incomeItems, isLoading: isLoadingIncome } = useBudget();
 
   const incomeAmount = useMemo(() => {
@@ -192,6 +192,7 @@ export default function MonthlyBudgetPage() {
                         onEditTransaction={handleOpenTransactionForm}
                         onUpdateBudget={updateBudgetItem}
                         onCopyCategory={copyCategoryFromPreviousMonth}
+                        onCopyToNextMonth={copyBudgetItemToNextMonth}
                         view={view}
                     />
                 </TabsContent>
@@ -205,6 +206,7 @@ export default function MonthlyBudgetPage() {
                         onEditTransaction={handleOpenTransactionForm}
                         onUpdateBudget={updateBudgetItem}
                         onCopyCategory={copyCategoryFromPreviousMonth}
+                        onCopyToNextMonth={copyBudgetItemToNextMonth}
                         view={view}
                     />
                 </TabsContent>

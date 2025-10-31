@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useCallback } from 'react';
@@ -33,6 +34,7 @@ type BudgetTableProps = {
     onEditTransaction: (transaction: Transaction) => void;
     onUpdateBudget: (categoryId: string, budgeted: number) => void;
     onCopyCategory: (categoryId: string) => void;
+    onCopyToNextMonth: (budgetItem: MonthlyBudgetItem) => void;
     view: 'current' | 'next';
 }
 
@@ -68,6 +70,7 @@ const CategoryRow = ({
     onEditTransaction,
     onUpdateBudget,
     onCopyCategory,
+    onCopyToNextMonth,
     view,
 }: { 
     category: CategoryWithChildren, 
@@ -80,6 +83,7 @@ const CategoryRow = ({
     onEditTransaction: (transaction: Transaction) => void,
     onUpdateBudget: (categoryId: string, budgeted: number) => void;
     onCopyCategory: (categoryId: string) => void;
+    onCopyToNextMonth: (budgetItem: MonthlyBudgetItem) => void;
     view: 'current' | 'next';
 }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -161,6 +165,11 @@ const CategoryRow = ({
                             <div className="opacity-0 group-hover:opacity-100 flex">
                                 {view === 'next' && (
                                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onCopyCategory(category.id)}>
+                                        <Copy className="h-4 w-4 text-blue-500" />
+                                    </Button>
+                                )}
+                                {view === 'current' && budgetItem && (
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onCopyToNextMonth(budgetItem)}>
                                         <Copy className="h-4 w-4 text-blue-500" />
                                     </Button>
                                 )}
@@ -256,6 +265,7 @@ const CategoryRow = ({
                                             onEditTransaction={onEditTransaction}
                                             onUpdateBudget={onUpdateBudget}
                                             onCopyCategory={onCopyCategory}
+                                            onCopyToNextMonth={onCopyToNextMonth}
                                             view={view}
                                         />
                                     ))}
@@ -272,7 +282,7 @@ const CategoryRow = ({
 }
 
 
-export function BudgetTable({ budgetItems, categories, transactions, isLoading, onEditBreakdown, onEditTransaction, onUpdateBudget, onCopyCategory, view }: BudgetTableProps) {
+export function BudgetTable({ budgetItems, categories, transactions, isLoading, onEditBreakdown, onEditTransaction, onUpdateBudget, onCopyCategory, onCopyToNextMonth, view }: BudgetTableProps) {
   const { accounts: allAccounts } = useAccountDetails();
 
   const accountMap = useMemo(() => {
@@ -384,6 +394,7 @@ export function BudgetTable({ budgetItems, categories, transactions, isLoading, 
                     onEditTransaction={onEditTransaction}
                     onUpdateBudget={onUpdateBudget}
                     onCopyCategory={onCopyCategory}
+                    onCopyToNextMonth={onCopyToNextMonth}
                     view={view}
                 />
             ))

@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -48,6 +47,25 @@ export async function updateBudgetItem(id: string, itemData: { budgeted: number,
   const itemRef = doc(db, BUDGET_ITEMS_COLLECTION, id);
   // The hook now calculates the total, so we just need to save it.
   await updateDoc(itemRef, itemData);
+}
+
+export async function copyBudgetItemToNextMonth(budgetItem: MonthlyBudgetItem): Promise<void> {
+  const nextMonth = format(addMonths(new Date(), 1), 'yyyy-MM');
+  const q = query(collection(db, BUDGET_ITEMS_COLLECTION), where('month', '==', nextMonth), where('categoryId', '==', budgetItem.categoryId));
+  const querySnapshot = await getDocs(q);
+
+  const dataToSave = {
+    ...budgetItem,
+    month: nextMonth,
+  };
+  delete (dataToSave as any).id; // Don't copy the ID
+
+  if (querySnapshot.empty) {
+    await addDoc(collection(db, BUDGET_ITEMS_COLLECTION), dataToSave);
+  } else {
+    const docRef = querySnapshot.docs[0].ref;
+    await updateDoc(docRef, dataToSave);
+  }
 }
 
 export async function cycleToNextMonth(): Promise<void> {
