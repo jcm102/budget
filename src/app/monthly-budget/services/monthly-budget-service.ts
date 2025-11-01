@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -177,7 +178,7 @@ export async function getTransactionsForAccount(accountId: string): Promise<Tran
 }
 
 
-export async function addTransaction(transactionData: Partial<Omit<Transaction, 'id'>>, isIOUPayment?: boolean): Promise<Transaction> {
+export async function addTransaction(transactionData: Partial<Omit<Transaction, 'id'>>): Promise<Transaction> {
     const newDocRef = await runTransaction(db, async (transaction) => {
         const { sourceAccountId, amount, splits } = transactionData;
         if (!sourceAccountId || !amount || !splits) throw new Error("Missing required transaction data.");
@@ -237,7 +238,7 @@ export async function addTransaction(transactionData: Partial<Omit<Transaction, 
 
         // Handle destination accounts for transfers
         splits.forEach((split) => {
-            if (split.type === 'transfer') {
+            if (split.type === 'transfer' && split.destinationAccountId && split.destinationAccountId !== sourceAccountId) {
                 const destSnap = destinationAccountSnaps.find(snap => snap.id === split.destinationAccountId);
                 if (destSnap) {
                      const destData = destSnap.data() as AccountDetails;
@@ -302,7 +303,7 @@ async function revertTransaction(transaction: FirebaseFirestore.Transaction, old
     }
 
     for (const split of (oldData.splits || [])) {
-        if (split.type === 'transfer' && split.destinationAccountId) {
+        if (split.type === 'transfer' && split.destinationAccountId && split.destinationAccountId !== oldData.sourceAccountId) {
             const destSnap = accountSnaps.get(split.destinationAccountId);
             if(destSnap?.exists()) {
                 const destData = destSnap.data() as AccountDetails;
@@ -342,7 +343,7 @@ async function applyTransaction(transaction: FirebaseFirestore.Transaction, newD
     }
 
     for (const split of (newData.splits || [])) {
-        if (split.type === 'transfer' && split.destinationAccountId) {
+        if (split.type === 'transfer' && split.destinationAccountId && split.destinationAccountId !== newData.sourceAccountId) {
             const destSnap = accountSnaps.get(split.destinationAccountId);
             if (!destSnap?.exists()) {
                  throw new Error(`Destination account with ID ${split.destinationAccountId} not found.`);
