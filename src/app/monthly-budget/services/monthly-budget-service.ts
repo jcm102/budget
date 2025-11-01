@@ -181,67 +181,22 @@ export async function getTransactionsForAccount(accountId: string): Promise<Tran
 export async function addTransaction(transactionData: Partial<Omit<Transaction, 'id'>>): Promise<Transaction> {
     const newDocRef = await runTransaction(db, async (transaction) => {
         const { sourceAccountId, amount, splits, paidById } = transactionData;
-        const effectiveSourceAccountId = paidById || sourceAccountId;
-
-        if (!effectiveSourceAccountId || amount === undefined || !splits) {
-            throw new Error("Missing required transaction data.");
-        }
-
-        // --- Start READS ---
-        const sourceAccountRef = doc(db, ACCOUNTS_COLLECTION, effectiveSourceAccountId);
-        const sourceAccountSnap = await transaction.get(sourceAccountRef);
-        if (!sourceAccountSnap.exists()) throw new Error(`Source account with ID ${effectiveSourceAccountId} not found.`);
         
-        const sourceAccountData = sourceAccountSnap.data() as AccountDetails;
+        const accountIds = new Set<string>();
+        if (paidById) accountIds.add(paidById);
+        if (sourceAccountId) accountIds.add(sourceAccountId);
+        splits?.forEach(s => {
+            if(s.destinationAccountId) accountIds.add(s.destinationAccountId);
+        });
 
-        const destinationAccountIds = splits
-            .filter(s => s.type === 'transfer' && s.destinationAccountId)
-            .map(s => s.destinationAccountId!);
-            
-        const uniqueDestinationIds = [...new Set(destinationAccountIds)];
-        const destinationAccountRefs = uniqueDestinationIds.map(id => doc(db, ACCOUNTS_COLLECTION, id));
-        
-        let destinationAccountSnaps: FirebaseFirestore.DocumentSnapshot<FirebaseFirestore.DocumentData>[] = [];
-        if (destinationAccountRefs.length > 0) {
-            destinationAccountSnaps = await Promise.all(destinationAccountRefs.map(ref => transaction.get(ref)));
-        }
+        const accountRefs = Array.from(accountIds).map(id => doc(db, ACCOUNTS_COLLECTION, id));
+        const accountSnaps = await Promise.all(accountRefs.map(ref => transaction.get(ref)));
+        const accountSnapsMap = new Map(accountSnaps.map(snap => [snap.id, snap]));
 
-        for(const snap of destinationAccountSnaps) {
-            if (!snap.exists()) throw new Error(`One of the destination accounts was not found.`);
-        }
-        
-        // --- End READS ---
-
-        // --- Start WRITES ---
         const newTransactionRef = doc(collection(db, TRANSACTIONS_COLLECTION));
         transaction.set(newTransactionRef, transactionData);
         
-        const sourceBalance = sourceAccountData.balance || 0;
-
-        // Handle source account
-        if (sourceAccountData.type === 'Credit' || sourceAccountData.type === 'IOU') {
-             transaction.update(sourceAccountRef, { balance: sourceBalance - amount });
-        } else {
-            transaction.update(sourceAccountRef, { balance: sourceBalance - amount });
-        }
-
-
-        // Handle destination accounts for transfers
-        splits.forEach((split) => {
-            if (split.type === 'transfer' && split.destinationAccountId) {
-                const destSnap = destinationAccountSnaps.find(snap => snap.id === split.destinationAccountId);
-                if (destSnap) {
-                     const destData = destSnap.data() as AccountDetails;
-                     const destBalance = destData.balance || 0;
-                     if (destData.type === 'IOU' || destData.type === 'Credit') {
-                         transaction.update(destSnap.ref, { balance: destBalance - split.amount });
-                     } else { 
-                         transaction.update(destSnap.ref, { balance: destBalance + split.amount });
-                     }
-                }
-            }
-        });
-        // --- End WRITES ---
+        await applyTransaction(transaction, transactionData as Transaction, accountSnapsMap);
         
         return newTransactionRef;
     });
@@ -272,18 +227,19 @@ export async function addTransaction(transactionData: Partial<Omit<Transaction, 
 
 async function revertTransaction(transaction: FirebaseFirestore.Transaction, oldData: Transaction, accountSnaps: Map<string, FirebaseFirestore.DocumentSnapshot>) {
     const effectiveSourceId = oldData.paidById || oldData.sourceAccountId;
-    const sourceSnap = accountSnaps.get(effectiveSourceId);
-    if (sourceSnap?.exists()) {
-        const sourceData = sourceSnap.data() as AccountDetails;
-        const sourceBalance = sourceData.balance || 0;
-
-        if (sourceData.type === 'Credit' || sourceData.type === 'IOU') {
-             transaction.update(sourceSnap.ref, { balance: sourceBalance + oldData.amount });
-        } else {
-            transaction.update(sourceSnap.ref, { balance: sourceBalance + oldData.amount });
+    if (effectiveSourceId) {
+        const sourceSnap = accountSnaps.get(effectiveSourceId);
+        if (sourceSnap?.exists()) {
+            const sourceData = sourceSnap.data() as AccountDetails;
+            const sourceBalance = sourceData.balance || 0;
+            if (sourceData.type === 'Credit' || sourceData.type === 'IOU') {
+                transaction.update(sourceSnap.ref, { balance: sourceBalance + oldData.amount });
+            } else {
+                transaction.update(sourceSnap.ref, { balance: sourceBalance + oldData.amount });
+            }
         }
     }
-
+    
     for (const split of (oldData.splits || [])) {
         if (split.type === 'transfer' && split.destinationAccountId) {
             const destSnap = accountSnaps.get(split.destinationAccountId);
@@ -291,7 +247,7 @@ async function revertTransaction(transaction: FirebaseFirestore.Transaction, old
                 const destData = destSnap.data() as AccountDetails;
                 const destBalance = destData.balance || 0;
                  if (destData.type === 'IOU' || destData.type === 'Credit') {
-                    transaction.update(destSnap.ref, { balance: destBalance + split.amount });
+                    transaction.update(destSnap.ref, { balance: destBalance - split.amount });
                  } else {
                     transaction.update(destSnap.ref, { balance: destBalance - split.amount });
                  }
@@ -302,31 +258,35 @@ async function revertTransaction(transaction: FirebaseFirestore.Transaction, old
 
 async function applyTransaction(transaction: FirebaseFirestore.Transaction, newData: Transaction, accountSnaps: Map<string, FirebaseFirestore.DocumentSnapshot>) {
     const effectiveSourceId = newData.paidById || newData.sourceAccountId;
-    const sourceSnap = accountSnaps.get(effectiveSourceId);
-    if (!sourceSnap?.exists()) {
-        throw new Error(`Source account with ID ${effectiveSourceId} not found.`);
-    }
-    const sourceData = sourceSnap.data() as AccountDetails;
-    const sourceBalance = sourceData.balance || 0;
-
-    if (sourceData.type === 'Credit' || sourceData.type === 'IOU') {
-        transaction.update(sourceSnap.ref, { balance: sourceBalance - newData.amount });
-    } else {
-        transaction.update(sourceSnap.ref, { balance: sourceBalance - newData.amount });
+    if (effectiveSourceId) {
+        const sourceSnap = accountSnaps.get(effectiveSourceId);
+        if (!sourceSnap?.exists()) throw new Error(`Source account with ID ${effectiveSourceId} not found.`);
+        
+        const sourceData = sourceSnap.data() as AccountDetails;
+        const sourceBalance = sourceData.balance || 0;
+        
+        if (sourceData.type === 'Credit' || sourceData.type === 'IOU') {
+            transaction.update(sourceSnap.ref, { balance: sourceBalance - newData.amount });
+        } else {
+            transaction.update(sourceSnap.ref, { balance: sourceBalance - newData.amount });
+        }
     }
 
     for (const split of (newData.splits || [])) {
         if (split.type === 'transfer' && split.destinationAccountId) {
+            // This was the source of the error. We don't re-process the IOU source account.
+            if (split.destinationAccountId === effectiveSourceId) continue;
+            
             const destSnap = accountSnaps.get(split.destinationAccountId);
-            if (!destSnap?.exists()) {
-                 throw new Error(`Destination account with ID ${split.destinationAccountId} not found.`);
-            }
+            if (!destSnap?.exists()) throw new Error(`Destination account with ID ${split.destinationAccountId} not found.`);
+
             const destData = destSnap.data() as AccountDetails;
             const destBalance = destData.balance || 0;
+
             if (destData.type === 'IOU' || destData.type === 'Credit') {
-                transaction.update(destSnap.ref, { balance: destBalance - split.amount });
+                 transaction.update(destSnap.ref, { balance: destBalance + split.amount });
             } else {
-                transaction.update(destSnap.ref, { balance: destBalance + split.amount });
+                 transaction.update(destSnap.ref, { balance: destBalance + split.amount });
             }
         }
     }
@@ -350,13 +310,17 @@ export async function updateTransaction(id: string, transactionData: Partial<Omi
         };
         
         const accountIds = new Set<string>();
-        accountIds.add(oldData.paidById || oldData.sourceAccountId);
-        accountIds.add(newData.paidById || newData.sourceAccountId);
+        if (oldData.paidById) accountIds.add(oldData.paidById);
+        if (oldData.sourceAccountId) accountIds.add(oldData.sourceAccountId);
+        if (newData.paidById) accountIds.add(newData.paidById);
+        if (newData.sourceAccountId) accountIds.add(newData.sourceAccountId);
         [...(oldData.splits || []), ...(newData.splits || [])].forEach(s => {
-            if (s.type === 'transfer' && s.destinationAccountId) {
+            if (s.destinationAccountId) {
                 accountIds.add(s.destinationAccountId);
             }
         });
+        
+        accountIds.delete(''); // remove any empty strings
 
         const accountRefs = Array.from(accountIds).map(accId => doc(db, ACCOUNTS_COLLECTION, accId));
         const accountSnaps = await Promise.all(accountRefs.map(ref => transaction.get(ref)));
@@ -383,12 +347,15 @@ export async function deleteTransaction(id: string): Promise<void> {
         const oldData = { id, ...transactionSnap.data() } as Transaction;
         
         const accountIds = new Set<string>();
-        accountIds.add(oldData.paidById || oldData.sourceAccountId);
+        if (oldData.paidById) accountIds.add(oldData.paidById);
+        if (oldData.sourceAccountId) accountIds.add(oldData.sourceAccountId);
         (oldData.splits || []).forEach(s => {
-            if (s.type === 'transfer' && s.destinationAccountId) {
+            if (s.destinationAccountId) {
                 accountIds.add(s.destinationAccountId);
             }
         });
+
+        accountIds.delete(''); // remove any empty strings
 
         const accountRefs = Array.from(accountIds).map(accId => doc(db, ACCOUNTS_COLLECTION, accId));
         const accountSnaps = await Promise.all(accountRefs.map(ref => transaction.get(ref)));
