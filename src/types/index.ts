@@ -261,7 +261,7 @@ export interface Transaction {
     description: string;
     amount: number; // The total amount of the transaction
     date: string; // ISO string
-    sourceAccountId: string; // The account the money came from
+    sourceAccountId?: string; // The account the money came from
     paidById?: string; // Used when another person pays (IOU)
     splits: TransactionSplit[];
 }

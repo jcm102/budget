@@ -186,7 +186,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
         description: values.description,
         amount: values.amount,
         date: values.date,
-        sourceAccountId: values.isIOUPayment ? values.paidById : values.sourceAccountId,
+        sourceAccountId: values.isIOUPayment ? undefined : values.sourceAccountId,
         paidById: values.isIOUPayment ? values.paidById : undefined,
         splits: finalSplits,
     };
@@ -283,7 +283,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                     {isIOUPayment ? (
                         <FormField control={form.control} name="paidById" render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Paid By (IOU)</FormLabel>
+                                <FormLabel>Paid By</FormLabel>
                                 <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                                     <FormControl><SelectTrigger><SelectValue placeholder="Select who paid" /></SelectTrigger></FormControl>
                                     <SelectContent>
@@ -300,7 +300,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                                 <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                                     <FormControl><SelectTrigger><SelectValue placeholder="Select an account" /></SelectTrigger></FormControl>
                                     <SelectContent>
-                                        {nonIouAccounts.map(acc => (<SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>))}
+                                        {accounts.map(acc => (<SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>))}
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />

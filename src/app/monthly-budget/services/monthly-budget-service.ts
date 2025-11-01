@@ -180,13 +180,17 @@ export async function getTransactionsForAccount(accountId: string): Promise<Tran
 
 export async function addTransaction(transactionData: Partial<Omit<Transaction, 'id'>>): Promise<Transaction> {
     const newDocRef = await runTransaction(db, async (transaction) => {
-        const { sourceAccountId, amount, splits } = transactionData;
-        if (!sourceAccountId || !amount || !splits) throw new Error("Missing required transaction data.");
+        const { sourceAccountId, amount, splits, paidById } = transactionData;
+        const effectiveSourceAccountId = paidById || sourceAccountId;
+
+        if (!effectiveSourceAccountId || amount === undefined || !splits) {
+            throw new Error("Missing required transaction data.");
+        }
 
         // --- Start READS ---
-        const sourceAccountRef = doc(db, ACCOUNTS_COLLECTION, sourceAccountId);
+        const sourceAccountRef = doc(db, ACCOUNTS_COLLECTION, effectiveSourceAccountId);
         const sourceAccountSnap = await transaction.get(sourceAccountRef);
-        if (!sourceAccountSnap.exists()) throw new Error(`Source account with ID ${sourceAccountId} not found.`);
+        if (!sourceAccountSnap.exists()) throw new Error(`Source account with ID ${effectiveSourceAccountId} not found.`);
         
         const sourceAccountData = sourceAccountSnap.data() as AccountDetails;
 
@@ -206,14 +210,6 @@ export async function addTransaction(transactionData: Partial<Omit<Transaction, 
             if (!snap.exists()) throw new Error(`One of the destination accounts was not found.`);
         }
         
-        let linkedDebtRef;
-        let linkedDebtSnap;
-        if ((sourceAccountData.type === 'Credit' || sourceAccountData.type === 'IOU') && sourceAccountData.linkedDebtId) {
-            linkedDebtRef = doc(db, DEBT_COLLECTION, sourceAccountData.linkedDebtId);
-            linkedDebtSnap = await transaction.get(linkedDebtRef);
-             if (!linkedDebtSnap.exists()) throw new Error(`Linked debt with ID ${sourceAccountData.linkedDebtId} not found.`);
-        }
-
         // --- End READS ---
 
         // --- Start WRITES ---
@@ -224,31 +220,22 @@ export async function addTransaction(transactionData: Partial<Omit<Transaction, 
 
         // Handle source account
         if (sourceAccountData.type === 'Credit' || sourceAccountData.type === 'IOU') {
-            // IOU Source: Balance increases (You owe more)
-            // Credit Source: Balance increases (Card debt increases)
-            transaction.update(sourceAccountRef, { balance: sourceBalance + amount });
-            if (sourceAccountData.type === 'Credit' && sourceAccountData.linkedDebtId && linkedDebtRef) {
-                const debtBalance = (linkedDebtSnap?.data() as Debt)?.balance || 0;
-                transaction.update(linkedDebtRef, { balance: debtBalance + amount });
-            }
+             transaction.update(sourceAccountRef, { balance: sourceBalance - amount });
         } else {
-            // Normal Account Source: Balance decreases
             transaction.update(sourceAccountRef, { balance: sourceBalance - amount });
         }
 
 
         // Handle destination accounts for transfers
         splits.forEach((split) => {
-            if (split.type === 'transfer' && split.destinationAccountId && split.destinationAccountId !== sourceAccountId) {
+            if (split.type === 'transfer' && split.destinationAccountId) {
                 const destSnap = destinationAccountSnaps.find(snap => snap.id === split.destinationAccountId);
                 if (destSnap) {
                      const destData = destSnap.data() as AccountDetails;
                      const destBalance = destData.balance || 0;
                      if (destData.type === 'IOU' || destData.type === 'Credit') {
-                        // Transferring TO an IOU/Credit means you're paying it down -> balance decreases
                          transaction.update(destSnap.ref, { balance: destBalance - split.amount });
                      } else { 
-                        // Transferring to a normal account -> balance increases
                          transaction.update(destSnap.ref, { balance: destBalance + split.amount });
                      }
                 }
@@ -283,39 +270,29 @@ export async function addTransaction(transactionData: Partial<Omit<Transaction, 
     return { id: docSnap.id, ...(docSnap.data() as Omit<Transaction, 'id'>) };
 }
 
-async function revertTransaction(transaction: FirebaseFirestore.Transaction, oldData: Transaction, accountSnaps: Map<string, FirebaseFirestore.DocumentSnapshot>, debtSnaps: Map<string, FirebaseFirestore.DocumentSnapshot>) {
-    const sourceSnap = accountSnaps.get(oldData.sourceAccountId);
+async function revertTransaction(transaction: FirebaseFirestore.Transaction, oldData: Transaction, accountSnaps: Map<string, FirebaseFirestore.DocumentSnapshot>) {
+    const effectiveSourceId = oldData.paidById || oldData.sourceAccountId;
+    const sourceSnap = accountSnaps.get(effectiveSourceId);
     if (sourceSnap?.exists()) {
         const sourceData = sourceSnap.data() as AccountDetails;
         const sourceBalance = sourceData.balance || 0;
 
         if (sourceData.type === 'Credit' || sourceData.type === 'IOU') {
-             // Reverting an IOU/Credit source means decreasing the balance (you owe less)
-            transaction.update(sourceSnap.ref, { balance: sourceBalance - oldData.amount });
-            if (sourceData.type === 'Credit' && sourceData.linkedDebtId) {
-                const debtSnap = debtSnaps.get(sourceData.linkedDebtId);
-                if (debtSnap?.exists()) {
-                    const debtBalance = (debtSnap.data() as Debt).balance || 0;
-                    transaction.update(debtSnap.ref, { balance: debtBalance - oldData.amount });
-                }
-            }
+             transaction.update(sourceSnap.ref, { balance: sourceBalance + oldData.amount });
         } else {
-            // Reverting a normal source means increasing the balance
             transaction.update(sourceSnap.ref, { balance: sourceBalance + oldData.amount });
         }
     }
 
     for (const split of (oldData.splits || [])) {
-        if (split.type === 'transfer' && split.destinationAccountId && split.destinationAccountId !== oldData.sourceAccountId) {
+        if (split.type === 'transfer' && split.destinationAccountId) {
             const destSnap = accountSnaps.get(split.destinationAccountId);
             if(destSnap?.exists()) {
                 const destData = destSnap.data() as AccountDetails;
                 const destBalance = destData.balance || 0;
                  if (destData.type === 'IOU' || destData.type === 'Credit') {
-                    // Reverting a payment TO an IOU/Credit means balance increases
                     transaction.update(destSnap.ref, { balance: destBalance + split.amount });
                  } else {
-                    // Reverting a transfer TO a normal account means balance decreases
                     transaction.update(destSnap.ref, { balance: destBalance - split.amount });
                  }
             }
@@ -323,33 +300,23 @@ async function revertTransaction(transaction: FirebaseFirestore.Transaction, old
     }
 }
 
-async function applyTransaction(transaction: FirebaseFirestore.Transaction, newData: Transaction, accountSnaps: Map<string, FirebaseFirestore.DocumentSnapshot>, debtSnaps: Map<string, FirebaseFirestore.DocumentSnapshot>) {
-    const sourceSnap = accountSnaps.get(newData.sourceAccountId);
+async function applyTransaction(transaction: FirebaseFirestore.Transaction, newData: Transaction, accountSnaps: Map<string, FirebaseFirestore.DocumentSnapshot>) {
+    const effectiveSourceId = newData.paidById || newData.sourceAccountId;
+    const sourceSnap = accountSnaps.get(effectiveSourceId);
     if (!sourceSnap?.exists()) {
-        throw new Error(`Source account with ID ${newData.sourceAccountId} not found.`);
+        throw new Error(`Source account with ID ${effectiveSourceId} not found.`);
     }
     const sourceData = sourceSnap.data() as AccountDetails;
     const sourceBalance = sourceData.balance || 0;
 
     if (sourceData.type === 'Credit' || sourceData.type === 'IOU') {
-        // Applying an IOU/Credit source transaction means balance increases
-        transaction.update(sourceSnap.ref, { balance: sourceBalance + newData.amount });
-
-        if (sourceData.type === 'Credit' && sourceData.linkedDebtId) {
-            const debtSnap = debtSnaps.get(sourceData.linkedDebtId);
-            if (!debtSnap?.exists()) {
-                 throw new Error(`Linked debt with ID ${sourceData.linkedDebtId} not found.`);
-            }
-            const debtBalance = (debtSnap.data() as Debt).balance || 0;
-            transaction.update(debtSnap.ref, { balance: debtBalance + newData.amount });
-        }
+        transaction.update(sourceSnap.ref, { balance: sourceBalance - newData.amount });
     } else {
-        // Applying a normal source transaction means balance decreases
         transaction.update(sourceSnap.ref, { balance: sourceBalance - newData.amount });
     }
 
     for (const split of (newData.splits || [])) {
-        if (split.type === 'transfer' && split.destinationAccountId && split.destinationAccountId !== newData.sourceAccountId) {
+        if (split.type === 'transfer' && split.destinationAccountId) {
             const destSnap = accountSnaps.get(split.destinationAccountId);
             if (!destSnap?.exists()) {
                  throw new Error(`Destination account with ID ${split.destinationAccountId} not found.`);
@@ -357,10 +324,8 @@ async function applyTransaction(transaction: FirebaseFirestore.Transaction, newD
             const destData = destSnap.data() as AccountDetails;
             const destBalance = destData.balance || 0;
             if (destData.type === 'IOU' || destData.type === 'Credit') {
-                // Transferring TO an IOU/Credit means balance decreases
                 transaction.update(destSnap.ref, { balance: destBalance - split.amount });
             } else {
-                // Transferring TO a normal account means balance increases
                 transaction.update(destSnap.ref, { balance: destBalance + split.amount });
             }
         }
@@ -385,8 +350,8 @@ export async function updateTransaction(id: string, transactionData: Partial<Omi
         };
         
         const accountIds = new Set<string>();
-        accountIds.add(oldData.sourceAccountId);
-        accountIds.add(newData.sourceAccountId);
+        accountIds.add(oldData.paidById || oldData.sourceAccountId);
+        accountIds.add(newData.paidById || newData.sourceAccountId);
         [...(oldData.splits || []), ...(newData.splits || [])].forEach(s => {
             if (s.type === 'transfer' && s.destinationAccountId) {
                 accountIds.add(s.destinationAccountId);
@@ -396,25 +361,11 @@ export async function updateTransaction(id: string, transactionData: Partial<Omi
         const accountRefs = Array.from(accountIds).map(accId => doc(db, ACCOUNTS_COLLECTION, accId));
         const accountSnaps = await Promise.all(accountRefs.map(ref => transaction.get(ref)));
         const accountSnapsMap = new Map(accountSnaps.map(snap => [snap.id, snap]));
-
-        const debtIds = new Set<string>();
-        accountSnaps.forEach(snap => {
-            if (snap.exists()) {
-                const accData = snap.data() as AccountDetails;
-                if (accData.type === 'Credit' && accData.linkedDebtId) {
-                    debtIds.add(accData.linkedDebtId);
-                }
-            }
-        });
-        const debtRefs = Array.from(debtIds).map(debtId => doc(db, DEBT_COLLECTION, debtId));
-        const debtSnaps = await Promise.all(debtRefs.map(ref => transaction.get(ref)));
-        const debtSnapsMap = new Map(debtSnaps.map(snap => [snap.id, snap]));
         // --- End READS ---
 
-
         // --- Start WRITES ---
-        await revertTransaction(transaction, oldData, accountSnapsMap, debtSnapsMap);
-        await applyTransaction(transaction, newData, accountSnapsMap, debtSnapsMap);
+        await revertTransaction(transaction, oldData, accountSnapsMap);
+        await applyTransaction(transaction, newData, accountSnapsMap);
         
         transaction.update(transactionRef, transactionData);
     });
@@ -432,7 +383,7 @@ export async function deleteTransaction(id: string): Promise<void> {
         const oldData = { id, ...transactionSnap.data() } as Transaction;
         
         const accountIds = new Set<string>();
-        accountIds.add(oldData.sourceAccountId);
+        accountIds.add(oldData.paidById || oldData.sourceAccountId);
         (oldData.splits || []).forEach(s => {
             if (s.type === 'transfer' && s.destinationAccountId) {
                 accountIds.add(s.destinationAccountId);
@@ -442,23 +393,10 @@ export async function deleteTransaction(id: string): Promise<void> {
         const accountRefs = Array.from(accountIds).map(accId => doc(db, ACCOUNTS_COLLECTION, accId));
         const accountSnaps = await Promise.all(accountRefs.map(ref => transaction.get(ref)));
         const accountSnapsMap = new Map(accountSnaps.map(snap => [snap.id, snap]));
-        
-        const debtIds = new Set<string>();
-        accountSnaps.forEach(snap => {
-            if (snap.exists()) {
-                const accData = snap.data() as AccountDetails;
-                if (accData.type === 'Credit' && accData.linkedDebtId) {
-                    debtIds.add(accData.linkedDebtId);
-                }
-            }
-        });
-        const debtRefs = Array.from(debtIds).map(debtId => doc(db, DEBT_COLLECTION, debtId));
-        const debtSnaps = await Promise.all(debtRefs.map(ref => transaction.get(ref)));
-        const debtSnapsMap = new Map(debtSnaps.map(snap => [snap.id, snap]));
         // --- End READS ---
         
         // --- Start WRITES ---
-        await revertTransaction(transaction, oldData, accountSnapsMap, debtSnapsMap);
+        await revertTransaction(transaction, oldData, accountSnapsMap);
         transaction.delete(transactionRef);
     });
 }
