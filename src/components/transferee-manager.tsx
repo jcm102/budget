@@ -200,7 +200,7 @@ export function AccountDetailsManager() {
                                     <Server className="h-3 w-3" />
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                    <p>Toggle marks balance as calculated from the Account Ledger on the Future Spending page.</p>
+                                    <p>If on, balance is calculated from the Account Ledger on the Future Spending page.</p>
                                 </TooltipContent>
                             </Tooltip>
                          </TooltipProvider>

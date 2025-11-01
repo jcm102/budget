@@ -62,7 +62,7 @@ export function useTransactions(month?: string) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMonth]);
 
-  const addTransaction = useCallback(async (transactionData: Omit<Transaction, 'id'>) => {
+  const addTransaction = useCallback(async (transactionData: Partial<Omit<Transaction, 'id'>>) => {
     await MonthlyBudgetService.addTransaction(transactionData);
     // Refetch all relevant data
     await Promise.all([fetchTransactions(), fetchBudget(), fetchAccounts(), fetchBudgetItems()]); 

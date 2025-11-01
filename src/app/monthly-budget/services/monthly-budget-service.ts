@@ -177,9 +177,10 @@ export async function getTransactionsForAccount(accountId: string): Promise<Tran
 }
 
 
-export async function addTransaction(transactionData: Omit<Transaction, 'id'>): Promise<Transaction> {
+export async function addTransaction(transactionData: Partial<Omit<Transaction, 'id'>>, isIOUPayment?: boolean): Promise<Transaction> {
     const newDocRef = await runTransaction(db, async (transaction) => {
         const { sourceAccountId, amount, splits } = transactionData;
+        if (!sourceAccountId || !amount || !splits) throw new Error("Missing required transaction data.");
 
         // --- Start READS ---
         const sourceAccountRef = doc(db, ACCOUNTS_COLLECTION, sourceAccountId);
@@ -221,7 +222,7 @@ export async function addTransaction(transactionData: Omit<Transaction, 'id'>): 
         // Handle source account
         if (sourceAccountData.type === 'Credit' || sourceAccountData.type === 'IOU') {
              const sourceBalance = sourceAccountData.balance || 0;
-            // If you pay with a credit card or IOU, your debt increases
+            // If you 'pay' with an IOU, your debt increases
             transaction.update(sourceAccountRef, { balance: sourceBalance + amount });
             if (sourceAccountData.linkedDebtId && linkedDebtRef) {
                 const debtBalance = (linkedDebtSnap?.data() as Debt)?.balance || 0;
@@ -369,12 +370,9 @@ export async function updateTransaction(id: string, transactionData: Partial<Omi
         const oldData = { id, ...transactionSnap.data() } as Transaction;
         
         const newData: Transaction = {
+            ...oldData,
+            ...transactionData,
             id: id,
-            description: transactionData.description ?? oldData.description,
-            amount: transactionData.amount ?? oldData.amount,
-            date: transactionData.date ?? oldData.date,
-            sourceAccountId: transactionData.sourceAccountId ?? oldData.sourceAccountId,
-            splits: transactionData.splits ?? oldData.splits,
         };
         
         const accountIds = new Set<string>();
@@ -455,5 +453,3 @@ export async function deleteTransaction(id: string): Promise<void> {
         transaction.delete(transactionRef);
     });
 }
-
-    

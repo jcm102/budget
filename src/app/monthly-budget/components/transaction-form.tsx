@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -27,13 +25,13 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Trash2, PlusCircle, User, Users, Info, Copy, Loader2 } from 'lucide-react';
+import { Trash2, PlusCircle, User, Users, Info, Copy, Loader2, Handshake } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
 import { Calculator } from '@/components/calculator';
-import type { Transaction, TransactionSplit, AccountDetails, Category, MonthlyBudgetItem } from '@/types';
+import type { Transaction, TransactionSplit, AccountDetails, Category } from '@/types';
 import { useMonthlyBudget } from '../hooks/use-monthly-budget';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -54,21 +52,31 @@ const formSchema = z.object({
   description: z.string().min(2, 'Description must be at least 2 characters.'),
   amount: z.coerce.number().min(0.01, 'Amount must be greater than zero.'),
   date: z.string().min(1, 'A date is required.'),
-  sourceAccountId: z.string().min(1, 'A source account is required.'),
+  sourceAccountId: z.string().optional(),
   splits: z.array(splitSchema),
+  isIOUPayment: z.boolean().optional(),
+  paidById: z.string().optional(),
 }).refine(data => {
     const totalSplitAmount = data.splits.reduce((sum, split) => sum + split.amount, 0);
     return Math.abs(totalSplitAmount - data.amount) < 0.01; // Allow for floating point inaccuracies
 }, {
     message: 'The sum of the splits must equal the total transaction amount.',
     path: ['splits'],
+}).refine(data => {
+    if (data.isIOUPayment) {
+        return !!data.paidById;
+    }
+    return !!data.sourceAccountId;
+}, {
+    message: 'A source account is required.',
+    path: ['sourceAccountId'],
 });
 
 type TransactionFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   accounts: AccountDetails[];
-  addTransaction: (item: Omit<Transaction, 'id'>) => Promise<void>;
+  addTransaction: (item: Partial<Omit<Transaction, 'id'>>, isIOUPayment?: boolean) => Promise<void>;
   updateTransaction: (id: string, item: Partial<Omit<Transaction, 'id'>>) => Promise<void>;
   deleteTransaction: (id: string) => void;
   editingTransaction: Transaction | null;
@@ -88,13 +96,19 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
       date: new Date().toISOString().split('T')[0],
       sourceAccountId: '',
       splits: [],
+      isIOUPayment: false,
+      paidById: '',
     },
   });
 
-  const { fields, append, remove, replace } = useFieldArray({
+  const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: 'splits',
   });
+  
+  const iouAccounts = useMemo(() => accounts.filter(a => a.type === 'IOU'), [accounts]);
+  const nonIouAccounts = useMemo(() => accounts.filter(a => a.type !== 'IOU'), [accounts]);
+  const isIOUPayment = form.watch('isIOUPayment');
   
   const categoryTree = useMemo(() => {
     const buildTree = (parentId: string | null = null): CategoryWithChildren[] => {
@@ -111,12 +125,15 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
   useEffect(() => {
     if (open) {
       if (editingTransaction) {
+        const isIOU = !!editingTransaction.paidById;
         form.reset({
           description: editingTransaction.description,
           amount: editingTransaction.amount,
           date: editingTransaction.date.split('T')[0],
-          sourceAccountId: editingTransaction.sourceAccountId,
+          sourceAccountId: isIOU ? '' : editingTransaction.sourceAccountId,
           splits: editingTransaction.splits || [],
+          isIOUPayment: isIOU,
+          paidById: isIOU ? editingTransaction.paidById : '',
         });
       } else {
         form.reset({
@@ -125,6 +142,8 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
           date: new Date().toISOString().split('T')[0],
           sourceAccountId: '',
           splits: [],
+          isIOUPayment: false,
+          paidById: '',
         });
       }
     }
@@ -164,7 +183,11 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
     });
 
     const submissionData = { 
-        ...values,
+        description: values.description,
+        amount: values.amount,
+        date: values.date,
+        sourceAccountId: values.isIOUPayment ? values.paidById : values.sourceAccountId,
+        paidById: values.isIOUPayment ? values.paidById : undefined,
         splits: finalSplits,
     };
 
@@ -176,7 +199,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
             description: "Your transaction has been successfully updated.",
           });
         } else {
-          await addTransaction(submissionData);
+          await addTransaction(submissionData, values.isIOUPayment);
            toast({
             title: "Transaction Added",
             description: "Your new transaction has been successfully added.",
@@ -232,6 +255,22 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 h-full flex flex-col">
           <ScrollArea className={cn(isPage ? "flex-grow" : "h-[65vh] pr-4")}>
             <div className="space-y-4">
+                <FormField
+                    control={form.control}
+                    name="isIOUPayment"
+                    render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                            <div className="space-y-0.5">
+                                <FormLabel className="flex items-center gap-2">
+                                    <Handshake />
+                                    Paid by Someone Else (IOU)
+                                </FormLabel>
+                            </div>
+                            <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                        </FormItem>
+                    )}
+                />
+
                 <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="date" render={({ field }) => (
                         <FormItem>
@@ -241,27 +280,37 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                         </FormItem>
                     )}
                     />
-                    <FormField control={form.control} name="sourceAccountId" render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Source Account</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
-                            <FormControl>
-                            <SelectTrigger><SelectValue placeholder="Select an account" /></SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                            {accounts.map(acc => (
-                                <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
-                            ))}
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
-                        </FormItem>
+                    {isIOUPayment ? (
+                        <FormField control={form.control} name="paidById" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Paid By (IOU)</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Select who paid" /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        {iouAccounts.map(acc => (<SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>))}
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}/>
+                    ) : (
+                        <FormField control={form.control} name="sourceAccountId" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Source Account</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Select an account" /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        {nonIouAccounts.map(acc => (<SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>))}
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}/>
                     )}
-                    />
                 </div>
                 <FormField control={form.control} name="amount" render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Total Amount</FormLabel>
+                    <FormLabel>Total Transaction Amount</FormLabel>
                     <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
                     <FormMessage />
                     </FormItem>
