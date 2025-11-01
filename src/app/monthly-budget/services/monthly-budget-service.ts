@@ -218,16 +218,23 @@ export async function addTransaction(transactionData: Omit<Transaction, 'id'>): 
         const newTransactionRef = doc(collection(db, TRANSACTIONS_COLLECTION));
         transaction.set(newTransactionRef, transactionData);
 
-        // Debit/Credit source account
-        if (sourceAccountData.type === 'Credit' && linkedDebtRef && linkedDebtSnap) {
-            const debtBalance = (linkedDebtSnap.data() as Debt).balance || 0;
-            transaction.update(linkedDebtRef, { balance: debtBalance + amount });
+        // Handle source account
+        if (sourceAccountData.type === 'Credit' || sourceAccountData.type === 'IOU') {
+             const sourceBalance = sourceAccountData.balance || 0;
+            // If you pay with a credit card or IOU, your debt increases
+            transaction.update(sourceAccountRef, { balance: sourceBalance + amount });
+            if (sourceAccountData.linkedDebtId && linkedDebtRef) {
+                const debtBalance = (linkedDebtSnap?.data() as Debt)?.balance || 0;
+                transaction.update(linkedDebtRef, { balance: debtBalance + amount });
+            }
         } else {
+            // For normal accounts, balance decreases
             const sourceBalance = sourceAccountData.balance || 0;
             transaction.update(sourceAccountRef, { balance: sourceBalance - amount });
         }
 
-        // Credit/Debit destination accounts for transfers
+
+        // Handle destination accounts for transfers
         splits.forEach((split) => {
             if (split.type === 'transfer') {
                 const destSnap = destinationAccountSnaps.find(snap => snap.id === split.destinationAccountId);
@@ -235,6 +242,7 @@ export async function addTransaction(transactionData: Omit<Transaction, 'id'>): 
                      const destData = destSnap.data() as AccountDetails;
                      const destBalance = destData.balance || 0;
                      if (destData.type === 'IOU' || destData.type === 'Credit') {
+                        // Transferring TO an IOU/Credit means you're paying it down
                          transaction.update(destSnap.ref, { balance: destBalance - split.amount });
                      } else { 
                          transaction.update(destSnap.ref, { balance: destBalance + split.amount });
@@ -275,11 +283,16 @@ async function revertTransaction(transaction: FirebaseFirestore.Transaction, old
     const sourceSnap = accountSnaps.get(oldData.sourceAccountId);
     if (sourceSnap?.exists()) {
         const sourceData = sourceSnap.data() as AccountDetails;
-        if (sourceData.type === 'Credit' && sourceData.linkedDebtId) {
-            const debtSnap = debtSnaps.get(sourceData.linkedDebtId);
-            if (debtSnap?.exists()) {
-                const debtBalance = (debtSnap.data() as Debt).balance || 0;
-                transaction.update(debtSnap.ref, { balance: debtBalance - oldData.amount });
+        if (sourceData.type === 'Credit' || sourceData.type === 'IOU') {
+             const sourceBalance = sourceData.balance || 0;
+            transaction.update(sourceSnap.ref, { balance: sourceBalance - oldData.amount });
+
+            if (sourceData.linkedDebtId) {
+                const debtSnap = debtSnaps.get(sourceData.linkedDebtId);
+                if (debtSnap?.exists()) {
+                    const debtBalance = (debtSnap.data() as Debt).balance || 0;
+                    transaction.update(debtSnap.ref, { balance: debtBalance - oldData.amount });
+                }
             }
         } else {
             const sourceBalance = sourceData.balance || 0;
@@ -310,13 +323,18 @@ async function applyTransaction(transaction: FirebaseFirestore.Transaction, newD
     }
     const sourceData = sourceSnap.data() as AccountDetails;
 
-    if (sourceData.type === 'Credit' && sourceData.linkedDebtId) {
-        const debtSnap = debtSnaps.get(sourceData.linkedDebtId);
-        if (!debtSnap?.exists()) {
-             throw new Error(`Linked debt with ID ${sourceData.linkedDebtId} not found.`);
+    if (sourceData.type === 'Credit' || sourceData.type === 'IOU') {
+        const sourceBalance = sourceData.balance || 0;
+        transaction.update(sourceSnap.ref, { balance: sourceBalance + newData.amount });
+
+        if (sourceData.linkedDebtId) {
+            const debtSnap = debtSnaps.get(sourceData.linkedDebtId);
+            if (!debtSnap?.exists()) {
+                 throw new Error(`Linked debt with ID ${sourceData.linkedDebtId} not found.`);
+            }
+            const debtBalance = (debtSnap.data() as Debt).balance || 0;
+            transaction.update(debtSnap.ref, { balance: debtBalance + newData.amount });
         }
-        const debtBalance = (debtSnap.data() as Debt).balance || 0;
-        transaction.update(debtSnap.ref, { balance: debtBalance + newData.amount });
     } else {
         const sourceBalance = sourceData.balance || 0;
         transaction.update(sourceSnap.ref, { balance: sourceBalance - newData.amount });
@@ -437,3 +455,5 @@ export async function deleteTransaction(id: string): Promise<void> {
         transaction.delete(transactionRef);
     });
 }
+
+    
