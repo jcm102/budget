@@ -84,8 +84,9 @@ export function AccountClientPage({
     if (!startDate || !endDate) {
       return accountTransactions;
     }
-    const start = new Date(startDate + 'T00:00:00');
-    const end = new Date(endDate + 'T23:59:59');
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setUTCHours(23, 59, 59, 999); // Set to end of day in UTC
 
     const filtered = accountTransactions.filter(tx => {
       const txDate = new Date(tx.date);
@@ -95,7 +96,7 @@ export function AccountClientPage({
     return filtered.sort((a, b) => {
         const dateA = new Date(a.date).getTime();
         const dateB = new Date(b.date).getTime();
-        return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+        return sortDirection === 'asc' ? dateA - dateB : dateB - a;
     });
 
   }, [accountTransactions, startDate, endDate, sortDirection]);
