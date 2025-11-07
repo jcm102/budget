@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { format, parse, startOfMonth, endOfMonth } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, Pencil, Trash2, ArrowUpDown } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -64,6 +64,7 @@ export function AccountClientPage({
   
   const [startDate, setStartDate] = useState<string | undefined>(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState<string | undefined>(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
 
   useEffect(() => {
@@ -86,11 +87,18 @@ export function AccountClientPage({
     const start = new Date(startDate + 'T00:00:00');
     const end = new Date(endDate + 'T23:59:59');
 
-    return accountTransactions.filter(tx => {
+    const filtered = accountTransactions.filter(tx => {
       const txDate = new Date(tx.date);
       return txDate >= start && txDate <= end;
     });
-  }, [accountTransactions, startDate, endDate]);
+
+    return filtered.sort((a, b) => {
+        const dateA = new Date(a.date).getTime();
+        const dateB = new Date(b.date).getTime();
+        return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+    });
+
+  }, [accountTransactions, startDate, endDate, sortDirection]);
   
   const handleEditTransaction = (transaction: Transaction) => {
     setEditingTransaction(transaction);
@@ -102,6 +110,10 @@ export function AccountClientPage({
     if (!isOpen) {
       setEditingTransaction(null);
     }
+  };
+
+  const toggleSortDirection = () => {
+    setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
   };
 
   if (!account) {
@@ -152,7 +164,13 @@ export function AccountClientPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Transaction History</CardTitle>
+                <div className="flex justify-between items-start">
+                    <CardTitle>Transaction History</CardTitle>
+                    <Button variant="outline" size="icon" onClick={toggleSortDirection} className="h-8 w-8">
+                        <ArrowUpDown className="h-4 w-4" />
+                        <span className="sr-only">Toggle sort direction</span>
+                    </Button>
+                </div>
               <div className="flex flex-col sm:flex-row gap-4 pt-4">
                 <div className="grid gap-2 flex-1">
                   <Label htmlFor="start-date">Start Date</Label>
