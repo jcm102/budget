@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { format, parse } from 'date-fns';
+import { format, parse, startOfMonth, endOfMonth } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Pencil, Trash2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -25,6 +25,8 @@ import {
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
 import { useTransactions } from '@/app/monthly-budget/hooks/use-transactions';
+import { DatePicker } from '@/components/date-picker';
+import { Label } from '@/components/ui/label';
 
 const parseDate = (dateString: string) => {
     // This safely parses a 'yyyy-MM-dd' string from a full ISO string into a local Date object.
@@ -59,9 +61,11 @@ export function AccountClientPage({
   
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  
+  const [startDate, setStartDate] = useState<string | undefined>(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [endDate, setEndDate] = useState<string | undefined>(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
 
-  // Since we pass initial transactions, the hook will use those first,
-  // and then we can trigger fetches if needed. This avoids re-fetching on mount.
+
   useEffect(() => {
     if (account.id) {
         fetchTransactionsForAccount(account.id);
@@ -74,6 +78,19 @@ export function AccountClientPage({
         return map;
     }, {} as Record<string, string>);
   }, [allCategories]);
+
+  const filteredTransactions = useMemo(() => {
+    if (!startDate || !endDate) {
+      return accountTransactions;
+    }
+    const start = new Date(startDate + 'T00:00:00');
+    const end = new Date(endDate + 'T23:59:59');
+
+    return accountTransactions.filter(tx => {
+      const txDate = new Date(tx.date);
+      return txDate >= start && txDate <= end;
+    });
+  }, [accountTransactions, startDate, endDate]);
   
   const handleEditTransaction = (transaction: Transaction) => {
     setEditingTransaction(transaction);
@@ -136,6 +153,16 @@ export function AccountClientPage({
           <Card>
             <CardHeader>
               <CardTitle>Transaction History</CardTitle>
+              <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                <div className="grid gap-2 flex-1">
+                  <Label htmlFor="start-date">Start Date</Label>
+                  <DatePicker date={startDate} setDate={setStartDate} />
+                </div>
+                <div className="grid gap-2 flex-1">
+                  <Label htmlFor="end-date">End Date</Label>
+                  <DatePicker date={endDate} setDate={setEndDate} />
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
                {isLoadingTransactions ? (
@@ -156,8 +183,8 @@ export function AccountClientPage({
                     </TableRow>
                     </TableHeader>
                     <TableBody>
-                    {accountTransactions.length > 0 ? (
-                        accountTransactions.map(tx => {
+                    {filteredTransactions.length > 0 ? (
+                        filteredTransactions.map(tx => {
                             const expenseSplits = tx.splits.filter(s => s.type === 'expense');
                             const transferSplits = tx.splits.filter(s => s.type === 'transfer');
 
@@ -218,7 +245,7 @@ export function AccountClientPage({
                     ) : (
                         <TableRow>
                         <TableCell colSpan={5} className="h-24 text-center">
-                            No transactions found for this account.
+                            No transactions found for this date range.
                         </TableCell>
                         </TableRow>
                     )}
