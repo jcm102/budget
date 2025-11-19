@@ -58,6 +58,15 @@ export default function MonthlyBudgetPage() {
 
 
   const totalBudgeted = monthlyBudgetItems.reduce((acc, item) => acc + item.budgeted, 0);
+  const totalSpent = useMemo(() => {
+    // Only calculate for the current view, transfers don't count as "spent" from the budget
+    return transactions.reduce((acc, tx) => {
+        const expenseSplitsTotal = tx.splits
+            .filter(split => split.type === 'expense')
+            .reduce((sum, split) => sum + split.amount, 0);
+        return acc + expenseSplitsTotal;
+    }, 0);
+  }, [transactions]);
   
   const selectedBudgetItem = selectedCategory 
     ? monthlyBudgetItems.find(b => b.categoryId === selectedCategory.id) 
@@ -85,6 +94,7 @@ export default function MonthlyBudgetPage() {
   }
 
   const leftToBudget = incomeAmount - totalBudgeted;
+  const remainingInBudget = totalBudgeted - totalSpent;
 
   return (
     <>
@@ -104,7 +114,7 @@ export default function MonthlyBudgetPage() {
         category={selectedCategory}
         budgetItem={selectedBudgetItem}
       />
-      <div className="container mx-auto max-w-4xl p-4 md:p-8">
+      <div className="container mx-auto max-w-6xl p-4 md:p-8">
         <header className="mb-8 flex justify-between items-center">
           <Button asChild variant="outline">
             <Link href="/">
@@ -155,8 +165,8 @@ export default function MonthlyBudgetPage() {
                 </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                 <Link href="/budget">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                 <Link href="/budget" className="md:col-span-2 lg:col-span-1">
                     <div 
                     className="p-4 border rounded-lg bg-card cursor-pointer hover:bg-accent transition-colors h-full"
                     >
@@ -170,10 +180,14 @@ export default function MonthlyBudgetPage() {
                     <h4 className="text-muted-foreground">Amount Budgeted</h4>
                     <p className="text-2xl font-semibold">{formatCurrency(totalBudgeted)}</p>
                 </div>
+                 <div className="p-4 border rounded-lg bg-card">
+                    <h4 className="text-muted-foreground">Total Spent</h4>
+                    <p className="text-2xl font-semibold">{formatCurrency(totalSpent)}</p>
+                </div>
                 <div className="p-4 border rounded-lg bg-card">
-                    <h4 className="text-muted-foreground">Left to Budget</h4>
-                    <p className={`text-2xl font-semibold ${leftToBudget < 0 ? 'text-destructive' : ''}`}>
-                      {formatCurrency(leftToBudget)}
+                    <h4 className="text-muted-foreground">Remaining (Budget)</h4>
+                    <p className={`text-2xl font-semibold ${remainingInBudget < 0 ? 'text-destructive' : ''}`}>
+                      {formatCurrency(remainingInBudget)}
                     </p>
                 </div>
             </div>
