@@ -10,7 +10,7 @@ import { TransactionForm } from './components/transaction-form';
 import { useTransactions } from './hooks/use-transactions';
 import { useMonthlyBudget } from './hooks/use-monthly-budget';
 import { BudgetBreakdownForm } from './components/budget-breakdown-form';
-import type { Category, MonthlyBudgetItem, BudgetSubItem, Transaction } from '@/types';
+import type { Category, MonthlyBudgetItem, BudgetSubItem, Transaction, BudgetItem } from '@/types';
 import { useBudget } from '@/app/budget/hooks/use-budget';
 import { format, addMonths } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -46,27 +46,38 @@ export default function MonthlyBudgetPage() {
 
   const { transactions, accounts, addTransaction, updateTransaction, deleteTransaction, isLoading: isLoadingTransactions } = useTransactions(selectedMonthString);
   const { budgetItems: monthlyBudgetItems, categories, updateBudgetItemWithBreakdown, isLoading: isLoadingBudget, updateBudgetItem, copyCategoryFromPreviousMonth, copyBudgetItemToNextMonth, cycleToNextMonth } = useMonthlyBudget(selectedMonthString);
-  const { budgetItems: incomeItems, isLoading: isLoadingIncome } = useBudget();
-
-  const incomeAmount = useMemo(() => {
+  const { budgetItems, isLoading: isLoadingIncome } = useBudget();
+  
+  const { incomeAmount, paPaymentCategoryIds } = useMemo(() => {
     const relevantIncome = view === 'next'
-      ? incomeItems.filter(i => i.type === 'Income' && i.forNextMonth)
-      : incomeItems.filter(i => i.type === 'Income' && !i.forNextMonth);
+      ? budgetItems.filter(i => i.type === 'Income' && i.forNextMonth)
+      : budgetItems.filter(i => i.type === 'Income' && !i.forNextMonth);
+    
+    const paItems = budgetItems.filter(i => i.type === 'Pre-Authorized Payments');
+    const paIds = new Set(paItems.map(item => item.budgetCategoryId).filter(id => !!id));
       
-    return relevantIncome.reduce((acc, i) => acc + i.amount, 0);
-  }, [incomeItems, view]);
+    return {
+      incomeAmount: relevantIncome.reduce((acc, i) => acc + i.amount, 0),
+      paPaymentCategoryIds: paIds,
+    }
+  }, [budgetItems, view]);
 
 
   const totalBudgeted = monthlyBudgetItems.reduce((acc, item) => acc + item.budgeted, 0);
+
   const totalSpent = useMemo(() => {
-    // Only calculate for the current view, transfers don't count as "spent" from the budget
     return transactions.reduce((acc, tx) => {
         const expenseSplitsTotal = tx.splits
-            .filter(split => split.type === 'expense')
+            .filter(split => {
+                const isExpense = split.type === 'expense';
+                // Exclude if the category is linked to a Pre-Authorized Payment
+                const isPAPayment = split.categoryId ? paPaymentCategoryIds.has(split.categoryId) : false;
+                return isExpense && !isPAPayment;
+            })
             .reduce((sum, split) => sum + split.amount, 0);
         return acc + expenseSplitsTotal;
     }, 0);
-  }, [transactions]);
+  }, [transactions, paPaymentCategoryIds]);
   
   const selectedBudgetItem = selectedCategory 
     ? monthlyBudgetItems.find(b => b.categoryId === selectedCategory.id) 
