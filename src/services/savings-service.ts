@@ -1,4 +1,3 @@
-'use server';
 
 import { db } from '@/lib/firebase';
 import type { SavingsItem, SavingsRecurrence, SinkingFundTransaction } from '@/types';
