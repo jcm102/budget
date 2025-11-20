@@ -15,6 +15,7 @@ import {
   getDoc,
   orderBy,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 import { addMonths, set, format, startOfToday, parse, isBefore, differenceInCalendarMonths } from 'date-fns';
 
@@ -82,6 +83,18 @@ export async function addSavingsItem(itemData: Omit<SavingsItem, 'id' | 'monthly
   const docRef = await addDoc(collection(db, SAVINGS_COLLECTION), itemData);
   const docSnap = await getDoc(docRef);
   const newItem = { id: docSnap.id, ...(docSnap.data() as Omit<SavingsItem, 'id'>) };
+  
+  // Also create an initial deposit transaction
+  if (newItem.amount > 0) {
+      const transactionData: Omit<SinkingFundTransaction, 'id'> = {
+          fundId: newItem.id,
+          amount: newItem.amount,
+          type: 'deposit',
+          date: new Date().toISOString().split('T')[0],
+      };
+      await addDoc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION), transactionData);
+  }
+
   return {
     ...newItem,
     monthlyAmount: calculateMonthlyAmount(newItem as SavingsItem),
