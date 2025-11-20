@@ -1,20 +1,123 @@
-
+/**
+ * Core Philosophy: This ruleset enforces a strict user-ownership model. All user-generated
+ * content, specifically tasks, is stored in a subcollection under a unique user document.
+ * This ensures that a user can only ever access their own data. The default security
+ * posture is to deny all access unless a rule explicitly grants it.
+ *
+ * Data Structure: All data is nested under the `/users/{userId}` path. For example, a
+ * user's tasks are stored at `/users/{userId}/tasks/{taskId}`. This hierarchical
+ * structure makes ownership implicit in the document path, simplifying security rules.
+ *
+ * Key Security Decisions:
+ * - User Isolation: A user's data is completely isolated from other users. Rules are
+ *   designed to prevent any cross-user data access.
+ * - No User Enumeration: Listing the top-level `/users` collection is explicitly
+ *   disallowed to prevent leaking user IDs.
+ * - Path-Based Authorization: Ownership is determined by the `userId` in the document
+ *   path, which is the most performant and secure method for this data model.
+ * - Prototyping Flexibility: While authorization is strict, these rules do not enforce
+ *   a rigid data schema. This allows developers to iterate on the application's data
+ *   model without needing to update security rules for every field change.
+ *
+ * Denormalization for Authorization: The data structure is designed to avoid the need for
+ * denormalization. Since all tasks are located under a user-specific path, the `userId`
+ * in the path itself serves as the authoritative ownership credential. This avoids costly
+ * `get()` calls to other documents for authorization checks.
+ *
+ * Structural Segregation: This model uses structural segregation by design. Each user's
+ * private data is stored in its own collection tree, which is inherently more secure and
+ * performant for queries than mixing data from multiple users in a single collection.
+ */
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Allow read access on the 'sinking-fund-transactions' collection group for all users.
-    // This is required for the transaction history query to work across different user subcollections.
-    // This rule is intentionally broad for development.
-    match /{path=**}/sinking-fund-transactions/{transactionId} {
-      allow read, write: if true;
+    // ------------------------------------------------------------------------
+    // Helper Functions
+    // ------------------------------------------------------------------------
+
+    /**
+     * Checks if the user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    // Allow users to read and write to any other document in the database.
-    // This is a permissive rule for development and should be refined for production.
-    match /{document=**} {
-      allow read, write: if true;
+    /**
+     * Checks if the authenticated user's UID matches the provided userId.
+     * This is the primary function for verifying document ownership.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
     }
+
+    /**
+     * A robust check for update/delete operations.
+     * Ensures the user is the owner AND the document already exists.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * Validates required relational fields for a new Task document.
+     * Ensures the document's internal ID matches its path ID.
+     */
+    function isValidNewTask(taskId) {
+      let data = request.resource.data;
+      return data.id == taskId;
+    }
+
+    /**
+     * Ensures critical relational fields of a Task are not changed on update.
+     */
+    function isImmutableTaskData() {
+      return request.resource.data.id == resource.data.id;
+    }
+
+
+    // ------------------------------------------------------------------------
+    // Collection Rules
+    // ------------------------------------------------------------------------
+
+    /**
+     * @description Controls access to a user's root document. This could be used for
+     *              storing profile information. It prevents user enumeration by
+     *              disallowing list operations.
+     * @path /users/{userId}
+     * @allow (get, update) An authenticated user reads or updates their own document.
+     * @allow (create) An authenticated user creates their own document for the first time.
+     * @deny (list) Any user, authenticated or not, tries to list all user documents.
+     * @deny (delete) A user tries to delete their own user document.
+     * @principle Restricts access to a user's own data tree and prevents user enumeration.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if false;
+    }
+
+    /**
+     * @description Secures task documents, which are owned by a specific user. Only the
+     *              document owner can read, create, update, or delete their tasks.
+     * @path /users/{userId}/tasks/{taskId}
+     * @allow (create) User 'user123' creates a new task document under their own path
+     *                `/users/user123/tasks/taskABC`.
+     * @allow (get, list, update, delete) User 'user123' performs any operation on a task
+     *                                   they own.
+     * @deny (create, update) User 'user123' tries to write to another user's path, e.g.,
+     *                       `/users/user456/tasks/taskXYZ`.
+     * @principle Enforces strict document ownership within a user-specific subcollection.
+     */
+    match /users/{userId}/tasks/{taskId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidNewTask(taskId);
+      allow update: if isExistingOwner(userId) && isImmutableTaskData();
+      allow delete: if isExistingOwner(userId);
+    }
+
   }
 }

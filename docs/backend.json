@@ -1,11 +1,10 @@
-
 {
   "entities": {
     "Task": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Task",
       "type": "object",
-      "description": "Represents a task in the TaskTrack Budget application.",
+      "description": "Represents a task with a description, due date, frequency, and completion status.",
       "properties": {
         "id": {
           "type": "string",
@@ -13,17 +12,16 @@
         },
         "description": {
           "type": "string",
-          "description": "Description of the task."
+          "description": "The description of the task."
         },
         "dueDate": {
           "type": "string",
-          "description": "The due date for the task.",
+          "description": "The date when the task is due.",
           "format": "date-time"
         },
         "frequency": {
           "type": "string",
-          "description": "Frequency of the task (daily, weekly, monthly).",
-          "format": "string"
+          "description": "The frequency of the task (daily, weekly, monthly)."
         },
         "completed": {
           "type": "boolean",
@@ -37,43 +35,6 @@
         "frequency",
         "completed"
       ]
-    },
-    "LinkGroup": {
-      "title": "Link Group",
-      "type": "object",
-      "description": "A group of links that can be associated with a task.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the LinkGroup entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the link group."
-        },
-        "links": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "format": "uri"
-          },
-          "description": "A list of URLs in the group."
-        }
-      },
-      "required": ["id", "name", "links"]
-    },
-    "SinkingFundTransaction": {
-      "title": "Sinking Fund Transaction",
-      "type": "object",
-      "description": "Represents a transaction for a sinking fund.",
-      "properties": {
-        "id": { "type": "string" },
-        "fundId": { "type": "string" },
-        "amount": { "type": "number" },
-        "type": { "type": "string", "enum": ["deposit", "withdraw"] },
-        "date": { "type": "string", "format": "date" }
-      },
-      "required": ["id", "fundId", "amount", "type", "date"]
     }
   },
   "auth": {
@@ -85,32 +46,26 @@
   "firestore": {
     "structure": [
       {
-        "path": "/tasks/{taskId}",
+        "path": "/users/{userId}/tasks/{taskId}",
         "definition": {
+          "entityName": "Task",
           "schema": {
-            "$ref": "#/entities/Task"
+            "$ref": "#/backend/entities/Task"
           },
-          "description": "Stores tasks for the application."
-        }
-      },
-      {
-        "path": "/link-groups/{linkGroupId}",
-        "definition": {
-          "schema": {
-            "$ref": "#/entities/LinkGroup"
-          },
-          "description": "Stores link groups for the application."
-        }
-      },
-       {
-        "path": "/sinking-fund-transactions/{transactionId}",
-        "definition": {
-          "schema": {
-            "$ref": "#/entities/SinkingFundTransaction"
-          },
-          "description": "Stores sinking fund transactions."
+          "description": "Stores task data for each user. Path-based ownership ensures that only the user can access their tasks.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user."
+            },
+            {
+              "name": "taskId",
+              "description": "The ID of the task."
+            }
+          ]
         }
       }
-    ]
+    ],
+    "reasoning": "The data structure is designed to ensure authorization independence, clarity, and secure data access for the TaskTrack Budget app. It leverages path-based ownership for tasks, storing them under the respective user's document. This eliminates the need for `get()` calls in security rules, facilitating atomic operations and easy debugging. The structure also supports secure `list` operations by isolating each user's tasks within their own collection.  Tasks are stored as documents within a user-specific subcollection (`/users/{userId}/tasks/{taskId}`). This ensures that only the user can access their own tasks. No denormalization is needed as ownership is implicit in the path."
   }
 }
