@@ -16,6 +16,7 @@ import {
   orderBy,
   where,
   writeBatch,
+  runTransaction
 } from 'firebase/firestore';
 import { addMonths, set, format, startOfToday, parse, isBefore, differenceInCalendarMonths } from 'date-fns';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -82,121 +83,103 @@ export async function getSavingsItems(accountId: string): Promise<SavingsItem[]>
 }
 
 export async function addSavingsItem(userId: string, itemData: Omit<SavingsItem, 'id' | 'monthlyAmount'>): Promise<SavingsItem> {
-  const docRef = await addDoc(collection(db, SAVINGS_COLLECTION), itemData);
-  const docSnap = await getDoc(docRef);
-  const newItem = { id: docRef.id, ...(docSnap.data() as Omit<SavingsItem, 'id'>) };
-  
-  // Also create an initial deposit transaction
-  if (newItem.amount > 0) {
+  const newItemRef = await runTransaction(db, async (transaction) => {
+    const docRef = doc(collection(db, SAVINGS_COLLECTION));
+    transaction.set(docRef, itemData);
+
+    if (itemData.amount > 0) {
       const transactionData: Omit<SinkingFundTransaction, 'id'> = {
-          fundId: newItem.id,
-          amount: newItem.amount,
-          type: 'deposit',
-          date: new Date().toISOString().split('T')[0],
+        fundId: docRef.id,
+        amount: itemData.amount,
+        type: 'deposit',
+        date: new Date().toISOString().split('T')[0],
       };
       const transactionCollectionRef = collection(db, 'users', userId, SINKING_FUND_TRANSACTIONS_COLLECTION);
-      
-      addDoc(transactionCollectionRef, transactionData).catch(async (serverError) => {
-          const permissionError = new FirestorePermissionError({
-            path: `users/${userId}/${SINKING_FUND_TRANSACTIONS_COLLECTION}`,
-            operation: 'create',
-            requestResourceData: transactionData,
-          });
-          errorEmitter.emit('permission-error', permissionError);
-          // Re-throw to ensure calling function knows it failed
-          throw serverError;
-      });
-  }
+      const newTransactionRef = doc(transactionCollectionRef);
+      transaction.set(newTransactionRef, transactionData);
+    }
+    return docRef;
+  });
+
+  const docSnap = await getDoc(newItemRef);
+  const newItem = { id: docSnap.id, ...(docSnap.data() as Omit<SavingsItem, 'id'>) };
 
   return {
     ...newItem,
     monthlyAmount: calculateMonthlyAmount(newItem as SavingsItem),
-  }
+  };
 }
 
 export async function updateSavingsItem(userId: string, id: string, itemData: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>): Promise<void> {
-  const itemRef = doc(db, SAVINGS_COLLECTION, id);
-  const docSnap = await getDoc(itemRef);
+  await runTransaction(db, async (transaction) => {
+    const itemRef = doc(db, SAVINGS_COLLECTION, id);
+    const docSnap = await transaction.get(itemRef);
 
-  if (!docSnap.exists()) {
-    throw new Error('Savings item not found');
-  }
-
-  const existingData = docSnap.data() as SavingsItem;
-  const oldAmount = existingData.amount;
-  const newAmount = itemData.amount;
-
-  if (typeof newAmount === 'number' && newAmount !== oldAmount) {
-      const transactionData: Omit<SinkingFundTransaction, 'id'> = {
-          fundId: id,
-          amount: Math.abs(newAmount - oldAmount),
-          type: newAmount > oldAmount ? 'deposit' : 'withdraw',
-          date: new Date().toISOString().split('T')[0],
-      };
-      const transactionCollectionRef = collection(db, 'users', userId, SINKING_FUND_TRANSACTIONS_COLLECTION);
-      
-      addDoc(transactionCollectionRef, transactionData).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: `users/${userId}/${SINKING_FUND_TRANSACTIONS_COLLECTION}`,
-          operation: 'create',
-          requestResourceData: transactionData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        throw serverError;
-      });
-  }
-
-
-  const wasWithdrawal = 'amount' in itemData && itemData.amount! < existingData.amount;
-
-  // Check for reset condition
-  if (
-    wasWithdrawal &&
-    existingData.recurrence &&
-    existingData.recurrence !== 'None' &&
-    existingData.dueDate &&
-    existingData.totalCost &&
-    existingData.totalCost > 0
-  ) {
-    const amountWithdrawn = existingData.amount - itemData.amount!;
-
-    // If they withdrew at least the total cost, reset the date.
-    if (amountWithdrawn >= existingData.totalCost) {
-      if (existingData.recurrence === 'Semi-Annually (Custom)' && existingData.primaryPaymentMonth && existingData.secondaryPaymentMonth) {
-          const currentDueDate = parse(existingData.dueDate, 'yyyy-MM-dd', new Date());
-          const currentDueMonth = currentDueDate.getMonth() + 1;
-          const p1 = existingData.primaryPaymentMonth;
-          const p2 = existingData.secondaryPaymentMonth;
-
-          let nextDueDate: Date;
-
-          if (currentDueMonth === p1) {
-              nextDueDate = set(currentDueDate, { month: p2 - 1 });
-          } else {
-              nextDueDate = set(currentDueDate, { year: currentDueDate.getFullYear() + 1, month: p1 - 1 });
-          }
-          itemData.dueDate = format(nextDueDate, 'yyyy-MM-dd');
-
-      } else {
-          const monthsToAdd = recurrenceIntervalMap[existingData.recurrence];
-          if (monthsToAdd > 0) {
-            const newDueDate = addMonths(parse(existingData.dueDate, 'yyyy-MM-dd', new Date()), monthsToAdd);
-            itemData.dueDate = format(newDueDate, 'yyyy-MM-dd');
-          }
-      }
-      
-      itemData.amount = existingData.amount - existingData.totalCost;
-      if(itemData.amount < 0) itemData.amount = 0;
+    if (!docSnap.exists()) {
+      throw new Error('Savings item not found');
     }
-  }
-  
-  if (itemData.dueDate) {
-      itemData.dueDate = itemData.dueDate.split('T')[0];
-  }
 
+    const existingData = docSnap.data() as SavingsItem;
+    const oldAmount = existingData.amount;
+    const newAmount = itemData.amount;
+    
+    if (typeof newAmount === 'number' && newAmount !== oldAmount) {
+        const transactionData: Omit<SinkingFundTransaction, 'id'> = {
+            fundId: id,
+            amount: Math.abs(newAmount - oldAmount),
+            type: newAmount > oldAmount ? 'deposit' : 'withdraw',
+            date: new Date().toISOString().split('T')[0],
+        };
+        const transactionCollectionRef = collection(db, 'users', userId, SINKING_FUND_TRANSACTIONS_COLLECTION);
+        const newTransactionRef = doc(transactionCollectionRef);
+        transaction.set(newTransactionRef, transactionData);
+    }
 
-  const cleanItemData = Object.fromEntries(Object.entries(itemData).filter(([_, v]) => v !== undefined));
-  await updateDoc(itemRef, cleanItemData);
+    const wasWithdrawal = 'amount' in itemData && itemData.amount! < existingData.amount;
+
+    if (
+      wasWithdrawal &&
+      existingData.recurrence &&
+      existingData.recurrence !== 'None' &&
+      existingData.dueDate &&
+      existingData.totalCost &&
+      existingData.totalCost > 0
+    ) {
+      const amountWithdrawn = existingData.amount - itemData.amount!;
+      if (amountWithdrawn >= existingData.totalCost) {
+        if (existingData.recurrence === 'Semi-Annually (Custom)' && existingData.primaryPaymentMonth && existingData.secondaryPaymentMonth) {
+            const currentDueDate = parse(existingData.dueDate, 'yyyy-MM-dd', new Date());
+            const currentDueMonth = currentDueDate.getMonth() + 1;
+            const p1 = existingData.primaryPaymentMonth;
+            const p2 = existingData.secondaryPaymentMonth;
+
+            let nextDueDate: Date;
+
+            if (currentDueMonth === p1) {
+                nextDueDate = set(currentDueDate, { month: p2 - 1 });
+            } else {
+                nextDueDate = set(currentDueDate, { year: currentDueDate.getFullYear() + 1, month: p1 - 1 });
+            }
+            itemData.dueDate = format(nextDueDate, 'yyyy-MM-dd');
+
+        } else {
+            const monthsToAdd = recurrenceIntervalMap[existingData.recurrence];
+            if (monthsToAdd > 0) {
+              const newDueDate = addMonths(parse(existingData.dueDate, 'yyyy-MM-dd', new Date()), monthsToAdd);
+              itemData.dueDate = format(newDueDate, 'yyyy-MM-dd');
+            }
+        }
+        itemData.amount = existingData.amount - existingData.totalCost;
+        if(itemData.amount < 0) itemData.amount = 0;
+      }
+    }
+    
+    if (itemData.dueDate) {
+        itemData.dueDate = itemData.dueDate.split('T')[0];
+    }
+    const cleanItemData = Object.fromEntries(Object.entries(itemData).filter(([_, v]) => v !== undefined));
+    transaction.update(itemRef, cleanItemData);
+  });
 }
 
 
