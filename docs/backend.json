@@ -60,6 +60,19 @@
         }
       },
       "required": ["id", "name", "links"]
+    },
+    "SinkingFundTransaction": {
+      "title": "Sinking Fund Transaction",
+      "type": "object",
+      "description": "Represents a transaction for a sinking fund.",
+      "properties": {
+        "id": { "type": "string" },
+        "fundId": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "type": "string", "enum": ["deposit", "withdraw"] },
+        "date": { "type": "string", "format": "date" }
+      },
+      "required": ["id", "fundId", "amount", "type", "date"]
     }
   },
   "auth": {
@@ -86,6 +99,15 @@
             "$ref": "#/entities/LinkGroup"
           },
           "description": "Stores link groups for a specific user."
+        }
+      },
+       {
+        "path": "/users/{userId}/sinking-fund-transactions/{transactionId}",
+        "definition": {
+          "schema": {
+            "$ref": "#/entities/SinkingFundTransaction"
+          },
+          "description": "Stores sinking fund transactions for a specific user."
         }
       }
     ]

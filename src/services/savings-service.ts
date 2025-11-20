@@ -81,7 +81,7 @@ export async function getSavingsItems(accountId: string): Promise<SavingsItem[]>
   return items.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export async function addSavingsItem(itemData: Omit<SavingsItem, 'id' | 'monthlyAmount'>): Promise<SavingsItem> {
+export async function addSavingsItem(userId: string, itemData: Omit<SavingsItem, 'id' | 'monthlyAmount'>): Promise<SavingsItem> {
   const docRef = await addDoc(collection(db, SAVINGS_COLLECTION), itemData);
   const docSnap = await getDoc(docRef);
   const newItem = { id: docSnap.id, ...(docSnap.data() as Omit<SavingsItem, 'id'>) };
@@ -94,8 +94,9 @@ export async function addSavingsItem(itemData: Omit<SavingsItem, 'id' | 'monthly
           type: 'deposit',
           date: new Date().toISOString().split('T')[0],
       };
-      const newTransaction = await addDoc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION), transactionData);
-      const transactionRef = doc(db, SINKING_FUND_TRANSACTIONS_COLLECTION, newTransaction.id);
+      const transactionCollectionRef = collection(db, 'users', userId, SINKING_FUND_TRANSACTIONS_COLLECTION);
+      const newTransaction = await addDoc(transactionCollectionRef, transactionData);
+      const transactionRef = doc(db, 'users', userId, SINKING_FUND_TRANSACTIONS_COLLECTION, newTransaction.id);
       updateDoc(transactionRef, { id: newTransaction.id }).catch((e) => console.error("Error setting transaction ID", e));
   }
 
@@ -105,7 +106,7 @@ export async function addSavingsItem(itemData: Omit<SavingsItem, 'id' | 'monthly
   }
 }
 
-export async function updateSavingsItem(id: string, itemData: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>): Promise<void> {
+export async function updateSavingsItem(userId: string, id: string, itemData: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>): Promise<void> {
   const itemRef = doc(db, SAVINGS_COLLECTION, id);
   const docSnap = await getDoc(itemRef);
 
@@ -124,8 +125,9 @@ export async function updateSavingsItem(id: string, itemData: Partial<Omit<Savin
           type: newAmount > oldAmount ? 'deposit' : 'withdraw',
           date: new Date().toISOString().split('T')[0],
       };
-      const newTransaction = await addDoc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION), transactionData);
-      const transactionRef = doc(db, SINKING_FUND_TRANSACTIONS_COLLECTION, newTransaction.id);
+      const transactionCollectionRef = collection(db, 'users', userId, SINKING_FUND_TRANSACTIONS_COLLECTION);
+      const newTransaction = await addDoc(transactionCollectionRef, transactionData);
+      const transactionRef = doc(db, 'users', userId, SINKING_FUND_TRANSACTIONS_COLLECTION, newTransaction.id);
       updateDoc(transactionRef, { id: newTransaction.id }).catch((e) => console.error("Error setting transaction ID", e));
   }
 
@@ -183,12 +185,12 @@ export async function updateSavingsItem(id: string, itemData: Partial<Omit<Savin
 }
 
 
-export async function deleteSavingsItem(id: string): Promise<void> {
+export async function deleteSavingsItem(userId: string, id: string): Promise<void> {
   const itemRef = doc(db, SAVINGS_COLLECTION, id);
   await deleteDoc(itemRef);
   
   // Also delete associated transactions
-  const q = query(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION), where('fundId', '==', id));
+  const q = query(collection(db, 'users', userId, SINKING_FUND_TRANSACTIONS_COLLECTION), where('fundId', '==', id));
   const snapshot = await getDocs(q);
   const batch = writeBatch(db);
   snapshot.forEach(doc => batch.delete(doc.ref));
@@ -196,9 +198,9 @@ export async function deleteSavingsItem(id: string): Promise<void> {
 }
 
 
-export async function getSinkingFundTransactions(fundId: string): Promise<SinkingFundTransaction[]> {
+export async function getSinkingFundTransactions(userId: string, fundId: string): Promise<SinkingFundTransaction[]> {
     const q = query(
-        collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION),
+        collection(db, 'users', userId, SINKING_FUND_TRANSACTIONS_COLLECTION),
         where('fundId', '==', fundId),
         orderBy('date', 'desc')
     );
@@ -208,7 +210,7 @@ export async function getSinkingFundTransactions(fundId: string): Promise<Sinkin
     } catch (serverError: any) {
         if (serverError.code === 'permission-denied' || serverError.code === 'failed-precondition') {
              const permissionError = new FirestorePermissionError({
-                path: `sinking-fund-transactions`,
+                path: `users/${userId}/sinking-fund-transactions`,
                 operation: 'list',
             });
             errorEmitter.emit('permission-error', permissionError);

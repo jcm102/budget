@@ -6,15 +6,16 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { SavingsItem, SubscriptionItem, AutoShipItem } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import * as SavingsService from '@/services/savings-service';
-import * as SubscriptionService from '@/services/subscription-service';
-import * as AutoShipService from '@/services/autoship-service';
-import { useSelectedAccount } from '@/hooks/use-selected-account';
+import { useSelectedAccount } from './use-selected-account';
+import { useUser } from '@/firebase';
+
 
 export function useSavings() {
   const [savingsItems, setSavingsItems] = useState<SavingsItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { selectedAccountId } = useSelectedAccount();
+  const { user } = useUser();
 
   const fetchAllData = useCallback(async (accountId: string | null) => {
     if (!accountId) {
@@ -43,10 +44,11 @@ export function useSavings() {
     fetchAllData(selectedAccountId);
   }, [selectedAccountId, fetchAllData]);
 
-  const addSavingsItem = useCallback(async (itemData: Omit<SavingsItem, 'id'>) => {
+  const addSavingsItem = useCallback(async (itemData: Omit<SavingsItem, 'id' | 'monthlyAmount'>) => {
+    if (!user) return;
     try {
       // The service now returns the new item with the monthlyAmount calculated
-      const newItem = await SavingsService.addSavingsItem(itemData);
+      const newItem = await SavingsService.addSavingsItem(user.uid, itemData);
       setSavingsItems(prev => [...prev, newItem].sort((a, b) => a.name.localeCompare(b.name)));
     } catch (error) {
       console.error('Failed to add savings item:', error);
@@ -56,11 +58,12 @@ export function useSavings() {
         variant: 'destructive',
       });
     }
-  }, [toast]);
+  }, [toast, user]);
 
-  const updateSavingsItem = useCallback(async (id: string, itemData: Partial<Omit<SavingsItem, 'id'>>) => {
+  const updateSavingsItem = useCallback(async (id: string, itemData: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>) => {
+    if (!user) return;
     try {
-      await SavingsService.updateSavingsItem(id, itemData);
+      await SavingsService.updateSavingsItem(user.uid, id, itemData);
       // After any update, refetch everything to get recalculated values
       await fetchAllData(selectedAccountId);
     } catch (error) {
@@ -72,13 +75,14 @@ export function useSavings() {
         variant: 'destructive',
       });
     }
-  }, [toast, selectedAccountId, fetchAllData]);
+  }, [toast, selectedAccountId, fetchAllData, user]);
 
   const deleteSavingsItem = useCallback(async (id: string) => {
+    if (!user) return;
     const originalItems = savingsItems;
     setSavingsItems(prev => prev.filter(item => item.id !== id));
     try {
-      await SavingsService.deleteSavingsItem(id);
+      await SavingsService.deleteSavingsItem(user.uid, id);
     } catch (error) {
       console.error('Failed to delete savings item:', error);
       setSavingsItems(originalItems);
@@ -88,7 +92,7 @@ export function useSavings() {
         variant: 'destructive',
       });
     }
-  }, [savingsItems, toast]);
+  }, [savingsItems, toast, user]);
 
   return { 
     savingsItems, 

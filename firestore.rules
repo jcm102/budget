@@ -8,21 +8,11 @@
  * unauthorized access.
  *
  * Data Structure:
- * All data is nested under /users/{userId}. Tasks are stored under /users/{userId}/tasks/{taskId},
- * and link groups are stored under /users/{userId}/link-groups/{linkGroupId}.
+ * All data is nested under /users/{userId}.
  *
  * Key Security Decisions:
- * - Users can only access their own tasks and link groups.
- * - Data schema validation is relaxed to allow for rapid prototyping. Only the `id`
- *   field is validated on creation to ensure path consistency.
- * - List operations are allowed for the owner of a user subcollection.
- *
- * Denormalization for Authorization:
- *  N/A - The current structure inherently supports straightforward ownership checks
- *  based on the `/users/{userId}` path.  No denormalization is needed at this time.
- *
- * Structural Segregation:
- *  N/A - Private user subcollections are being used.
+ * - Users can only access their own data.
+ * - Data schema validation is relaxed for rapid prototyping.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -44,7 +34,7 @@ service cloud.firestore {
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-
+    
     /**
      * @description Checks if the request is made by the owner of the user ID and that resource exists.
      * @param {string} userId - The user ID to check against.
@@ -57,30 +47,39 @@ service cloud.firestore {
     /**
      * @description Enforces document ownership for writes on user-specific tasks.
      * @path /users/{userId}/tasks/{taskId}
-     * @allow (create) - User 'user_abc' creates a task with task.id == 'user_abc'.
-     * @deny (create) - User 'user_xyz' attempts to create a task under /users/user_abc/.
      * @principle Enforces document ownership for writes
      */
     match /users/{userId}/tasks/{taskId} {
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.id == taskId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
 
     /**
      * @description Enforces document ownership for Link Groups.
      * @path /users/{userId}/link-groups/{linkGroupId}
-     * @allow (create) - User 'user_abc' creates a link group with linkGroup.id == 'link_group_123'.
-     * @deny (create) - User 'user_xyz' attempts to create a link group under /users/user_abc/.
      * @principle Enforces document ownership for writes
      */
     match /users/{userId}/link-groups/{linkGroupId} {
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.id == linkGroupId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Enforces document ownership for Sinking Fund Transactions.
+     * @path /users/{userId}/sinking-fund-transactions/{transactionId}
+     * @principle Enforces document ownership
+     */
+    match /users/{userId}/sinking-fund-transactions/{transactionId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
   }

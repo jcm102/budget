@@ -62,6 +62,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { SavingsForm } from './savings-form';
 import * as SavingsService from '@/services/savings-service';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useUser } from '@/firebase';
 
 const transactionSchema = z.object({
   amount: z.coerce.number().min(0.01, 'Amount must be greater than zero.'),
@@ -71,16 +72,16 @@ const formatCurrency = (amount: number, currency: 'CAD' | 'USD' = 'CAD') => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
 };
 
-function TransactionHistoryDialog({ fundId, fundName }: { fundId: string, fundName: string }) {
+function TransactionHistoryDialog({ fundId, fundName, userId }: { fundId: string, fundName: string, userId: string | null }) {
     const [isOpen, setIsOpen] = useState(false);
     const [history, setHistory] = useState<SinkingFundTransaction[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
     const handleOpenChange = async (open: boolean) => {
         setIsOpen(open);
-        if (open) {
+        if (open && userId) {
             setIsLoading(true);
-            const fetchedHistory = await SavingsService.getSinkingFundTransactions(fundId);
+            const fetchedHistory = await SavingsService.getSinkingFundTransactions(userId, fundId);
             setHistory(fetchedHistory);
             setIsLoading(false);
         }
@@ -222,6 +223,7 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
     isLoading: isLoadingSavings 
   } = useSavings();
   
+  const { user } = useUser();
   const { exchangeRate, isLoading: isLoadingRate } = useExchangeRate();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -454,7 +456,7 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
                                             <TooltipContent><p>Withdraw</p></TooltipContent>
                                         </Tooltip>
                                     </TransactionDialog>
-                                    <TransactionHistoryDialog fundId={item.id} fundName={item.name} />
+                                    <TransactionHistoryDialog fundId={item.id} fundName={item.name} userId={user?.uid || null} />
                                     <Tooltip>
                                         <TooltipTrigger asChild>
                                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(item)}><Pencil className="h-4 w-4" /></Button>
