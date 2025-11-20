@@ -45,10 +45,9 @@ export function useSavings() {
   }, [selectedAccountId, fetchAllData]);
 
   const addSavingsItem = useCallback(async (itemData: Omit<SavingsItem, 'id' | 'monthlyAmount'>) => {
-    if (!user) return;
     try {
       // The service now returns the new item with the monthlyAmount calculated
-      const newItem = await SavingsService.addSavingsItem(user.uid, itemData);
+      const newItem = await SavingsService.addSavingsItem(itemData);
       setSavingsItems(prev => [...prev, newItem].sort((a, b) => a.name.localeCompare(b.name)));
     } catch (error) {
       console.error('Failed to add savings item:', error);
@@ -58,12 +57,11 @@ export function useSavings() {
         variant: 'destructive',
       });
     }
-  }, [toast, user]);
+  }, [toast]);
 
   const updateSavingsItem = useCallback(async (id: string, itemData: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>) => {
-    if (!user) return;
     try {
-      await SavingsService.updateSavingsItem(user.uid, id, itemData);
+      await SavingsService.updateSavingsItem(id, itemData);
       // After any update, refetch everything to get recalculated values
       await fetchAllData(selectedAccountId);
     } catch (error) {
@@ -75,14 +73,13 @@ export function useSavings() {
         variant: 'destructive',
       });
     }
-  }, [toast, selectedAccountId, fetchAllData, user]);
+  }, [toast, selectedAccountId, fetchAllData]);
 
   const deleteSavingsItem = useCallback(async (id: string) => {
-    if (!user) return;
     const originalItems = savingsItems;
     setSavingsItems(prev => prev.filter(item => item.id !== id));
     try {
-      await SavingsService.deleteSavingsItem(user.uid, id);
+      await SavingsService.deleteSavingsItem(id);
     } catch (error) {
       console.error('Failed to delete savings item:', error);
       setSavingsItems(originalItems);
@@ -92,7 +89,7 @@ export function useSavings() {
         variant: 'destructive',
       });
     }
-  }, [savingsItems, toast, user]);
+  }, [savingsItems, toast]);
 
   return { 
     savingsItems, 
