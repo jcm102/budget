@@ -3,7 +3,7 @@
   "indexes": [
     {
       "collectionGroup": "sinking-fund-transactions",
-      "queryScope": "COLLECTION",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
           "fieldPath": "fundId",
