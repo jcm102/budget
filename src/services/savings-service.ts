@@ -18,6 +18,8 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { addMonths, set, format, startOfToday, parse, isBefore, differenceInCalendarMonths } from 'date-fns';
+import { FirestorePermissionError } from '@/firebase/errors';
+import { errorEmitter } from '@/firebase/error-emitter';
 
 const SAVINGS_COLLECTION = 'sinking-funds';
 const SINKING_FUND_TRANSACTIONS_COLLECTION = 'sinking-fund-transactions';
@@ -92,7 +94,9 @@ export async function addSavingsItem(itemData: Omit<SavingsItem, 'id' | 'monthly
           type: 'deposit',
           date: new Date().toISOString().split('T')[0],
       };
-      await addDoc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION), transactionData);
+      const newTransaction = await addDoc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION), transactionData);
+      const transactionRef = doc(db, SINKING_FUND_TRANSACTIONS_COLLECTION, newTransaction.id);
+      updateDoc(transactionRef, { id: newTransaction.id }).catch((e) => console.error("Error setting transaction ID", e));
   }
 
   return {
@@ -120,7 +124,9 @@ export async function updateSavingsItem(id: string, itemData: Partial<Omit<Savin
           type: newAmount > oldAmount ? 'deposit' : 'withdraw',
           date: new Date().toISOString().split('T')[0],
       };
-      await addDoc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION), transactionData);
+      const newTransaction = await addDoc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION), transactionData);
+      const transactionRef = doc(db, SINKING_FUND_TRANSACTIONS_COLLECTION, newTransaction.id);
+      updateDoc(transactionRef, { id: newTransaction.id }).catch((e) => console.error("Error setting transaction ID", e));
   }
 
 
@@ -196,6 +202,18 @@ export async function getSinkingFundTransactions(fundId: string): Promise<Sinkin
         where('fundId', '==', fundId),
         orderBy('date', 'desc')
     );
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SinkingFundTransaction));
+    try {
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SinkingFundTransaction));
+    } catch (serverError: any) {
+        if (serverError.code === 'permission-denied' || serverError.code === 'failed-precondition') {
+             const permissionError = new FirestorePermissionError({
+                path: `sinking-fund-transactions`,
+                operation: 'list',
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
+        // Re-throw the original error after emitting so the caller knows the operation failed.
+        throw serverError;
+    }
 }
