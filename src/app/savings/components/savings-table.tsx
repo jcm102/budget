@@ -63,10 +63,6 @@ import * as SavingsService from '@/services/savings-service';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useUser } from '@/firebase';
 
-const transactionSchema = z.object({
-  amount: z.coerce.number().min(0.01, 'Amount must be greater than zero.'),
-});
-
 const formatCurrency = (amount: number, currency: 'CAD' | 'USD' = 'CAD') => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
 };
@@ -131,55 +127,6 @@ function TransactionHistoryDialog({ fundId, fundName, userId }: { fundId: string
             </DialogContent>
         </Dialog>
     );
-}
-
-function TransactionDialog({ item, transactionType, onSave, children }: { item: SavingsItem, transactionType: 'deposit' | 'withdraw', onSave: (amount: number) => void, children: React.ReactNode }) {
-    const [isOpen, setIsOpen] = useState(false);
-    const form = useForm<z.infer<typeof transactionSchema>>({
-        resolver: zodResolver(transactionSchema),
-        defaultValues: { amount: 0 },
-    });
-
-    const onSubmit = (values: z.infer<typeof transactionSchema>) => {
-        onSave(values.amount);
-        setIsOpen(false);
-        form.reset();
-    };
-    
-    return (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>{children}</DialogTrigger>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>{transactionType === 'deposit' ? 'Deposit to' : 'Withdraw from'} "{item.name}"</DialogTitle>
-                    <DialogDescription>
-                        Enter the amount you wish to {transactionType}.
-                    </DialogDescription>
-                </DialogHeader>
-                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                         <FormField
-                            control={form.control}
-                            name="amount"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Amount</FormLabel>
-                                    <FormControl>
-                                        <Input type="number" step="0.01" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <DialogFooter>
-                            <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
-                            <Button type="submit">Confirm {transactionType}</Button>
-                        </DialogFooter>
-                    </form>
-                 </Form>
-            </DialogContent>
-        </Dialog>
-    )
 }
 
 type SortConfig = {
@@ -439,22 +386,6 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
                                         <TooltipContent><p>{isFundedThisMonth ? 'Funded this month' : 'Fund Monthly Amount'}</p></TooltipContent>
                                     </Tooltip>
 
-                                     <TransactionDialog item={item} transactionType='deposit' onSave={(amount) => handleTransaction(item, amount, 'deposit')}>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700"><DollarSign className="h-4 w-4" /></Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent><p>Deposit</p></TooltipContent>
-                                        </Tooltip>
-                                    </TransactionDialog>
-                                    <TransactionDialog item={item} transactionType='withdraw' onSave={(amount) => handleTransaction(item, amount, 'withdraw')}>
-                                         <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700"><MinusCircle className="h-4 w-4" /></Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent><p>Withdraw</p></TooltipContent>
-                                        </Tooltip>
-                                    </TransactionDialog>
                                     <TransactionHistoryDialog fundId={item.id} fundName={item.name} userId={user?.uid || null} />
                                     <Tooltip>
                                         <TooltipTrigger asChild>
@@ -465,7 +396,7 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
                                     <AlertDialog>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
-                                                <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                                                <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive"><Trash2 className="h-4 w-4" /></AlertDialogTrigger>
                                             </TooltipTrigger>
                                             <TooltipContent><p>Delete Fund</p></TooltipContent>
                                         </Tooltip>

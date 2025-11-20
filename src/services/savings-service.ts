@@ -84,29 +84,7 @@ export async function addSavingsItem(itemData: Omit<SavingsItem, 'id' | 'monthly
     const itemRef = doc(collection(db, SAVINGS_COLLECTION));
     const transactionRef = doc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION));
 
-    try {
-        await runTransaction(db, async (transaction) => {
-            transaction.set(itemRef, itemData);
-
-            if (itemData.amount > 0) {
-                const transactionData: Omit<SinkingFundTransaction, 'id'> = {
-                fundId: itemRef.id,
-                amount: itemData.amount,
-                type: 'deposit',
-                date: new Date().toISOString().split('T')[0],
-                };
-                transaction.set(transactionRef, transactionData);
-            }
-        });
-    } catch (error: any) {
-        const permissionError = new FirestorePermissionError({
-            path: itemRef.path,
-            operation: 'create',
-            requestResourceData: itemData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        throw permissionError;
-    }
+    await addDoc(collection(db, SAVINGS_COLLECTION), itemData);
     
     const docSnap = await getDoc(itemRef);
     const newItem = { id: docSnap.id, ...(docSnap.data() as Omit<SavingsItem, 'id'>) };
@@ -120,45 +98,7 @@ export async function addSavingsItem(itemData: Omit<SavingsItem, 'id' | 'monthly
 
 export async function updateSavingsItem(id: string, itemData: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>): Promise<void> {
     const itemRef = doc(db, SAVINGS_COLLECTION, id);
-
-    try {
-        await runTransaction(db, async (transaction) => {
-            const docSnap = await transaction.get(itemRef);
-            if (!docSnap.exists()) {
-                throw new Error("Document does not exist!");
-            }
-
-            const existingData = docSnap.data() as SavingsItem;
-            
-            transaction.update(itemRef, itemData);
-
-            if (typeof itemData.amount === 'number') {
-                const oldAmount = existingData.amount;
-                const newAmount = itemData.amount;
-
-                if (newAmount !== oldAmount) {
-                    const transactionData: Omit<SinkingFundTransaction, 'id'> = {
-                        fundId: id,
-                        amount: Math.abs(newAmount - oldAmount),
-                        type: newAmount > oldAmount ? 'deposit' : 'withdraw',
-                        date: new Date().toISOString().split('T')[0],
-                    };
-                    const transactionRef = doc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION));
-                    transaction.set(transactionRef, transactionData);
-                }
-            }
-        });
-    } catch(e: any) {
-         const permissionError = new FirestorePermissionError({
-            path: itemRef.path,
-            operation: 'update',
-            requestResourceData: itemData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        // Re-throw the original error to allow caller to handle if needed,
-        // though our primary mechanism is the emitter.
-        throw e;
-    }
+    await updateDoc(itemRef, itemData);
 }
 
 export async function deleteSavingsItem(id: string): Promise<void> {
