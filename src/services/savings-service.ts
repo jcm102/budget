@@ -19,8 +19,6 @@ import {
   runTransaction
 } from 'firebase/firestore';
 import { addMonths, set, format, startOfToday, parse, isBefore, differenceInCalendarMonths } from 'date-fns';
-import { FirestorePermissionError } from '@/firebase/errors';
-import { errorEmitter } from '@/firebase/error-emitter';
 
 const SAVINGS_COLLECTION = 'sinking-funds';
 const SINKING_FUND_TRANSACTIONS_COLLECTION = 'sinking-fund-transactions';
@@ -82,7 +80,7 @@ export async function getSavingsItems(accountId: string): Promise<SavingsItem[]>
   return items.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export async function addSavingsItem(userId: string, itemData: Omit<SavingsItem, 'id' | 'monthlyAmount'>): Promise<SavingsItem> {
+export async function addSavingsItem(itemData: Omit<SavingsItem, 'id' | 'monthlyAmount'>): Promise<SavingsItem> {
   const newItemRef = await runTransaction(db, async (transaction) => {
     const docRef = doc(collection(db, SAVINGS_COLLECTION));
     transaction.set(docRef, itemData);
@@ -94,7 +92,7 @@ export async function addSavingsItem(userId: string, itemData: Omit<SavingsItem,
         type: 'deposit',
         date: new Date().toISOString().split('T')[0],
       };
-      const transactionCollectionRef = collection(db, 'users', userId, SINKING_FUND_TRANSACTIONS_COLLECTION);
+      const transactionCollectionRef = collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION);
       const newTransactionRef = doc(transactionCollectionRef);
       transaction.set(newTransactionRef, transactionData);
     }
@@ -110,7 +108,7 @@ export async function addSavingsItem(userId: string, itemData: Omit<SavingsItem,
   };
 }
 
-export async function updateSavingsItem(userId: string, id: string, itemData: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>): Promise<void> {
+export async function updateSavingsItem(id: string, itemData: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>): Promise<void> {
   await runTransaction(db, async (transaction) => {
     const itemRef = doc(db, SAVINGS_COLLECTION, id);
     const docSnap = await transaction.get(itemRef);
@@ -130,7 +128,7 @@ export async function updateSavingsItem(userId: string, id: string, itemData: Pa
             type: newAmount > oldAmount ? 'deposit' : 'withdraw',
             date: new Date().toISOString().split('T')[0],
         };
-        const transactionCollectionRef = collection(db, 'users', userId, SINKING_FUND_TRANSACTIONS_COLLECTION);
+        const transactionCollectionRef = collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION);
         const newTransactionRef = doc(transactionCollectionRef);
         transaction.set(newTransactionRef, transactionData);
     }
@@ -183,12 +181,12 @@ export async function updateSavingsItem(userId: string, id: string, itemData: Pa
 }
 
 
-export async function deleteSavingsItem(userId: string, id: string): Promise<void> {
+export async function deleteSavingsItem(id: string): Promise<void> {
   const batch = writeBatch(db);
   const itemRef = doc(db, SAVINGS_COLLECTION, id);
   batch.delete(itemRef);
 
-  const q = query(collection(db, 'users', userId, SINKING_FUND_TRANSACTIONS_COLLECTION), where('fundId', '==', id));
+  const q = query(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION), where('fundId', '==', id));
   
   try {
     const snapshot = await getDocs(q);
@@ -197,19 +195,16 @@ export async function deleteSavingsItem(userId: string, id: string): Promise<voi
     });
     await batch.commit();
   } catch (serverError) {
-    const permissionError = new FirestorePermissionError({
-      path: `users/${userId}/sinking-fund-transactions`,
-      operation: 'delete', // This is a simplification; the batch could fail on a list or get.
-    });
-    errorEmitter.emit('permission-error', permissionError);
-    throw serverError; // Re-throw so the UI knows the operation failed
+    console.error("Failed to delete sinking fund transactions:", serverError);
+    // Re-throw so the UI knows the operation failed, but don't emit client error
+    throw serverError;
   }
 }
 
 
-export async function getSinkingFundTransactions(userId: string, fundId: string): Promise<SinkingFundTransaction[]> {
+export async function getSinkingFundTransactions(fundId: string): Promise<SinkingFundTransaction[]> {
     const q = query(
-        collection(db, 'users', userId, SINKING_FUND_TRANSACTIONS_COLLECTION),
+        collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION),
         where('fundId', '==', fundId),
         orderBy('date', 'desc')
     );
@@ -217,14 +212,8 @@ export async function getSinkingFundTransactions(userId: string, fundId: string)
         const querySnapshot = await getDocs(q);
         return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SinkingFundTransaction));
     } catch (serverError: any) {
-        if (serverError.code === 'permission-denied' || serverError.code === 'failed-precondition') {
-             const permissionError = new FirestorePermissionError({
-                path: `users/${userId}/sinking-fund-transactions`,
-                operation: 'list',
-            });
-            errorEmitter.emit('permission-error', permissionError);
-        }
-        // Re-throw the original error after emitting so the caller knows the operation failed.
+       console.error("Failed to get sinking fund transactions:", serverError);
+        // Re-throw the original error after logging so the caller knows the operation failed.
         throw serverError;
     }
 }
