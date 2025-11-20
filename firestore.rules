@@ -118,6 +118,9 @@ service cloud.firestore {
       allow update: if isExistingOwner(userId) && isImmutableTaskData();
       allow delete: if isExistingOwner(userId);
     }
-
+    
+    match /sinking-fund-transactions/{transactionId} {
+      allow read, write: if true;
+    }
   }
 }
