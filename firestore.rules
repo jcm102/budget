@@ -6,6 +6,7 @@ service cloud.firestore {
 
     // Allow read access on the 'sinking-fund-transactions' collection group for all users.
     // This is required for the transaction history query to work across different user subcollections.
+    // This rule is intentionally broad for development.
     match /{path=**}/sinking-fund-transactions/{transactionId} {
       allow read, write: if true;
     }
