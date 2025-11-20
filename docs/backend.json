@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Task": {
@@ -84,30 +85,30 @@
   "firestore": {
     "structure": [
       {
-        "path": "/users/{userId}/tasks/{taskId}",
+        "path": "/tasks/{taskId}",
         "definition": {
           "schema": {
             "$ref": "#/entities/Task"
           },
-          "description": "Stores tasks for a specific user."
+          "description": "Stores tasks for the application."
         }
       },
       {
-        "path": "/users/{userId}/link-groups/{linkGroupId}",
+        "path": "/link-groups/{linkGroupId}",
         "definition": {
           "schema": {
             "$ref": "#/entities/LinkGroup"
           },
-          "description": "Stores link groups for a specific user."
+          "description": "Stores link groups for the application."
         }
       },
        {
-        "path": "/users/{userId}/sinking-fund-transactions/{transactionId}",
+        "path": "/sinking-fund-transactions/{transactionId}",
         "definition": {
           "schema": {
             "$ref": "#/entities/SinkingFundTransaction"
           },
-          "description": "Stores sinking fund transactions for a specific user."
+          "description": "Stores sinking fund transactions."
         }
       }
     ]

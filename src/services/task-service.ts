@@ -1,3 +1,4 @@
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -17,15 +18,14 @@ import {
 
 const TASKS_COLLECTION = 'tasks';
 
-export async function getTasks(userId: string): Promise<Task[]> {
-  const tasksCollection = collection(db, 'users', userId, TASKS_COLLECTION);
+export async function getTasks(): Promise<Task[]> {
+  const tasksCollection = collection(db, TASKS_COLLECTION);
   const q = query(tasksCollection);
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
 }
 
 export async function addTask(
-  userId: string,
   taskData: Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks' | 'order'>,
   order: number
 ): Promise<Task> {
@@ -36,33 +36,33 @@ export async function addTask(
     subtasks: [],
     order: order,
   };
-  const docRef = await addDoc(collection(db, 'users', userId, TASKS_COLLECTION), newTaskData);
+  const docRef = await addDoc(collection(db, TASKS_COLLECTION), newTaskData);
   const docSnap = await getDoc(docRef);
   return { id: docSnap.id, ...(docSnap.data() as Omit<Task, 'id'>) };
 }
 
-export async function updateTask(userId: string, id: string, taskData: Partial<Omit<Task, 'id' | 'subtasks'>>): Promise<void> {
-  const taskRef = doc(db, 'users', userId, TASKS_COLLECTION, id);
+export async function updateTask(id: string, taskData: Partial<Omit<Task, 'id' | 'subtasks'>>): Promise<void> {
+  const taskRef = doc(db, TASKS_COLLECTION, id);
   await updateDoc(taskRef, taskData);
 }
 
-export async function updateTaskOrder(userId: string, reorderedTasks: Task[]): Promise<void> {
+export async function updateTaskOrder(reorderedTasks: Task[]): Promise<void> {
     const batch = writeBatch(db);
     reorderedTasks.forEach((task, index) => {
-        const taskRef = doc(db, 'users', userId, TASKS_COLLECTION, task.id);
+        const taskRef = doc(db, TASKS_COLLECTION, task.id);
         batch.update(taskRef, { order: index });
     });
     await batch.commit();
 }
 
 
-export async function deleteTask(userId: string, id: string): Promise<void> {
-  const taskRef = doc(db, 'users', userId, TASKS_COLLECTION, id);
+export async function deleteTask(id: string): Promise<void> {
+  const taskRef = doc(db, TASKS_COLLECTION, id);
   await deleteDoc(taskRef);
 }
 
-export async function addSubtask(userId: string, taskId: string, data: Omit<Subtask, 'id' | 'completed' | 'order'>): Promise<void> {
-    const taskRef = doc(db, 'users', userId, TASKS_COLLECTION, taskId);
+export async function addSubtask(taskId: string, data: Omit<Subtask, 'id' | 'completed' | 'order'>): Promise<void> {
+    const taskRef = doc(db, TASKS_COLLECTION, taskId);
     const taskSnap = await getDoc(taskRef);
     if (taskSnap.exists()) {
         const task = taskSnap.data() as Task;
@@ -81,8 +81,8 @@ export async function addSubtask(userId: string, taskId: string, data: Omit<Subt
     }
 }
 
-export async function updateSubtask(userId: string, taskId: string, subtaskId: string, data: Partial<Omit<Subtask, 'id' | 'completed' | 'order'>>): Promise<void> {
-    const taskRef = doc(db, 'users', userId, TASKS_COLLECTION, taskId);
+export async function updateSubtask(taskId: string, subtaskId: string, data: Partial<Omit<Subtask, 'id' | 'completed' | 'order'>>): Promise<void> {
+    const taskRef = doc(db, TASKS_COLLECTION, taskId);
     const taskSnap = await getDoc(taskRef);
     if (taskSnap.exists()) {
         const task = taskSnap.data() as Task;
@@ -93,15 +93,15 @@ export async function updateSubtask(userId: string, taskId: string, subtaskId: s
     }
 }
 
-export async function updateSubtaskOrder(userId: string, taskId: string, reorderedSubtasks: Subtask[]): Promise<void> {
-    const taskRef = doc(db, 'users', userId, TASKS_COLLECTION, taskId);
+export async function updateSubtaskOrder(taskId: string, reorderedSubtasks: Subtask[]): Promise<void> {
+    const taskRef = doc(db, TASKS_COLLECTION, taskId);
     const updatedSubtasks = reorderedSubtasks.map((subtask, index) => ({...subtask, order: index }));
     await updateDoc(taskRef, { subtasks: updatedSubtasks });
 }
 
 
-export async function toggleSubtask(userId: string, taskId: string, subtaskId: string): Promise<void> {
-    const taskRef = doc(db, 'users', userId, TASKS_COLLECTION, taskId);
+export async function toggleSubtask(taskId: string, subtaskId: string): Promise<void> {
+    const taskRef = doc(db, TASKS_COLLECTION, taskId);
     const taskSnap = await getDoc(taskRef);
     if (taskSnap.exists()) {
         const task = taskSnap.data() as Task;
@@ -117,8 +117,8 @@ export async function toggleSubtask(userId: string, taskId: string, subtaskId: s
     }
 }
 
-export async function deleteSubtask(userId: string, taskId: string, subtaskId: string): Promise<void> {
-    const taskRef = doc(db, 'users', userId, TASKS_COLLECTION, taskId);
+export async function deleteSubtask(taskId: string, subtaskId: string): Promise<void> {
+    const taskRef = doc(db, TASKS_COLLECTION, taskId);
     const taskSnap = await getDoc(taskRef);
     if (taskSnap.exists()) {
         const task = taskSnap.data() as Task;

@@ -1,45 +1,9 @@
 
-/**
- * @fileoverview Firestore Security Rules for TaskTrack Budget application.
- *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model. Each user can only access data
- * explicitly associated with their user ID. This ensures data privacy and prevents
- * unauthorized access.
- *
- * Data Structure:
- * All user-specific data is nested under /users/{userId}/{collection}/{docId}.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    /**
-     * @description Checks if the request is made by a signed-in user.
-     * @principle Verified Identity
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the request is made by the owner of the user ID.
-     * @param {string} userId - The user ID to check against.
-     * @principle Ownership
-     */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-    
-    /**
-     * Matches any collection under a user's private data path.
-     * The {anyCollection} wildcard captures collection names like 'tasks', 'debts', etc.
-     * The {anyDoc} wildcard captures the document ID within that collection.
-     * @path /users/{userId}/{anyCollection}/{anyDoc}
-     * @principle Enforces strict user ownership for all personal data.
-     */
-    match /users/{userId}/{anyCollection}/{anyDoc} {
-      allow read, write: if isOwner(userId);
+    match /{document=**} {
+      allow read, write: if true;
     }
   }
 }
