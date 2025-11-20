@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Firestore Security Rules for TaskTrack Budget application.
  *
@@ -54,7 +55,7 @@ service cloud.firestore {
     }
 
     /**
-     * @description Enforces document ownership for writes.
+     * @description Enforces document ownership for writes on user-specific tasks.
      * @path /users/{userId}/tasks/{taskId}
      * @allow (create) - User 'user_abc' creates a task with task.id == 'user_abc'.
      * @deny (create) - User 'user_xyz' attempts to create a task under /users/user_abc/.
