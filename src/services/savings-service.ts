@@ -81,51 +81,84 @@ export async function getSavingsItems(accountId: string): Promise<SavingsItem[]>
 }
 
 export async function addSavingsItem(itemData: Omit<SavingsItem, 'id' | 'monthlyAmount'>): Promise<SavingsItem> {
-  const docRef = await addDoc(collection(db, SAVINGS_COLLECTION), itemData);
-  const docSnap = await getDoc(docRef);
-  const newItem = { id: docSnap.id, ...(docSnap.data() as Omit<SavingsItem, 'id'>) };
+    const itemRef = doc(collection(db, SAVINGS_COLLECTION));
+    const transactionRef = doc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION));
 
-  // Add a transaction for the initial amount if it's greater than 0
-  if (itemData.amount > 0) {
-    const transactionData: Omit<SinkingFundTransaction, 'id'> = {
-      fundId: docRef.id,
-      amount: itemData.amount,
-      type: 'deposit',
-      date: new Date().toISOString().split('T')[0],
+    try {
+        await runTransaction(db, async (transaction) => {
+            transaction.set(itemRef, itemData);
+
+            if (itemData.amount > 0) {
+                const transactionData: Omit<SinkingFundTransaction, 'id'> = {
+                fundId: itemRef.id,
+                amount: itemData.amount,
+                type: 'deposit',
+                date: new Date().toISOString().split('T')[0],
+                };
+                transaction.set(transactionRef, transactionData);
+            }
+        });
+    } catch (error: any) {
+        const permissionError = new FirestorePermissionError({
+            path: itemRef.path,
+            operation: 'create',
+            requestResourceData: itemData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        throw permissionError;
+    }
+    
+    const docSnap = await getDoc(itemRef);
+    const newItem = { id: docSnap.id, ...(docSnap.data() as Omit<SavingsItem, 'id'>) };
+
+    return {
+        ...newItem,
+        monthlyAmount: calculateMonthlyAmount(newItem as SavingsItem),
     };
-    await addDoc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION), transactionData);
-  }
-
-  return {
-    ...newItem,
-    monthlyAmount: calculateMonthlyAmount(newItem as SavingsItem),
-  };
 }
 
+
 export async function updateSavingsItem(id: string, itemData: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>): Promise<void> {
-  const itemRef = doc(db, SAVINGS_COLLECTION, id);
+    const itemRef = doc(db, SAVINGS_COLLECTION, id);
 
-  // For amount changes, we need to log a transaction
-  if (typeof itemData.amount === 'number') {
-    const docSnap = await getDoc(itemRef);
-    if (docSnap.exists()) {
-      const existingData = docSnap.data() as SavingsItem;
-      const oldAmount = existingData.amount;
-      const newAmount = itemData.amount;
+    try {
+        await runTransaction(db, async (transaction) => {
+            const docSnap = await transaction.get(itemRef);
+            if (!docSnap.exists()) {
+                throw new Error("Document does not exist!");
+            }
 
-      if (newAmount !== oldAmount) {
-        const transactionData: Omit<SinkingFundTransaction, 'id'> = {
-          fundId: id,
-          amount: Math.abs(newAmount - oldAmount),
-          type: newAmount > oldAmount ? 'deposit' : 'withdraw',
-          date: new Date().toISOString().split('T')[0],
-        };
-        await addDoc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION), transactionData);
-      }
+            const existingData = docSnap.data() as SavingsItem;
+            
+            transaction.update(itemRef, itemData);
+
+            if (typeof itemData.amount === 'number') {
+                const oldAmount = existingData.amount;
+                const newAmount = itemData.amount;
+
+                if (newAmount !== oldAmount) {
+                    const transactionData: Omit<SinkingFundTransaction, 'id'> = {
+                        fundId: id,
+                        amount: Math.abs(newAmount - oldAmount),
+                        type: newAmount > oldAmount ? 'deposit' : 'withdraw',
+                        date: new Date().toISOString().split('T')[0],
+                    };
+                    const transactionRef = doc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION));
+                    transaction.set(transactionRef, transactionData);
+                }
+            }
+        });
+    } catch(e: any) {
+         const permissionError = new FirestorePermissionError({
+            path: itemRef.path,
+            operation: 'update',
+            requestResourceData: itemData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        // Re-throw the original error to allow caller to handle if needed,
+        // though our primary mechanism is the emitter.
+        throw e;
     }
-  }
-
-  await updateDoc(itemRef, itemData);
 }
 
 export async function deleteSavingsItem(id: string): Promise<void> {
@@ -134,12 +167,21 @@ export async function deleteSavingsItem(id: string): Promise<void> {
   batch.delete(itemRef);
 
   const q = query(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION), where('fundId', '==', id));
-  const snapshot = await getDocs(q);
-  snapshot.forEach(doc => {
-    batch.delete(doc.ref);
-  });
   
-  await batch.commit();
+  try {
+    const snapshot = await getDocs(q);
+    snapshot.forEach(doc => {
+        batch.delete(doc.ref);
+    });
+    await batch.commit();
+  } catch(e: any) {
+    const permissionError = new FirestorePermissionError({
+        path: itemRef.path,
+        operation: 'delete',
+    });
+    errorEmitter.emit('permission-error', permissionError);
+    throw e;
+  }
 }
 
 
