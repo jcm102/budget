@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -59,6 +58,7 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { Badge } from '@/components/ui/badge';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { SavingsForm } from './savings-form';
 
 const transactionSchema = z.object({
   amount: z.coerce.number().min(0.01, 'Amount must be greater than zero.'),
@@ -162,9 +162,8 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
   const isLoading = isLoadingSavings || isLoadingRate;
 
   const handleEdit = (item: SavingsItem) => {
-    // Editing functionality is temporarily disabled.
-    // setEditingItem(item);
-    // setIsFormOpen(true);
+    setEditingItem(item);
+    setIsFormOpen(true);
   };
 
   const handleFormOpenChange = (isOpen: boolean) => {
@@ -246,11 +245,18 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
 
   return (
     <>
+      <SavingsForm
+        open={isFormOpen}
+        onOpenChange={handleFormOpenChange}
+        addSavingsItem={addSavingsItem}
+        updateSavingsItem={updateSavingsItem}
+        editingItem={editingItem}
+      />
       <div className="flex justify-end items-center mb-6 gap-2">
-          {/* <Button onClick={() => setIsFormOpen(true)}>
+           <Button onClick={() => setIsFormOpen(true)}>
             <PlusCircle className="mr-2 h-5 w-5" />
             Add Fund
-          </Button> */}
+          </Button> 
       </div>
 
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
