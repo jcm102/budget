@@ -204,15 +204,26 @@ export async function updateSavingsItem(userId: string, id: string, itemData: Pa
 
 
 export async function deleteSavingsItem(userId: string, id: string): Promise<void> {
-  const itemRef = doc(db, SAVINGS_COLLECTION, id);
-  await deleteDoc(itemRef);
-  
-  // Also delete associated transactions
-  const q = query(collection(db, 'users', userId, SINKING_FUND_TRANSACTIONS_COLLECTION), where('fundId', '==', id));
-  const snapshot = await getDocs(q);
   const batch = writeBatch(db);
-  snapshot.forEach(doc => batch.delete(doc.ref));
-  await batch.commit();
+  const itemRef = doc(db, SAVINGS_COLLECTION, id);
+  batch.delete(itemRef);
+
+  const q = query(collection(db, 'users', userId, SINKING_FUND_TRANSACTIONS_COLLECTION), where('fundId', '==', id));
+  
+  try {
+    const snapshot = await getDocs(q);
+    snapshot.forEach(doc => {
+      batch.delete(doc.ref);
+    });
+    await batch.commit();
+  } catch (serverError) {
+    const permissionError = new FirestorePermissionError({
+      path: `users/${userId}/sinking-fund-transactions`,
+      operation: 'delete', // This is a simplification; the batch could fail on a list or get.
+    });
+    errorEmitter.emit('permission-error', permissionError);
+    throw serverError; // Re-throw so the UI knows the operation failed
+  }
 }
 
 
