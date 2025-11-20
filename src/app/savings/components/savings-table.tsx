@@ -217,18 +217,6 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
     return sortableItems;
   }, [savingsItems, sortConfig]);
 
-  const handleTransaction = (item: SavingsItem, amount: number, type: 'deposit' | 'withdraw') => {
-    const currentAmount = item.amount;
-    const newAmount = type === 'deposit' ? currentAmount + amount : currentAmount - amount;
-    
-    let updateData: Partial<SavingsItem> = { amount: newAmount < 0 ? 0 : newAmount };
-    if (type === 'deposit' && amount === item.monthlyAmount) {
-        updateData.lastFundedAt = new Date().toISOString();
-    }
-    
-    updateSavingsItem(item.id, updateData);
-  };
-
   const renderLoadingSkeleton = () => (
     Array.from({ length: 4 }).map((_, i) => (
       <TableRow key={`skeleton-savings-${i}`}>
@@ -376,7 +364,7 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
                                                             </AlertDialogHeader>
                                                             <AlertDialogFooter>
                                                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                                <AlertDialogAction onClick={() => handleTransaction(item, monthlyAmount, 'deposit')}>Confirm</AlertDialogAction>
+                                                                <AlertDialogAction>Confirm</AlertDialogAction>
                                                             </AlertDialogFooter>
                                                         </AlertDialogContent>
                                                     </AlertDialog>
@@ -396,7 +384,7 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
                                     <AlertDialog>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
-                                                <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive"><Trash2 className="h-4 w-4" /></AlertDialogTrigger>
+                                                <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
                                             </TooltipTrigger>
                                             <TooltipContent><p>Delete Fund</p></TooltipContent>
                                         </Tooltip>
