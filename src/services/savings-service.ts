@@ -21,6 +21,7 @@ import {
 import { addMonths, set, format, startOfToday, parse, isBefore, differenceInCalendarMonths } from 'date-fns';
 
 const SAVINGS_COLLECTION = 'sinking-funds';
+const SINKING_FUND_TRANSACTIONS_COLLECTION = 'sinking-fund-transactions';
 
 const recurrenceIntervalMap: Record<SavingsRecurrence, number> = {
     'None': 0,
@@ -85,19 +86,14 @@ export async function addSavingsItem(itemData: Omit<SavingsItem, 'id' | 'monthly
     transaction.set(docRef, itemData);
 
     if (itemData.amount > 0) {
-      // This is now incorrect as it doesn't have a userId
-      // For now, we will comment it out to prevent errors.
-      // A more robust solution would pass the userId down.
-      /*
       const transactionData: Omit<SinkingFundTransaction, 'id'> = {
         fundId: docRef.id,
         amount: itemData.amount,
         type: 'deposit',
         date: new Date().toISOString().split('T')[0],
       };
-      const transactionCollectionRef = doc(collection(db, 'sinking-fund-transactions'));
+      const transactionCollectionRef = doc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION));
       transaction.set(transactionCollectionRef, transactionData);
-      */
     }
     return docRef;
   });
@@ -111,7 +107,7 @@ export async function addSavingsItem(itemData: Omit<SavingsItem, 'id' | 'monthly
   };
 }
 
-export async function updateSavingsItem(userId: string, id: string, itemData: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>): Promise<void> {
+export async function updateSavingsItem(id: string, itemData: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>): Promise<void> {
   await runTransaction(db, async (transaction) => {
     const itemRef = doc(db, SAVINGS_COLLECTION, id);
     const docSnap = await transaction.get(itemRef);
@@ -131,7 +127,7 @@ export async function updateSavingsItem(userId: string, id: string, itemData: Pa
             type: newAmount > oldAmount ? 'deposit' : 'withdraw',
             date: new Date().toISOString().split('T')[0],
         };
-        const transactionCollectionRef = doc(collection(db, `users/${userId}/sinking-fund-transactions`));
+        const transactionCollectionRef = doc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION));
         transaction.set(transactionCollectionRef, transactionData);
     }
 
@@ -188,10 +184,6 @@ export async function deleteSavingsItem(id: string): Promise<void> {
   const itemRef = doc(db, SAVINGS_COLLECTION, id);
   batch.delete(itemRef);
 
-  // Note: Deleting sub-collection documents like this is not a standard Firestore operation
-  // and would require a more complex solution (e.g., a Cloud Function) for full cascade delete.
-  // For now, we will leave the transactions orphaned as the UI won't show them.
-  /*
   const q = query(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION), where('fundId', '==', id));
   try {
     const snapshot = await getDocs(q);
@@ -203,14 +195,12 @@ export async function deleteSavingsItem(id: string): Promise<void> {
     console.error("Failed to delete sinking fund transactions:", serverError);
     throw serverError;
   }
-  */
-  await batch.commit();
 }
 
 
 export async function getSinkingFundTransactions(userId: string, fundId: string): Promise<SinkingFundTransaction[]> {
     const q = query(
-        collection(db, `users/${userId}/sinking-fund-transactions`),
+        collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION),
         where('fundId', '==', fundId),
         orderBy('date', 'desc')
     );
@@ -222,3 +212,4 @@ export async function getSinkingFundTransactions(userId: string, fundId: string)
         throw serverError;
     }
 }
+
