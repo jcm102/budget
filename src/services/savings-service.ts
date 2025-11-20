@@ -1,5 +1,5 @@
 
-'use client';
+'use server';
 import { db } from '@/lib/firebase';
 import type { SavingsItem, SavingsRecurrence, SinkingFundTransaction } from '@/types';
 import {
@@ -81,33 +81,20 @@ export async function getSavingsItems(accountId: string): Promise<SavingsItem[]>
 }
 
 export async function addSavingsItem(itemData: Omit<SavingsItem, 'id' | 'monthlyAmount'>): Promise<SavingsItem> {
-  const newItemRef = await runTransaction(db, async (transaction) => {
-    const docRef = doc(collection(db, SAVINGS_COLLECTION));
-    transaction.set(docRef, itemData);
-
-    if (itemData.amount > 0) {
-      const transactionData: Omit<SinkingFundTransaction, 'id'> = {
-        fundId: docRef.id,
-        amount: itemData.amount,
-        type: 'deposit',
-        date: new Date().toISOString().split('T')[0],
-      };
-      const transactionCollectionRef = doc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION));
-      transaction.set(transactionCollectionRef, transactionData);
-    }
-    return docRef;
-  }).catch((serverError) => {
-      const permissionError = new FirestorePermissionError({
-        path: SAVINGS_COLLECTION,
-        operation: 'create',
-        requestResourceData: itemData,
-      } satisfies SecurityRuleContext);
-      errorEmitter.emit('permission-error', permissionError);
-      throw permissionError;
-  });
-
-  const docSnap = await getDoc(newItemRef);
+  const docRef = await addDoc(collection(db, SAVINGS_COLLECTION), itemData);
+  const docSnap = await getDoc(docRef);
   const newItem = { id: docSnap.id, ...(docSnap.data() as Omit<SavingsItem, 'id'>) };
+
+  // Add a transaction for the initial amount if it's greater than 0
+  if (itemData.amount > 0) {
+    const transactionData: Omit<SinkingFundTransaction, 'id'> = {
+      fundId: docRef.id,
+      amount: itemData.amount,
+      type: 'deposit',
+      date: new Date().toISOString().split('T')[0],
+    };
+    await addDoc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION), transactionData);
+  }
 
   return {
     ...newItem,
@@ -115,86 +102,31 @@ export async function addSavingsItem(itemData: Omit<SavingsItem, 'id' | 'monthly
   };
 }
 
-export function updateSavingsItem(id: string, itemData: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>) {
-  runTransaction(db, async (transaction) => {
-    const itemRef = doc(db, SAVINGS_COLLECTION, id);
-    const docSnap = await transaction.get(itemRef);
+export async function updateSavingsItem(id: string, itemData: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>): Promise<void> {
+  const itemRef = doc(db, SAVINGS_COLLECTION, id);
 
-    if (!docSnap.exists()) {
-      throw new Error('Savings item not found');
-    }
+  // For amount changes, we need to log a transaction
+  if (typeof itemData.amount === 'number') {
+    const docSnap = await getDoc(itemRef);
+    if (docSnap.exists()) {
+      const existingData = docSnap.data() as SavingsItem;
+      const oldAmount = existingData.amount;
+      const newAmount = itemData.amount;
 
-    const existingData = docSnap.data() as SavingsItem;
-    const oldAmount = existingData.amount;
-    const newAmount = itemData.amount;
-    
-    if (typeof newAmount === 'number' && newAmount !== oldAmount) {
+      if (newAmount !== oldAmount) {
         const transactionData: Omit<SinkingFundTransaction, 'id'> = {
-            fundId: id,
-            amount: Math.abs(newAmount - oldAmount),
-            type: newAmount > oldAmount ? 'deposit' : 'withdraw',
-            date: new Date().toISOString().split('T')[0],
+          fundId: id,
+          amount: Math.abs(newAmount - oldAmount),
+          type: newAmount > oldAmount ? 'deposit' : 'withdraw',
+          date: new Date().toISOString().split('T')[0],
         };
-        const transactionCollectionRef = doc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION));
-        transaction.set(transactionCollectionRef, transactionData);
-    }
-
-    const wasWithdrawal = 'amount' in itemData && itemData.amount! < existingData.amount;
-
-    if (
-      wasWithdrawal &&
-      existingData.recurrence &&
-      existingData.recurrence !== 'None' &&
-      existingData.dueDate &&
-      existingData.totalCost &&
-      existingData.totalCost > 0
-    ) {
-      const amountWithdrawn = existingData.amount - itemData.amount!;
-      if (amountWithdrawn >= existingData.totalCost) {
-        if (existingData.recurrence === 'Semi-Annually (Custom)' && existingData.primaryPaymentMonth && existingData.secondaryPaymentMonth) {
-            const currentDueDate = parse(existingData.dueDate, 'yyyy-MM-dd', new Date());
-            const currentDueMonth = currentDueDate.getMonth() + 1;
-            const p1 = existingData.primaryPaymentMonth;
-            const p2 = existingData.secondaryPaymentMonth;
-
-            let nextDueDate: Date;
-
-            if (currentDueMonth === p1) {
-                nextDueDate = set(currentDueDate, { month: p2 - 1 });
-            } else {
-                nextDueDate = set(currentDueDate, { year: currentDueDate.getFullYear() + 1, month: p1 - 1 });
-            }
-            itemData.dueDate = format(nextDueDate, 'yyyy-MM-dd');
-
-        } else {
-            const monthsToAdd = recurrenceIntervalMap[existingData.recurrence];
-            if (monthsToAdd > 0) {
-              const newDueDate = addMonths(parse(existingData.dueDate, 'yyyy-MM-dd', new Date()), monthsToAdd);
-              itemData.dueDate = format(newDueDate, 'yyyy-MM-dd');
-            }
-        }
-        itemData.amount = existingData.amount - existingData.totalCost;
-        if(itemData.amount < 0) itemData.amount = 0;
+        await addDoc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION), transactionData);
       }
     }
-    
-    if (itemData.dueDate) {
-        itemData.dueDate = itemData.dueDate.split('T')[0];
-    }
-    const cleanItemData = Object.fromEntries(Object.entries(itemData).filter(([_, v]) => v !== undefined));
-    transaction.update(itemRef, cleanItemData);
-  }).catch((serverError) => {
-    const permissionError = new FirestorePermissionError({
-      path: `${SAVINGS_COLLECTION}/${id}`,
-      operation: 'update',
-      requestResourceData: itemData,
-    } satisfies SecurityRuleContext);
-    errorEmitter.emit('permission-error', permissionError);
-    // Re-throw to allow the hook to handle UI state
-    throw permissionError;
-  });
-}
+  }
 
+  await updateDoc(itemRef, itemData);
+}
 
 export async function deleteSavingsItem(id: string): Promise<void> {
   const batch = writeBatch(db);
@@ -202,20 +134,12 @@ export async function deleteSavingsItem(id: string): Promise<void> {
   batch.delete(itemRef);
 
   const q = query(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION), where('fundId', '==', id));
-  try {
-    const snapshot = await getDocs(q);
-    snapshot.forEach(doc => {
-      batch.delete(doc.ref);
-    });
-    await batch.commit();
-  } catch (serverError) {
-    const permissionError = new FirestorePermissionError({
-      path: `sinking-fund-transactions`,
-      operation: 'list', // This is a query, so 'list' is appropriate
-    } satisfies SecurityRuleContext);
-    errorEmitter.emit('permission-error', permissionError);
-    throw permissionError;
-  }
+  const snapshot = await getDocs(q);
+  snapshot.forEach(doc => {
+    batch.delete(doc.ref);
+  });
+  
+  await batch.commit();
 }
 
 
