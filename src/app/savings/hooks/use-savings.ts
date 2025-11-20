@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -60,12 +59,8 @@ export function useSavings() {
   }, [toast]);
 
   const updateSavingsItem = useCallback(async (id: string, itemData: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>) => {
-    if (!user) {
-        toast({ title: 'Error', description: 'You must be logged in to perform this action.', variant: 'destructive' });
-        return;
-    }
     try {
-      await SavingsService.updateSavingsItem(user.uid, id, itemData);
+      SavingsService.updateSavingsItem(id, itemData);
       // After any update, refetch everything to get recalculated values
       await fetchAllData(selectedAccountId);
     } catch (error) {
@@ -77,7 +72,7 @@ export function useSavings() {
         variant: 'destructive',
       });
     }
-  }, [toast, selectedAccountId, fetchAllData, user]);
+  }, [toast, selectedAccountId, fetchAllData]);
 
   const deleteSavingsItem = useCallback(async (id: string) => {
     const originalItems = savingsItems;
