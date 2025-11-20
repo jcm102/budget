@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -92,9 +91,8 @@ export async function addSavingsItem(itemData: Omit<SavingsItem, 'id' | 'monthly
         type: 'deposit',
         date: new Date().toISOString().split('T')[0],
       };
-      const transactionCollectionRef = collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION);
-      const newTransactionRef = doc(transactionCollectionRef);
-      transaction.set(newTransactionRef, transactionData);
+      const transactionCollectionRef = doc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION));
+      transaction.set(transactionCollectionRef, transactionData);
     }
     return docRef;
   });
@@ -128,9 +126,8 @@ export async function updateSavingsItem(id: string, itemData: Partial<Omit<Savin
             type: newAmount > oldAmount ? 'deposit' : 'withdraw',
             date: new Date().toISOString().split('T')[0],
         };
-        const transactionCollectionRef = collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION);
-        const newTransactionRef = doc(transactionCollectionRef);
-        transaction.set(newTransactionRef, transactionData);
+        const transactionCollectionRef = doc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION));
+        transaction.set(transactionCollectionRef, transactionData);
     }
 
     const wasWithdrawal = 'amount' in itemData && itemData.amount! < existingData.amount;
@@ -196,13 +193,14 @@ export async function deleteSavingsItem(id: string): Promise<void> {
     await batch.commit();
   } catch (serverError) {
     console.error("Failed to delete sinking fund transactions:", serverError);
-    // Re-throw so the UI knows the operation failed, but don't emit client error
+    // Re-throw so the UI knows the operation failed
     throw serverError;
   }
 }
 
-
-export async function getSinkingFundTransactions(fundId: string): Promise<SinkingFundTransaction[]> {
+// This function must be treated as a client-side function because it uses onSnapshot for real-time updates,
+// which is a client-side feature.
+export async function getSinkingFundTransactions(userId: string, fundId: string): Promise<SinkingFundTransaction[]> {
     const q = query(
         collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION),
         where('fundId', '==', fundId),

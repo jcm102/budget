@@ -1,11 +1,17 @@
 
 rules_version = '2';
 
-// Allow read/write access to all users.
-// This is not recommended for production apps.
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Allow read/write access to all users for most collections.
+    // This is not recommended for production apps.
     match /{document=**} {
+      allow read, write: if true;
+    }
+
+    // Explicitly allow reading the 'sinking-fund-transactions' collection group.
+    // This is required for the transaction history query to work.
+    match /sinking-fund-transactions/{transactionId} {
       allow read, write: if true;
     }
   }
