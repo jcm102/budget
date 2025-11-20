@@ -8,6 +8,8 @@ const SETTINGS_COLLECTION = 'settings';
 const MILEAGE_RATE_DOC = 'mileageRate';
 const EXCHANGE_RATE_DOC = 'exchangeRate';
 const CREDIT_CARD_REPORT_DATE_DOC = 'creditCardReport';
+const COMMON_ACCOUNTS_DOC = 'commonAccounts';
+
 
 const DEFAULT_MILEAGE_RATE = 0.50;
 const DEFAULT_EXCHANGE_RATE = 1.35;
@@ -22,6 +24,10 @@ interface ExchangeRateSetting {
 
 interface CreditCardReportDateSetting {
     lastRunDate: string; // Stored as 'YYYY-MM-DD'
+}
+
+interface CommonAccountsSetting {
+    accountIds: string[];
 }
 
 
@@ -73,4 +79,21 @@ export async function getCreditCardReportLastRunDate(): Promise<string | null> {
 export async function updateCreditCardReportLastRunDate(date: string): Promise<void> {
     const docRef = doc(db, SETTINGS_COLLECTION, CREDIT_CARD_REPORT_DATE_DOC);
     await setDoc(docRef, { lastRunDate: date });
+}
+
+export async function getCommonAccountIds(): Promise<string[]> {
+    const docRef = doc(db, SETTINGS_COLLECTION, COMMON_ACCOUNTS_DOC);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+        return (docSnap.data() as CommonAccountsSetting).accountIds || [];
+    } else {
+        // Default common accounts by name
+        return ['Chequing Account', 'Credit Card', 'Splitwise'];
+    }
+}
+
+export async function updateCommonAccountIds(accountIds: string[]): Promise<void> {
+    const docRef = doc(db, SETTINGS_COLLECTION, COMMON_ACCOUNTS_DOC);
+    await setDoc(docRef, { accountIds });
 }

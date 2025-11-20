@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -36,6 +37,7 @@ import { useMonthlyBudget } from '../hooks/use-monthly-budget';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useCommonAccounts } from '@/hooks/use-common-accounts';
 
 type CategoryWithChildren = Category & { children: CategoryWithChildren[] };
 
@@ -83,10 +85,9 @@ type TransactionFormProps = {
   isPage?: boolean;
 };
 
-const commonAccountNames = ['Chequing Account', 'Credit Card', 'Splitwise'];
-
 export function TransactionForm({ open, onOpenChange, accounts, addTransaction, updateTransaction, editingTransaction, isPage = false }: TransactionFormProps) {
   const { categories, budgetItems } = useMonthlyBudget();
+  const { commonAccountIds } = useCommonAccounts();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -109,10 +110,10 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
   });
   
   const { commonAccounts, otherAccounts } = useMemo(() => {
-    const common = accounts.filter(a => commonAccountNames.includes(a.name));
-    const other = accounts.filter(a => !commonAccountNames.includes(a.name));
+    const common = accounts.filter(a => commonAccountIds.includes(a.id));
+    const other = accounts.filter(a => !commonAccountIds.includes(a.id));
     return { commonAccounts: common, otherAccounts: other };
-  }, [accounts]);
+  }, [accounts, commonAccountIds]);
 
   const iouAccounts = useMemo(() => accounts.filter(a => a.type === 'IOU'), [accounts]);
   const isIOUPayment = form.watch('isIOUPayment');
@@ -265,7 +266,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
             </SelectGroup>
         )}
         {otherAccounts.length > 0 && (
-            <SelectGroup>
+             <SelectGroup>
                 <SelectLabel>Other</SelectLabel>
                 {otherAccounts.map(acc => (<SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>))}
             </SelectGroup>

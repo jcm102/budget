@@ -14,6 +14,7 @@ import { ExchangeRateManager } from '@/components/exchange-rate-manager';
 import { AccountManager } from '@/components/account-manager';
 import { BudgetCategoryManager } from '@/components/budget-category-manager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CommonlyUsedAccountsManager } from '@/components/commonly-used-accounts-manager';
 
 export default function SettingsPage() {
   return (
@@ -40,6 +41,7 @@ export default function SettingsPage() {
                     <div className="space-y-4">
                         <AccountManager />
                         <AccountDetailsManager />
+                        <CommonlyUsedAccountsManager />
                     </div>
                 </TabsContent>
                 <TabsContent value="categories" className="mt-6">
