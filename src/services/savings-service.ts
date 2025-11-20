@@ -101,7 +101,7 @@ export async function addSavingsItem(userId: string, itemData: Omit<SavingsItem,
         updateDoc(transactionRef, { id: newTransaction.id }).catch((e) => console.error("Error setting transaction ID", e));
       }).catch(async (serverError) => {
           const permissionError = new FirestorePermissionError({
-            path: transactionCollectionRef.path,
+            path: `users/${userId}/${SINKING_FUND_TRANSACTIONS_COLLECTION}`,
             operation: 'create',
             requestResourceData: transactionData,
           });
@@ -137,17 +137,15 @@ export async function updateSavingsItem(userId: string, id: string, itemData: Pa
           date: new Date().toISOString().split('T')[0],
       };
       const transactionCollectionRef = collection(db, 'users', userId, SINKING_FUND_TRANSACTIONS_COLLECTION);
-      addDoc(transactionCollectionRef, transactionData).then(newTransaction => {
-        const transactionRef = doc(db, 'users', userId, SINKING_FUND_TRANSACTIONS_COLLECTION, newTransaction.id);
-        updateDoc(transactionRef, { id: newTransaction.id }).catch((e) => console.error("Error setting transaction ID", e));
-      }).catch(async (serverError) => {
-          const permissionError = new FirestorePermissionError({
-            path: transactionCollectionRef.path,
-            operation: 'create',
-            requestResourceData: transactionData,
-          });
-          errorEmitter.emit('permission-error', permissionError);
-          throw serverError;
+      
+      addDoc(transactionCollectionRef, transactionData).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: `users/${userId}/${SINKING_FUND_TRANSACTIONS_COLLECTION}`,
+          operation: 'create',
+          requestResourceData: transactionData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        throw serverError;
       });
   }
 
