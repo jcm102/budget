@@ -156,6 +156,15 @@ export interface SavingsItem {
   secondaryPaymentMonth?: number | null; // For "Semi-Annually (Custom)"
   parentId?: string | null;
   monthlyAmount?: number; // Calculated field
+  lastFundedAt?: string | null; // ISO string
+}
+
+export interface SinkingFundTransaction {
+  id: string;
+  fundId: string;
+  amount: number;
+  type: 'deposit' | 'withdraw';
+  date: string; // ISO string
 }
 
 

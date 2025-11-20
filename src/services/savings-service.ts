@@ -1,8 +1,9 @@
 
+
 'use server';
 
 import { db } from '@/lib/firebase';
-import type { SavingsItem, SavingsRecurrence } from '@/types';
+import type { SavingsItem, SavingsRecurrence, SinkingFundTransaction } from '@/types';
 import {
   collection,
   getDocs,
@@ -18,6 +19,7 @@ import {
 import { addMonths, set, format, startOfToday, parse, isBefore, differenceInCalendarMonths } from 'date-fns';
 
 const SAVINGS_COLLECTION = 'sinking-funds';
+const SINKING_FUND_TRANSACTIONS_COLLECTION = 'sinking-fund-transactions';
 
 const recurrenceIntervalMap: Record<SavingsRecurrence, number> = {
     'None': 0,
@@ -95,6 +97,20 @@ export async function updateSavingsItem(id: string, itemData: Partial<Omit<Savin
   }
 
   const existingData = docSnap.data() as SavingsItem;
+  const oldAmount = existingData.amount;
+  const newAmount = itemData.amount;
+
+  if (typeof newAmount === 'number' && newAmount !== oldAmount) {
+      const transactionData: Omit<SinkingFundTransaction, 'id'> = {
+          fundId: id,
+          amount: Math.abs(newAmount - oldAmount),
+          type: newAmount > oldAmount ? 'deposit' : 'withdraw',
+          date: new Date().toISOString().split('T')[0],
+      };
+      await addDoc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION), transactionData);
+  }
+
+
   const wasWithdrawal = 'amount' in itemData && itemData.amount! < existingData.amount;
 
   // Check for reset condition
@@ -151,4 +167,22 @@ export async function updateSavingsItem(id: string, itemData: Partial<Omit<Savin
 export async function deleteSavingsItem(id: string): Promise<void> {
   const itemRef = doc(db, SAVINGS_COLLECTION, id);
   await deleteDoc(itemRef);
+  
+  // Also delete associated transactions
+  const q = query(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION), where('fundId', '==', id));
+  const snapshot = await getDocs(q);
+  const batch = writeBatch(db);
+  snapshot.forEach(doc => batch.delete(doc.ref));
+  await batch.commit();
+}
+
+
+export async function getSinkingFundTransactions(fundId: string): Promise<SinkingFundTransaction[]> {
+    const q = query(
+        collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION),
+        where('fundId', '==', fundId),
+        orderBy('date', 'desc')
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SinkingFundTransaction));
 }

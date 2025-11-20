@@ -1,12 +1,13 @@
 
+
 'use client';
 
 import { useState, useMemo } from 'react';
-import type { SavingsItem, SubscriptionItem, AutoShipItem } from '@/types';
+import type { SavingsItem, SubscriptionItem, AutoShipItem, SinkingFundTransaction } from '@/types';
 import * as z from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { format, parse, isBefore } from 'date-fns';
+import { format, parse, isBefore, isSameMonth } from 'date-fns';
 import type { ColumnVisibility } from '@/app/savings/page';
 
 import {
@@ -52,17 +53,85 @@ import { useSavings } from '../hooks/use-savings';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
-import { Pencil, Trash2, PlusCircle, ArrowUpDown, DollarSign, MinusCircle, Info, Repeat, PiggyBank } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, ArrowUpDown, DollarSign, MinusCircle, Info, Repeat, PiggyBank, History, CheckCircle } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { SavingsForm } from './savings-form';
+import * as SavingsService from '@/services/savings-service';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const transactionSchema = z.object({
   amount: z.coerce.number().min(0.01, 'Amount must be greater than zero.'),
 });
+
+const formatCurrency = (amount: number, currency: 'CAD' | 'USD' = 'CAD') => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
+};
+
+function TransactionHistoryDialog({ fundId, fundName }: { fundId: string, fundName: string }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [history, setHistory] = useState<SinkingFundTransaction[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+
+    const handleOpenChange = async (open: boolean) => {
+        setIsOpen(open);
+        if (open) {
+            setIsLoading(true);
+            const fetchedHistory = await SavingsService.getSinkingFundTransactions(fundId);
+            setHistory(fetchedHistory);
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <DialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700">
+                            <History className="h-4 w-4" />
+                        </Button>
+                    </DialogTrigger>
+                </TooltipTrigger>
+                <TooltipContent><p>Transaction History</p></TooltipContent>
+            </Tooltip>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Transaction History for &quot;{fundName}&quot;</DialogTitle>
+                </DialogHeader>
+                <ScrollArea className="max-h-[60vh]">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Date</TableHead>
+                                <TableHead>Type</TableHead>
+                                <TableHead className="text-right">Amount</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {isLoading ? (
+                                <TableRow><TableCell colSpan={3} className="text-center"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                            ) : history.length > 0 ? (
+                                history.map(tx => (
+                                    <TableRow key={tx.id}>
+                                        <TableCell>{format(parse(tx.date, "yyyy-MM-dd", new Date()), 'PPP')}</TableCell>
+                                        <TableCell className={cn("capitalize", tx.type === 'deposit' ? 'text-green-600' : 'text-destructive')}>{tx.type}</TableCell>
+                                        <TableCell className="text-right">{formatCurrency(tx.amount)}</TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow><TableCell colSpan={3} className="text-center h-24">No transactions found.</TableCell></TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </ScrollArea>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 function TransactionDialog({ item, transactionType, onSave, children }: { item: SavingsItem, transactionType: 'deposit' | 'withdraw', onSave: (amount: number) => void, children: React.ReactNode }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -140,7 +209,7 @@ const parseDate = (dateString: string): Date => {
     if (!dateString) return new Date();
     // Handles both 'YYYY-MM-DD' and full ISO strings by splitting on 'T'
     const datePart = dateString.split('T')[0];
-    return parse(datePart, 'yyyy-MM-dd', new Date());
+    return parse(datePart, "yyyy-MM-dd", new Date());
 };
 
 
@@ -173,10 +242,6 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
     }
   };
 
-  const formatCurrency = (amount: number, currency: 'CAD' | 'USD' = 'CAD') => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
-  };
-
   const requestSort = (key: SortConfig['key']) => {
     if (!key) return;
     let direction: 'ascending' | 'descending' = 'ascending';
@@ -207,7 +272,13 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
   const handleTransaction = (item: SavingsItem, amount: number, type: 'deposit' | 'withdraw') => {
     const currentAmount = item.amount;
     const newAmount = type === 'deposit' ? currentAmount + amount : currentAmount - amount;
-    updateSavingsItem(item.id, { amount: newAmount < 0 ? 0 : newAmount });
+    
+    let updateData: Partial<SavingsItem> = { amount: newAmount < 0 ? 0 : newAmount };
+    if (type === 'deposit' && amount === item.monthlyAmount) {
+        updateData.lastFundedAt = new Date().toISOString();
+    }
+    
+    updateSavingsItem(item.id, updateData);
   };
 
   const renderLoadingSkeleton = () => (
@@ -285,6 +356,8 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
                         const monthlyAmount = item.monthlyAmount || 0;
                         const isUsd = item.currency === 'USD';
                         const convertedMonthlyAmount = isUsd ? monthlyAmount * (exchangeRate || 1) : monthlyAmount;
+                        
+                        const isFundedThisMonth = item.lastFundedAt ? isSameMonth(new Date(item.lastFundedAt), new Date()) : false;
 
                         return (
                         <TableRow key={item.id}>
@@ -332,28 +405,38 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
                             </TableCell>}
                             {columnVisibility.actions && <TableCell className="text-right">
                                 <div className="flex justify-end gap-1">
-                                    <AlertDialog>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <AlertDialogTrigger asChild>
-                                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700" disabled={monthlyAmount <= 0}><PiggyBank className="h-4 w-4" /></Button>
-                                                </AlertDialogTrigger>
-                                            </TooltipTrigger>
-                                            <TooltipContent><p>Fund Monthly Amount</p></TooltipContent>
-                                        </Tooltip>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>Fund Sinking Fund?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    This will add {formatCurrency(monthlyAmount, item.currency)} to your saved amount for &quot;{item.name}&quot;.
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleTransaction(item, monthlyAmount, 'deposit')}>Confirm</AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <div>
+                                                {isFundedThisMonth ? (
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-green-500 cursor-default">
+                                                        <CheckCircle className="h-4 w-4" />
+                                                    </Button>
+                                                ) : (
+                                                    <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700" disabled={monthlyAmount <= 0}>
+                                                                <PiggyBank className="h-4 w-4" />
+                                                            </Button>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader>
+                                                                <AlertDialogTitle>Fund Sinking Fund?</AlertDialogTitle>
+                                                                <AlertDialogDescription>
+                                                                    This will add {formatCurrency(monthlyAmount, item.currency)} to your saved amount for &quot;{item.name}&quot;.
+                                                                </AlertDialogDescription>
+                                                            </AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                <AlertDialogAction onClick={() => handleTransaction(item, monthlyAmount, 'deposit')}>Confirm</AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
+                                                )}
+                                            </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent><p>{isFundedThisMonth ? 'Funded this month' : 'Fund Monthly Amount'}</p></TooltipContent>
+                                    </Tooltip>
 
                                      <TransactionDialog item={item} transactionType='deposit' onSave={(amount) => handleTransaction(item, amount, 'deposit')}>
                                         <Tooltip>
@@ -371,6 +454,7 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
                                             <TooltipContent><p>Withdraw</p></TooltipContent>
                                         </Tooltip>
                                     </TransactionDialog>
+                                    <TransactionHistoryDialog fundId={item.id} fundName={item.name} />
                                     <Tooltip>
                                         <TooltipTrigger asChild>
                                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(item)}><Pencil className="h-4 w-4" /></Button>
