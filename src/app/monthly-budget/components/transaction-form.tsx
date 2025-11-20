@@ -22,7 +22,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, SelectLabel } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Trash2, PlusCircle, User, Users, Info, Copy, Loader2, Handshake } from 'lucide-react';
@@ -83,6 +83,8 @@ type TransactionFormProps = {
   isPage?: boolean;
 };
 
+const commonAccountNames = ['Chequing Account', 'Credit Card', 'Splitwise'];
+
 export function TransactionForm({ open, onOpenChange, accounts, addTransaction, updateTransaction, editingTransaction, isPage = false }: TransactionFormProps) {
   const { categories, budgetItems } = useMonthlyBudget();
   const { toast } = useToast();
@@ -106,8 +108,13 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
     name: 'splits',
   });
   
+  const { commonAccounts, otherAccounts } = useMemo(() => {
+    const common = accounts.filter(a => commonAccountNames.includes(a.name));
+    const other = accounts.filter(a => !commonAccountNames.includes(a.name));
+    return { commonAccounts: common, otherAccounts: other };
+  }, [accounts]);
+
   const iouAccounts = useMemo(() => accounts.filter(a => a.type === 'IOU'), [accounts]);
-  const nonIouAccounts = useMemo(() => accounts.filter(a => a.type !== 'IOU'), [accounts]);
   const isIOUPayment = form.watch('isIOUPayment');
   
   const categoryTree = useMemo(() => {
@@ -248,6 +255,23 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
     });
     return options;
   };
+  
+  const renderAccountOptions = () => (
+    <>
+        {commonAccounts.length > 0 && (
+            <SelectGroup>
+                <SelectLabel>Commonly Used</SelectLabel>
+                {commonAccounts.map(acc => (<SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>))}
+            </SelectGroup>
+        )}
+        {otherAccounts.length > 0 && (
+            <SelectGroup>
+                <SelectLabel>Other</SelectLabel>
+                {otherAccounts.map(acc => (<SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>))}
+            </SelectGroup>
+        )}
+    </>
+  );
 
 
   const formContent = (
@@ -300,7 +324,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                                 <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                                     <FormControl><SelectTrigger><SelectValue placeholder="Select an account" /></SelectTrigger></FormControl>
                                     <SelectContent>
-                                        {accounts.map(acc => (<SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>))}
+                                        {renderAccountOptions()}
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />
@@ -425,9 +449,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                                                 <SelectTrigger><SelectValue placeholder="Select an account" /></SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                {accounts.map(acc => (
-                                                    <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
-                                                ))}
+                                                    {renderAccountOptions()}
                                                 </SelectContent>
                                             </Select>
                                             <FormMessage />
