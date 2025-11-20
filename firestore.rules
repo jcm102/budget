@@ -72,14 +72,14 @@ service cloud.firestore {
 
     /**
      * @description Enforces document ownership for Sinking Fund Transactions.
+     * Ensures that the fundId cannot be changed after creation.
      * @path /users/{userId}/sinking-fund-transactions/{transactionId}
-     * @principle Enforces document ownership
+     * @principle Enforces document ownership and data integrity
      */
     match /users/{userId}/sinking-fund-transactions/{transactionId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
+      allow read: if isOwner(userId);
       allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
+      allow update: if isExistingOwner(userId) && request.resource.data.fundId == resource.data.fundId;
       allow delete: if isExistingOwner(userId);
     }
   }
