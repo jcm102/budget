@@ -1,16 +1,15 @@
-
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { collection, doc } from 'firebase/firestore';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import type { LinkGroup } from '@/types';
 import { useToast } from './use-toast';
 import {
-  addDocumentNonBlocking,
-  updateDocumentNonBlocking,
-  deleteDocumentNonBlocking,
-} from '@/firebase/non-blocking-updates';
+  addDoc,
+  updateDoc,
+  deleteDoc,
+} from 'firebase/firestore';
 
 export function useLinkGroups() {
   const { toast } = useToast();
@@ -31,7 +30,7 @@ export function useLinkGroups() {
     async (name: string, links: string[]) => {
       if (!linkGroupsCollection) return;
       try {
-        await addDocumentNonBlocking(linkGroupsCollection, { name, links });
+        await addDoc(linkGroupsCollection, { name, links });
       } catch (error) {
         console.error('Failed to add link group:', error);
         toast({
@@ -49,7 +48,7 @@ export function useLinkGroups() {
       if (!user) return;
       try {
         const linkGroupRef = doc(firestore, 'users', user.uid, 'link-groups', id);
-        await updateDocumentNonBlocking(linkGroupRef, { name, links });
+        await updateDoc(linkGroupRef, { name, links });
       } catch (error) {
         console.error('Failed to update link group:', error);
         toast({
@@ -67,7 +66,7 @@ export function useLinkGroups() {
       if (!user) return;
       try {
         const linkGroupRef = doc(firestore, 'users', user.uid, 'link-groups', id);
-        await deleteDocumentNonBlocking(linkGroupRef);
+        await deleteDoc(linkGroupRef);
       } catch (error) {
         console.error('Failed to delete link group:', error);
         toast({

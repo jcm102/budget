@@ -8,11 +8,7 @@
  * unauthorized access.
  *
  * Data Structure:
- * All data is nested under /users/{userId}.
- *
- * Key Security Decisions:
- * - Users can only access their own data.
- * - Data schema validation is relaxed for rapid prototyping.
+ * All user-specific data is nested under /users/{userId}/{collection}/{docId}.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -36,51 +32,14 @@ service cloud.firestore {
     }
     
     /**
-     * @description Checks if the request is made by the owner of the user ID and that resource exists.
-     * @param {string} userId - The user ID to check against.
-     * @principle Ownership & Existence
+     * Matches any collection under a user's private data path.
+     * The {anyCollection} wildcard captures collection names like 'tasks', 'debts', etc.
+     * The {anyDoc} wildcard captures the document ID within that collection.
+     * @path /users/{userId}/{anyCollection}/{anyDoc}
+     * @principle Enforces strict user ownership for all personal data.
      */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
-    /**
-     * @description Enforces document ownership for writes on user-specific tasks.
-     * @path /users/{userId}/tasks/{taskId}
-     * @principle Enforces document ownership for writes
-     */
-    match /users/{userId}/tasks/{taskId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
-    }
-
-    /**
-     * @description Enforces document ownership for Link Groups.
-     * @path /users/{userId}/link-groups/{linkGroupId}
-     * @principle Enforces document ownership for writes
-     */
-    match /users/{userId}/link-groups/{linkGroupId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
-    }
-
-    /**
-     * @description Enforces document ownership for Sinking Fund Transactions.
-     * Ensures that the fundId cannot be changed after creation.
-     * @path /users/{userId}/sinking-fund-transactions/{transactionId}
-     * @principle Enforces document ownership and data integrity
-     */
-    match /users/{userId}/sinking-fund-transactions/{transactionId} {
-      allow read: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId) && request.resource.data.fundId == resource.data.fundId;
-      allow delete: if isExistingOwner(userId);
+    match /users/{userId}/{anyCollection}/{anyDoc} {
+      allow read, write: if isOwner(userId);
     }
   }
 }
