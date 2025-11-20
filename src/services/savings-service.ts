@@ -84,7 +84,7 @@ export async function getSavingsItems(accountId: string): Promise<SavingsItem[]>
 export async function addSavingsItem(userId: string, itemData: Omit<SavingsItem, 'id' | 'monthlyAmount'>): Promise<SavingsItem> {
   const docRef = await addDoc(collection(db, SAVINGS_COLLECTION), itemData);
   const docSnap = await getDoc(docRef);
-  const newItem = { id: docSnap.id, ...(docSnap.data() as Omit<SavingsItem, 'id'>) };
+  const newItem = { id: docRef.id, ...(docSnap.data() as Omit<SavingsItem, 'id'>) };
   
   // Also create an initial deposit transaction
   if (newItem.amount > 0) {
@@ -95,9 +95,20 @@ export async function addSavingsItem(userId: string, itemData: Omit<SavingsItem,
           date: new Date().toISOString().split('T')[0],
       };
       const transactionCollectionRef = collection(db, 'users', userId, SINKING_FUND_TRANSACTIONS_COLLECTION);
-      const newTransaction = await addDoc(transactionCollectionRef, transactionData);
-      const transactionRef = doc(db, 'users', userId, SINKING_FUND_TRANSACTIONS_COLLECTION, newTransaction.id);
-      updateDoc(transactionRef, { id: newTransaction.id }).catch((e) => console.error("Error setting transaction ID", e));
+      
+      addDoc(transactionCollectionRef, transactionData).then(newTransaction => {
+        const transactionRef = doc(db, 'users', userId, SINKING_FUND_TRANSACTIONS_COLLECTION, newTransaction.id);
+        updateDoc(transactionRef, { id: newTransaction.id }).catch((e) => console.error("Error setting transaction ID", e));
+      }).catch(async (serverError) => {
+          const permissionError = new FirestorePermissionError({
+            path: transactionCollectionRef.path,
+            operation: 'create',
+            requestResourceData: transactionData,
+          });
+          errorEmitter.emit('permission-error', permissionError);
+          // Re-throw to ensure calling function knows it failed
+          throw serverError;
+      });
   }
 
   return {
@@ -126,9 +137,18 @@ export async function updateSavingsItem(userId: string, id: string, itemData: Pa
           date: new Date().toISOString().split('T')[0],
       };
       const transactionCollectionRef = collection(db, 'users', userId, SINKING_FUND_TRANSACTIONS_COLLECTION);
-      const newTransaction = await addDoc(transactionCollectionRef, transactionData);
-      const transactionRef = doc(db, 'users', userId, SINKING_FUND_TRANSACTIONS_COLLECTION, newTransaction.id);
-      updateDoc(transactionRef, { id: newTransaction.id }).catch((e) => console.error("Error setting transaction ID", e));
+      addDoc(transactionCollectionRef, transactionData).then(newTransaction => {
+        const transactionRef = doc(db, 'users', userId, SINKING_FUND_TRANSACTIONS_COLLECTION, newTransaction.id);
+        updateDoc(transactionRef, { id: newTransaction.id }).catch((e) => console.error("Error setting transaction ID", e));
+      }).catch(async (serverError) => {
+          const permissionError = new FirestorePermissionError({
+            path: transactionCollectionRef.path,
+            operation: 'create',
+            requestResourceData: transactionData,
+          });
+          errorEmitter.emit('permission-error', permissionError);
+          throw serverError;
+      });
   }
 
 
