@@ -160,9 +160,9 @@ const CategoryRow = ({
                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleCancel}><X className="h-4 w-4"/></Button>
                         </div>
                     ) : (
-                        <div className="group flex items-center justify-end gap-1">
+                        <div className="group flex items-center justify-end gap-1 min-h-[32px]">
                             <span>{formatCurrency(budgeted)}</span>
-                            <div className="opacity-0 group-hover:opacity-100 flex">
+                            <div className="opacity-0 group-hover:opacity-100 flex absolute right-4">
                                 {view === 'next' && (
                                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onCopyCategory(category.id)}>
                                         <Copy className="h-4 w-4 text-blue-500" />
