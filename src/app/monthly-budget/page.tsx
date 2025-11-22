@@ -27,10 +27,65 @@ import {
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart"
+import { PieChart, Pie, Cell } from "recharts"
+
 
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 };
+
+const DonutChartCard = ({ title, data, config, total, description }: { title: string, data: any[], config: any, total: number, description: string }) => {
+    return (
+        <Card className="flex flex-col">
+            <CardHeader className="items-center pb-0">
+                <CardTitle>{title}</CardTitle>
+                <CardDescription>{description}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex-1 pb-0">
+                <ChartContainer
+                    config={config}
+                    className="mx-auto aspect-square h-[200px]"
+                >
+                    <PieChart>
+                        <ChartTooltip
+                            cursor={false}
+                            content={<ChartTooltipContent hideLabel />}
+                        />
+                        <Pie
+                            data={data}
+                            dataKey="value"
+                            nameKey="name"
+                            innerRadius={60}
+                            strokeWidth={5}
+                        >
+                            {data.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.fill} />
+                            ))}
+                        </Pie>
+                    </PieChart>
+                </ChartContainer>
+            </CardContent>
+            <CardFooter className="flex-col gap-2 text-sm">
+                <div className="flex items-center gap-2 font-medium leading-none">
+                    Total: {formatCurrency(total)}
+                </div>
+            </CardFooter>
+        </Card>
+    )
+}
 
 export default function MonthlyBudgetPage() {
   const [isTransactionFormOpen, setIsTransactionFormOpen] = useState(false);
@@ -107,6 +162,25 @@ export default function MonthlyBudgetPage() {
   const leftToBudget = incomeAmount - totalBudgeted;
   const remainingInBudget = totalBudgeted - totalSpent;
 
+  const incomeChartData = [
+      { name: "Budgeted", value: totalBudgeted, fill: "hsl(var(--primary))" },
+      { name: "Left to Budget", value: Math.max(0, leftToBudget), fill: "hsl(var(--secondary))" },
+  ];
+  const incomeChartConfig = {
+      Budgeted: { label: "Budgeted", color: "hsl(var(--primary))" },
+      "Left to Budget": { label: "Left to Budget", color: "hsl(var(--secondary))" },
+  }
+
+  const spentChartData = [
+      { name: "Spent", value: totalSpent, fill: "hsl(var(--primary))" },
+      { name: "Remaining", value: Math.max(0, remainingInBudget), fill: "hsl(var(--secondary))" },
+  ];
+  const spentChartConfig = {
+      Spent: { label: "Spent", color: "hsl(var(--primary))" },
+      Remaining: { label: "Remaining", color: "hsl(var(--secondary))" },
+  }
+
+
   return (
     <>
       <TransactionForm
@@ -176,32 +250,39 @@ export default function MonthlyBudgetPage() {
                 </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                 <Link href="/budget" className="block">
-                    <div 
-                    className="p-4 border rounded-lg bg-card cursor-pointer hover:bg-accent transition-colors h-full"
-                    >
-                        <div className="flex justify-between items-center">
-                        <h4 className="text-muted-foreground">Budgeted Income</h4>
-                        </div>
-                        <p className="text-2xl font-semibold">{formatCurrency(incomeAmount)}</p>
-                    </div>
-                 </Link>
-                <div className="p-4 border rounded-lg bg-card">
-                    <h4 className="text-muted-foreground">Amount Budgeted</h4>
-                    <p className="text-2xl font-semibold">{formatCurrency(totalBudgeted)}</p>
-                </div>
-                 <div className="p-4 border rounded-lg bg-card">
-                    <h4 className="text-muted-foreground">Total Spent</h4>
-                    <p className="text-2xl font-semibold">{formatCurrency(totalSpent)}</p>
-                </div>
-                <div className="p-4 border rounded-lg bg-card">
-                    <h4 className="text-muted-foreground">Remaining (Budget)</h4>
-                    <p className={`text-2xl font-semibold ${remainingInBudget < 0 ? 'text-destructive' : ''}`}>
-                      {formatCurrency(remainingInBudget)}
-                    </p>
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                 <DonutChartCard
+                    title="Budgeted Income"
+                    description={view === 'current' ? `Total income for ${format(currentDate, "MMMM")}` : `Planned income for ${format(nextMonthString, "MMMM")}`}
+                    data={incomeChartData}
+                    config={incomeChartConfig}
+                    total={incomeAmount}
+                />
+                 <DonutChartCard
+                    title="Amount Budgeted"
+                    description="Total planned spending for the month"
+                    data={spentChartData}
+                    config={spentChartConfig}
+                    total={totalBudgeted}
+                />
+                 <Card className="flex flex-col justify-center items-center">
+                    <CardHeader>
+                        <CardTitle>Left to Budget</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className={`text-3xl font-semibold ${leftToBudget < 0 ? 'text-destructive' : ''}`}>{formatCurrency(leftToBudget)}</p>
+                    </CardContent>
+                </Card>
+                <Card className="flex flex-col justify-center items-center">
+                    <CardHeader>
+                        <CardTitle>Remaining in Budget</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className={`text-3xl font-semibold ${remainingInBudget < 0 ? 'text-destructive' : ''}`}>{formatCurrency(remainingInBudget)}</p>
+                    </CardContent>
+                </Card>
             </div>
+
             <Tabs value={view} onValueChange={(value) => setView(value as 'current' | 'next')} className="w-full">
                 <TabsList className="grid w-full grid-cols-2 bg-secondary/50 mb-6 no-print">
                     <TabsTrigger value="current">Current Month</TabsTrigger>
