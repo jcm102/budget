@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -80,41 +79,49 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
     if (item.frequency === 'One-Time') {
         allGeneratedItems.push(item);
     } else {
-        // Generate for current month
-        let currentDate = startOfDay(itemStartDate);
-        while (isBefore(currentDate, startOfCurrentMonth)) {
-            currentDate = addWeeks(currentDate, item.frequency === 'Weekly' ? 1 : item.frequency === 'Bi-Weekly' ? 2 : 4);
-        }
-        while (isSameMonth(currentDate, today)) {
-            const instanceId = `${item.id}-${currentDate.getTime()}`;
-            if (!processedRecurringInstances.has(instanceId)) {
-                allGeneratedItems.push({
-                    ...item,
-                    id: instanceId, 
-                    date: toLocalISOString(currentDate),
-                    completed: item.completed || false
-                });
+        // Shared logic for generating instances
+        const generateInstances = (startDate: Date, frequency: BudgetItem['frequency']) => {
+            let currentDate = startOfDay(startDate);
+            const endDate = addMonths(startOfNextMonth, 1); // Generate up to the end of next month
+            
+            const advanceDate = () => {
+                if (frequency === 'Weekly' || frequency === 'Bi-Weekly') {
+                    currentDate = addWeeks(currentDate, frequency === 'Weekly' ? 1 : 2);
+                } else if (frequency === 'Monthly' || frequency === 'Monthly (Last Day)') {
+                    currentDate = addMonths(currentDate, 1);
+                    if (frequency === 'Monthly (Last Day)') {
+                        currentDate = lastDayOfMonth(currentDate);
+                    }
+                }
+            };
+            
+            // Fast-forward to the current period if the start date is in the past
+            while (isBefore(currentDate, startOfCurrentMonth)) {
+                advanceDate();
             }
-            currentDate = addWeeks(currentDate, item.frequency === 'Weekly' ? 1 : item.frequency === 'Bi-Weekly' ? 2 : 4);
-        }
+
+            // Generate for current and next month
+            while (isBefore(currentDate, endDate)) {
+                const isCurrent = isSameMonth(currentDate, today);
+                const isNext = isSameMonth(currentDate, startOfNextMonth);
+
+                if (isCurrent || isNext) {
+                     const instanceId = `${item.id}-${currentDate.getTime()}`;
+                    if (!processedRecurringInstances.has(instanceId)) {
+                        allGeneratedItems.push({
+                            ...item,
+                            id: instanceId, 
+                            date: toLocalISOString(currentDate),
+                            completed: item.completed || false,
+                            forNextMonth: isNext,
+                        });
+                    }
+                }
+                advanceDate();
+            }
+        };
         
-        // Generate for next month
-        while (isBefore(currentDate, startOfNextMonth)) {
-             currentDate = addWeeks(currentDate, item.frequency === 'Weekly' ? 1 : item.frequency === 'Bi-Weekly' ? 2 : 4);
-        }
-        while (isSameMonth(currentDate, startOfNextMonth)) {
-            const instanceId = `${item.id}-${currentDate.getTime()}`;
-             if (!processedRecurringInstances.has(instanceId)) {
-                allGeneratedItems.push({
-                    ...item,
-                    id: instanceId, 
-                    date: toLocalISOString(currentDate),
-                    completed: item.completed || false,
-                    forNextMonth: true, // Explicitly mark for next month
-                });
-            }
-            currentDate = addWeeks(currentDate, item.frequency === 'Weekly' ? 1 : item.frequency === 'Bi-Weekly' ? 2 : 4);
-        }
+        generateInstances(itemStartDate, item.frequency);
     }
   });
 
