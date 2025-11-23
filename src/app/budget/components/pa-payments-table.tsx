@@ -221,10 +221,13 @@ export function PaPaymentsTable() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<BudgetItem | null>(null);
 
-  const paymentItems = useMemo(() => budgetItems.filter(item => item.type === 'Pre-Authorized Payments'), [budgetItems]);
-
-  const currentMonthItems = useMemo(() => paymentItems.filter(item => !item.forNextMonth), [paymentItems]);
-  const nextMonthItems = useMemo(() => paymentItems.filter(item => item.forNextMonth), [paymentItems]);
+  const { currentMonthItems, nextMonthItems } = useMemo(() => {
+    const allPaPayments = budgetItems.filter(item => item.type === 'Pre-Authorized Payments');
+    return {
+      currentMonthItems: allPaPayments.filter(item => !item.forNextMonth),
+      nextMonthItems: allPaPayments.filter(item => item.forNextMonth),
+    }
+  }, [budgetItems]);
 
   const categoryMap = useMemo(() => {
     return budgetCategories.reduce((map, category) => {
@@ -273,7 +276,7 @@ export function PaPaymentsTable() {
         <div className="flex items-center gap-2">
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" disabled={paymentItems.length === 0}>
+                <Button variant="outline" disabled={budgetItems.filter(item => item.type === 'Pre-Authorized Payments').length === 0}>
                   <RotateCcw className="mr-2 h-4 w-4" />
                   Monthly Reset
                 </Button>

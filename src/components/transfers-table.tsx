@@ -1,9 +1,8 @@
 
-
 'use client';
 
 import { useState, useMemo } from 'react';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import { Pencil, Trash2, PlusCircle, Repeat, ChevronsUpDown, ArrowUpDown } from 'lucide-react';
 import type { BudgetItem } from '@/types';
 import {
@@ -27,7 +26,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { BudgetForm } from './budget-form';
+import { BudgetForm } from '@/components/budget-form';
 import { useBudget } from '@/app/budget/hooks/use-budget';
 import { Skeleton } from './ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -39,6 +38,11 @@ type SortConfig = {
     key: keyof BudgetItem;
     direction: 'ascending' | 'descending';
 } | null;
+
+const parseDate = (dateString: string) => {
+    return parse(dateString.split('T')[0], 'yyyy-MM-dd', new Date());
+};
+
 
 const SortableHeader = ({ column, label, sortConfig, requestSort, className }: { column: keyof BudgetItem, label: string, sortConfig: SortConfig, requestSort: (key: keyof BudgetItem) => void, className?: string }) => {
   const isSorted = sortConfig?.key === column;
@@ -163,7 +167,7 @@ export function TransfersTable() {
                         <TableCell className={cn("font-medium", item.completed && "line-through")}>{item.description}</TableCell>
                         <TableCell>{item.transferFrom}</TableCell>
                         <TableCell>{item.transferTo}</TableCell>
-                        <TableCell>{format(new Date(item.date), 'PPP')}</TableCell>
+                        <TableCell>{format(parseDate(item.date), 'PPP')}</TableCell>
                         <TableCell>
                         {item.frequency !== 'One-Time' ? (
                             <Badge variant="secondary" className="gap-1 items-center">

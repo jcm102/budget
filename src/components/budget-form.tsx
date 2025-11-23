@@ -208,12 +208,9 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
-    const [year, month, day] = values.date.split('-').map(Number);
-    const localDate = new Date(year, month - 1, day);
 
     const submissionData = {
       ...values,
-      date: localDate.toISOString(),
       type: values.type as BudgetItemType,
       frequency: values.frequency as BudgetItemFrequency,
       budgetCategoryId: values.budgetCategoryId === 'null-value' ? null : values.budgetCategoryId,
@@ -600,4 +597,3 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
   );
 }
 
-    
