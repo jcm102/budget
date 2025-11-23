@@ -64,7 +64,7 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
 
     if (item.frequency === 'One-Time') {
         if (startDate >= startOfCurrentMonth && startDate <= endOfNextMonth) {
-            if (!processedOverrides.has(item.id)) { // Check if it was overridden (though unlikely for one-time)
+            if (!processedOverrides.has(item.id)) {
                 generatedItems.push({
                     ...item,
                     forNextMonth: !isSameMonth(startDate, startOfCurrentMonth),
@@ -75,7 +75,6 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
         const increment = item.frequency === 'Weekly' ? 1 : 2;
         let currentDate = startDate;
         
-        // Fast-forward to the current period
         while (isBefore(currentDate, startOfCurrentMonth)) {
             currentDate = addWeeks(currentDate, increment);
         }
@@ -95,33 +94,30 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
         }
     } else { // Monthly or Monthly (Last Day)
       let currentDate = startDate;
-
+      
       while (isBefore(currentDate, startOfCurrentMonth)) {
         currentDate = addMonths(currentDate, 1);
       }
-      
-      if (item.frequency === 'Monthly (Last Day)') {
-        currentDate = lastDayOfMonth(currentDate);
-      }
 
       while (currentDate <= endOfNextMonth) {
-          const instanceId = `${item.id}-${currentDate.getTime()}`;
-          if (!processedOverrides.has(instanceId)) {
-              generatedItems.push({
-                  ...item,
-                  id: instanceId,
-                  date: currentDate.toISOString(),
-                  completed: item.completed || false,
-                  forNextMonth: !isSameMonth(currentDate, startOfCurrentMonth),
-              });
-          }
-          
-          let nextDate = addMonths(currentDate, 1);
+          let instanceDate = currentDate;
           if (item.frequency === 'Monthly (Last Day)') {
-              currentDate = lastDayOfMonth(nextDate);
-          } else {
-              currentDate = nextDate;
+              instanceDate = lastDayOfMonth(currentDate);
           }
+
+          if (instanceDate <= endOfNextMonth) {
+             const instanceId = `${item.id}-${instanceDate.getTime()}`;
+              if (!processedOverrides.has(instanceId)) {
+                  generatedItems.push({
+                      ...item,
+                      id: instanceId,
+                      date: instanceDate.toISOString(),
+                      completed: item.completed || false,
+                      forNextMonth: !isSameMonth(instanceDate, startOfCurrentMonth),
+                  });
+              }
+          }
+          currentDate = addMonths(currentDate, 1);
       }
     }
   });
@@ -402,7 +398,7 @@ export async function deleteBudgetItem(id: string): Promise<void> {
 }
 
 
-export async function cycleBudgetItems(itemType: BudgetItemType): Promise<void> {
+export async function cycleBudgetItems(itemType: 'Pre-Authorized Payments'): Promise<void> {
   const batch = writeBatch(db);
   const q = query(
     collection(db, BUDGET_COLLECTION), 
@@ -530,3 +526,5 @@ export async function syncDebtPaymentsToMonthlyBudget(): Promise<void> {
         }
     });
 }
+
+    
