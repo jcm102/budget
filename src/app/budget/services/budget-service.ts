@@ -43,17 +43,20 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
   const generatedItems: BudgetItem[] = [];
   const processedOverrides = new Set<string>();
 
+  // Separate base items from one-time overrides
   const baseItems = allItems.filter(item => !item.originalId);
   const overrideItems = allItems.filter(item => !!item.originalId);
 
   // Process overrides first to find which recurring instances they replace
   overrideItems.forEach(override => {
       const overrideDate = startOfDay(new Date(override.date));
+      // Ensure the override falls within our two-month window
       if (overrideDate >= startOfCurrentMonth && overrideDate <= endOfNextMonth) {
           generatedItems.push({
               ...override,
               forNextMonth: !isSameMonth(overrideDate, startOfCurrentMonth),
           });
+          // Mark the original recurring instance as processed so it doesn't get generated again
           processedOverrides.add(override.originalId!);
       }
   });
@@ -62,8 +65,11 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
   baseItems.forEach(item => {
     const startDate = startOfDay(new Date(item.date));
 
+    // Handle one-time items
     if (item.frequency === 'One-Time') {
+        // Only include one-time items that fall within our two-month window
         if (startDate >= startOfCurrentMonth && startDate <= endOfNextMonth) {
+            // Ensure this one-time item wasn't an override that we've already handled
             if (!processedOverrides.has(item.id)) {
                 generatedItems.push({
                     ...item,
@@ -75,18 +81,21 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
         const increment = item.frequency === 'Weekly' ? 1 : 2;
         let currentDate = startDate;
         
+        // Fast-forward to the first relevant date within our window
         while (isBefore(currentDate, startOfCurrentMonth)) {
             currentDate = addWeeks(currentDate, increment);
         }
 
+        // Generate instances until we are past the next month
         while (currentDate <= endOfNextMonth) {
             const instanceId = `${item.id}-${currentDate.getTime()}`;
+            // If this instance hasn't been overridden, add it
             if (!processedOverrides.has(instanceId)) {
                 generatedItems.push({
                     ...item,
-                    id: instanceId,
+                    id: instanceId, // Use a unique ID for the instance
                     date: currentDate.toISOString(),
-                    completed: item.completed || false,
+                    completed: item.completed || false, // Reset completion for new instances
                     forNextMonth: !isSameMonth(currentDate, startOfCurrentMonth),
                 });
             }
@@ -95,16 +104,20 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
     } else { // Monthly or Monthly (Last Day)
       let currentDate = startDate;
       
+      // Fast-forward to the first relevant month
       while (isBefore(currentDate, startOfCurrentMonth)) {
         currentDate = addMonths(currentDate, 1);
       }
 
+      // Generate instances for the current and next month
       while (currentDate <= endOfNextMonth) {
           let instanceDate = currentDate;
+          // Adjust date for "last day of month" types
           if (item.frequency === 'Monthly (Last Day)') {
               instanceDate = lastDayOfMonth(currentDate);
           }
 
+          // Ensure the calculated instance date is within our window
           if (instanceDate <= endOfNextMonth) {
              const instanceId = `${item.id}-${instanceDate.getTime()}`;
               if (!processedOverrides.has(instanceId)) {
@@ -526,5 +539,3 @@ export async function syncDebtPaymentsToMonthlyBudget(): Promise<void> {
         }
     });
 }
-
-    
