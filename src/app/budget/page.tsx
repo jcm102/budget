@@ -44,7 +44,7 @@ export default function BudgetPage() {
   const totalDebtPayments = budgetItems.filter(i => i.type === 'Debt Payments' && !i.forNextMonth).reduce((acc, i) => acc + i.amount, 0);
   const totalTransfers = budgetItems.filter(i => i.type === 'Transfers').reduce((acc, i) => acc + i.amount, 0);
   const remainingPAPayments = budgetItems
-    .filter(i => i.type === 'Pre-Authorized Payments' && !i.completed)
+    .filter(i => i.type === 'Pre-Authorized Payments' && !i.completed && !i.forNextMonth)
     .reduce((acc, i) => acc + i.amount, 0);
 
   const renderSummarySkeleton = () => (

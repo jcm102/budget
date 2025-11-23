@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -66,15 +65,15 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
   )
 }
 
-function PaymentsTableContent({ items, isLoading, onEdit, onDelete, onToggleCompleted, onSync, syncLabel, showSync }: { 
+function PaymentsTableContent({ items, isLoading, onEdit, onDelete, onToggleCompleted, onSync, showSync, syncLabel }: { 
     items: BudgetItem[], 
     isLoading: boolean, 
     onEdit: (item: BudgetItem) => void, 
     onDelete: (id: string) => void, 
     onToggleCompleted: (id: string, completed: boolean) => void,
-    onSync: () => void,
-    syncLabel: string,
-    showSync: boolean
+    onSync?: () => void,
+    showSync: boolean,
+    syncLabel?: string
 }) {
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'ascending' });
 
@@ -123,7 +122,7 @@ function PaymentsTableContent({ items, isLoading, onEdit, onDelete, onToggleComp
 
     return (
         <div className="space-y-4">
-            {showSync && (
+            {showSync && onSync && (
                  <div className="flex justify-end items-center gap-2 no-print">
                     <Button onClick={onSync} >
                         <RefreshCw className="mr-2 h-4 w-4" />
