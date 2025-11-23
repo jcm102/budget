@@ -65,17 +65,13 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
   baseItems.forEach(item => {
     const startDate = startOfDay(new Date(item.date));
 
-    // Handle one-time items
+    // Handle one-time items that were not part of an override
     if (item.frequency === 'One-Time') {
-        // Only include one-time items that fall within our two-month window
         if (startDate >= startOfCurrentMonth && startDate <= endOfNextMonth) {
-            // Ensure this one-time item wasn't an override that we've already handled
-            if (!processedOverrides.has(item.id)) {
-                generatedItems.push({
-                    ...item,
-                    forNextMonth: !isSameMonth(startDate, startOfCurrentMonth),
-                });
-            }
+            generatedItems.push({
+                ...item,
+                forNextMonth: !isSameMonth(startDate, startOfCurrentMonth),
+            });
         }
     } else if (item.frequency === 'Weekly' || item.frequency === 'Bi-Weekly') {
         const increment = item.frequency === 'Weekly' ? 1 : 2;
@@ -86,7 +82,7 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
             currentDate = addWeeks(currentDate, increment);
         }
 
-        // Generate instances until we are past the next month
+        // Generate instances until we are past the next month's end
         while (currentDate <= endOfNextMonth) {
             const instanceId = `${item.id}-${currentDate.getTime()}`;
             // If this instance hasn't been overridden, add it
@@ -95,7 +91,7 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
                     ...item,
                     id: instanceId, // Use a unique ID for the instance
                     date: currentDate.toISOString(),
-                    completed: item.completed || false, // Reset completion for new instances
+                    completed: item.completed || false,
                     forNextMonth: !isSameMonth(currentDate, startOfCurrentMonth),
                 });
             }
@@ -411,7 +407,7 @@ export async function deleteBudgetItem(id: string): Promise<void> {
 }
 
 
-export async function cycleBudgetItems(itemType: 'Pre-Authorized Payments'): Promise<void> {
+export async function cycleBudgetItems(itemType: 'Pre-Authorized Payments' | 'Debt Payments'): Promise<void> {
   const batch = writeBatch(db);
   const q = query(
     collection(db, BUDGET_COLLECTION), 
@@ -539,3 +535,5 @@ export async function syncDebtPaymentsToMonthlyBudget(): Promise<void> {
         }
     });
 }
+
+    
