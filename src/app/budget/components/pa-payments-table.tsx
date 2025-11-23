@@ -290,7 +290,7 @@ export function PaPaymentsTable() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => cycleBudgetItems()} className={cn(buttonVariants({ variant: "default" }))}>
+                  <AlertDialogAction onClick={() => cycleBudgetItems('Pre-Authorized Payments')} className={cn(buttonVariants({ variant: "default" }))}>
                     Yes, Reset Payments
                   </AlertDialogAction>
                 </AlertDialogFooter>

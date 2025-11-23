@@ -2,7 +2,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import type { BudgetItem, Debt, AccountDetails, MonthlyBudgetItem } from '@/types';
+import type { BudgetItem, BudgetItemType, Debt, AccountDetails, MonthlyBudgetItem } from '@/types';
 import {
   collection,
   getDocs,
@@ -65,10 +65,13 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
     const startDate = startOfDay(new Date(item.date));
 
     if (item.frequency === 'One-Time') {
-      if (!processedOverrides.has(item.id) && (isSameMonth(startDate, startOfCurrentMonth) || isSameMonth(startDate, startOfNextMonth))) {
+      const isCurrentMonthInstance = isSameMonth(startDate, startOfCurrentMonth);
+      const isNextMonthInstance = isSameMonth(startDate, startOfNextMonth);
+
+      if (!processedOverrides.has(item.id) && (isCurrentMonthInstance || isNextMonthInstance)) {
         generatedItems.push({
           ...item,
-          forNextMonth: isSameMonth(startDate, startOfNextMonth),
+          forNextMonth: isNextMonthInstance,
         });
       }
     } else {
@@ -76,14 +79,19 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
       let currentDate = startDate;
 
       // Fast-forward to the current period if the start date is in the past
-      if (item.frequency === 'Weekly' || item.frequency === 'Bi-Weekly') {
-          const increment = item.frequency === 'Weekly' ? 1 : 2;
-          while(isBefore(currentDate, startOfCurrentMonth)) {
-              currentDate = addWeeks(currentDate, increment);
-          }
-      } else { // Monthly or Monthly (Last Day)
-          while(isBefore(currentDate, startOfCurrentMonth)) {
-              currentDate = addMonths(currentDate, 1);
+      if (isBefore(currentDate, startOfCurrentMonth)) {
+          if (item.frequency === 'Weekly' || item.frequency === 'Bi-Weekly') {
+              const increment = item.frequency === 'Weekly' ? 1 : 2;
+              while(isBefore(currentDate, startOfCurrentMonth)) {
+                  currentDate = addWeeks(currentDate, increment);
+              }
+          } else { // Monthly or Monthly (Last Day)
+              while(isBefore(currentDate, startOfCurrentMonth)) {
+                  currentDate = addMonths(currentDate, 1);
+                   if (item.frequency === 'Monthly (Last Day)') {
+                      currentDate = lastDayOfMonth(currentDate);
+                   }
+              }
           }
       }
 
@@ -401,22 +409,17 @@ export async function deleteBudgetItem(id: string): Promise<void> {
 }
 
 
-export async function cycleBudgetItems(): Promise<void> {
+export async function cycleBudgetItems(itemType: BudgetItemType): Promise<void> {
   const batch = writeBatch(db);
+  const q = query(
+    collection(db, BUDGET_COLLECTION), 
+    where('type', '==', itemType),
+  );
   
-  // Query for items that are for the current month (or have no forNextMonth flag, for backward compatibility)
-  const currentMonthQuery = query(collection(db, BUDGET_COLLECTION), where('forNextMonth', '!=', true));
-  const currentMonthSnapshot = await getDocs(currentMonthQuery);
-  currentMonthSnapshot.forEach(doc => {
-      batch.delete(doc.ref);
-  });
+  const snapshot = await getDocs(q);
   
-  // Query for items planned for next month
-  const nextMonthQuery = query(collection(db, BUDGET_COLLECTION), where('forNextMonth', '==', true));
-  const nextMonthSnapshot = await getDocs(nextMonthQuery);
-  nextMonthSnapshot.forEach(doc => {
-      // Update them to be for the current month now
-      batch.update(doc.ref, { forNextMonth: false, completed: false });
+  snapshot.forEach(doc => {
+      batch.update(doc.ref, { completed: false });
   });
 
   await batch.commit();
