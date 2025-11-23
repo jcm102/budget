@@ -2,7 +2,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import type { BudgetItem, BudgetItemType, Debt, AccountDetails, MonthlyBudgetItem } from '@/types';
+import type { BudgetItem, Debt, AccountDetails, MonthlyBudgetItem } from '@/types';
 import {
   collection,
   getDocs,
@@ -74,29 +74,46 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
           forNextMonth: isNextMonthInstance,
         });
       }
-    } else {
-      // It's a recurring item
+    } else if (item.frequency === 'Weekly' || item.frequency === 'Bi-Weekly') {
+        const increment = item.frequency === 'Weekly' ? 1 : 2;
+        let currentDate = startDate;
+
+        // Fast-forward to a date that is in the current month or a future month
+        while (isBefore(currentDate, startOfCurrentMonth)) {
+            currentDate = addWeeks(currentDate, increment);
+        }
+
+        // Now generate instances from this effective start date until we are past the next month
+        while (isBefore(currentDate, endOfNextMonth) || isSameMonth(currentDate, endOfNextMonth)) {
+            const isCurrentMonthInstance = isSameMonth(currentDate, startOfCurrentMonth);
+            const isNextMonthInstance = isSameMonth(currentDate, startOfNextMonth);
+
+            if (isCurrentMonthInstance || isNextMonthInstance) {
+                const instanceId = `${item.id}-${currentDate.getTime()}`;
+                if (!processedOverrides.has(instanceId)) {
+                    generatedItems.push({
+                        ...item,
+                        id: instanceId,
+                        date: currentDate.toISOString(),
+                        completed: item.completed || false,
+                        forNextMonth: isNextMonthInstance,
+                    });
+                }
+            }
+            currentDate = addWeeks(currentDate, increment);
+        }
+    } else { // Monthly or Monthly (Last Day)
       let currentDate = startDate;
 
       // Fast-forward to the current period if the start date is in the past
-      if (isBefore(currentDate, startOfCurrentMonth)) {
-          if (item.frequency === 'Weekly' || item.frequency === 'Bi-Weekly') {
-              const increment = item.frequency === 'Weekly' ? 1 : 2;
-              while(isBefore(currentDate, startOfCurrentMonth)) {
-                  currentDate = addWeeks(currentDate, increment);
-              }
-          } else { // Monthly or Monthly (Last Day)
-              while(isBefore(currentDate, startOfCurrentMonth)) {
-                  currentDate = addMonths(currentDate, 1);
-                   if (item.frequency === 'Monthly (Last Day)') {
-                      currentDate = lastDayOfMonth(currentDate);
-                   }
-              }
+      while(isBefore(currentDate, startOfCurrentMonth)) {
+          currentDate = addMonths(currentDate, 1);
+          if (item.frequency === 'Monthly (Last Day)') {
+              currentDate = lastDayOfMonth(currentDate);
           }
       }
 
-
-      // Generate instances from the fast-forwarded date until we are past the next month
+      // Generate instances for current and next month
       while (isBefore(currentDate, endOfNextMonth) || isSameMonth(currentDate, endOfNextMonth)) {
         const isCurrentMonthInstance = isSameMonth(currentDate, startOfCurrentMonth);
         const isNextMonthInstance = isSameMonth(currentDate, startOfNextMonth);
@@ -114,20 +131,12 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
           }
         }
 
-        // Advance to the next date based on frequency
-        switch (item.frequency) {
-          case 'Weekly':
-            currentDate = addWeeks(currentDate, 1);
-            break;
-          case 'Bi-Weekly':
-            currentDate = addWeeks(currentDate, 2);
-            break;
-          case 'Monthly':
-            currentDate = addMonths(currentDate, 1);
-            break;
-          case 'Monthly (Last Day)':
-            currentDate = lastDayOfMonth(addMonths(currentDate, 1));
-            break;
+        // Advance to the next month
+        const nextMonthDate = addMonths(currentDate, 1);
+        if (item.frequency === 'Monthly (Last Day)') {
+            currentDate = lastDayOfMonth(nextMonthDate);
+        } else {
+            currentDate = nextMonthDate;
         }
       }
     }
