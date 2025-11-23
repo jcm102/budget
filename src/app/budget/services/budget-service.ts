@@ -20,9 +20,7 @@ import {
   runTransaction,
   limit,
 } from 'firebase/firestore';
-import { isSameMonth, startOfMonth, addWeeks, isBefore, lastDayOfMonth, addMonths, startOfDay, format } from 'date-fns';
-import { getDebts } from '@/app/debt/services/debt-service';
-import { getCategories as getBudgetCategories } from '@/services/budget-category-service';
+import { isSameMonth, startOfMonth, addWeeks, isBefore, lastDayOfMonth, addMonths, startOfDay, format, endOfMonth } from 'date-fns';
 
 const BUDGET_COLLECTION = 'budget-items';
 const DEBT_COLLECTION = 'debts';
@@ -52,77 +50,83 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
   const allGeneratedItems: BudgetItem[] = [];
   const startOfCurrentMonth = startOfMonth(today);
   const startOfNextMonth = startOfMonth(addMonths(today, 1));
+  const endOfNextMonth = endOfMonth(startOfNextMonth);
   
   const allItems = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BudgetItem));
 
-  // Find all modified one-time items for the current and next month
-  const modifiedItemsInScope = allItems.filter(item => 
-      item.originalId && (isSameMonth(new Date(item.date), today) || isSameMonth(new Date(item.date), startOfNextMonth))
-  );
-
+  // Find all modified one-time items (overrides)
+  const modifiedItems = allItems.filter(item => item.originalId);
   const processedRecurringInstances = new Set<string>();
-  modifiedItemsInScope.forEach(item => {
-      allGeneratedItems.push(item);
-      if (item.originalId) {
-          processedRecurringInstances.add(item.originalId);
-      }
+
+  modifiedItems.forEach(item => {
+    const itemDate = new Date(item.date);
+    if (isSameMonth(itemDate, today) || isSameMonth(itemDate, startOfNextMonth)) {
+        allGeneratedItems.push({
+            ...item,
+            forNextMonth: isSameMonth(itemDate, startOfNextMonth),
+        });
+        if (item.originalId) {
+            processedRecurringInstances.add(item.originalId);
+        }
+    }
   });
 
+
   allItems.forEach(item => {
-    if (item.originalId) return; // Skip already processed modified items
+    if (item.originalId) return; // Skip overrides, they're already processed
 
-    if (item.completed === undefined) {
-      item.completed = false;
-    }
-
-    const itemStartDate = new Date(item.date);
-    
     if (item.frequency === 'One-Time') {
-        allGeneratedItems.push(item);
+        const itemDate = new Date(item.date);
+        if (isSameMonth(itemDate, today) || isSameMonth(itemDate, startOfNextMonth)) {
+            allGeneratedItems.push({
+                ...item,
+                forNextMonth: isSameMonth(itemDate, startOfNextMonth),
+            });
+        }
     } else {
-        // Shared logic for generating instances
-        const generateInstances = (startDate: Date, frequency: BudgetItem['frequency']) => {
-            let currentDate = startOfDay(startDate);
-            const endDate = addMonths(startOfNextMonth, 1); // Generate up to the end of next month
-            
-            const advanceDate = () => {
-                if (frequency === 'Weekly' || frequency === 'Bi-Weekly') {
-                    currentDate = addWeeks(currentDate, frequency === 'Weekly' ? 1 : 2);
-                } else if (frequency === 'Monthly' || frequency === 'Monthly (Last Day)') {
+        let currentDate = startOfDay(new Date(item.date));
+        
+        const advanceDate = () => {
+             switch (item.frequency) {
+                case 'Weekly':
+                    currentDate = addWeeks(currentDate, 1);
+                    break;
+                case 'Bi-Weekly':
+                    currentDate = addWeeks(currentDate, 2);
+                    break;
+                case 'Monthly (Last Day)':
+                    currentDate = lastDayOfMonth(addMonths(currentDate, 1));
+                    break;
+                case 'Monthly':
                     currentDate = addMonths(currentDate, 1);
-                    if (frequency === 'Monthly (Last Day)') {
-                        currentDate = lastDayOfMonth(currentDate);
-                    }
-                }
-            };
-            
-            // Fast-forward to the current period if the start date is in the past
-            while (isBefore(currentDate, startOfCurrentMonth)) {
-                advanceDate();
-            }
-
-            // Generate for current and next month
-            while (isBefore(currentDate, endDate)) {
-                const isCurrent = isSameMonth(currentDate, today);
-                const isNext = isSameMonth(currentDate, startOfNextMonth);
-
-                if (isCurrent || isNext) {
-                     const instanceId = `${item.id}-${currentDate.getTime()}`;
-                    if (!processedRecurringInstances.has(instanceId)) {
-                        allGeneratedItems.push({
-                            ...item,
-                            id: instanceId, 
-                            date: toLocalISOString(currentDate),
-                            completed: item.completed || false,
-                            forNextMonth: isNext,
-                        });
-                    }
-                }
-                advanceDate();
+                    break;
             }
         };
-        
-        generateInstances(itemStartDate, item.frequency);
+
+        // Fast-forward to the current period if the start date is in the past
+        while (isBefore(currentDate, startOfCurrentMonth)) {
+            advanceDate();
+        }
+
+        // Generate instances until we are past the next month
+        while (isBefore(currentDate, endOfNextMonth) || isSameMonth(currentDate, endOfNextMonth)) {
+            const isCurrent = isSameMonth(currentDate, today);
+            const isNext = isSameMonth(currentDate, startOfNextMonth);
+
+            if (isCurrent || isNext) {
+                 const instanceId = `${item.id}-${currentDate.getTime()}`;
+                if (!processedRecurringInstances.has(instanceId)) {
+                    allGeneratedItems.push({
+                        ...item,
+                        id: instanceId, 
+                        date: toLocalISOString(currentDate),
+                        completed: item.completed || false,
+                        forNextMonth: isNext,
+                    });
+                }
+            }
+            advanceDate();
+        }
     }
   });
 
@@ -535,3 +539,5 @@ export async function syncDebtPaymentsToMonthlyBudget(): Promise<void> {
         }
     });
 }
+
+    
