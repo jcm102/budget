@@ -20,7 +20,7 @@ import {
   runTransaction,
   limit,
 } from 'firebase/firestore';
-import { isSameMonth, startOfMonth, getDate, getMonth, getYear, set, addWeeks, isAfter, isBefore, isLastDayOfMonth, lastDayOfMonth, addMonths, startOfDay, format } from 'date-fns';
+import { isSameMonth, startOfMonth, addWeeks, isBefore, lastDayOfMonth, addMonths, startOfDay, format } from 'date-fns';
 import { getDebts } from '@/app/debt/services/debt-service';
 import { getCategories as getBudgetCategories } from '@/services/budget-category-service';
 
@@ -29,6 +29,19 @@ const DEBT_COLLECTION = 'debts';
 const MONTHLY_BUDGET_COLLECTION = 'monthly-budget-items';
 const ACCOUNTS_COLLECTION = 'transferees';
 
+const toLocalISOString = (date: Date) => {
+    const tzOffset = -date.getTimezoneOffset();
+    const diff = tzOffset >= 0 ? '+' : '-';
+    const pad = (n: number) => `${Math.floor(Math.abs(n))}`.padStart(2, '0');
+    return date.getFullYear() +
+      '-' + pad(date.getMonth() + 1) +
+      '-' + pad(date.getDate()) +
+      'T' + pad(date.getHours()) +
+      ':' + pad(date.getMinutes()) +
+      ':' + pad(date.getSeconds()) +
+      diff + pad(tzOffset / 60) +
+      ':' + pad(tzOffset % 60);
+};
 
 export async function getBudgetItems(): Promise<BudgetItem[]> {
   const budgetCollection = collection(db, BUDGET_COLLECTION);
@@ -38,26 +51,25 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
   const today = new Date();
   const allGeneratedItems: BudgetItem[] = [];
   const startOfCurrentMonth = startOfMonth(today);
+  const startOfNextMonth = startOfMonth(addMonths(today, 1));
   
   const allItems = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BudgetItem));
 
-  // First, find all modified one-time items for the current month
-  const modifiedItemsInMonth = allItems.filter(item => 
-      item.originalId && isSameMonth(new Date(item.date), today)
+  // Find all modified one-time items for the current and next month
+  const modifiedItemsInScope = allItems.filter(item => 
+      item.originalId && (isSameMonth(new Date(item.date), today) || isSameMonth(new Date(item.date), startOfNextMonth))
   );
 
   const processedRecurringInstances = new Set<string>();
-  modifiedItemsInMonth.forEach(item => {
+  modifiedItemsInScope.forEach(item => {
       allGeneratedItems.push(item);
-      // Keep track of which original instances have been processed
       if (item.originalId) {
           processedRecurringInstances.add(item.originalId);
       }
   });
 
   allItems.forEach(item => {
-    // Skip modified items as they are already handled
-    if (item.originalId) return;
+    if (item.originalId) return; // Skip already processed modified items
 
     if (item.completed === undefined) {
       item.completed = false;
@@ -65,58 +77,46 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
 
     const itemStartDate = new Date(item.date);
     
-    // For one-time items, we now include them regardless of the month to fix the bug.
     if (item.frequency === 'One-Time') {
         allGeneratedItems.push(item);
-    } else if (item.frequency === 'Monthly' || item.frequency === 'Monthly (Last Day)') {
-        let currentDate;
-        if (item.frequency === 'Monthly (Last Day)') {
-            currentDate = lastDayOfMonth(startOfCurrentMonth);
-        } else {
-             // Handle regular monthly items
-            let tempDate = startOfDay(itemStartDate);
-            while (isBefore(tempDate, startOfCurrentMonth)) {
-                tempDate = addMonths(tempDate, 1);
-            }
-            currentDate = tempDate;
+    } else {
+        // Generate for current month
+        let currentDate = startOfDay(itemStartDate);
+        while (isBefore(currentDate, startOfCurrentMonth)) {
+            currentDate = addWeeks(currentDate, item.frequency === 'Weekly' ? 1 : item.frequency === 'Bi-Weekly' ? 2 : 4);
         }
-
-        if (isSameMonth(currentDate, today)) {
+        while (isSameMonth(currentDate, today)) {
+            const instanceId = `${item.id}-${currentDate.getTime()}`;
+            if (!processedRecurringInstances.has(instanceId)) {
+                allGeneratedItems.push({
+                    ...item,
+                    id: instanceId, 
+                    date: toLocalISOString(currentDate),
+                    completed: item.completed || false
+                });
+            }
+            currentDate = addWeeks(currentDate, item.frequency === 'Weekly' ? 1 : item.frequency === 'Bi-Weekly' ? 2 : 4);
+        }
+        
+        // Generate for next month
+        while (isBefore(currentDate, startOfNextMonth)) {
+             currentDate = addWeeks(currentDate, item.frequency === 'Weekly' ? 1 : item.frequency === 'Bi-Weekly' ? 2 : 4);
+        }
+        while (isSameMonth(currentDate, startOfNextMonth)) {
             const instanceId = `${item.id}-${currentDate.getTime()}`;
              if (!processedRecurringInstances.has(instanceId)) {
                 allGeneratedItems.push({
                     ...item,
-                    id: instanceId,
-                    date: format(currentDate, 'yyyy-MM-dd'),
-                    completed: item.completed || false
+                    id: instanceId, 
+                    date: toLocalISOString(currentDate),
+                    completed: item.completed || false,
+                    forNextMonth: true, // Explicitly mark for next month
                 });
             }
+            currentDate = addWeeks(currentDate, item.frequency === 'Weekly' ? 1 : item.frequency === 'Bi-Weekly' ? 2 : 4);
         }
-    } else if (item.frequency === 'Weekly' || item.frequency === 'Bi-Weekly') {
-      let currentDate = itemStartDate;
-      const increment = item.frequency === 'Weekly' ? 1 : 2;
-
-      while (isBefore(currentDate, startOfCurrentMonth)) {
-        currentDate = addWeeks(currentDate, increment);
-      }
-      
-      while (isSameMonth(currentDate, today)) {
-          const instanceId = `${item.id}-${currentDate.getTime()}`;
-          if (isAfter(currentDate, itemStartDate) || isSameMonth(itemStartDate, currentDate)) {
-              if (!processedRecurringInstances.has(instanceId)) {
-                allGeneratedItems.push({
-                    ...item,
-                    id: instanceId, 
-                    date: format(currentDate, 'yyyy-MM-dd'),
-                    completed: item.completed || false
-                });
-              }
-          }
-          currentDate = addWeeks(currentDate, increment);
-      }
     }
   });
-
 
   return allGeneratedItems.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 }
@@ -286,15 +286,13 @@ export async function updateBudgetItem(id: string, itemData: Partial<Omit<Budget
                 ...itemData,
                 frequency: 'One-Time',
                 originalId: id,
-                date: new Date(parseInt(id.split('-')[1])).toISOString().split('T')[0],
+                date: toLocalISOString(new Date(parseInt(id.split('-')[1]))),
                 completed: itemData.completed ?? oldItemData!.completed,
             };
-            if (itemData.date) newDocData.date = itemData.date.split('T')[0];
+            if (itemData.date) newDocData.date = itemData.date;
             transaction.set(originalItemRef, newDocData);
         } else {
-             const dataToUpdate = { ...itemData };
-             if(dataToUpdate.date) dataToUpdate.date = dataToUpdate.date.split('T')[0];
-             transaction.update(originalItemRef, dataToUpdate);
+             transaction.update(originalItemRef, itemData);
         }
         
         if (oldCategoryId && oldBudgetItemSnap?.exists()) {

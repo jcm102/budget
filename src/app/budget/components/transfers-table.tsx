@@ -97,8 +97,8 @@ export function TransfersTable() {
       sortableItems.sort((a, b) => {
         let aValue, bValue;
         if (sortConfig.key === 'date') {
-            aValue = parseDate(a.date).getTime();
-            bValue = parseDate(b.date).getTime();
+            aValue = new Date(a.date).getTime();
+            bValue = new Date(b.date).getTime();
         } else {
             aValue = a[sortConfig.key as keyof BudgetItem];
             bValue = b[sortConfig.key as keyof BudgetItem];
