@@ -30,95 +30,102 @@ const ACCOUNTS_COLLECTION = 'transferees';
 
 
 export async function getBudgetItems(): Promise<BudgetItem[]> {
-  const budgetCollection = collection(db, BUDGET_COLLECTION);
-  const q = query(budgetCollection, where('type', 'in', ['Income', 'Pre-Authorized Payments', 'Transfers', 'Debt Payments']));
+  const budgetCollectionRef = collection(db, BUDGET_COLLECTION);
+  const q = query(budgetCollectionRef, where('type', 'in', ['Income', 'Pre-Authorized Payments', 'Transfers', 'Debt Payments']));
   const querySnapshot = await getDocs(q);
-  
-  const today = new Date();
-  const allGeneratedItems: BudgetItem[] = [];
-  const startOfCurrentMonth = startOfMonth(today);
-  const startOfNextMonth = startOfMonth(addMonths(today, 1));
-  const endOfNextMonth = endOfMonth(startOfNextMonth);
   
   const allItems = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BudgetItem));
 
-  // Find all modified one-time items (overrides)
-  const modifiedItems = allItems.filter(item => item.originalId);
-  const processedRecurringInstances = new Set<string>();
+  const today = startOfDay(new Date());
+  const startOfCurrentMonth = startOfMonth(today);
+  const startOfNextMonth = addMonths(startOfCurrentMonth, 1);
+  const endOfNextMonth = endOfMonth(startOfNextMonth);
 
-  modifiedItems.forEach(item => {
-    const itemDate = new Date(item.date);
-    if (isSameMonth(itemDate, today) || isSameMonth(itemDate, startOfNextMonth)) {
-        allGeneratedItems.push({
-            ...item,
-            forNextMonth: isSameMonth(itemDate, startOfNextMonth),
-        });
-        if (item.originalId) {
-            processedRecurringInstances.add(item.originalId);
-        }
-    }
+  const generatedItems: BudgetItem[] = [];
+  const processedOverrides = new Set<string>();
+
+  // Separate base items and overrides
+  const baseItems = allItems.filter(item => !item.originalId);
+  const overrideItems = allItems.filter(item => !!item.originalId);
+
+  // Process overrides first
+  overrideItems.forEach(override => {
+      const overrideDate = startOfDay(new Date(override.date));
+      if ((isSameMonth(overrideDate, startOfCurrentMonth) || isSameMonth(overrideDate, startOfNextMonth))) {
+          generatedItems.push({
+              ...override,
+              forNextMonth: isSameMonth(overrideDate, startOfNextMonth),
+          });
+          processedOverrides.add(override.originalId!);
+      }
   });
 
-
-  allItems.forEach(item => {
-    if (item.originalId) return; // Skip overrides, they're already processed
+  // Process base items
+  baseItems.forEach(item => {
+    const startDate = startOfDay(new Date(item.date));
 
     if (item.frequency === 'One-Time') {
-        const itemDate = new Date(item.date);
-        if (isSameMonth(itemDate, today) || isSameMonth(itemDate, startOfNextMonth)) {
-            allGeneratedItems.push({
-                ...item,
-                forNextMonth: isSameMonth(itemDate, startOfNextMonth),
-            });
-        }
+      if (!processedOverrides.has(item.id) && (isSameMonth(startDate, startOfCurrentMonth) || isSameMonth(startDate, startOfNextMonth))) {
+        generatedItems.push({
+          ...item,
+          forNextMonth: isSameMonth(startDate, startOfNextMonth),
+        });
+      }
     } else {
-        let currentDate = startOfDay(new Date(item.date));
-        
-        const advanceDate = () => {
-             switch (item.frequency) {
-                case 'Weekly':
-                    currentDate = addWeeks(currentDate, 1);
-                    break;
-                case 'Bi-Weekly':
-                    currentDate = addWeeks(currentDate, 2);
-                    break;
-                case 'Monthly (Last Day)':
-                    currentDate = lastDayOfMonth(addMonths(currentDate, 1));
-                    break;
-                case 'Monthly':
-                    currentDate = addMonths(currentDate, 1);
-                    break;
-            }
-        };
+      // It's a recurring item
+      let currentDate = startDate;
 
-        // Fast-forward to the current period if the start date is in the past
-        while (isBefore(currentDate, startOfCurrentMonth)) {
-            advanceDate();
+      // Fast-forward to the current period if the start date is in the past
+      if (item.frequency === 'Weekly' || item.frequency === 'Bi-Weekly') {
+          const increment = item.frequency === 'Weekly' ? 1 : 2;
+          while(isBefore(currentDate, startOfCurrentMonth)) {
+              currentDate = addWeeks(currentDate, increment);
+          }
+      } else { // Monthly or Monthly (Last Day)
+          while(isBefore(currentDate, startOfCurrentMonth)) {
+              currentDate = addMonths(currentDate, 1);
+          }
+      }
+
+
+      // Generate instances from the fast-forwarded date until we are past the next month
+      while (isBefore(currentDate, endOfNextMonth) || isSameMonth(currentDate, endOfNextMonth)) {
+        const isCurrentMonthInstance = isSameMonth(currentDate, startOfCurrentMonth);
+        const isNextMonthInstance = isSameMonth(currentDate, startOfNextMonth);
+
+        if (isCurrentMonthInstance || isNextMonthInstance) {
+          const instanceId = `${item.id}-${currentDate.getTime()}`;
+          if (!processedOverrides.has(instanceId)) {
+            generatedItems.push({
+              ...item,
+              id: instanceId,
+              date: currentDate.toISOString(),
+              completed: item.completed || false,
+              forNextMonth: isNextMonthInstance,
+            });
+          }
         }
 
-        // Generate instances until we are past the next month
-        while (isBefore(currentDate, endOfNextMonth) || isSameMonth(currentDate, endOfNextMonth)) {
-            const isCurrent = isSameMonth(currentDate, today);
-            const isNext = isSameMonth(currentDate, startOfNextMonth);
-
-            if (isCurrent || isNext) {
-                 const instanceId = `${item.id}-${currentDate.getTime()}`;
-                if (!processedRecurringInstances.has(instanceId)) {
-                    allGeneratedItems.push({
-                        ...item,
-                        id: instanceId, 
-                        date: currentDate.toISOString(),
-                        completed: item.completed || false,
-                        forNextMonth: isNext,
-                    });
-                }
-            }
-            advanceDate();
+        // Advance to the next date based on frequency
+        switch (item.frequency) {
+          case 'Weekly':
+            currentDate = addWeeks(currentDate, 1);
+            break;
+          case 'Bi-Weekly':
+            currentDate = addWeeks(currentDate, 2);
+            break;
+          case 'Monthly':
+            currentDate = addMonths(currentDate, 1);
+            break;
+          case 'Monthly (Last Day)':
+            currentDate = lastDayOfMonth(addMonths(currentDate, 1));
+            break;
         }
+      }
     }
   });
 
-  return allGeneratedItems.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  return generatedItems.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 }
 
 export async function addBudgetItem(itemData: Omit<BudgetItem, 'id'>): Promise<BudgetItem> {
