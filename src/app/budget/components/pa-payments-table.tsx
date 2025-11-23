@@ -40,6 +40,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useMonthlyBudget } from '@/app/monthly-budget/hooks/use-monthly-budget';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type SortConfig = {
     key: keyof BudgetItem;
@@ -64,14 +65,167 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
   )
 }
 
+function PaymentsTableContent({ items, isLoading, onEdit, onDelete, onToggleCompleted, categoryMap }: {
+    items: BudgetItem[],
+    isLoading: boolean,
+    onEdit: (item: BudgetItem) => void,
+    onDelete: (id: string) => void,
+    onToggleCompleted: (id: string, completed: boolean) => void,
+    categoryMap: Record<string, string>
+}) {
+    const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'ascending' });
+
+    const requestSort = (key: keyof BudgetItem) => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const sortedItems = useMemo(() => {
+        let sortableItems = [...items];
+        if (sortConfig !== null) {
+        sortableItems.sort((a, b) => {
+            let aValue, bValue;
+            if (sortConfig.key === 'date') {
+                aValue = parseDate(a.date).getTime();
+                bValue = parseDate(b.date).getTime();
+            } else {
+                aValue = a[sortConfig.key as keyof BudgetItem];
+                bValue = b[sortConfig.key as keyof BudgetItem];
+            }
+            if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
+            if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
+            return 0;
+        });
+        }
+        return sortableItems;
+    }, [items, sortConfig]);
+
+    const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+    };
+
+    const renderLoadingSkeleton = () => (
+        Array.from({ length: 3 }).map((_, i) => (
+        <TableRow key={`skeleton-pa-${i}`}>
+            <TableCell colSpan={7}><Skeleton className="h-8 w-full" /></TableCell>
+        </TableRow>
+        ))
+    );
+
+    const total = items.reduce((acc, item) => acc + item.amount, 0);
+    const remainingTotal = items.filter(item => !item.completed).reduce((acc, item) => acc + item.amount, 0);
+
+
+    return (
+        <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+            <Table>
+                <TableHeader>
+                    <TableRow className="group">
+                        <TableHead className="w-[50px]">Paid</TableHead>
+                        <SortableHeader column="description" label="Description" sortConfig={sortConfig} requestSort={requestSort} />
+                        <SortableHeader column="date" label="Date" sortConfig={sortConfig} requestSort={requestSort} />
+                        <TableHead>Budget Category</TableHead>
+                        <TableHead>Frequency</TableHead>
+                        <SortableHeader column="amount" label="Amount" sortConfig={sortConfig} requestSort={requestSort} className="text-right" />
+                        <TableHead className="w-[100px] text-right">Actions</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                {isLoading ? (
+                    renderLoadingSkeleton()
+                ) : sortedItems.length > 0 ? (
+                    sortedItems.map((item) => (
+                    <TableRow key={item.id} data-state={item.completed ? "completed" : "" } className={cn(item.completed && "bg-accent/30 text-muted-foreground")}>
+                        <TableCell>
+                            <Checkbox
+                            checked={item.completed}
+                            onCheckedChange={() => onToggleCompleted(item.id, item.completed || false)}
+                            aria-label={`Mark ${item.description} as paid`}
+                            />
+                        </TableCell>
+                        <TableCell className={cn("font-medium", item.completed && "line-through")}>{item.description}</TableCell>
+                        <TableCell>{format(parseDate(item.date), 'PPP')}</TableCell>
+                        <TableCell>{item.budgetCategoryId ? categoryMap[item.budgetCategoryId] : <span className="text-muted-foreground">N/A</span>}</TableCell>
+                        <TableCell>
+                        {item.frequency !== 'One-Time' ? (
+                            <Badge variant="secondary" className="gap-1 items-center">
+                            <Repeat className="h-3 w-3" /> {item.frequency}
+                            </Badge>
+                        ) : (
+                            <Badge variant="outline">One-Time</Badge>
+                        )}
+                        </TableCell>
+                        <TableCell className="text-right">{formatCurrency(item.amount)}</TableCell>
+                        <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(item)}>
+                            <Pencil className="h-4 w-4" />
+                            </Button>
+                            <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive">
+                                <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    This will permanently delete this budget item.
+                                </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => onDelete(item.id)} className={cn(buttonVariants({ variant: "destructive" }))}>
+                                    Delete
+                                </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
+                        </TableCell>
+                    </TableRow>
+                    ))
+                ) : (
+                    <TableRow>
+                    <TableCell colSpan={7} className="h-24 text-center">
+                        No pre-authorized payments added yet.
+                    </TableCell>
+                    </TableRow>
+                )}
+                </TableBody>
+                {sortedItems.length > 0 && (
+                    <TableFooter>
+                            <TableRow>
+                                <TableCell colSpan={5} className="font-semibold text-right">Remaining</TableCell>
+                                <TableCell className="text-right font-semibold">{formatCurrency(remainingTotal)}</TableCell>
+                                <TableCell />
+                            </TableRow>
+                            <TableRow>
+                                <TableCell colSpan={5} className="font-semibold text-right">Total</TableCell>
+                                <TableCell className="text-right font-semibold">{formatCurrency(total)}</TableCell>
+                                <TableCell />
+                            </TableRow>
+                    </TableFooter>
+                )}
+            </Table>
+        </div>
+    )
+}
+
 export function PaPaymentsTable() {
   const { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, toggleBudgetItemCompleted, cycleBudgetItems, isLoading } = useBudget();
   const { categories: budgetCategories } = useMonthlyBudget();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<BudgetItem | null>(null);
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'ascending' });
 
   const paymentItems = useMemo(() => budgetItems.filter(item => item.type === 'Pre-Authorized Payments'), [budgetItems]);
+
+  const currentMonthItems = useMemo(() => paymentItems.filter(item => !item.forNextMonth), [paymentItems]);
+  const nextMonthItems = useMemo(() => paymentItems.filter(item => item.forNextMonth), [paymentItems]);
 
   const categoryMap = useMemo(() => {
     return budgetCategories.reduce((map, category) => {
@@ -91,49 +245,6 @@ export function PaPaymentsTable() {
       setEditingItem(null);
     }
   };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
-  };
-  
-  const requestSort = (key: keyof BudgetItem) => {
-    let direction: 'ascending' | 'descending' = 'ascending';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
-      direction = 'descending';
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const sortedItems = useMemo(() => {
-    let sortableItems = [...paymentItems];
-    if (sortConfig !== null) {
-      sortableItems.sort((a, b) => {
-        let aValue, bValue;
-        if (sortConfig.key === 'date') {
-            aValue = parseDate(a.date).getTime();
-            bValue = parseDate(b.date).getTime();
-        } else {
-            aValue = a[sortConfig.key as keyof BudgetItem];
-            bValue = b[sortConfig.key as keyof BudgetItem];
-        }
-        if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
-        return 0;
-      });
-    }
-    return sortableItems;
-  }, [paymentItems, sortConfig]);
-
-  const renderLoadingSkeleton = () => (
-    Array.from({ length: 3 }).map((_, i) => (
-      <TableRow key={`skeleton-pa-${i}`}>
-        <TableCell colSpan={7}><Skeleton className="h-8 w-full" /></TableCell>
-      </TableRow>
-    ))
-  );
-
-  const total = paymentItems.reduce((acc, item) => acc + item.amount, 0);
-  const remainingTotal = paymentItems.filter(item => !item.completed).reduce((acc, item) => acc + item.amount, 0);
 
   return (
     <>
@@ -189,100 +300,32 @@ export function PaPaymentsTable() {
             </Button>
         </div>
       </div>
-
-       <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
-            <Table>
-                <TableHeader>
-                    <TableRow className="group">
-                        <TableHead className="w-[50px]">Paid</TableHead>
-                        <SortableHeader column="description" label="Description" sortConfig={sortConfig} requestSort={requestSort} />
-                        <SortableHeader column="date" label="Date" sortConfig={sortConfig} requestSort={requestSort} />
-                        <TableHead>Budget Category</TableHead>
-                        <TableHead>Frequency</TableHead>
-                        <SortableHeader column="amount" label="Amount" sortConfig={sortConfig} requestSort={requestSort} className="text-right" />
-                        <TableHead className="w-[100px] text-right">Actions</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                {isLoading ? (
-                    renderLoadingSkeleton()
-                ) : sortedItems.length > 0 ? (
-                    sortedItems.map((item) => (
-                    <TableRow key={item.id} data-state={item.completed ? "completed" : "" } className={cn(item.completed && "bg-accent/30 text-muted-foreground")}>
-                        <TableCell>
-                            <Checkbox
-                            checked={item.completed}
-                            onCheckedChange={() => toggleBudgetItemCompleted(item.id, item.completed || false)}
-                            aria-label={`Mark ${item.description} as paid`}
-                            />
-                        </TableCell>
-                        <TableCell className={cn("font-medium", item.completed && "line-through")}>{item.description}</TableCell>
-                        <TableCell>{format(parseDate(item.date), 'PPP')}</TableCell>
-                        <TableCell>{item.budgetCategoryId ? categoryMap[item.budgetCategoryId] : <span className="text-muted-foreground">N/A</span>}</TableCell>
-                        <TableCell>
-                        {item.frequency !== 'One-Time' ? (
-                            <Badge variant="secondary" className="gap-1 items-center">
-                            <Repeat className="h-3 w-3" /> {item.frequency}
-                            </Badge>
-                        ) : (
-                            <Badge variant="outline">One-Time</Badge>
-                        )}
-                        </TableCell>
-                        <TableCell className="text-right">{formatCurrency(item.amount)}</TableCell>
-                        <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(item)}>
-                            <Pencil className="h-4 w-4" />
-                            </Button>
-                            <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive">
-                                <Trash2 className="h-4 w-4" />
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    This will permanently delete this budget item.
-                                </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => deleteBudgetItem(item.id)} className={cn(buttonVariants({ variant: "destructive" }))}>
-                                    Delete
-                                </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                            </AlertDialog>
-                        </div>
-                        </TableCell>
-                    </TableRow>
-                    ))
-                ) : (
-                    <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
-                        No pre-authorized payments added yet.
-                    </TableCell>
-                    </TableRow>
-                )}
-                </TableBody>
-                {sortedItems.length > 0 && (
-                    <TableFooter>
-                            <TableRow>
-                                <TableCell colSpan={5} className="font-semibold text-right">Remaining</TableCell>
-                                <TableCell className="text-right font-semibold">{formatCurrency(remainingTotal)}</TableCell>
-                                <TableCell />
-                            </TableRow>
-                            <TableRow>
-                                <TableCell colSpan={5} className="font-semibold text-right">Total</TableCell>
-                                <TableCell className="text-right font-semibold">{formatCurrency(total)}</TableCell>
-                                <TableCell />
-                            </TableRow>
-                    </TableFooter>
-                )}
-            </Table>
-        </div>
+      <Tabs defaultValue="current" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 bg-secondary/50 mb-6 no-print">
+            <TabsTrigger value="current">Current Month</TabsTrigger>
+            <TabsTrigger value="next">Next Month</TabsTrigger>
+        </TabsList>
+        <TabsContent value="current">
+            <PaymentsTableContent
+                items={currentMonthItems}
+                isLoading={isLoading}
+                onEdit={handleEdit}
+                onDelete={deleteBudgetItem}
+                onToggleCompleted={toggleBudgetItemCompleted}
+                categoryMap={categoryMap}
+            />
+        </TabsContent>
+        <TabsContent value="next">
+             <PaymentsTableContent
+                items={nextMonthItems}
+                isLoading={isLoading}
+                onEdit={handleEdit}
+                onDelete={deleteBudgetItem}
+                onToggleCompleted={toggleBudgetItemCompleted}
+                categoryMap={categoryMap}
+            />
+        </TabsContent>
+      </Tabs>
     </>
   );
 }
