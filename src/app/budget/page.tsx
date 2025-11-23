@@ -111,6 +111,7 @@ export default function BudgetPage() {
                 </TabsList>
                 
                 <TabsContent value="income">
+                    <h3 className="text-2xl font-bold font-headline text-primary mb-6">Income</h3>
                     <IncomeTable />
                 </TabsContent>
                 <TabsContent value="debt">
@@ -120,6 +121,7 @@ export default function BudgetPage() {
                     <PaPaymentsTable />
                 </TabsContent>
                 <TabsContent value="transfers">
+                    <h3 className="text-2xl font-bold font-headline text-primary mb-6">Transfers</h3>
                     <TransfersTable />
                 </TabsContent>
             </Tabs>

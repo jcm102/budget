@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -41,93 +42,92 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
   const endOfNextMonth = endOfMonth(addMonths(startOfCurrentMonth, 1));
 
   const generatedItems: BudgetItem[] = [];
-  const processedOverrides = new Set<string>();
 
   // Separate base items from one-time overrides
   const baseItems = allItems.filter(item => !item.originalId);
   const overrideItems = allItems.filter(item => !!item.originalId);
 
-  // Process overrides first to find which recurring instances they replace
+  // A map to track which recurring instances have been overridden
+  const overriddenInstances = new Set<string>();
+
+  // Process overrides first and populate generatedItems and the tracking set
   overrideItems.forEach(override => {
       const overrideDate = startOfDay(new Date(override.date));
-      // Ensure the override falls within our two-month window
       if (overrideDate >= startOfCurrentMonth && overrideDate <= endOfNextMonth) {
           generatedItems.push({
               ...override,
               forNextMonth: !isSameMonth(overrideDate, startOfCurrentMonth),
           });
-          // Mark the original recurring instance as processed so it doesn't get generated again
-          processedOverrides.add(override.originalId!);
+          // Mark the original instance as overridden
+          if (override.originalId) {
+            overriddenInstances.add(override.originalId);
+          }
       }
   });
-
-  // Process base items to generate recurring instances
+  
+  // Process base recurring and one-time items
   baseItems.forEach(item => {
-    const startDate = startOfDay(new Date(item.date));
+    const itemStartDate = startOfDay(new Date(item.date));
 
-    // Handle one-time items that were not part of an override
+    // Handle one-time items that are not overrides
     if (item.frequency === 'One-Time') {
-        if (startDate >= startOfCurrentMonth && startDate <= endOfNextMonth) {
+        if (itemStartDate >= startOfCurrentMonth && itemStartDate <= endOfNextMonth) {
             generatedItems.push({
                 ...item,
-                forNextMonth: !isSameMonth(startDate, startOfCurrentMonth),
+                forNextMonth: !isSameMonth(itemStartDate, startOfCurrentMonth),
             });
         }
-    } else if (item.frequency === 'Weekly' || item.frequency === 'Bi-Weekly') {
-        const increment = item.frequency === 'Weekly' ? 1 : 2;
-        let currentDate = startDate;
-        
-        // Fast-forward to the first relevant date within our window
-        while (isBefore(currentDate, startOfCurrentMonth)) {
-            currentDate = addWeeks(currentDate, increment);
+        return; // Continue to next item
+    }
+
+    // --- Handle Recurring Items ---
+    
+    // Find the first occurrence of the event in the current or future months
+    let effectiveDate = itemStartDate;
+    if (item.frequency === 'Weekly' || item.frequency === 'Bi-Weekly') {
+      const increment = item.frequency === 'Weekly' ? 1 : 2;
+      while (isBefore(effectiveDate, startOfCurrentMonth)) {
+        effectiveDate = addWeeks(effectiveDate, increment);
+      }
+    } else { // Monthly frequencies
+       while (isBefore(effectiveDate, startOfCurrentMonth)) {
+        effectiveDate = addMonths(effectiveDate, 1);
+      }
+    }
+
+    // Generate instances from the effective date until the end of the next month
+    let currentDate = effectiveDate;
+    while (currentDate <= endOfNextMonth) {
+        let instanceDate = currentDate;
+
+        if (item.frequency === 'Monthly (Last Day)') {
+             // Ensure it's the last day of the month for this frequency type
+             instanceDate = lastDayOfMonth(currentDate);
         }
 
-        // Generate instances until we are past the next month's end
-        while (currentDate <= endOfNextMonth) {
-            const instanceId = `${item.id}-${currentDate.getTime()}`;
-            // If this instance hasn't been overridden, add it
-            if (!processedOverrides.has(instanceId)) {
+        // Only generate if the instance date is within our window
+        if (instanceDate >= startOfCurrentMonth && instanceDate <= endOfNextMonth) {
+            const instanceId = `${item.id}-${instanceDate.getTime()}`;
+
+            // If this instance hasn't been overridden, add it to the list
+            if (!overriddenInstances.has(instanceId)) {
                 generatedItems.push({
                     ...item,
-                    id: instanceId, // Use a unique ID for the instance
-                    date: currentDate.toISOString(),
-                    completed: item.completed || false,
-                    forNextMonth: !isSameMonth(currentDate, startOfCurrentMonth),
+                    id: instanceId, // Use a unique ID for this specific instance
+                    date: instanceDate.toISOString(),
+                    completed: item.completed || false, // Ensure completed has a value
+                    forNextMonth: !isSameMonth(instanceDate, startOfCurrentMonth),
                 });
             }
-            currentDate = addWeeks(currentDate, increment);
         }
-    } else { // Monthly or Monthly (Last Day)
-      let currentDate = startDate;
-      
-      // Fast-forward to the first relevant month
-      while (isBefore(currentDate, startOfCurrentMonth)) {
-        currentDate = addMonths(currentDate, 1);
-      }
 
-      // Generate instances for the current and next month
-      while (currentDate <= endOfNextMonth) {
-          let instanceDate = currentDate;
-          // Adjust date for "last day of month" types
-          if (item.frequency === 'Monthly (Last Day)') {
-              instanceDate = lastDayOfMonth(currentDate);
-          }
-
-          // Ensure the calculated instance date is within our window
-          if (instanceDate <= endOfNextMonth) {
-             const instanceId = `${item.id}-${instanceDate.getTime()}`;
-              if (!processedOverrides.has(instanceId)) {
-                  generatedItems.push({
-                      ...item,
-                      id: instanceId,
-                      date: instanceDate.toISOString(),
-                      completed: item.completed || false,
-                      forNextMonth: !isSameMonth(instanceDate, startOfCurrentMonth),
-                  });
-              }
-          }
-          currentDate = addMonths(currentDate, 1);
-      }
+        // Move to the next potential date
+        if (item.frequency === 'Weekly' || item.frequency === 'Bi-Weekly') {
+            const increment = item.frequency === 'Weekly' ? 1 : 2;
+            currentDate = addWeeks(currentDate, increment);
+        } else {
+            currentDate = addMonths(currentDate, 1);
+        }
     }
   });
 

@@ -33,6 +33,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type SortConfig = {
     key: keyof BudgetItem;
@@ -61,83 +62,56 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
   )
 }
 
-export function IncomeTable() {
-  const { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, isLoading, fetchBudgetItems } = useBudget();
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<BudgetItem | null>(null);
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'ascending' });
+function IncomeTableContent({ items, isLoading, onEdit, onDelete }: {
+    items: BudgetItem[],
+    isLoading: boolean,
+    onEdit: (item: BudgetItem) => void,
+    onDelete: (id: string) => void,
+}) {
+    const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'ascending' });
 
-  const incomeItems = useMemo(() => budgetItems.filter(item => item.type === 'Income'), [budgetItems]);
-
-  const handleEdit = (item: BudgetItem) => {
-    setEditingItem(item);
-    setIsFormOpen(true);
-  };
-
-  const handleFormOpenChange = (isOpen: boolean) => {
-    setIsFormOpen(isOpen);
-    if (!isOpen) {
-      setEditingItem(null);
-    }
-  };
-
-  const requestSort = (key: keyof BudgetItem) => {
-    let direction: 'ascending' | 'descending' = 'ascending';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
-      direction = 'descending';
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const sortedItems = useMemo(() => {
-    let sortableItems = [...incomeItems];
-    if (sortConfig !== null) {
-      sortableItems.sort((a, b) => {
-        let aValue, bValue;
-
-        if (sortConfig.key === 'date') {
-            aValue = new Date(a.date).getTime();
-            bValue = new Date(b.date).getTime();
-        } else {
-            aValue = a[sortConfig.key as keyof BudgetItem];
-            bValue = b[sortConfig.key as keyof BudgetItem];
+    const requestSort = (key: keyof BudgetItem) => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
         }
+        setSortConfig({ key, direction });
+    };
 
-        if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
-        return 0;
-      });
-    }
-    return sortableItems;
-  }, [incomeItems, sortConfig]);
+    const sortedItems = useMemo(() => {
+        let sortableItems = [...items];
+        if (sortConfig !== null) {
+        sortableItems.sort((a, b) => {
+            let aValue, bValue;
 
-  const renderLoadingSkeleton = () => (
-    Array.from({ length: 2 }).map((_, i) => (
-      <TableRow key={`skeleton-income-${i}`}>
-        <TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell>
-      </TableRow>
-    ))
-  );
+            if (sortConfig.key === 'date') {
+                aValue = new Date(a.date).getTime();
+                bValue = new Date(b.date).getTime();
+            } else {
+                aValue = a[sortConfig.key as keyof BudgetItem];
+                bValue = b[sortConfig.key as keyof BudgetItem];
+            }
 
-  const total = incomeItems.filter(i => !i.forNextMonth).reduce((acc, item) => acc + item.amount, 0);
+            if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
+            if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
+            return 0;
+        });
+        }
+        return sortableItems;
+    }, [items, sortConfig]);
 
-  return (
-    <>
-      <BudgetForm
-        open={isFormOpen}
-        onOpenChange={handleFormOpenChange}
-        addBudgetItem={addBudgetItem}
-        updateBudgetItem={updateBudgetItem}
-        editingItem={editingItem}
-      />
-      <div className="flex justify-end items-center mb-6 gap-2 no-print">
-        <Button onClick={() => setIsFormOpen(true)}>
-          <PlusCircle className="mr-2 h-5 w-5" />
-          Add Budget Item
-        </Button>
-      </div>
+    const renderLoadingSkeleton = () => (
+        Array.from({ length: 2 }).map((_, i) => (
+        <TableRow key={`skeleton-income-${i}`}>
+            <TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell>
+        </TableRow>
+        ))
+    );
 
-       <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+    const total = items.reduce((acc, item) => acc + item.amount, 0);
+
+    return (
+        <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
             <Table>
                 <TableHeader>
                     <TableRow className="group">
@@ -156,15 +130,7 @@ export function IncomeTable() {
                     sortedItems.map((item) => (
                     <TableRow key={item.id}>
                         <TableCell className="font-medium">
-                            <div className="flex items-center gap-2">
-                                {item.description}
-                                {item.forNextMonth && (
-                                    <Badge variant="outline" className="text-xs font-normal border-amber-500/50 text-amber-600">
-                                        Next Month
-                                        <ArrowRight className="ml-1 h-3 w-3" />
-                                    </Badge>
-                                )}
-                            </div>
+                            {item.description}
                         </TableCell>
                         <TableCell>{item.category}</TableCell>
                         <TableCell>{format(parseDate(item.date), 'PPP')}</TableCell>
@@ -180,7 +146,7 @@ export function IncomeTable() {
                         <TableCell className="text-right">{formatCurrency(item.amount)}</TableCell>
                         <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(item)}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(item)}>
                             <Pencil className="h-4 w-4" />
                             </Button>
                             <AlertDialog>
@@ -198,7 +164,7 @@ export function IncomeTable() {
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => deleteBudgetItem(item.id)} className={cn(buttonVariants({ variant: "destructive" }))}>
+                                <AlertDialogAction onClick={() => onDelete(item.id)} className={cn(buttonVariants({ variant: "destructive" }))}>
                                     Delete
                                 </AlertDialogAction>
                                 </AlertDialogFooter>
@@ -218,13 +184,77 @@ export function IncomeTable() {
                 </TableBody>
                 <TableFooter>
                     <TableRow>
-                        <TableCell colSpan={4} className="font-semibold text-right">Total (This Month)</TableCell>
+                        <TableCell colSpan={5} className="font-semibold text-right">Total</TableCell>
                         <TableCell className="text-right font-semibold">{formatCurrency(total)}</TableCell>
-                        <TableCell></TableCell>
                     </TableRow>
                 </TableFooter>
             </Table>
         </div>
+    )
+}
+
+export function IncomeTable() {
+  const { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, isLoading, fetchBudgetItems } = useBudget();
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<BudgetItem | null>(null);
+
+  const { currentMonthItems, nextMonthItems } = useMemo(() => {
+    const allIncome = budgetItems.filter(item => item.type === 'Income');
+    return {
+      currentMonthItems: allIncome.filter(item => !item.forNextMonth),
+      nextMonthItems: allIncome.filter(item => item.forNextMonth),
+    }
+  }, [budgetItems]);
+
+  const handleEdit = (item: BudgetItem) => {
+    setEditingItem(item);
+    setIsFormOpen(true);
+  };
+
+  const handleFormOpenChange = (isOpen: boolean) => {
+    setIsFormOpen(isOpen);
+    if (!isOpen) {
+      setEditingItem(null);
+    }
+  };
+  
+  return (
+    <>
+      <BudgetForm
+        open={isFormOpen}
+        onOpenChange={handleFormOpenChange}
+        addBudgetItem={addBudgetItem}
+        updateBudgetItem={updateBudgetItem}
+        editingItem={editingItem}
+      />
+      <div className="flex justify-end items-center mb-6 gap-2 no-print">
+        <Button onClick={() => setIsFormOpen(true)}>
+          <PlusCircle className="mr-2 h-5 w-5" />
+          Add Budget Item
+        </Button>
+      </div>
+      <Tabs defaultValue="current" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 bg-secondary/50 mb-6 no-print">
+            <TabsTrigger value="current">Current Month</TabsTrigger>
+            <TabsTrigger value="next">Next Month</TabsTrigger>
+        </TabsList>
+        <TabsContent value="current">
+            <IncomeTableContent 
+                items={currentMonthItems}
+                isLoading={isLoading}
+                onEdit={handleEdit}
+                onDelete={deleteBudgetItem}
+            />
+        </TabsContent>
+        <TabsContent value="next">
+            <IncomeTableContent 
+                items={nextMonthItems}
+                isLoading={isLoading}
+                onEdit={handleEdit}
+                onDelete={deleteBudgetItem}
+            />
+        </TabsContent>
+      </Tabs>
     </>
   );
 }
