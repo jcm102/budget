@@ -44,6 +44,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { useMonthlyBudget } from '@/app/monthly-budget/hooks/use-monthly-budget';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 type CategoryWithChildren = Category & { children: CategoryWithChildren[] };
 
@@ -143,21 +144,6 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
         form.setValue('allocationAmount', 0);
     }
   }, [amount, showCalculator, form]);
-
-
-  const toLocalISOString = (date: Date) => {
-    const tzOffset = -date.getTimezoneOffset();
-    const diff = tzOffset >= 0 ? '+' : '-';
-    const pad = (n: number) => `${Math.floor(Math.abs(n))}`.padStart(2, '0');
-    return date.getFullYear() +
-      '-' + pad(date.getMonth() + 1) +
-      '-' + pad(date.getDate()) +
-      'T' + pad(date.getHours()) +
-      ':' + pad(date.getMinutes()) +
-      ':' + pad(date.getSeconds()) +
-      diff + pad(tzOffset / 60) +
-      ':' + pad(tzOffset % 60);
-  };
   
   useEffect(() => {
     if (open) {
@@ -167,7 +153,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
           category: editingItem.category,
           amount: editingItem.amount,
           type: editingItem.type,
-          date: new Date(editingItem.date).toISOString().split('T')[0],
+          date: editingItem.date.split('T')[0],
           frequency: editingItem.frequency || 'One-Time',
           transferFrom: editingItem.transferFrom || '',
           transferTo: editingItem.transferTo || '',
@@ -227,7 +213,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
 
     const submissionData = {
       ...values,
-      date: toLocalISOString(localDate),
+      date: localDate.toISOString(),
       type: values.type as BudgetItemType,
       frequency: values.frequency as BudgetItemFrequency,
       budgetCategoryId: values.budgetCategoryId === 'null-value' ? null : values.budgetCategoryId,
@@ -319,284 +305,288 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField control={form.control} name="type" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Type</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Select item type" /></SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="Income">Income</SelectItem>
-                      <SelectItem value="Debt Payments">Debt Payments</SelectItem>
-                      <SelectItem value="Transfers">Transfers</SelectItem>
-                      <SelectItem value="Pre-Authorized Payments">Pre-Authorized Payments</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField control={form.control} name="description" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl><Input placeholder="e.g., Monthly Salary" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-             {itemType === 'Income' && (
-                <>
-                    <FormField control={form.control} name="category" render={({ field }) => (
+            <ScrollArea className="h-[60vh] pr-6 -mr-6">
+                <div className="space-y-4">
+                    <FormField control={form.control} name="type" render={({ field }) => (
                         <FormItem>
-                        <FormLabel>Category</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                        <FormLabel>Type</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                             <FormControl>
-                                <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
+                            <SelectTrigger><SelectValue placeholder="Select item type" /></SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                                {incomeCategories.map(category => (
-                                <SelectItem key={category.id} value={category.name}>{category.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                            </Select>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-                     <FormField control={form.control} name="destinationAccountId" render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Destination Account</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                            <SelectTrigger><SelectValue placeholder="Select destination account" /></SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                            {transferees.filter(t => t.type !== 'Credit').map(t => (
-                                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                            ))}
+                            <SelectItem value="Income">Income</SelectItem>
+                            <SelectItem value="Debt Payments">Debt Payments</SelectItem>
+                            <SelectItem value="Transfers">Transfers</SelectItem>
+                            <SelectItem value="Pre-Authorized Payments">Pre-Authorized Payments</SelectItem>
                             </SelectContent>
                         </Select>
                         <FormMessage />
                         </FormItem>
                     )}
                     />
-                     <FormField
-                        control={form.control}
-                        name="forNextMonth"
-                        render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                            <div className="space-y-0.5">
-                                <FormLabel>For Next Month's Budget</FormLabel>
-                                <FormMessage />
-                            </div>
-                            <FormControl>
-                                <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                                />
-                            </FormControl>
-                            </FormItem>
-                        )}
-                        />
-                </>
-             )}
-            <FormField control={form.control} name="amount" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Amount</FormLabel>
-                  <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {showCalculator && (
-                 <Card className="bg-secondary/50">
-                    <CardHeader className="p-4">
-                        <CardTitle className="text-base">Found Money: Split & Allocate</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-4 pt-0 text-sm space-y-4">
-                        <div className="space-y-2">
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Charity:</span>
-                                <span className="font-medium">{formatCurrency(split.charity)}</span>
-                            </div>
-                             <div className="flex justify-between">
-                                <span className="text-muted-foreground">Fun:</span>
-                                <span className="font-medium">{formatCurrency(split.fun)}</span>
-                            </div>
-                        </div>
-                        <div className="space-y-3">
-                             <Label>Allocate Savings/Debt Portion ({formatCurrency(split.savings)})</Label>
-                             <FormField
-                                control={form.control}
-                                name="allocationType"
-                                render={({ field }) => (
-                                    <FormItem>
+                    <FormField control={form.control} name="description" render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Description</FormLabel>
+                        <FormControl><Input placeholder="e.g., Monthly Salary" {...field} /></FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                    {itemType === 'Income' && (
+                        <>
+                            <FormField control={form.control} name="category" render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Category</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                                     <FormControl>
-                                        <RadioGroup
-                                        onValueChange={field.onChange}
-                                        value={field.value}
-                                        className="flex gap-4"
-                                        >
-                                            <FormItem className="flex items-center space-x-2 space-y-0">
-                                                <FormControl><RadioGroupItem value="goal" /></FormControl>
-                                                <FormLabel className="font-normal">Goal</FormLabel>
-                                            </FormItem>
-                                            <FormItem className="flex items-center space-x-2 space-y-0">
-                                                <FormControl><RadioGroupItem value="debt" /></FormControl>
-                                                <FormLabel className="font-normal">Debt</FormLabel>
-                                            </FormItem>
-                                        </RadioGroup>
+                                        <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        {incomeCategories.map(category => (
+                                        <SelectItem key={category.id} value={category.name}>{category.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                    </Select>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                            />
+                            <FormField control={form.control} name="destinationAccountId" render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Destination Account</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl>
+                                    <SelectTrigger><SelectValue placeholder="Select destination account" /></SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                    {transferees.filter(t => t.type !== 'Credit').map(t => (
+                                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                                    ))}
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="forNextMonth"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                                    <div className="space-y-0.5">
+                                        <FormLabel>For Next Month's Budget</FormLabel>
+                                        <FormMessage />
+                                    </div>
+                                    <FormControl>
+                                        <Switch
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                        />
                                     </FormControl>
                                     </FormItem>
                                 )}
-                             />
-
-                             {allocationType !== 'none' && (
-                                <div className="flex gap-2">
-                                     <FormField
-                                        control={form.control}
-                                        name="allocationTargetId"
-                                        render={({ field }) => (
-                                            <FormItem className="flex-grow">
-                                                <Select onValueChange={field.onChange} value={field.value}>
-                                                    <FormControl>
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder={`Select ${allocationType}`} />
-                                                        </SelectTrigger>
-                                                    </FormControl>
-                                                    <SelectContent>
-                                                        {allocationType === 'goal' && goals.map(goal => (
-                                                            <SelectItem key={goal.id} value={goal.id}>{goal.name}</SelectItem>
-                                                        ))}
-                                                         {allocationType === 'debt' && debts.map(debt => (
-                                                            <SelectItem key={debt.id} value={debt.id}>{debt.name}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </FormItem>
-                                        )}
-                                    />
-                                     <FormField
-                                        control={form.control}
-                                        name="allocationAmount"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormControl>
-                                                    <Input 
-                                                        type="number" 
-                                                        step="0.01" 
-                                                        {...field} 
-                                                        className="w-28" 
-                                                        placeholder="Amount"
-                                                        onChange={(e) => {
-                                                            const value = e.target.value;
-                                                            field.onChange(value === '' ? '' : parseFloat(value) || 0);
-                                                        }}
-                                                    />
-                                                </FormControl>
-                                            </FormItem>
-                                        )}
-                                    />
-                                </div>
-                             )}
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
-
-
-            {itemType === 'Transfers' && (
-              <>
-                <FormField control={form.control} name="transferFrom" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Source Account</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                        <FormControl>
-                            <SelectTrigger><SelectValue placeholder="Select a source" /></SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                            {transferees.map(t => (
-                            <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                        </Select>
-                       <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField control={form.control} name="transferTo" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Destination Account</FormLabel>
-                       <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                        <FormControl>
-                            <SelectTrigger><SelectValue placeholder="Select a destination" /></SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                            {transferees.map(t => (
-                            <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                        </Select>
-                       <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </>
-            )}
-
-            {itemType === 'Pre-Authorized Payments' && (
-                <FormField
-                    control={form.control}
-                    name="budgetCategoryId"
-                    render={({ field }) => (
+                                />
+                        </>
+                    )}
+                    <FormField control={form.control} name="amount" render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Budget Category (Optional)</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value || ''}>
-                                <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Link to a monthly budget category" />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    <SelectItem value="null-value">None</SelectItem>
-                                    {renderCategoryOptions(categoryTree)}
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
+                        <FormLabel>Amount</FormLabel>
+                        <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                        <FormMessage />
                         </FormItem>
                     )}
-                />
-            )}
+                    />
 
-            <FormField control={form.control} name="date" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Date</FormLabel>
-                  <FormControl><Input type="date" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField control={form.control} name="frequency" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Frequency</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Select frequency" /></SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="One-Time">One-Time</SelectItem>
-                      <SelectItem value="Weekly">Weekly</SelectItem>
-                      <SelectItem value="Bi-Weekly">Bi-Weekly</SelectItem>
-                      <SelectItem value="Monthly">Monthly</SelectItem>
-                      <SelectItem value="Monthly (Last Day)">Monthly (Last Day)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                    {showCalculator && (
+                        <Card className="bg-secondary/50">
+                            <CardHeader className="p-4">
+                                <CardTitle className="text-base">Found Money: Split & Allocate</CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-4 pt-0 text-sm space-y-4">
+                                <div className="space-y-2">
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Charity:</span>
+                                        <span className="font-medium">{formatCurrency(split.charity)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Fun:</span>
+                                        <span className="font-medium">{formatCurrency(split.fun)}</span>
+                                    </div>
+                                </div>
+                                <div className="space-y-3">
+                                    <Label>Allocate Savings/Debt Portion ({formatCurrency(split.savings)})</Label>
+                                    <FormField
+                                        control={form.control}
+                                        name="allocationType"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                            <FormControl>
+                                                <RadioGroup
+                                                onValueChange={field.onChange}
+                                                value={field.value}
+                                                className="flex gap-4"
+                                                >
+                                                    <FormItem className="flex items-center space-x-2 space-y-0">
+                                                        <FormControl><RadioGroupItem value="goal" /></FormControl>
+                                                        <FormLabel className="font-normal">Goal</FormLabel>
+                                                    </FormItem>
+                                                    <FormItem className="flex items-center space-x-2 space-y-0">
+                                                        <FormControl><RadioGroupItem value="debt" /></FormControl>
+                                                        <FormLabel className="font-normal">Debt</FormLabel>
+                                                    </FormItem>
+                                                </RadioGroup>
+                                            </FormControl>
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    {allocationType !== 'none' && (
+                                        <div className="flex gap-2">
+                                            <FormField
+                                                control={form.control}
+                                                name="allocationTargetId"
+                                                render={({ field }) => (
+                                                    <FormItem className="flex-grow">
+                                                        <Select onValueChange={field.onChange} value={field.value}>
+                                                            <FormControl>
+                                                                <SelectTrigger>
+                                                                    <SelectValue placeholder={`Select ${allocationType}`} />
+                                                                </SelectTrigger>
+                                                            </FormControl>
+                                                            <SelectContent>
+                                                                {allocationType === 'goal' && goals.map(goal => (
+                                                                    <SelectItem key={goal.id} value={goal.id}>{goal.name}</SelectItem>
+                                                                ))}
+                                                                {allocationType === 'debt' && debts.map(debt => (
+                                                                    <SelectItem key={debt.id} value={debt.id}>{debt.name}</SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control}
+                                                name="allocationAmount"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormControl>
+                                                            <Input 
+                                                                type="number" 
+                                                                step="0.01" 
+                                                                {...field} 
+                                                                className="w-28" 
+                                                                placeholder="Amount"
+                                                                onChange={(e) => {
+                                                                    const value = e.target.value;
+                                                                    field.onChange(value === '' ? '' : parseFloat(value) || 0);
+                                                                }}
+                                                            />
+                                                        </FormControl>
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
+
+                    {itemType === 'Transfers' && (
+                    <>
+                        <FormField control={form.control} name="transferFrom" render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Source Account</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                                <FormControl>
+                                    <SelectTrigger><SelectValue placeholder="Select a source" /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {transferees.map(t => (
+                                    <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                                </Select>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                        <FormField control={form.control} name="transferTo" render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Destination Account</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                                <FormControl>
+                                    <SelectTrigger><SelectValue placeholder="Select a destination" /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {transferees.map(t => (
+                                    <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                                </Select>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                    </>
+                    )}
+
+                    {itemType === 'Pre-Authorized Payments' && (
+                        <FormField
+                            control={form.control}
+                            name="budgetCategoryId"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Budget Category (Optional)</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value || ''}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Link to a monthly budget category" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="null-value">None</SelectItem>
+                                            {renderCategoryOptions(categoryTree)}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    )}
+
+                    <FormField control={form.control} name="date" render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Date</FormLabel>
+                        <FormControl><Input type="date" {...field} /></FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                    <FormField control={form.control} name="frequency" render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Frequency</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                            <SelectTrigger><SelectValue placeholder="Select frequency" /></SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                            <SelectItem value="One-Time">One-Time</SelectItem>
+                            <SelectItem value="Weekly">Weekly</SelectItem>
+                            <SelectItem value="Bi-Weekly">Bi-Weekly</SelectItem>
+                            <SelectItem value="Monthly">Monthly</SelectItem>
+                            <SelectItem value="Monthly (Last Day)">Monthly (Last Day)</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                </div>
+            </ScrollArea>
             <DialogFooter>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -609,3 +599,5 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
     </Dialog>
   );
 }
+
+    

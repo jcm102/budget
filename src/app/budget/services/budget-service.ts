@@ -28,19 +28,6 @@ const DEBT_COLLECTION = 'debts';
 const MONTHLY_BUDGET_COLLECTION = 'monthly-budget-items';
 const ACCOUNTS_COLLECTION = 'transferees';
 
-const toLocalISOString = (date: Date) => {
-    const tzOffset = -date.getTimezoneOffset();
-    const diff = tzOffset >= 0 ? '+' : '-';
-    const pad = (n: number) => `${Math.floor(Math.abs(n))}`.padStart(2, '0');
-    return date.getFullYear() +
-      '-' + pad(date.getMonth() + 1) +
-      '-' + pad(date.getDate()) +
-      'T' + pad(date.getHours()) +
-      ':' + pad(date.getMinutes()) +
-      ':' + pad(date.getSeconds()) +
-      diff + pad(tzOffset / 60) +
-      ':' + pad(tzOffset % 60);
-};
 
 export async function getBudgetItems(): Promise<BudgetItem[]> {
   const budgetCollection = collection(db, BUDGET_COLLECTION);
@@ -120,7 +107,7 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
                     allGeneratedItems.push({
                         ...item,
                         id: instanceId, 
-                        date: toLocalISOString(currentDate),
+                        date: currentDate.toISOString(),
                         completed: item.completed || false,
                         forNextMonth: isNext,
                     });
@@ -299,7 +286,7 @@ export async function updateBudgetItem(id: string, itemData: Partial<Omit<Budget
                 ...itemData,
                 frequency: 'One-Time',
                 originalId: id,
-                date: toLocalISOString(new Date(parseInt(id.split('-')[1]))),
+                date: new Date(parseInt(id.split('-')[1])).toISOString(),
                 completed: itemData.completed ?? oldItemData!.completed,
             };
             if (itemData.date) newDocData.date = itemData.date;
@@ -541,4 +528,5 @@ export async function syncDebtPaymentsToMonthlyBudget(): Promise<void> {
     });
 }
 
+    
     
