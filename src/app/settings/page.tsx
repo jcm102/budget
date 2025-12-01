@@ -15,6 +15,7 @@ import { AccountManager } from '@/components/account-manager';
 import { BudgetCategoryManager } from '@/components/budget-category-manager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CommonlyUsedAccountsManager } from '@/components/commonly-used-accounts-manager';
+import { ChangePasswordForm } from '@/components/change-password-form';
 
 export default function SettingsPage() {
   return (
@@ -31,11 +32,12 @@ export default function SettingsPage() {
         <div>
           <h1 className="text-3xl font-bold font-headline text-primary mb-6">Settings</h1>
             <Tabs defaultValue="accounts" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="accounts">Accounts</TabsTrigger>
                 <TabsTrigger value="categories">Categories</TabsTrigger>
                 <TabsTrigger value="general">General</TabsTrigger>
                 <TabsTrigger value="rates">Rates</TabsTrigger>
+                <TabsTrigger value="security">Security</TabsTrigger>
                 </TabsList>
                 <TabsContent value="accounts" className="mt-6">
                     <div className="space-y-4">
@@ -61,6 +63,11 @@ export default function SettingsPage() {
                     <div className="space-y-4">
                         <MileageRateManager />
                         <ExchangeRateManager />
+                    </div>
+                </TabsContent>
+                <TabsContent value="security" className="mt-6">
+                    <div className="space-y-4">
+                        <ChangePasswordForm />
                     </div>
                 </TabsContent>
             </Tabs>
