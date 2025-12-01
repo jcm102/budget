@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -79,7 +80,7 @@ export function ChangePasswordForm() {
     } catch (error: any) {
       console.error('Password change failed:', error);
       let errorMessage = 'An unknown error occurred. Please try again.';
-      if (error.code === 'auth/wrong-password') {
+      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
         errorMessage = 'The current password you entered is incorrect.';
       } else if (error.code === 'auth/too-many-requests') {
           errorMessage = 'Too many attempts. Please try again later.'
