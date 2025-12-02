@@ -60,7 +60,7 @@ export function useSavings() {
 
   const updateSavingsItem = useCallback(async (id: string, itemData: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>) => {
     try {
-      SavingsService.updateSavingsItem(id, itemData);
+      await SavingsService.updateSavingsItem(id, itemData);
       // After any update, refetch everything to get recalculated values
       await fetchAllData(selectedAccountId);
     } catch (error) {
@@ -73,6 +73,18 @@ export function useSavings() {
       });
     }
   }, [toast, selectedAccountId, fetchAllData]);
+
+  const fundSinkingFund = useCallback(async (fundId: string, amount: number, userId: string) => {
+    try {
+      await SavingsService.fundSinkingFund(fundId, amount, userId);
+      // Refetch data to update the UI
+      await fetchAllData(selectedAccountId);
+    } catch (error) {
+      console.error('Failed to fund sinking fund:', error);
+      // The service will throw, so we can re-throw to be caught in the component
+      throw error;
+    }
+  }, [selectedAccountId, fetchAllData]);
 
   const deleteSavingsItem = useCallback(async (id: string) => {
     const originalItems = savingsItems;
@@ -95,7 +107,8 @@ export function useSavings() {
     isLoading, 
     addSavingsItem, 
     updateSavingsItem, 
-    deleteSavingsItem, 
+    deleteSavingsItem,
+    fundSinkingFund, 
     fetchSavingsItems: () => fetchAllData(selectedAccountId)
   };
 }

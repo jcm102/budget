@@ -82,9 +82,13 @@ export async function getSavingsItems(accountId: string): Promise<SavingsItem[]>
 
 export async function addSavingsItem(itemData: Omit<SavingsItem, 'id' | 'monthlyAmount'>): Promise<SavingsItem> {
     const itemRef = doc(collection(db, SAVINGS_COLLECTION));
-    const transactionRef = doc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION));
 
-    await addDoc(collection(db, SAVINGS_COLLECTION), itemData);
+    const dataWithTimestamp = {
+        ...itemData,
+        lastFundedAt: null, // Initialize with null
+    };
+    
+    await addDoc(collection(db, SAVINGS_COLLECTION), dataWithTimestamp);
     
     const docSnap = await getDoc(itemRef);
     const newItem = { id: docSnap.id, ...(docSnap.data() as Omit<SavingsItem, 'id'>) };
@@ -99,6 +103,37 @@ export async function addSavingsItem(itemData: Omit<SavingsItem, 'id' | 'monthly
 export async function updateSavingsItem(id: string, itemData: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>): Promise<void> {
     const itemRef = doc(db, SAVINGS_COLLECTION, id);
     await updateDoc(itemRef, itemData);
+}
+
+export async function fundSinkingFund(fundId: string, amount: number, userId: string): Promise<void> {
+  await runTransaction(db, async (transaction) => {
+    const fundRef = doc(db, SAVINGS_COLLECTION, fundId);
+    const transactionRef = doc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION));
+
+    const fundDoc = await transaction.get(fundRef);
+    if (!fundDoc.exists()) {
+      throw new Error("Sinking fund not found!");
+    }
+
+    const currentAmount = fundDoc.data().amount || 0;
+    const newAmount = currentAmount + amount;
+    const today = format(new Date(), 'yyyy-MM-dd');
+
+    // Update the fund balance and last funded date
+    transaction.update(fundRef, { 
+        amount: newAmount,
+        lastFundedAt: new Date().toISOString() 
+    });
+
+    // Create a transaction record
+    transaction.set(transactionRef, {
+      fundId,
+      amount,
+      type: 'deposit',
+      date: today,
+      userId: userId,
+    });
+  });
 }
 
 export async function deleteSavingsItem(id: string): Promise<void> {

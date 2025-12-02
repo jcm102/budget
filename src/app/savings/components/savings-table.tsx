@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -6,7 +5,7 @@ import type { SavingsItem, SubscriptionItem, AutoShipItem, SinkingFundTransactio
 import * as z from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { format, parse, isBefore, isSameMonth } from 'date-fns';
+import { format, parse, isSameMonth } from 'date-fns';
 import type { ColumnVisibility } from '@/app/savings/page';
 
 import {
@@ -62,6 +61,7 @@ import { SavingsForm } from './savings-form';
 import * as SavingsService from '@/services/savings-service';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useUser } from '@/firebase';
+import { useToast } from '@/hooks/use-toast';
 
 const formatCurrency = (amount: number, currency: 'CAD' | 'USD' = 'CAD') => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
@@ -165,12 +165,14 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
     savingsItems, 
     addSavingsItem, 
     updateSavingsItem, 
-    deleteSavingsItem, 
+    deleteSavingsItem,
+    fundSinkingFund,
     isLoading: isLoadingSavings 
   } = useSavings();
   
   const { user } = useUser();
   const { exchangeRate, isLoading: isLoadingRate } = useExchangeRate();
+  const { toast } = useToast();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<SavingsItem | null>(null);
@@ -216,6 +218,23 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
     }
     return sortableItems;
   }, [savingsItems, sortConfig]);
+
+  const handleFundItem = async (item: SavingsItem) => {
+    if (!user || !item.monthlyAmount) return;
+    try {
+        await fundSinkingFund(item.id, item.monthlyAmount, user.uid);
+        toast({
+            title: "Success!",
+            description: `${formatCurrency(item.monthlyAmount, item.currency)} was added to "${item.name}".`
+        });
+    } catch(e) {
+        toast({
+            title: "Error",
+            description: "Failed to fund the sinking fund. Please try again.",
+            variant: "destructive",
+        });
+    }
+  }
 
   const renderLoadingSkeleton = () => (
     Array.from({ length: 4 }).map((_, i) => (
@@ -364,7 +383,7 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
                                                             </AlertDialogHeader>
                                                             <AlertDialogFooter>
                                                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                                <AlertDialogAction>Confirm</AlertDialogAction>
+                                                                <AlertDialogAction onClick={() => handleFundItem(item)}>Confirm</AlertDialogAction>
                                                             </AlertDialogFooter>
                                                         </AlertDialogContent>
                                                     </AlertDialog>
