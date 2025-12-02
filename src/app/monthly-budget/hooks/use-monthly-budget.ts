@@ -6,7 +6,7 @@ import type { MonthlyBudgetItem, Category, BudgetSubItem } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import * as MonthlyBudgetService from '../services/monthly-budget-service';
 import * as BudgetCategoryService from '@/services/budget-category-service';
-import { format, subMonths } from 'date-fns';
+import { format, subMonths, addMonths } from 'date-fns';
 import { useBudget } from '@/app/budget/hooks/use-budget';
 
 export function useMonthlyBudget(month?: string) {
