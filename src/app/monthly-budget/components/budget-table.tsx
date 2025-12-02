@@ -35,7 +35,7 @@ type BudgetTableProps = {
     onUpdateBudget: (categoryId: string, budgeted: number) => void;
     onCopyCategory: (categoryId: string) => void;
     onCopyToNextMonth: (budgetItem: MonthlyBudgetItem) => void;
-    view: 'current' | 'next';
+    view: 'current' | 'next' | 'previous';
 }
 
 type CategoryWithChildren = Category & { children: CategoryWithChildren[] };
@@ -84,7 +84,7 @@ const CategoryRow = ({
     onUpdateBudget: (categoryId: string, budgeted: number) => void;
     onCopyCategory: (categoryId: string) => void;
     onCopyToNextMonth: (budgetItem: MonthlyBudgetItem) => void;
-    view: 'current' | 'next';
+    view: 'current' | 'next' | 'previous';
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -163,13 +163,8 @@ const CategoryRow = ({
                         <div className="group flex items-center justify-end gap-1 min-h-[32px]">
                             <span>{formatCurrency(budgeted)}</span>
                             <div className="opacity-0 group-hover:opacity-100 flex absolute right-4">
-                                {view === 'next' && (
+                                {(view === 'current' || view === 'next') && (
                                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onCopyCategory(category.id)}>
-                                        <Copy className="h-4 w-4 text-blue-500" />
-                                    </Button>
-                                )}
-                                {view === 'current' && budgetItem && (
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onCopyToNextMonth(budgetItem)}>
                                         <Copy className="h-4 w-4 text-blue-500" />
                                     </Button>
                                 )}
