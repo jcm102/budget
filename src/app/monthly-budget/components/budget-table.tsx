@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { format } from 'date-fns';
-import { Pencil, Save, X, ChevronDown, ArrowRightLeft, CornerDownRight, Copy } from 'lucide-react';
+import { Pencil, Save, X, ChevronDown, ArrowRightLeft, CornerDownRight, Copy, CheckCircle } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -19,11 +19,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
-import type { Transaction, Category, MonthlyBudgetItem, BudgetSubItem } from '@/types';
+import type { Transaction, Category, MonthlyBudgetItem, BudgetSubItem, AccountDetails } from '@/types';
 import { Separator } from '@/components/ui/separator';
 import { useAccountDetails } from '@/hooks/use-account-details';
 import { useToast } from '@/hooks/use-toast';
 import { useMonthlyBudget } from '../hooks/use-monthly-budget';
+import { ApplyBudgetDialog } from './apply-budget-dialog';
 
 type BudgetTableProps = {
     budgetItems: MonthlyBudgetItem[];
@@ -36,6 +37,7 @@ type BudgetTableProps = {
     onCopyCategory: (categoryId: string) => void;
     onCopyToNextMonth: (budgetItem: MonthlyBudgetItem) => void;
     view: 'current' | 'next' | 'previous';
+    onApplyBudget: (categoryId: string, categoryName: string, amount: number) => void;
 }
 
 type CategoryWithChildren = Category & { children: CategoryWithChildren[] };
@@ -72,6 +74,7 @@ const CategoryRow = ({
     onCopyCategory,
     onCopyToNextMonth,
     view,
+    onApplyBudget
 }: { 
     category: CategoryWithChildren, 
     level: number,
@@ -85,6 +88,7 @@ const CategoryRow = ({
     onCopyCategory: (categoryId: string) => void;
     onCopyToNextMonth: (budgetItem: MonthlyBudgetItem) => void;
     view: 'current' | 'next' | 'previous';
+    onApplyBudget: (categoryId: string, categoryName: string, amount: number) => void;
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -162,7 +166,12 @@ const CategoryRow = ({
                     ) : (
                         <div className="group flex items-center justify-end gap-1 min-h-[32px]">
                             <span>{formatCurrency(budgeted)}</span>
-                            <div className="opacity-0 group-hover:opacity-100 flex absolute right-4">
+                             <div className="opacity-0 group-hover:opacity-100 flex absolute right-4">
+                                {view === 'current' && remaining > 0 && (
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onApplyBudget(category.id, category.name, remaining)}>
+                                        <CheckCircle className="h-4 w-4 text-green-500" />
+                                    </Button>
+                                )}
                                 {(view === 'current' || view === 'next') && (
                                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onCopyCategory(category.id)}>
                                         <Copy className="h-4 w-4 text-blue-500" />
@@ -262,6 +271,7 @@ const CategoryRow = ({
                                             onCopyCategory={onCopyCategory}
                                             onCopyToNextMonth={onCopyToNextMonth}
                                             view={view}
+                                            onApplyBudget={onApplyBudget}
                                         />
                                     ))}
                                     </TableBody>
@@ -277,7 +287,7 @@ const CategoryRow = ({
 }
 
 
-export function BudgetTable({ budgetItems, categories, transactions, isLoading, onEditBreakdown, onEditTransaction, onUpdateBudget, onCopyCategory, onCopyToNextMonth, view }: BudgetTableProps) {
+export function BudgetTable({ budgetItems, categories, transactions, isLoading, onEditBreakdown, onEditTransaction, onUpdateBudget, onCopyCategory, onCopyToNextMonth, view, onApplyBudget }: BudgetTableProps) {
   const { accounts: allAccounts } = useAccountDetails();
 
   const accountMap = useMemo(() => {
@@ -391,6 +401,7 @@ export function BudgetTable({ budgetItems, categories, transactions, isLoading, 
                     onCopyCategory={onCopyCategory}
                     onCopyToNextMonth={onCopyToNextMonth}
                     view={view}
+                    onApplyBudget={onApplyBudget}
                 />
             ))
           ) : (

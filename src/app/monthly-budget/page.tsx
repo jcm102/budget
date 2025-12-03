@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, PlusCircle, Smartphone, Copy, CalendarClock } from 'lucide-react';
@@ -10,7 +10,7 @@ import { TransactionForm } from './components/transaction-form';
 import { useTransactions } from './hooks/use-transactions';
 import { useMonthlyBudget } from './hooks/use-monthly-budget';
 import { BudgetBreakdownForm } from './components/budget-breakdown-form';
-import type { Category, MonthlyBudgetItem, BudgetSubItem, Transaction, BudgetItem } from '@/types';
+import type { Category, MonthlyBudgetItem, BudgetSubItem, Transaction, BudgetItem, AccountDetails } from '@/types';
 import { useBudget } from '@/app/budget/hooks/use-budget';
 import { format, addMonths, subMonths } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -41,6 +41,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart"
 import { PieChart, Pie, Cell } from "recharts"
+import { ApplyBudgetDialog } from './components/apply-budget-dialog';
 
 
 const formatCurrency = (amount: number) => {
@@ -90,6 +91,8 @@ const DonutChartCard = ({ title, data, config, total, description }: { title: st
 export default function MonthlyBudgetPage() {
   const [isTransactionFormOpen, setIsTransactionFormOpen] = useState(false);
   const [isBreakdownFormOpen, setIsBreakdownFormOpen] = useState(false);
+  const [isApplyBudgetFormOpen, setIsApplyBudgetFormOpen] = useState(false);
+  const [applyBudgetData, setApplyBudgetData] = useState<{ categoryId: string, categoryName: string, amount: number } | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [view, setView] = useState<'current' | 'next' | 'previous'>('current');
@@ -165,6 +168,36 @@ export default function MonthlyBudgetPage() {
     setIsTransactionFormOpen(isOpen);
   }
 
+  const handleApplyBudget = useCallback((categoryId: string, categoryName: string, amount: number) => {
+    setApplyBudgetData({ categoryId, categoryName, amount });
+    setIsApplyBudgetFormOpen(true);
+  }, []);
+
+  const handleConfirmApplyBudget = useCallback(async (sourceAccountId: string) => {
+    if (!applyBudgetData) return;
+    
+    const { categoryId, categoryName, amount } = applyBudgetData;
+    
+    const transactionData = {
+      description: categoryName,
+      amount: amount,
+      date: new Date().toISOString(),
+      sourceAccountId,
+      splits: [
+        {
+          id: crypto.randomUUID(),
+          type: 'expense',
+          amount: amount,
+          categoryId: categoryId,
+        }
+      ],
+    };
+    await addTransaction(transactionData);
+    setIsApplyBudgetFormOpen(false);
+    setApplyBudgetData(null);
+  }, [applyBudgetData, addTransaction]);
+
+
   const leftToBudget = incomeAmount - totalBudgeted;
   const remainingInBudget = totalBudgeted - totalSpent;
 
@@ -205,6 +238,16 @@ export default function MonthlyBudgetPage() {
         category={selectedCategory}
         budgetItem={selectedBudgetItem}
       />
+       {applyBudgetData && (
+        <ApplyBudgetDialog
+          open={isApplyBudgetFormOpen}
+          onOpenChange={setIsApplyBudgetFormOpen}
+          categoryName={applyBudgetData.categoryName}
+          amount={applyBudgetData.amount}
+          accounts={accounts}
+          onConfirm={handleConfirmApplyBudget}
+        />
+      )}
       <div className="container mx-auto max-w-6xl p-4 md:p-8">
         <header className="mb-8 flex justify-between items-center">
           <Button asChild variant="outline">
@@ -307,6 +350,7 @@ export default function MonthlyBudgetPage() {
                         onCopyCategory={copyCategoryFromPreviousMonth}
                         onCopyToNextMonth={copyBudgetItemToNextMonth}
                         view={view}
+                        onApplyBudget={handleApplyBudget}
                     />
                 </TabsContent>
                 <TabsContent value="current">
@@ -321,6 +365,7 @@ export default function MonthlyBudgetPage() {
                         onCopyCategory={copyCategoryFromPreviousMonth}
                         onCopyToNextMonth={copyBudgetItemToNextMonth}
                         view={view}
+                        onApplyBudget={handleApplyBudget}
                     />
                 </TabsContent>
                 <TabsContent value="next">
@@ -335,6 +380,7 @@ export default function MonthlyBudgetPage() {
                         onCopyCategory={copyCategoryFromPreviousMonth}
                         onCopyToNextMonth={copyBudgetItemToNextMonth}
                         view={view}
+                        onApplyBudget={handleApplyBudget}
                     />
                 </TabsContent>
             </Tabs>
