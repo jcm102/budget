@@ -103,7 +103,7 @@ export function ApplyBudgetDialog({
           <DialogTitle>Apply Budgeted Amount</DialogTitle>
           <DialogDescription>
             Create a single transaction for the remaining budgeted amount of{' '}
-            <span className="font-bold">{formatCurrency(amount)}</span> for the category &quot;{categoryName}&quot;.
+            <span className="font-bold">{formatCurrency(amount)}</span> for &quot;{categoryName}&quot;.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>

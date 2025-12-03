@@ -92,7 +92,7 @@ export default function MonthlyBudgetPage() {
   const [isTransactionFormOpen, setIsTransactionFormOpen] = useState(false);
   const [isBreakdownFormOpen, setIsBreakdownFormOpen] = useState(false);
   const [isApplyBudgetFormOpen, setIsApplyBudgetFormOpen] = useState(false);
-  const [applyBudgetData, setApplyBudgetData] = useState<{ categoryId: string, categoryName: string, amount: number } | null>(null);
+  const [applyBudgetData, setApplyBudgetData] = useState<{ categoryId: string, categoryName: string, amount: number, budgetItemName?: string } | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [view, setView] = useState<'current' | 'next' | 'previous'>('current');
@@ -168,15 +168,15 @@ export default function MonthlyBudgetPage() {
     setIsTransactionFormOpen(isOpen);
   }
 
-  const handleApplyBudget = useCallback((categoryId: string, categoryName: string, amount: number) => {
-    setApplyBudgetData({ categoryId, categoryName, amount });
+  const handleApplyBudget = useCallback((categoryId: string, categoryName: string, amount: number, budgetItemName?: string) => {
+    setApplyBudgetData({ categoryId, categoryName, amount, budgetItemName });
     setIsApplyBudgetFormOpen(true);
   }, []);
 
   const handleConfirmApplyBudget = useCallback(async (sourceAccountId: string) => {
     if (!applyBudgetData) return;
     
-    const { categoryId, categoryName, amount } = applyBudgetData;
+    const { categoryId, categoryName, amount, budgetItemName } = applyBudgetData;
     
     const transactionData = {
       description: categoryName,
@@ -189,6 +189,7 @@ export default function MonthlyBudgetPage() {
           type: 'expense',
           amount: amount,
           categoryId: categoryId,
+          budgetItemName: budgetItemName
         }
       ],
     };

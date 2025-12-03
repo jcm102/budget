@@ -37,7 +37,7 @@ type BudgetTableProps = {
     onCopyCategory: (categoryId: string) => void;
     onCopyToNextMonth: (budgetItem: MonthlyBudgetItem) => void;
     view: 'current' | 'next' | 'previous';
-    onApplyBudget: (categoryId: string, categoryName: string, amount: number) => void;
+    onApplyBudget: (categoryId: string, categoryName: string, amount: number, budgetItemName?: string) => void;
 }
 
 type CategoryWithChildren = Category & { children: CategoryWithChildren[] };
@@ -88,7 +88,7 @@ const CategoryRow = ({
     onCopyCategory: (categoryId: string) => void;
     onCopyToNextMonth: (budgetItem: MonthlyBudgetItem) => void;
     view: 'current' | 'next' | 'previous';
-    onApplyBudget: (categoryId: string, categoryName: string, amount: number) => void;
+    onApplyBudget: (categoryId: string, categoryName: string, amount: number, budgetItemName?: string) => void;
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -213,6 +213,7 @@ const CategoryRow = ({
                                                     <TableHead className="text-right">Budgeted</TableHead>
                                                     <TableHead className="text-right">Actual</TableHead>
                                                     <TableHead className="text-right">Remaining</TableHead>
+                                                    <TableHead className="w-[50px]"></TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
@@ -220,11 +221,18 @@ const CategoryRow = ({
                                                 if (name === "Default") return null;
                                                 const itemRemaining = totals.budgeted - totals.actual;
                                                 return (
-                                                    <TableRow key={name} className="hover:bg-transparent border-b-0">
+                                                    <TableRow key={name} className="hover:bg-transparent border-b-0 group/breakdown">
                                                         <TableCell className="py-1">{name}</TableCell>
                                                         <TableCell className="py-1 text-right">{formatCurrency(totals.budgeted)}</TableCell>
                                                         <TableCell className="py-1 text-right">{formatCurrency(totals.actual)}</TableCell>
                                                         <TableCell className={`py-1 text-right ${itemRemaining < 0 ? 'text-destructive' : ''}`}>{formatCurrency(itemRemaining)}</TableCell>
+                                                        <TableCell className="py-1 text-right">
+                                                            {view === 'current' && itemRemaining > 0 && (
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover/breakdown:opacity-100" onClick={() => onApplyBudget(category.id, name, itemRemaining, name)}>
+                                                                    <CheckCircle className="h-4 w-4 text-green-500" />
+                                                                </Button>
+                                                            )}
+                                                        </TableCell>
                                                     </TableRow>
                                                 )
                                             })}
