@@ -341,3 +341,5 @@ export function DebtSnowballCalculator({ debts: initialDebts }: { debts: Debt[] 
     </Card>
   );
 }
+
+    
