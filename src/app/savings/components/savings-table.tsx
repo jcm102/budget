@@ -1,7 +1,8 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
-import type { SavingsItem, SubscriptionItem, AutoShipItem, SinkingFundTransaction } from '@/types';
+import type { SavingsItem, SubscriptionItem, AutoShipItem, SinkingFundTransaction, Category } from '@/types';
 import * as z from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -28,15 +29,6 @@ import {
     DialogTrigger,
 } from '@/components/ui/dialog';
 import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -51,7 +43,7 @@ import { useSavings } from '../hooks/use-savings';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
-import { Pencil, Trash2, PlusCircle, ArrowUpDown, DollarSign, MinusCircle, Info, Repeat, PiggyBank, History, CheckCircle } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, ArrowUpDown, DollarSign, MinusCircle, Info, Repeat, PiggyBank, History, CheckCircle, ChevronDown } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
@@ -62,6 +54,8 @@ import * as SavingsService from '@/services/savings-service';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useUser } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { useSinkingFundCategories } from '@/hooks/use-sinking-fund-categories';
 
 const formatCurrency = (amount: number, currency: 'CAD' | 'USD' = 'CAD') => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
@@ -119,7 +113,7 @@ function TransactionHistoryDialog({ fundId, fundName, userId }: { fundId: string
                                     </TableRow>
                                 ))
                             ) : (
-                                <TableRow><TableCell colSpan={3} className="text-center h-24">No transactions found.</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={3} className="h-24 text-center">No transactions found.</TableCell></TableRow>
                             )}
                         </TableBody>
                     </Table>
@@ -154,7 +148,6 @@ type SavingsTableProps = {
 
 const parseDate = (dateString: string): Date => {
     if (!dateString) return new Date();
-    // Handles both 'YYYY-MM-DD' and full ISO strings by splitting on 'T'
     const datePart = dateString.split('T')[0];
     return parse(datePart, "yyyy-MM-dd", new Date());
 };
@@ -169,6 +162,7 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
     fundSinkingFund,
     isLoading: isLoadingSavings 
   } = useSavings();
+  const { categories, isLoading: isLoadingCategories } = useSinkingFundCategories();
   
   const { user } = useUser();
   const { exchangeRate, isLoading: isLoadingRate } = useExchangeRate();
@@ -177,8 +171,9 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<SavingsItem | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
+  const [openCategories, setOpenCategories] = useState<string[]>([]);
 
-  const isLoading = isLoadingSavings || isLoadingRate;
+  const isLoading = isLoadingSavings || isLoadingRate || isLoadingCategories;
 
   const handleEdit = (item: SavingsItem) => {
     setEditingItem(item);
@@ -191,16 +186,15 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
       setEditingItem(null);
     }
   };
-
-  const requestSort = (key: SortConfig['key']) => {
-    if (!key) return;
-    let direction: 'ascending' | 'descending' = 'ascending';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
-      direction = 'descending';
-    }
-    setSortConfig({ key, direction });
-  };
   
+  const toggleCategory = (categoryId: string) => {
+    setOpenCategories(prev => 
+        prev.includes(categoryId) 
+            ? prev.filter(id => id !== categoryId)
+            : [...prev, categoryId]
+    );
+  };
+
   const sortedItems = useMemo(() => {
     let sortableItems = [...savingsItems];
     if (sortConfig !== null) {
@@ -218,6 +212,25 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
     }
     return sortableItems;
   }, [savingsItems, sortConfig]);
+
+  const groupedAndSortedItems = useMemo(() => {
+    const categoryMap = new Map(categories.map(cat => [cat.id, cat.name]));
+    const grouped: Record<string, { name: string, items: SavingsItem[] }> = {};
+
+    sortedItems.forEach(item => {
+        const categoryId = item.categoryId || 'uncategorized';
+        if (!grouped[categoryId]) {
+            grouped[categoryId] = {
+                name: categoryMap.get(categoryId) || 'Uncategorized',
+                items: []
+            };
+        }
+        grouped[categoryId].items.push(item);
+    });
+
+    return Object.entries(grouped).sort(([_, a], [__, b]) => a.name.localeCompare(b.name));
+  }, [sortedItems, categories]);
+
 
   const handleFundItem = async (item: SavingsItem) => {
     if (!user || !item.monthlyAmount) return;
@@ -290,133 +303,153 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
           <Table>
             <TableHeader>
               <TableRow className="group">
-                {columnVisibility.name && <SortableHeader column="name" label="Fund Name" sortConfig={sortConfig} requestSort={requestSort} />}
-                {columnVisibility.amount && <SortableHeader column="amount" label="Amount Saved" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[140px]"/>}
-                {columnVisibility.totalCost && <SortableHeader column="totalCost" label="Total Cost" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[120px]"/>}
-                {columnVisibility.savingsTarget && <SortableHeader column="savingsTarget" label="My Target" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[120px]"/>}
-                {columnVisibility.dueDate && <SortableHeader column="dueDate" label="Due Date" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[140px]"/>}
-                {columnVisibility.recurrence && <SortableHeader column="recurrence" label="Recurrence" sortConfig={sortConfig} requestSort={requestSort} className="w-[150px]"/>}
-                {columnVisibility.monthlyAmount && <SortableHeader column="monthlyAmount" label="Monthly Amount" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[160px]"/>}
+                {columnVisibility.name && <TableHead className="w-[30%]">Fund Name</TableHead>}
+                {columnVisibility.amount && <SortableHeader column="amount" label="Amount Saved" sortConfig={sortConfig} requestSort={(k) => {}} className="text-right w-[140px]"/>}
+                {columnVisibility.totalCost && <SortableHeader column="totalCost" label="Total Cost" sortConfig={sortConfig} requestSort={(k) => {}} className="text-right w-[120px]"/>}
+                {columnVisibility.savingsTarget && <SortableHeader column="savingsTarget" label="My Target" sortConfig={sortConfig} requestSort={(k) => {}} className="text-right w-[120px]"/>}
+                {columnVisibility.dueDate && <SortableHeader column="dueDate" label="Due Date" sortConfig={sortConfig} requestSort={(k) => {}} className="text-right w-[140px]"/>}
+                {columnVisibility.recurrence && <SortableHeader column="recurrence" label="Recurrence" sortConfig={sortConfig} requestSort={(k) => {}} className="w-[150px]"/>}
+                {columnVisibility.monthlyAmount && <SortableHeader column="monthlyAmount" label="Monthly Amount" sortConfig={sortConfig} requestSort={(k) => {}} className="text-right w-[160px]"/>}
                 {columnVisibility.actions && <TableHead className="w-[180px] text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
                 {isLoading ? (
                     renderLoadingSkeleton()
-                ) : sortedItems.length > 0 ? (
-                    sortedItems.map((item) => {
-                        const costToUse = (item.savingsTarget && item.savingsTarget > 0) ? item.savingsTarget : item.totalCost;
-                        const progress = costToUse && costToUse > 0 ? (item.amount / costToUse) * 100 : 0;
-                        
-                        const monthlyAmount = item.monthlyAmount || 0;
-                        const isUsd = item.currency === 'USD';
-                        const convertedMonthlyAmount = isUsd ? monthlyAmount * (exchangeRate || 1) : monthlyAmount;
-                        
-                        const isFundedThisMonth = item.lastFundedAt ? isSameMonth(new Date(item.lastFundedAt), new Date()) : false;
+                ) : groupedAndSortedItems.length > 0 ? (
+                    groupedAndSortedItems.map(([categoryId, { name, items }]) => (
+                        <Collapsible asChild key={categoryId} open={openCategories.includes(categoryId)} onOpenChange={() => toggleCategory(categoryId)}>
+                            <>
+                            <CollapsibleTrigger asChild>
+                                <TableRow className="font-semibold bg-secondary/50 hover:bg-secondary/70 cursor-pointer">
+                                    <TableCell colSpan={Object.values(columnVisibility).filter(Boolean).length}>
+                                         <div className="flex items-center gap-2">
+                                            <ChevronDown className={cn("h-4 w-4 transition-transform", openCategories.includes(categoryId) && "-rotate-180")} />
+                                            {name}
+                                         </div>
+                                    </TableCell>
+                                </TableRow>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent asChild>
+                                <>
+                                {items.map((item) => {
+                                    const costToUse = (item.savingsTarget && item.savingsTarget > 0) ? item.savingsTarget : item.totalCost;
+                                    const progress = costToUse && costToUse > 0 ? (item.amount / costToUse) * 100 : 0;
+                                    
+                                    const monthlyAmount = item.monthlyAmount || 0;
+                                    const isUsd = item.currency === 'USD';
+                                    const convertedMonthlyAmount = isUsd ? monthlyAmount * (exchangeRate || 1) : monthlyAmount;
+                                    
+                                    const isFundedThisMonth = item.lastFundedAt ? isSameMonth(new Date(item.lastFundedAt), new Date()) : false;
 
-                        return (
-                        <TableRow key={item.id}>
-                            {columnVisibility.name && <TableCell className="font-medium">{item.name}{isUsd && <Badge variant="secondary" className="ml-2">USD</Badge>}</TableCell>}
-                            {columnVisibility.amount && <TableCell className="text-right">{formatCurrency(item.amount, item.currency)}</TableCell>}
-                            {columnVisibility.totalCost && <TableCell className="text-right">
-                                {item.totalCost ? formatCurrency(item.totalCost, item.currency) : '-'}
-                            </TableCell>}
-                            {columnVisibility.savingsTarget && <TableCell className="text-right">
-                                {item.savingsTarget ? formatCurrency(item.savingsTarget, item.currency) : '-'}
-                                {costToUse && costToUse > 0 && (
-                                    <div className="flex items-center justify-end gap-2 mt-1">
-                                         <Progress value={progress} className="w-[60%]" aria-label={`${Math.round(progress)}% funded`} />
-                                         <span className="text-xs text-muted-foreground">{Math.round(progress)}%</span>
-                                    </div>
-                                )}
-                            </TableCell>}
-                             {columnVisibility.dueDate && <TableCell className="text-right">{item.dueDate ? format(parseDate(item.dueDate), 'PPP') : '-'}</TableCell>}
-                             {columnVisibility.recurrence && <TableCell>
-                                {item.recurrence && item.recurrence !== 'None' ? (
-                                    <Badge variant="secondary" className="gap-1 items-center">
-                                        <Repeat className="h-3 w-3" /> {item.recurrence}
-                                    </Badge>
-                                ) : (
-                                    <span className="text-muted-foreground">-</span>
-                                )}
-                            </TableCell>}
-                            {columnVisibility.monthlyAmount && <TableCell className="text-right">
-                                <div className='flex items-center justify-end gap-1'>
-                                {monthlyAmount > 0 && (
-                                  <>
-                                    {formatCurrency(convertedMonthlyAmount)}
-                                    {isUsd && <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground"><Info className="h-3 w-3" /></Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-60 text-xs">
-                                            Original: {formatCurrency(monthlyAmount, 'USD')}. Converted to CAD at a rate of {exchangeRate}.
-                                        </PopoverContent>
-                                    </Popover>}
-                                  </>
-                                )}
-                                {monthlyAmount <= 0 && '-'}
-                                </div>
-                            </TableCell>}
-                            {columnVisibility.actions && <TableCell className="text-right">
-                                <div className="flex justify-end gap-1">
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <div>
-                                                {isFundedThisMonth ? (
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-green-500 cursor-default">
-                                                        <CheckCircle className="h-4 w-4" />
-                                                    </Button>
+                                    return (
+                                        <TableRow key={item.id}>
+                                            {columnVisibility.name && <TableCell className="font-medium pl-10">{item.name}{isUsd && <Badge variant="secondary" className="ml-2">USD</Badge>}</TableCell>}
+                                            {columnVisibility.amount && <TableCell className="text-right">{formatCurrency(item.amount, item.currency)}</TableCell>}
+                                            {columnVisibility.totalCost && <TableCell className="text-right">
+                                                {item.totalCost ? formatCurrency(item.totalCost, item.currency) : '-'}
+                                            </TableCell>}
+                                            {columnVisibility.savingsTarget && <TableCell className="text-right">
+                                                {item.savingsTarget ? formatCurrency(item.savingsTarget, item.currency) : '-'}
+                                                {costToUse && costToUse > 0 && (
+                                                    <div className="flex items-center justify-end gap-2 mt-1">
+                                                        <Progress value={progress} className="w-[60%]" aria-label={`${Math.round(progress)}% funded`} />
+                                                        <span className="text-xs text-muted-foreground">{Math.round(progress)}%</span>
+                                                    </div>
+                                                )}
+                                            </TableCell>}
+                                            {columnVisibility.dueDate && <TableCell className="text-right">{item.dueDate ? format(parseDate(item.dueDate), 'PPP') : '-'}</TableCell>}
+                                            {columnVisibility.recurrence && <TableCell>
+                                                {item.recurrence && item.recurrence !== 'None' ? (
+                                                    <Badge variant="secondary" className="gap-1 items-center">
+                                                        <Repeat className="h-3 w-3" /> {item.recurrence}
+                                                    </Badge>
                                                 ) : (
+                                                    <span className="text-muted-foreground">-</span>
+                                                )}
+                                            </TableCell>}
+                                            {columnVisibility.monthlyAmount && <TableCell className="text-right">
+                                                <div className='flex items-center justify-end gap-1'>
+                                                {monthlyAmount > 0 && (
+                                                <>
+                                                    {formatCurrency(convertedMonthlyAmount)}
+                                                    {isUsd && <Popover>
+                                                        <PopoverTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground"><Info className="h-3 w-3" /></Button>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-60 text-xs">
+                                                            Original: {formatCurrency(monthlyAmount, 'USD')}. Converted to CAD at a rate of {exchangeRate}.
+                                                        </PopoverContent>
+                                                    </Popover>}
+                                                </>
+                                                )}
+                                                {monthlyAmount <= 0 && '-'}
+                                                </div>
+                                            </TableCell>}
+                                            {columnVisibility.actions && <TableCell className="text-right">
+                                                <div className="flex justify-end gap-1">
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <div>
+                                                                {isFundedThisMonth ? (
+                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-green-500 cursor-default">
+                                                                        <CheckCircle className="h-4 w-4" />
+                                                                    </Button>
+                                                                ) : (
+                                                                    <AlertDialog>
+                                                                        <AlertDialogTrigger asChild>
+                                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700" disabled={monthlyAmount <= 0}>
+                                                                                <PiggyBank className="h-4 w-4" />
+                                                                            </Button>
+                                                                        </AlertDialogTrigger>
+                                                                        <AlertDialogContent>
+                                                                            <AlertDialogHeader>
+                                                                                <AlertDialogTitle>Fund Sinking Fund?</AlertDialogTitle>
+                                                                                <AlertDialogDescription>
+                                                                                    This will add {formatCurrency(monthlyAmount, item.currency)} to your saved amount for &quot;{item.name}&quot;.
+                                                                                </AlertDialogDescription>
+                                                                            </AlertDialogHeader>
+                                                                            <AlertDialogFooter>
+                                                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                                <AlertDialogAction onClick={() => handleFundItem(item)}>Confirm</AlertDialogAction>
+                                                                            </AlertDialogFooter>
+                                                                        </AlertDialogContent>
+                                                                    </AlertDialog>
+                                                                )}
+                                                            </div>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent><p>{isFundedThisMonth ? 'Funded this month' : 'Fund Monthly Amount'}</p></TooltipContent>
+                                                    </Tooltip>
+
+                                                    <TransactionHistoryDialog fundId={item.id} fundName={item.name} userId={user?.uid || null} />
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(item)}><Pencil className="h-4 w-4" /></Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent><p>Edit Fund</p></TooltipContent>
+                                                    </Tooltip>
                                                     <AlertDialog>
-                                                        <AlertDialogTrigger asChild>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700" disabled={monthlyAmount <= 0}>
-                                                                <PiggyBank className="h-4 w-4" />
-                                                            </Button>
-                                                        </AlertDialogTrigger>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent><p>Delete Fund</p></TooltipContent>
+                                                        </Tooltip>
                                                         <AlertDialogContent>
-                                                            <AlertDialogHeader>
-                                                                <AlertDialogTitle>Fund Sinking Fund?</AlertDialogTitle>
-                                                                <AlertDialogDescription>
-                                                                    This will add {formatCurrency(monthlyAmount, item.currency)} to your saved amount for &quot;{item.name}&quot;.
-                                                                </AlertDialogDescription>
-                                                            </AlertDialogHeader>
-                                                            <AlertDialogFooter>
-                                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                                <AlertDialogAction onClick={() => handleFundItem(item)}>Confirm</AlertDialogAction>
-                                                            </AlertDialogFooter>
+                                                            <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete this savings fund.</AlertDialogDescription></AlertDialogHeader>
+                                                            <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => deleteSavingsItem(item.id)} className={cn(buttonVariants({ variant: "destructive" }))}>Delete</AlertDialogAction></AlertDialogFooter>
                                                         </AlertDialogContent>
                                                     </AlertDialog>
-                                                )}
-                                            </div>
-                                        </TooltipTrigger>
-                                        <TooltipContent><p>{isFundedThisMonth ? 'Funded this month' : 'Fund Monthly Amount'}</p></TooltipContent>
-                                    </Tooltip>
-
-                                    <TransactionHistoryDialog fundId={item.id} fundName={item.name} userId={user?.uid || null} />
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(item)}><Pencil className="h-4 w-4" /></Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent><p>Edit Fund</p></TooltipContent>
-                                    </Tooltip>
-                                    <AlertDialog>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                                            </TooltipTrigger>
-                                            <TooltipContent><p>Delete Fund</p></TooltipContent>
-                                        </Tooltip>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete this savings fund.</AlertDialogDescription></AlertDialogHeader>
-                                            <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => deleteSavingsItem(item.id)} className={cn(buttonVariants({ variant: "destructive" }))}>Delete</AlertDialogAction></AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                </div>
-                            </TableCell>}
-                        </TableRow>
-                        )
-                    })
+                                                </div>
+                                            </TableCell>}
+                                        </TableRow>
+                                    )
+                                })}
+                                </>
+                            </CollapsibleContent>
+                            </>
+                        </Collapsible>
+                    ))
                 ) : (
                     <TableRow>
                     <TableCell colSpan={Object.values(columnVisibility).filter(Boolean).length} className="h-24 text-center">
@@ -425,7 +458,7 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
                     </TableRow>
                 )}
             </TableBody>
-            {sortedItems.length > 0 && (
+            {savingsItems.length > 0 && (
               <TableFooter>
                 <TableRow>
                     {columnVisibility.name && <TableCell className="font-semibold text-right">Totals (CAD)</TableCell>}
