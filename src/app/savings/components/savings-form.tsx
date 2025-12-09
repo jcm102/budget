@@ -28,6 +28,7 @@ import type { SavingsItem, SavingsRecurrence } from '@/types';
 import { useAccounts } from '@/hooks/use-accounts';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useSinkingFundCategories } from '@/hooks/use-sinking-fund-categories';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Fund name must be at least 2 characters.'),
@@ -41,6 +42,7 @@ const formSchema = z.object({
   primaryPaymentMonth: z.coerce.number().optional(),
   secondaryPaymentMonth: z.coerce.number().optional(),
   isCustomGoal: z.boolean(),
+  categoryId: z.string().optional(),
 });
 
 type SavingsFormProps = {
@@ -58,6 +60,7 @@ const monthOptions = Array.from({ length: 12 }, (_, i) => ({
 
 export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsItem, editingItem }: SavingsFormProps) {
   const { accounts, isLoading: isLoadingAccounts } = useAccounts();
+  const { categories: sinkingFundCategories, isLoading: isLoadingCategories } = useSinkingFundCategories();
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -73,6 +76,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
       primaryPaymentMonth: 1,
       secondaryPaymentMonth: 7,
       isCustomGoal: false,
+      categoryId: '',
     },
   });
 
@@ -94,6 +98,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
           primaryPaymentMonth: editingItem.primaryPaymentMonth || 1,
           secondaryPaymentMonth: editingItem.secondaryPaymentMonth || 7,
           isCustomGoal: !!editingItem.goal && editingItem.goal > 0,
+          categoryId: editingItem.categoryId || '',
         });
       } else {
         form.reset({
@@ -108,6 +113,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
           primaryPaymentMonth: 1,
           secondaryPaymentMonth: 7,
           isCustomGoal: false,
+          categoryId: '',
         });
       }
     }
@@ -125,6 +131,7 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
         recurrence: !isCustomGoal ? (values.recurrence as SavingsRecurrence) : null,
         primaryPaymentMonth: !isCustomGoal && values.recurrence === 'Semi-Annually (Custom)' ? values.primaryPaymentMonth : null,
         secondaryPaymentMonth: !isCustomGoal && values.recurrence === 'Semi-Annually (Custom)' ? values.secondaryPaymentMonth : null,
+        categoryId: values.categoryId === 'null' ? null : values.categoryId,
     };
     
     if (editingItem) {
@@ -176,6 +183,29 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
                         <FormMessage />
                         </FormItem>
                     )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="categoryId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Category (Optional)</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || ''} disabled={isLoadingCategories}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a category" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="null">None</SelectItem>
+                              {sinkingFundCategories.map(cat => (
+                                <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
                      <FormField control={form.control} name="amount" render={({ field }) => (
                         <FormItem>

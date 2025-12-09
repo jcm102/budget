@@ -16,6 +16,7 @@ import { BudgetCategoryManager } from '@/components/budget-category-manager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CommonlyUsedAccountsManager } from '@/components/commonly-used-accounts-manager';
 import { ChangePasswordForm } from '@/components/change-password-form';
+import { SinkingFundCategoryManager } from '@/components/sinking-fund-category-manager';
 
 export default function SettingsPage() {
   return (
@@ -51,6 +52,7 @@ export default function SettingsPage() {
                         <BudgetCategoryManager />
                         <IncomeCategoryManager />
                         <WorkCategoryManager />
+                        <SinkingFundCategoryManager />
                     </div>
                 </TabsContent>
                 <TabsContent value="general" className="mt-6">

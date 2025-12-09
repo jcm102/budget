@@ -157,6 +157,7 @@ export interface SavingsItem {
   parentId?: string | null;
   monthlyAmount?: number; // Calculated field
   lastFundedAt?: string | null; // ISO string
+  categoryId?: string | null;
 }
 
 export interface SinkingFundTransaction {
