@@ -1,5 +1,5 @@
-import type {NextConfig} from 'next';
 import('dotenv').then(dotenv => dotenv.config());
+import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
