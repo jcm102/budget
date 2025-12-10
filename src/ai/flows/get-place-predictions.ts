@@ -47,7 +47,7 @@ const getPlacePredictionsFlow = ai.defineFlow(
         return { predictions: [] };
     }
 
-    const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${apiKey}`;
+    const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${apiKey}&fields=description,place_id`;
 
     const response = await fetch(url);
     const data: any = await response.json();
