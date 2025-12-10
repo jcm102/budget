@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
@@ -41,6 +40,7 @@ import { Loader2, Route } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AddressAutocompleteInput } from '@/components/address-autocomplete-input';
 import { useAccountLedger } from '@/app/savings/hooks/use-account-ledger';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const formSchema = z.object({
   expenseType: z.enum(['Monetary', 'Mileage', 'Honorarium']),
@@ -333,278 +333,281 @@ export function ExpenseForm({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-             <FormField
-                control={form.control}
-                name="expenseType"
-                render={({ field }) => (
-                    <FormItem className="space-y-3">
-                    <FormLabel>Expense Type</FormLabel>
-                    <FormControl>
-                        <RadioGroup
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        className="flex space-x-4"
-                        >
-                        <FormItem className="flex items-center space-x-2 space-y-0">
-                            <FormControl><RadioGroupItem value="Monetary" /></FormControl>
-                            <FormLabel className="font-normal">Monetary</FormLabel>
-                        </FormItem>
-                        <FormItem className="flex items-center space-x-2 space-y-0">
-                            <FormControl><RadioGroupItem value="Mileage" /></FormControl>
-                            <FormLabel className="font-normal">Mileage</FormLabel>
-                        </FormItem>
-                         <FormItem className="flex items-center space-x-2 space-y-0">
-                            <FormControl><RadioGroupItem value="Honorarium" /></FormControl>
-                            <FormLabel className="font-normal">Honorarium</FormLabel>
-                        </FormItem>
-                        </RadioGroup>
-                    </FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}
-             />
-
-            <FormField control={form.control} name="date" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Date</FormLabel>
-                  <FormControl><Input type="date" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField control={form.control} name="description" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl><Input placeholder={expenseType === 'Monetary' ? "e.g., Team Lunch" : "e.g., Client Visit"} {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {(expenseType === 'Monetary' || expenseType === 'Mileage') && (
+            <ScrollArea className="h-[60vh] pr-6 -mr-6">
+              <div className="space-y-4">
                 <FormField
                     control={form.control}
-                    name="forNextMonth"
+                    name="expenseType"
                     render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                        <div className="space-y-0.5">
-                            <FormLabel>For Next Month's Expenses</FormLabel>
-                            <FormMessage />
-                        </div>
+                        <FormItem className="space-y-3">
+                        <FormLabel>Expense Type</FormLabel>
                         <FormControl>
-                            <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            />
+                            <RadioGroup
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                            className="flex space-x-4"
+                            >
+                            <FormItem className="flex items-center space-x-2 space-y-0">
+                                <FormControl><RadioGroupItem value="Monetary" /></FormControl>
+                                <FormLabel className="font-normal">Monetary</FormLabel>
+                            </FormItem>
+                            <FormItem className="flex items-center space-x-2 space-y-0">
+                                <FormControl><RadioGroupItem value="Mileage" /></FormControl>
+                                <FormLabel className="font-normal">Mileage</FormLabel>
+                            </FormItem>
+                            <FormItem className="flex items-center space-x-2 space-y-0">
+                                <FormControl><RadioGroupItem value="Honorarium" /></FormControl>
+                                <FormLabel className="font-normal">Honorarium</FormLabel>
+                            </FormItem>
+                            </RadioGroup>
                         </FormControl>
+                        <FormMessage />
                         </FormItem>
                     )}
                 />
-            )}
 
-            {expenseType === 'Monetary' && (
-                <>
-                    <FormField control={form.control} name="amount" render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Amount</FormLabel>
-                        <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-                    <FormField control={form.control} name="category" render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Category</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                            <FormControl>
-                                <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                                {workCategories.map(category => (
-                                <SelectItem key={category.id} value={category.name}>{category.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-                     <FormField control={form.control} name="frequency" render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Frequency</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                            <FormControl>
-                            <SelectTrigger><SelectValue placeholder="Select frequency" /></SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                            <SelectItem value="One-Time">One-Time</SelectItem>
-                            <SelectItem value="Weekly">Weekly</SelectItem>
-                            <SelectItem value="Bi-Weekly">Bi-Weekly</SelectItem>
-                            <SelectItem value="Monthly">Monthly</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-                    <FormField control={form.control} name="transferee" render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Payment Source</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                            <FormControl>
-                                <SelectTrigger><SelectValue placeholder="Select a payment source" /></SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                                {transferees.map(t => (
-                                <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-                </>
-            )}
+                <FormField control={form.control} name="date" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date</FormLabel>
+                      <FormControl><Input type="date" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            {expenseType === 'Mileage' && (
-                 <>
-                    <FormField control={form.control} name="origin" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Origin</FormLabel>
-                            <AddressAutocompleteInput
-                                field={field}
-                                onSelect={(address) => form.setValue('origin', address, { shouldValidate: true })}
-                            />
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-                     <FormField control={form.control} name="destination" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Destination</FormLabel>
-                            <AddressAutocompleteInput
-                                field={field}
-                                onSelect={(address) => form.setValue('destination', address, { shouldValidate: true })}
-                            />
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                    />
+                <FormField control={form.control} name="description" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl><Input placeholder={expenseType === 'Monetary' ? "e.g., Team Lunch" : "e.g., Client Visit"} {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {(expenseType === 'Monetary' || expenseType === 'Mileage') && (
                     <FormField
                         control={form.control}
-                        name="tripType"
+                        name="forNextMonth"
                         render={({ field }) => (
-                            <FormItem className="space-y-3">
-                            <FormLabel>Trip Type</FormLabel>
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                            <div className="space-y-0.5">
+                                <FormLabel>For Next Month's Expenses</FormLabel>
+                                <FormMessage />
+                            </div>
                             <FormControl>
-                                <RadioGroup
-                                onValueChange={field.onChange}
-                                defaultValue={field.value}
-                                className="flex space-x-4"
-                                >
-                                <FormItem className="flex items-center space-x-2 space-y-0">
-                                    <FormControl><RadioGroupItem value="One-Way" /></FormControl>
-                                    <FormLabel className="font-normal">One-Way</FormLabel>
-                                </FormItem>
-                                <FormItem className="flex items-center space-x-2 space-y-0">
-                                    <FormControl><RadioGroupItem value="Return" /></FormControl>
-                                    <FormLabel className="font-normal">Return</FormLabel>
-                                </FormItem>
-                                </RadioGroup>
+                                <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                />
                             </FormControl>
-                            <FormMessage />
                             </FormItem>
                         )}
                     />
-                    <div className="flex items-end gap-2">
-                        <FormField control={form.control} name="distance" render={({ field }) => (
-                            <FormItem className="flex-grow">
-                                <FormLabel>Distance (km)</FormLabel>
-                                <FormControl><Input type="number" step="0.1" {...field} onChange={(e) => {
-                                    const value = e.target.value;
-                                    field.onChange(value === '' ? '' : parseFloat(value));
-                                    oneWayDistanceRef.current = parseFloat(value) / (tripType === 'Return' ? 2 : 1);
-                                }} /></FormControl>
+                )}
+
+                {expenseType === 'Monetary' && (
+                    <>
+                        <FormField control={form.control} name="amount" render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Amount</FormLabel>
+                            <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                        <FormField control={form.control} name="category" render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Category</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                                <FormControl>
+                                    <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {workCategories.map(category => (
+                                    <SelectItem key={category.id} value={category.name}>{category.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                        <FormField control={form.control} name="frequency" render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Frequency</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                                <FormControl>
+                                <SelectTrigger><SelectValue placeholder="Select frequency" /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                <SelectItem value="One-Time">One-Time</SelectItem>
+                                <SelectItem value="Weekly">Weekly</SelectItem>
+                                <SelectItem value="Bi-Weekly">Bi-Weekly</SelectItem>
+                                <SelectItem value="Monthly">Monthly</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                        <FormField control={form.control} name="transferee" render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Payment Source</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                                <FormControl>
+                                    <SelectTrigger><SelectValue placeholder="Select a payment source" /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {transferees.map(t => (
+                                    <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                    </>
+                )}
+
+                {expenseType === 'Mileage' && (
+                    <>
+                        <FormField control={form.control} name="origin" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Origin</FormLabel>
+                                <AddressAutocompleteInput
+                                    field={field}
+                                    onSelect={(address) => form.setValue('origin', address, { shouldValidate: true })}
+                                />
                                 <FormMessage />
                             </FormItem>
                         )}
                         />
-                         <Button type="button" variant="outline" onClick={handleCalculateDistance} disabled={isCalculating}>
-                           {isCalculating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Route className="mr-2 h-4 w-4" />}
-                            Calculate
-                        </Button>
-                    </div>
-                    <FormField control={form.control} name="rate" render={({ field }) => (
+                        <FormField control={form.control} name="destination" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Destination</FormLabel>
+                                <AddressAutocompleteInput
+                                    field={field}
+                                    onSelect={(address) => form.setValue('destination', address, { shouldValidate: true })}
+                                />
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="tripType"
+                            render={({ field }) => (
+                                <FormItem className="space-y-3">
+                                <FormLabel>Trip Type</FormLabel>
+                                <FormControl>
+                                    <RadioGroup
+                                    onValueChange={field.onChange}
+                                    defaultValue={field.value}
+                                    className="flex space-x-4"
+                                    >
+                                    <FormItem className="flex items-center space-x-2 space-y-0">
+                                        <FormControl><RadioGroupItem value="One-Way" /></FormControl>
+                                        <FormLabel className="font-normal">One-Way</FormLabel>
+                                    </FormItem>
+                                    <FormItem className="flex items-center space-x-2 space-y-0">
+                                        <FormControl><RadioGroupItem value="Return" /></FormControl>
+                                        <FormLabel className="font-normal">Return</FormLabel>
+                                    </FormItem>
+                                    </RadioGroup>
+                                </FormControl>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <div className="flex items-end gap-2">
+                            <FormField control={form.control} name="distance" render={({ field }) => (
+                                <FormItem className="flex-grow">
+                                    <FormLabel>Distance (km)</FormLabel>
+                                    <FormControl><Input type="number" step="0.1" {...field} onChange={(e) => {
+                                        const value = e.target.value;
+                                        field.onChange(value === '' ? '' : parseFloat(value));
+                                        oneWayDistanceRef.current = parseFloat(value) / (tripType === 'Return' ? 2 : 1);
+                                    }} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                            />
+                            <Button type="button" variant="outline" onClick={handleCalculateDistance} disabled={isCalculating}>
+                              {isCalculating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Route className="mr-2 h-4 w-4" />}
+                                Calculate
+                            </Button>
+                        </div>
+                        <FormField control={form.control} name="rate" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Rate ($ per km)</FormLabel>
+                                <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                    </>
+                )}
+
+                {expenseType === 'Honorarium' && (
+                    <FormField control={form.control} name="amount" render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Rate ($ per km)</FormLabel>
+                            <FormLabel>Amount</FormLabel>
                             <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
                             <FormMessage />
                         </FormItem>
                     )}
                     />
-                </>
-            )}
-
-            {expenseType === 'Honorarium' && (
-                 <FormField control={form.control} name="amount" render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Amount</FormLabel>
-                        <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
-                        <FormMessage />
-                    </FormItem>
                 )}
-                />
-            )}
 
-            {expenseType === 'Monetary' && (
-              <FormField
-                control={form.control}
-                name="reimbursable"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                      <FormLabel>Reimbursable</FormLabel>
-                      <FormMessage />
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        disabled={category === 'Church Expense'}
-                      />
-                    </FormControl>
-                  </FormItem>
+                {expenseType === 'Monetary' && (
+                  <FormField
+                    control={form.control}
+                    name="reimbursable"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                        <div className="space-y-0.5">
+                          <FormLabel>Reimbursable</FormLabel>
+                          <FormMessage />
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            disabled={category === 'Church Expense'}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
                 )}
-              />
-            )}
 
-            {expenseType === 'Monetary' && isReimbursable && !editingItem && (
-               <FormField
-                  control={form.control}
-                  name="ledgerAccountId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Withdraw from Fund (Optional)</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                          <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a fund to withdraw from" />
-                              </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                              {accountLedgerItems.map(item => (
-                              <SelectItem key={item.id} value={item.id}>{item.name} ({new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(item.amount)})</SelectItem>
-                              ))}
-                          </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-               />
-            )}
-
+                {expenseType === 'Monetary' && isReimbursable && !editingItem && (
+                  <FormField
+                      control={form.control}
+                      name="ledgerAccountId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Withdraw from Fund (Optional)</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                              <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select a fund to withdraw from" />
+                                  </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                  {accountLedgerItems.map(item => (
+                                  <SelectItem key={item.id} value={item.id}>{item.name} ({new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(item.amount)})</SelectItem>
+                                  ))}
+                              </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                  />
+                )}
+              </div>
+            </ScrollArea>
             <DialogFooter>
               <Button type="submit">{editingItem ? 'Save Changes' : 'Add Expense'}</Button>
             </DialogFooter>
