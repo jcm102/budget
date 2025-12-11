@@ -39,22 +39,19 @@ const calculateMonthlyAmount = (item: SavingsItem): number => {
   if (isCustomGoal && goal && goal > 0) {
     return goal;
   }
-
+  
   if (recurrence && recurrence !== 'None' && totalCost && totalCost > 0) {
-      if (recurrence === 'Annually') {
-           const today = startOfToday();
-            const due = parse(dueDate!, 'yyyy-MM-dd', new Date());
-            const isDueThisYear = isBefore(today, due) || today.getMonth() === due.getMonth();
+      if (recurrence === 'Annually' && dueDate) {
+            const today = startOfToday();
+            let due = parse(dueDate, 'yyyy-MM-dd', new Date());
 
-            if (isDueThisYear && today.getFullYear() === due.getFullYear()) {
-                 const monthsLeft = (due.getMonth() - today.getMonth());
-                 if (monthsLeft <= 0) return (totalCost - amount);
-                 return (totalCost - amount) / monthsLeft;
+            // If the due date for this year has passed, the savings period is for next year's due date.
+            if (isBefore(due, today) || (isBefore(due, today) && getMonth(due) < getMonth(today))) {
+                 due = addMonths(due, 12);
             }
             
-            // If due date has passed for this year, we are saving for next year. The saving period is always 11 months.
-            const monthsToSave = 11;
-            return totalCost / monthsToSave;
+            // Savings always happen over 11 months for an annual item
+            return totalCost / 11;
       }
       const interval = recurrenceIntervalMap[recurrence];
       if (interval > 0) {
@@ -67,24 +64,18 @@ const calculateMonthlyAmount = (item: SavingsItem): number => {
   const remainingAmount = totalCost - amount;
   if (remainingAmount <= 0) return 0;
 
-  const today = new Date();
+  const today = startOfToday();
   const due = parse(dueDate, 'yyyy-MM-dd', new Date());
 
-  // If due date is in the past, the full remaining amount is due now.
-  if (isBefore(due, today)) {
-    return remainingAmount;
-  }
-  
-  const startCalculationDate = addMonths(startOfMonth(today), 1);
-  const endCalculationDate = startOfMonth(due);
-
-  if (!isBefore(startCalculationDate, endCalculationDate)) {
+  if (!isBefore(today, due)) {
       return remainingAmount;
   }
   
-  const yearDiff = endCalculationDate.getFullYear() - startCalculationDate.getFullYear();
-  const monthDiff = endCalculationDate.getMonth() - startCalculationDate.getMonth();
-  
+  const start = startOfMonth(today);
+  const end = startOfMonth(due);
+
+  const yearDiff = end.getFullYear() - start.getFullYear();
+  const monthDiff = end.getMonth() - start.getMonth();
   const totalMonthsToSave = yearDiff * 12 + monthDiff;
   
   if (totalMonthsToSave <= 0) {
@@ -293,5 +284,3 @@ export async function getSinkingFundTransactions(userId: string, fundId: string)
         throw serverError;
     }
 }
-
-    
