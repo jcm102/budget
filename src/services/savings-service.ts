@@ -23,11 +23,9 @@ import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/e
 const SAVINGS_COLLECTION = 'sinking-funds';
 const SINKING_FUND_TRANSACTIONS_COLLECTION = 'sinking-fund-transactions';
 
-const recurrenceIntervalMap: Record<SavingsRecurrence, number> = {
-    'None': 0,
+const recurrenceIntervalMap: Record<Exclude<SavingsRecurrence, 'None' | 'Semi-Annually (Custom)'>, number> = {
     'Quarterly': 3,
     'Semi-Annually': 6,
-    'Semi-Annually (Custom)': 0, // Custom logic handled separately
     'Annually': 12,
     'Bi-Annually': 24,
 };
@@ -36,34 +34,49 @@ const recurrenceIntervalMap: Record<SavingsRecurrence, number> = {
 const calculateMonthlyAmount = (item: SavingsItem): number => {
   const { totalCost, amount, dueDate, goal, isCustomGoal, recurrence } = item;
 
+  // 1. If it's a custom monthly goal, return that value directly.
   if (isCustomGoal && goal && goal > 0) {
     return goal;
   }
-  
-  if (recurrence && recurrence === 'Annually' && totalCost && totalCost > 0) {
-      // For annual items, we are saving over 11 months for the next year's payment.
-      return totalCost / 11;
-  }
 
+  // 2. Handle recurring expenses.
   if (recurrence && recurrence !== 'None' && totalCost && totalCost > 0) {
-      const interval = recurrenceIntervalMap[recurrence];
-      if (interval > 0) {
-          return totalCost / interval;
-      }
+    if (recurrence === 'Annually') {
+        // Annual items are saved for over 11 months for the next year's payment.
+        return totalCost / 11;
+    }
+    const interval = recurrenceIntervalMap[recurrence as keyof typeof recurrenceIntervalMap];
+    if (interval > 0) {
+      return totalCost / interval;
+    }
+    // Custom recurrence logic can be added here if needed in the future
   }
 
-  if (!dueDate || !totalCost || totalCost <= 0) return 0;
+  // 3. Handle one-time savings goals with a due date.
+  if (!dueDate || !totalCost || totalCost <= 0) {
+    return 0; // Not enough info for a one-time goal calculation
+  }
   
   const remainingAmount = totalCost - amount;
-  if (remainingAmount <= 0) return 0;
+  if (remainingAmount <= 0) {
+    return 0; // Goal is already met or exceeded
+  }
 
   const today = startOfToday();
   const due = parse(dueDate, 'yyyy-MM-dd', new Date());
+  
+  const start = startOfMonth(today);
+  const end = startOfMonth(due);
 
-  if (isBefore(due, today)) return remainingAmount; // If past due, you need it all now
+  if (isBefore(end, start) || end.getTime() === start.getTime()) {
+      return remainingAmount; // If it's due this month or past due, you need it all now.
+  }
 
-  const monthsToSave = (due.getFullYear() - today.getFullYear()) * 12 + (due.getMonth() - today.getMonth());
+  const yearDiff = end.getFullYear() - start.getFullYear();
+  const monthDiff = end.getMonth() - start.getMonth();
 
+  const monthsToSave = yearDiff * 12 + monthDiff;
+  
   if (monthsToSave <= 0) {
       return remainingAmount;
   }
