@@ -27,10 +27,14 @@ const collectionsToBackup = [
     'payment-calendar',
     'people',
     'sinking-funds',
+    'sinking-fund-transactions',
+    'sinking-fund-categories',
     'subscriptions',
     'autoship-items',
+    'settings',
     'tasks',
     'work-expense-categories',
+    'transactions'
 ];
 
 export async function createAutomatedBackup(reason: string): Promise<string> {

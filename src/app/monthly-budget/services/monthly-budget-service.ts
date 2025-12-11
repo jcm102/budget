@@ -96,7 +96,8 @@ export async function cycleToNextMonth(): Promise<void> {
   });
 
   // After successfully cycling the main budget, also cycle the overview items.
-  await cycleOverviewItems();
+  await cycleOverviewItems('Pre-Authorized Payments');
+  await cycleOverviewItems('Debt Payments');
 }
 
 

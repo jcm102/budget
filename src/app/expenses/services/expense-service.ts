@@ -21,7 +21,7 @@ import {
 import { createAutomatedBackup } from '@/services/backup-service';
 
 const EXPENSE_COLLECTION = 'expenses';
-const LEDGER_COLLECTION = 'account-ledger-items';
+const LEDGER_ITEMS_COLLECTION = 'account-ledger-items';
 
 
 export async function getExpenses(status: 'active' | 'archived', archiveKey?: string): Promise<Expense[]> {
@@ -67,7 +67,7 @@ export async function addExpense(itemData: Omit<Expense, 'id'>, ledgerAccountId?
     let ledgerItemRef;
     let ledgerItemSnap;
     if (ledgerAccountId && !itemData.forNextMonth) { // Only debit for current month expenses
-      ledgerItemRef = doc(db, LEDGER_COLLECTION, ledgerAccountId);
+      ledgerItemRef = doc(db, LEDGER_ITEMS_COLLECTION, ledgerAccountId);
       ledgerItemSnap = await transaction.get(ledgerItemRef);
       if (!ledgerItemSnap.exists()) {
         throw new Error(`Ledger item with id ${ledgerAccountId} not found.`);
@@ -95,7 +95,7 @@ export async function addHonorarium(itemData: Omit<Honorarium, 'id'>): Promise<H
 
     return runTransaction(db, async (transaction) => {
         // --- Start READS ---
-        const ledgerQuery = query(collection(db, LEDGER_COLLECTION), where("name", "==", "Honorarium Fund"));
+        const ledgerQuery = query(collection(db, LEDGER_ITEMS_COLLECTION), where("name", "==", "Honorarium Fund"));
         const ledgerSnapshot = await getDocs(ledgerQuery); 
         
         let ledgerItemRef;
@@ -105,7 +105,7 @@ export async function addHonorarium(itemData: Omit<Honorarium, 'id'>): Promise<H
             ledgerItemRef = ledgerDoc.ref;
             currentAmount = (ledgerDoc.data() as AccountLedgerItem).amount || 0;
         } else {
-            ledgerItemRef = doc(collection(db, LEDGER_COLLECTION));
+            ledgerItemRef = doc(collection(db, LEDGER_ITEMS_COLLECTION));
         }
         // --- End READS ---
 
@@ -161,7 +161,7 @@ export async function deleteHonorarium(id: string): Promise<void> {
         const honorariumToDelete = itemSnap.data() as Honorarium;
         const amountToDelete = honorariumToDelete.amount;
 
-        const ledgerQuery = query(collection(db, LEDGER_COLLECTION), where("name", "==", "Honorarium Fund"));
+        const ledgerQuery = query(collection(db, LEDGER_ITEMS_COLLECTION), where("name", "==", "Honorarium Fund"));
         const ledgerSnapshot = await getDocs(ledgerQuery);
         const ledgerDoc = ledgerSnapshot.docs[0];
         // --- End READS ---

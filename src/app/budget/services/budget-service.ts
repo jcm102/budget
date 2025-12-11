@@ -3,7 +3,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import type { BudgetItem, Debt, AccountDetails, MonthlyBudgetItem } from '@/types';
+import type { BudgetItem, Debt, AccountDetails, MonthlyBudgetItem, BudgetItemType } from '@/types';
 import {
   collection,
   getDocs,
@@ -407,7 +407,7 @@ export async function deleteBudgetItem(id: string): Promise<void> {
 }
 
 
-export async function cycleBudgetItems(itemType: 'Pre-Authorized Payments' | 'Debt Payments'): Promise<void> {
+export async function cycleBudgetItems(itemType: BudgetItemType): Promise<void> {
   const batch = writeBatch(db);
   const q = query(
     collection(db, BUDGET_COLLECTION), 
@@ -535,5 +535,3 @@ export async function syncDebtPaymentsToMonthlyBudget(): Promise<void> {
         }
     });
 }
-
-    

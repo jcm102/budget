@@ -3,7 +3,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import type { BudgetItem } from '@/types';
+import type { BudgetItem, BudgetItemType } from '@/types';
 import { useToast } from './use-toast';
 import * as BudgetService from '@/services/budget-service';
 import { useAccountDetails } from './use-transferees';
@@ -104,19 +104,19 @@ export function useBudget() {
     }
   }, [budgetItems, toast]);
 
-  const cycleBudgetItems = useCallback(async () => {
+  const cycleBudgetItems = useCallback(async (itemType: BudgetItemType) => {
     try {
-      await BudgetService.cycleBudgetItems();
+      await BudgetService.cycleBudgetItems(itemType);
       await fetchBudgetItems();
       toast({
         title: 'Success!',
-        description: 'Budget items have been cycled for the next month.',
+        description: `${itemType} have been cycled for the next month.`,
       });
     } catch (error) {
-      console.error('Failed to cycle budget items:', error);
+      console.error(`Failed to cycle ${itemType}:`, error);
       toast({
         title: 'Error',
-        description: 'Could not cycle budget items.',
+        description: `Could not cycle ${itemType}.`,
         variant: 'destructive',
       });
     }
@@ -133,5 +133,3 @@ export function useBudget() {
     fetchBudgetItems,
   };
 }
-
-  

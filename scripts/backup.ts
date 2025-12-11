@@ -1,4 +1,3 @@
-
 // To run this script, use: npx tsx ./scripts/backup.ts
 
 import * as fs from 'fs';
@@ -8,8 +7,6 @@ import { collection, getDocs } from 'firebase/firestore';
 const collectionsToBackup = [
     'accounts',
     'transferees',
-    'account-ledger-items',
-    'autoship-items',
     'budget-categories',
     'budget-items',
     'debts',
@@ -21,10 +18,14 @@ const collectionsToBackup = [
     'payment-calendar',
     'people',
     'sinking-funds',
-    'settings',
+    'sinking-fund-transactions',
+    'sinking-fund-categories',
     'subscriptions',
+    'autoship-items',
+    'settings',
     'tasks',
     'work-expense-categories',
+    'transactions'
 ];
 
 async function backupData() {
