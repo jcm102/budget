@@ -34,9 +34,9 @@ const recurrenceIntervalMap: Record<SavingsRecurrence, number> = {
 
 
 const calculateMonthlyAmount = (item: SavingsItem): number => {
-    const { totalCost, amount, dueDate, goal } = item;
+    const { totalCost, amount, dueDate, goal, isCustomGoal } = item;
 
-    if (goal && goal > 0) return goal;
+    if (isCustomGoal && goal && goal > 0) return goal;
 
     if (!dueDate || !totalCost || totalCost <= 0) return 0;
 
