@@ -52,19 +52,13 @@ const calculateMonthlyAmount = (item: SavingsItem): number => {
         return remainingAmount;
     }
 
-    // Correctly calculate the number of full months between today and the due date.
     const monthsRemaining = (getYear(due) - getYear(today)) * 12 + (getMonth(due) - getMonth(today));
 
-    // If the due date is in the current month, you need the full amount now.
-    if (monthsRemaining === 0) {
+    if (monthsRemaining <= 0) {
         return remainingAmount;
     }
-    
-    // You have 'monthsRemaining' full months to save up.
-    // For example, if today is Nov and due is Dec, monthsRemaining is 1. You have 1 month (Nov) to save.
-    const numberOfSavingMonths = monthsRemaining;
 
-    return remainingAmount / numberOfSavingMonths;
+    return remainingAmount / monthsRemaining;
 };
 
 
@@ -109,7 +103,13 @@ export async function addSavingsItem(itemData: Omit<SavingsItem, 'id' | 'monthly
 export async function updateSavingsItem(id: string, itemData: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>): Promise<void> {
     const itemRef = doc(db, SAVINGS_COLLECTION, id);
     const dataToUpdate: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>> = { ...itemData };
-    if (itemData.isCustomGoal === false) {
+    if (itemData.isCustomGoal === true) {
+      dataToUpdate.totalCost = null;
+      dataToUpdate.dueDate = null;
+      dataToUpdate.recurrence = null;
+      dataToUpdate.primaryPaymentMonth = null;
+      dataToUpdate.secondaryPaymentMonth = null;
+    } else if (itemData.isCustomGoal === false) {
       dataToUpdate.goal = null;
     }
     await updateDoc(itemRef, dataToUpdate);
