@@ -23,21 +23,14 @@ export async function getMileageLogs(status: 'active' | 'archived', archiveKey?:
   let q;
 
   if (status === 'active') {
-     const activeQuery = query(expenseCollection, where('type', '==', 'Mileage'), where('status', '==', 'active'));
-     
-     const activeSnapshot = await getDocs(activeQuery);
-
-     const allItems = activeSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MileageLog))
-     
-     const uniqueItems = Array.from(new Map(allItems.map(item => [item.id, item])).values());
-     return uniqueItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
+     q = query(expenseCollection, where('type', '==', 'Mileage'), where('status', '==', 'active'));
   } else {
      q = query(expenseCollection, where('type', '==', 'Mileage'), where('status', '==', 'archived'), where('archiveKey', '==', archiveKey));
-     const querySnapshot = await getDocs(q);
-     const mileageLogs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MileageLog));
-     return mileageLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }
+  
+  const querySnapshot = await getDocs(q);
+  const mileageLogs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MileageLog));
+  return mileageLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
 export async function addMileageLog(itemData: Omit<MileageLog, 'id'>): Promise<MileageLog> {

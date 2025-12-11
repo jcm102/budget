@@ -29,20 +29,15 @@ export async function getExpenses(status: 'active' | 'archived', archiveKey?: st
   
   let q;
   if (status === 'active') {
-    const activeQuery = query(expenseCollection, where('type', '==', 'Monetary'), where('status', '==', 'active'));
-    
-    const activeSnapshot = await getDocs(activeQuery);
-    
-    const allItems = activeSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense));
-
-    return allItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    
+    q = query(expenseCollection, where('type', '==', 'Monetary'), where('status', '==', 'active'));
   } else {
     q = query(expenseCollection, where('type', '==', 'Monetary'), where('status', '==', 'archived'), where('archiveKey', '==', archiveKey));
-    const querySnapshot = await getDocs(q);
-    const allItems = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense));
-    return allItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }
+
+  const querySnapshot = await getDocs(q);
+  const allItems = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense));
+
+  return allItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
 export async function getHonorariums(status: 'active' | 'archived', archiveKey?: string): Promise<Honorarium[]> {
