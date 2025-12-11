@@ -16,7 +16,7 @@ import {
   writeBatch,
   runTransaction
 } from 'firebase/firestore';
-import { addMonths, set, format, startOfToday, parse, isBefore, differenceInCalendarMonths } from 'date-fns';
+import { addMonths, set, format, startOfToday, parse, isBefore, differenceInCalendarMonths, getYear, getMonth } from 'date-fns';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
@@ -52,18 +52,17 @@ const calculateMonthlyAmount = (item: SavingsItem): number => {
         return remainingAmount;
     }
 
-    let monthsRemaining = differenceInCalendarMonths(due, today);
-    
-    // If due this month, you need the full remaining amount.
+    // Correctly calculate the number of full months between today and the due date.
+    const monthsRemaining = (getYear(due) - getYear(today)) * 12 + (getMonth(due) - getMonth(today));
+
+    // If the due date is in the current month, you need the full amount now.
     if (monthsRemaining === 0) {
         return remainingAmount;
     }
     
-    // The savings need to be complete the month PRIOR to the due date.
-    // So we reduce the number of months to save by 1.
-    // If it's due next month (monthsRemaining = 1), you have this month to save.
-    // So the number of saving months is 1. monthsRemaining - 1 = 0, so we use 1.
-    const numberOfSavingMonths = monthsRemaining > 0 ? monthsRemaining : 1;
+    // You have 'monthsRemaining' full months to save up.
+    // For example, if today is Nov and due is Dec, monthsRemaining is 1. You have 1 month (Nov) to save.
+    const numberOfSavingMonths = monthsRemaining;
 
     return remainingAmount / numberOfSavingMonths;
 };
@@ -88,6 +87,11 @@ export async function addSavingsItem(itemData: Omit<SavingsItem, 'id' | 'monthly
     const dataWithTimestamp = {
         ...itemData,
         goal: itemData.isCustomGoal ? itemData.goal : null,
+        totalCost: !itemData.isCustomGoal ? itemData.totalCost : null,
+        dueDate: !itemData.isCustomGoal ? itemData.dueDate : null,
+        recurrence: !itemData.isCustomGoal ? itemData.recurrence : null,
+        primaryPaymentMonth: !itemData.isCustomGoal && itemData.recurrence === 'Semi-Annually (Custom)' ? itemData.primaryPaymentMonth : null,
+        secondaryPaymentMonth: !itemData.isCustomGoal && itemData.recurrence === 'Semi-Annually (Custom)' ? itemData.secondaryPaymentMonth : null,
         lastFundedAt: null,
     };
 
