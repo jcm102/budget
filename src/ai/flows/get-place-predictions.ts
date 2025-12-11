@@ -38,7 +38,7 @@ const getPlacePredictionsFlow = ai.defineFlow(
     outputSchema: GetPlacePredictionsOutputSchema,
   },
   async ({ input }) => {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       throw new Error('Google Maps API key is not configured.');
     }
