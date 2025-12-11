@@ -45,26 +45,28 @@ const calculateMonthlyAmount = (item: SavingsItem): number => {
   const remainingAmount = totalCost - amount;
   if (remainingAmount <= 0) return 0;
 
-  const today = new Date();
+  const today = startOfToday();
   const due = new Date(dueDate);
 
-  // Set to the start of the month to avoid day-of-month issues
-  const start = startOfMonth(today);
-  const end = startOfMonth(due);
-
-  if (!isBefore(start, end)) {
-    return remainingAmount; // Due date is in the current month or has passed
+  // If due date has passed, you need the full amount now.
+  if (!isBefore(today, due)) {
+      return remainingAmount;
   }
-  
-  const yearDiff = end.getFullYear() - start.getFullYear();
-  const monthDiff = end.getMonth() - start.getMonth();
-  
-  const totalMonths = yearDiff * 12 + monthDiff;
 
+  const startYear = today.getFullYear();
+  const startMonth = today.getMonth();
+  const dueYear = due.getFullYear();
+  const dueMonth = due.getMonth();
+  
+  // Calculate total months between today and the due date
+  const totalMonths = (dueYear - startYear) * 12 + (dueMonth - startMonth);
+
+  // If due date is in the current or next month, you need to save the full remaining amount this month
   if (totalMonths <= 0) {
-    return remainingAmount;
+      return remainingAmount;
   }
 
+  // The number of payments is the number of full months remaining.
   return remainingAmount / totalMonths;
 };
 
@@ -267,5 +269,3 @@ export async function getSinkingFundTransactions(userId: string, fundId: string)
         throw serverError;
     }
 }
-
-    
