@@ -37,7 +37,7 @@ const calculateMonthlyAmount = (item: SavingsItem): number => {
     const { totalCost, amount, dueDate, goal, isCustomGoal } = item;
 
     if (isCustomGoal && goal && goal > 0) return goal;
-
+    
     if (!dueDate || !totalCost || totalCost <= 0) return 0;
 
     const remainingAmount = totalCost - amount;
@@ -46,22 +46,17 @@ const calculateMonthlyAmount = (item: SavingsItem): number => {
     const today = startOfToday();
     const due = parse(dueDate, "yyyy-MM-dd", new Date());
 
+    if (isBefore(due, today)) {
+        return remainingAmount;
+    }
+
     let monthsRemaining = differenceInCalendarMonths(due, today);
-
-    if (monthsRemaining > 0) {
-        monthsRemaining -= 1;
-    }
     
-    if (monthsRemaining < 0) { // Past due
-        return remainingAmount;
-    }
-
-    // If due this month or next, it's 1 payment period (the next month)
-    if (monthsRemaining === 0) {
+    if (monthsRemaining <= 0) {
         return remainingAmount;
     }
     
-    return remainingAmount / (monthsRemaining);
+    return remainingAmount / monthsRemaining;
 };
 
 
@@ -85,6 +80,7 @@ export async function addSavingsItem(itemData: Omit<SavingsItem, 'id' | 'monthly
 
     const dataWithTimestamp = {
         ...itemData,
+        goal: itemData.isCustomGoal ? itemData.goal : null,
         lastFundedAt: null, // Initialize with null
     };
     
@@ -102,7 +98,11 @@ export async function addSavingsItem(itemData: Omit<SavingsItem, 'id' | 'monthly
 
 export async function updateSavingsItem(id: string, itemData: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>): Promise<void> {
     const itemRef = doc(db, SAVINGS_COLLECTION, id);
-    await updateDoc(itemRef, itemData);
+    const dataToUpdate = { ...itemData };
+    if (itemData.isCustomGoal === false) {
+      dataToUpdate.goal = null;
+    }
+    await updateDoc(itemRef, dataToUpdate);
 }
 
 export async function fundSinkingFund(fundId: string, amount: number, userId: string): Promise<void> {

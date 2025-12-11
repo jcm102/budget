@@ -148,7 +148,8 @@ export interface SavingsItem {
   name: string;
   amount: number;
   currency: 'CAD' | 'USD';
-  goal?: number; // Monthly contribution goal
+  goal?: number | null; // Monthly contribution goal
+  isCustomGoal?: boolean;
   totalCost?: number | null; // Optional total cost for the fund
   dueDate?: string | null; // Optional due date for the fund
   recurrence?: SavingsRecurrence | null;

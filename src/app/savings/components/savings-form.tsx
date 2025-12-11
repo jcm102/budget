@@ -125,13 +125,14 @@ export function SavingsForm({ open, onOpenChange, addSavingsItem, updateSavingsI
         accountId: values.accountId,
         amount: values.amount,
         currency: values.currency,
-        goal: isCustomGoal ? values.goal : null,
-        totalCost: !isCustomGoal ? values.totalCost : null,
-        dueDate: !isCustomGoal ? values.dueDate : null,
-        recurrence: !isCustomGoal ? (values.recurrence as SavingsRecurrence) : null,
-        primaryPaymentMonth: !isCustomGoal && values.recurrence === 'Semi-Annually (Custom)' ? values.primaryPaymentMonth : null,
-        secondaryPaymentMonth: !isCustomGoal && values.recurrence === 'Semi-Annually (Custom)' ? values.secondaryPaymentMonth : null,
+        goal: values.isCustomGoal ? values.goal : null,
+        totalCost: !values.isCustomGoal ? values.totalCost : null,
+        dueDate: !values.isCustomGoal ? values.dueDate : null,
+        recurrence: !values.isCustomGoal ? (values.recurrence as SavingsRecurrence) : null,
+        primaryPaymentMonth: !values.isCustomGoal && values.recurrence === 'Semi-Annually (Custom)' ? values.primaryPaymentMonth : null,
+        secondaryPaymentMonth: !values.isCustomGoal && values.recurrence === 'Semi-Annually (Custom)' ? values.secondaryPaymentMonth : null,
         categoryId: values.categoryId === 'null' ? null : values.categoryId,
+        isCustomGoal: values.isCustomGoal,
     };
     
     if (editingItem) {
