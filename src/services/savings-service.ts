@@ -34,39 +34,49 @@ const recurrenceIntervalMap: Record<SavingsRecurrence, number> = {
 
 
 const calculateMonthlyAmount = (item: SavingsItem): number => {
-  const { totalCost, amount, dueDate, goal, isCustomGoal } = item;
+  const { totalCost, amount, dueDate, goal, isCustomGoal, recurrence, primaryPaymentMonth, secondaryPaymentMonth } = item;
 
   if (isCustomGoal && goal && goal > 0) {
     return goal;
   }
 
+  // Handle recurring items
+  if (recurrence && recurrence !== 'None' && totalCost && totalCost > 0) {
+    const interval = recurrenceIntervalMap[recurrence];
+    if (interval > 0) {
+      return totalCost / interval;
+    }
+    if (recurrence === 'Semi-Annually (Custom)') {
+      // This is a special case, typically it's half the cost spread over 6 months
+      // or handled via specific budget planning not just a simple monthly amount.
+      // For now, let's assume it's totalCost / 6 as a reasonable default.
+      return totalCost / 6;
+    }
+  }
+  
+  // Handle one-time, date-based goals
   if (!dueDate || !totalCost || totalCost <= 0) return 0;
 
   const remainingAmount = totalCost - amount;
   if (remainingAmount <= 0) return 0;
-
-  const today = startOfToday();
-  const due = new Date(dueDate);
-
-  // If due date has passed, you need the full amount now.
-  if (!isBefore(today, due)) {
-      return remainingAmount;
-  }
-
-  const startYear = today.getFullYear();
-  const startMonth = today.getMonth();
-  const dueYear = due.getFullYear();
-  const dueMonth = due.getMonth();
   
-  // Calculate total months between today and the due date
-  const totalMonths = (dueYear - startYear) * 12 + (dueMonth - startMonth);
+  const today = startOfToday();
+  const due = startOfMonth(parse(dueDate, 'yyyy-MM-dd', new Date()));
 
-  // If due date is in the current or next month, you need to save the full remaining amount this month
-  if (totalMonths <= 0) {
-      return remainingAmount;
+  // If due date is in the past, or in the current month, you need the full amount now.
+  if (!isBefore(today, due)) {
+    return remainingAmount;
   }
 
-  // The number of payments is the number of full months remaining.
+  const yearDiff = due.getFullYear() - today.getFullYear();
+  const monthDiff = due.getMonth() - today.getMonth();
+  
+  let totalMonths = yearDiff * 12 + monthDiff;
+
+  if (totalMonths <= 0) {
+    return remainingAmount;
+  }
+  
   return remainingAmount / totalMonths;
 };
 
