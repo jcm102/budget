@@ -29,6 +29,15 @@ import {
     DialogTrigger,
 } from '@/components/ui/dialog';
 import {
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -60,6 +69,66 @@ import { useSinkingFundCategories } from '@/hooks/use-sinking-fund-categories';
 const formatCurrency = (amount: number, currency: 'CAD' | 'USD' = 'CAD') => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
 };
+
+const transactionSchema = z.object({
+  amount: z.coerce.number().min(0.01, 'Amount must be greater than zero.'),
+});
+
+function TransactionDialog({ item, transactionType, onSave, children }: { item: SavingsItem, transactionType: 'deposit' | 'withdraw', onSave: (amount: number) => void, children: React.ReactNode }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const form = useForm<z.infer<typeof transactionSchema>>({
+        resolver: zodResolver(transactionSchema),
+        defaultValues: { amount: 0 },
+    });
+
+    const onSubmit = (values: z.infer<typeof transactionSchema>) => {
+        if (transactionType === 'withdraw' && values.amount > item.amount) {
+            form.setError("amount", {
+                type: "manual",
+                message: `Cannot withdraw more than the available ${formatCurrency(item.amount, item.currency)}.`
+            });
+            return;
+        }
+        onSave(values.amount);
+        setIsOpen(false);
+        form.reset();
+    };
+    
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>{children}</DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{transactionType === 'deposit' ? 'Deposit to' : 'Withdraw from'} "{item.name}"</DialogTitle>
+                    <DialogDescription>
+                        Enter the amount you wish to {transactionType}.
+                    </DialogDescription>
+                </DialogHeader>
+                 <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                         <FormField
+                            control={form.control}
+                            name="amount"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Amount</FormLabel>
+                                    <FormControl>
+                                        <Input type="number" step="0.01" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <DialogFooter>
+                            <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
+                            <Button type="submit">Confirm {transactionType}</Button>
+                        </DialogFooter>
+                    </form>
+                 </Form>
+            </DialogContent>
+        </Dialog>
+    )
+}
 
 function TransactionHistoryDialog({ fundId, fundName, userId }: { fundId: string, fundName: string, userId: string | null }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -160,6 +229,7 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
     updateSavingsItem, 
     deleteSavingsItem,
     fundSinkingFund,
+    withdrawFromSinkingFund,
     isLoading: isLoadingSavings 
   } = useSavings();
   const { categories, isLoading: isLoadingCategories } = useSinkingFundCategories();
@@ -248,6 +318,23 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
         });
     }
   }
+
+  const handleWithdraw = async (item: SavingsItem, amount: number) => {
+    if (!user) return;
+    try {
+        await withdrawFromSinkingFund(item.id, amount, user.uid);
+        toast({
+            title: "Success!",
+            description: `${formatCurrency(amount, item.currency)} was withdrawn from "${item.name}".`
+        });
+    } catch (e) {
+        toast({
+            title: "Error",
+            description: "Failed to withdraw from the sinking fund.",
+            variant: "destructive",
+        });
+    }
+  };
 
   const renderLoadingSkeleton = () => (
     Array.from({ length: 4 }).map((_, i) => (
@@ -390,7 +477,12 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
                                                 <div className="flex justify-end gap-1">
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
-                                                            <div>
+                                                            <div className='flex'>
+                                                                <TransactionDialog item={item} transactionType="withdraw" onSave={(amount) => handleWithdraw(item, amount)}>
+                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700">
+                                                                        <MinusCircle className="h-4 w-4" />
+                                                                    </Button>
+                                                                </TransactionDialog>
                                                                 {isFundedThisMonth ? (
                                                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-green-500 cursor-default">
                                                                         <CheckCircle className="h-4 w-4" />
