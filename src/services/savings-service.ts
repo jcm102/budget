@@ -36,7 +36,9 @@ const recurrenceIntervalMap: Record<SavingsRecurrence, number> = {
 const calculateMonthlyAmount = (item: SavingsItem): number => {
     const { totalCost, amount, dueDate, goal, isCustomGoal } = item;
 
-    if (isCustomGoal && goal && goal > 0) return goal;
+    if (isCustomGoal && goal && goal > 0) {
+        return goal;
+    }
     
     if (!dueDate || !totalCost || totalCost <= 0) return 0;
 
@@ -52,11 +54,18 @@ const calculateMonthlyAmount = (item: SavingsItem): number => {
 
     let monthsRemaining = differenceInCalendarMonths(due, today);
     
-    if (monthsRemaining <= 0) {
+    // If due this month, you need the full remaining amount.
+    if (monthsRemaining === 0) {
         return remainingAmount;
     }
     
-    return remainingAmount / monthsRemaining;
+    // The savings need to be complete the month PRIOR to the due date.
+    // So we reduce the number of months to save by 1.
+    // If it's due next month (monthsRemaining = 1), you have this month to save.
+    // So the number of saving months is 1. monthsRemaining - 1 = 0, so we use 1.
+    const numberOfSavingMonths = monthsRemaining > 0 ? monthsRemaining : 1;
+
+    return remainingAmount / numberOfSavingMonths;
 };
 
 
@@ -76,17 +85,14 @@ export async function getSavingsItems(accountId: string): Promise<SavingsItem[]>
 }
 
 export async function addSavingsItem(itemData: Omit<SavingsItem, 'id' | 'monthlyAmount'>): Promise<SavingsItem> {
-    const itemRef = doc(collection(db, SAVINGS_COLLECTION));
-
     const dataWithTimestamp = {
         ...itemData,
         goal: itemData.isCustomGoal ? itemData.goal : null,
-        lastFundedAt: null, // Initialize with null
+        lastFundedAt: null,
     };
-    
-    await addDoc(collection(db, SAVINGS_COLLECTION), dataWithTimestamp);
-    
-    const docSnap = await getDoc(itemRef);
+
+    const docRef = await addDoc(collection(db, SAVINGS_COLLECTION), dataWithTimestamp);
+    const docSnap = await getDoc(docRef);
     const newItem = { id: docSnap.id, ...(docSnap.data() as Omit<SavingsItem, 'id'>) };
 
     return {
@@ -98,7 +104,7 @@ export async function addSavingsItem(itemData: Omit<SavingsItem, 'id' | 'monthly
 
 export async function updateSavingsItem(id: string, itemData: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>): Promise<void> {
     const itemRef = doc(db, SAVINGS_COLLECTION, id);
-    const dataToUpdate = { ...itemData };
+    const dataToUpdate: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>> = { ...itemData };
     if (itemData.isCustomGoal === false) {
       dataToUpdate.goal = null;
     }
