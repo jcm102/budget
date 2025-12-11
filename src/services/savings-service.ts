@@ -42,7 +42,7 @@ const calculateMonthlyAmount = (item: SavingsItem): number => {
   
   if (recurrence && recurrence !== 'None' && totalCost && totalCost > 0) {
       if (recurrence === 'Annually' && dueDate) {
-          // For annual items, the savings period is always 11 months for the upcoming year.
+          // For annual items, we are saving over 11 months for the next year's payment.
           return totalCost / 11;
       }
       const interval = recurrenceIntervalMap[recurrence];
@@ -51,7 +51,6 @@ const calculateMonthlyAmount = (item: SavingsItem): number => {
       }
   }
 
-  // Handle one-time, date-based goals
   if (!dueDate || !totalCost || totalCost <= 0) return 0;
   
   const remainingAmount = totalCost - amount;
@@ -60,24 +59,13 @@ const calculateMonthlyAmount = (item: SavingsItem): number => {
   const today = startOfToday();
   const due = parse(dueDate, 'yyyy-MM-dd', new Date());
 
-  // If due date is in the past, or this month, the full amount is due
-  if (!isBefore(today, due) || (getMonth(today) === getMonth(due) && getYear(today) === getYear(due))) {
-      return remainingAmount;
-  }
-  
-  const startDate = startOfMonth(today);
-  const endDate = startOfMonth(due);
+  const monthsToSave = (due.getFullYear() - today.getFullYear()) * 12 + (due.getMonth() - today.getMonth());
 
-  const yearDiff = endDate.getFullYear() - startDate.getFullYear();
-  const monthDiff = endDate.getMonth() - startDate.getMonth();
-  
-  const totalMonthsToSave = yearDiff * 12 + monthDiff;
-  
-  if (totalMonthsToSave <= 0) {
+  if (monthsToSave <= 0) {
       return remainingAmount;
   }
 
-  return remainingAmount / totalMonthsToSave;
+  return remainingAmount / monthsToSave;
 };
 
 
@@ -279,5 +267,3 @@ export async function getSinkingFundTransactions(userId: string, fundId: string)
         throw serverError;
     }
 }
-
-    
