@@ -44,7 +44,7 @@ const calculateMonthlyAmount = (item: SavingsItem): number => {
 
     const remainingAmount = totalCost - amount;
     if (remainingAmount <= 0) return 0;
-
+    
     const today = new Date();
     const due = parse(dueDate, "yyyy-MM-dd", new Date());
 
@@ -52,7 +52,7 @@ const calculateMonthlyAmount = (item: SavingsItem): number => {
         return remainingAmount;
     }
 
-    const monthsRemaining = differenceInCalendarMonths(due, today);
+    const monthsRemaining = (due.getFullYear() - today.getFullYear()) * 12 + (due.getMonth() - today.getMonth());
 
     if (monthsRemaining <= 0) {
         return remainingAmount;
@@ -258,5 +258,3 @@ export async function getSinkingFundTransactions(userId: string, fundId: string)
         throw serverError;
     }
 }
-
-    
