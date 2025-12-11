@@ -48,7 +48,7 @@ const calculateMonthlyAmount = (item: SavingsItem): number => {
     const today = startOfToday();
     const due = parse(dueDate, "yyyy-MM-dd", new Date());
 
-    if (isBefore(due, today)) {
+    if (!isBefore(today, due)) {
         return remainingAmount;
     }
 
@@ -57,8 +57,6 @@ const calculateMonthlyAmount = (item: SavingsItem): number => {
     const dueYear = getYear(due);
     const dueMonth = getMonth(due);
 
-    // Calculate the total number of full months between today and the due date.
-    // This is the number of payment periods we have.
     const monthsRemaining = (dueYear - todayYear) * 12 + (dueMonth - todayMonth);
 
     if (monthsRemaining <= 0) {
