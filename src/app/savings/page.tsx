@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { SavingsTable } from './components/savings-table';
-import { ArrowLeft, Printer, PiggyBank, Landmark, Truck, Repeat, Star, ChevronsUpDown, View } from 'lucide-react';
+import { ArrowLeft, Printer, PiggyBank, Landmark, Truck, Repeat, Star, ChevronsUpDown, View, ArrowRightLeft } from 'lucide-react';
 import { GoalTable } from './components/goal-table';
 import { AutoShipTable } from './components/autoship-table';
 import { SubscriptionTable } from './components/subscription-table';
@@ -30,6 +30,7 @@ import { useSavings } from './hooks/use-savings';
 import { useGoals } from './hooks/use-goals';
 import type { SavingsItem } from '@/types';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
+import { MoveFundsDialog } from './components/move-funds-dialog';
 
 
 export type ColumnVisibility = {
@@ -43,6 +44,7 @@ export default function SavingsPage() {
   const { savingsItems, isLoading: isLoadingSavings } = useSavings();
   const { goals, isLoading: isLoadingGoals } = useGoals();
   const { exchangeRate } = useExchangeRate();
+  const [isMoveFundsDialogOpen, setIsMoveFundsDialogOpen] = useState(false);
 
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
     name: true,
@@ -93,6 +95,12 @@ export default function SavingsPage() {
   }, [savingsItems, goals, includeSinkingFunds, includeGoalSavings, exchangeRate]);
 
   return (
+    <>
+    <MoveFundsDialog
+        isOpen={isMoveFundsDialogOpen}
+        onOpenChange={setIsMoveFundsDialogOpen}
+        funds={savingsItems}
+    />
     <div className="container mx-auto max-w-7xl p-4 md:p-8">
        <header className="mb-8 flex justify-between items-center no-print">
         <Button asChild variant="outline">
@@ -209,14 +217,20 @@ export default function SavingsPage() {
                         Set aside money for anticipated future expenses. Link subscriptions and auto-shipments to automatically calculate what you need to save each month.
                     </p>
                 </div>
-                 <div className="flex items-center space-x-2">
-                    <Switch 
-                      id="include-funds-switch" 
-                      checked={includeSinkingFunds}
-                      onCheckedChange={setIncludeSinkingFunds}
-                      />
-                    <Label htmlFor="include-funds-switch">Include in Ledger</Label>
-                  </div>
+                <div className="flex items-center gap-2">
+                     <Button variant="outline" onClick={() => setIsMoveFundsDialogOpen(true)}>
+                        <ArrowRightLeft className="mr-2 h-4 w-4"/>
+                        Move Funds
+                    </Button>
+                    <div className="flex items-center space-x-2">
+                        <Switch 
+                        id="include-funds-switch" 
+                        checked={includeSinkingFunds}
+                        onCheckedChange={setIncludeSinkingFunds}
+                        />
+                        <Label htmlFor="include-funds-switch">Include in Ledger</Label>
+                    </div>
+                 </div>
             </div>
             <SavingsTable columnVisibility={columnVisibility} />
           </TabsContent>
@@ -240,5 +254,6 @@ export default function SavingsPage() {
         </Tabs>
       </main>
     </div>
+    </>
   );
 }

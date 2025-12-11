@@ -1,4 +1,5 @@
 
+
 'use server';
 import { db } from '@/lib/firebase';
 import type { SavingsItem, SavingsRecurrence, SinkingFundTransaction } from '@/types';
@@ -135,6 +136,80 @@ export async function fundSinkingFund(fundId: string, amount: number, userId: st
     });
   });
 }
+
+export async function withdrawFromSinkingFund(fundId: string, amount: number, userId: string): Promise<void> {
+  await runTransaction(db, async (transaction) => {
+    const fundRef = doc(db, SAVINGS_COLLECTION, fundId);
+    const transactionRef = doc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION));
+
+    const fundDoc = await transaction.get(fundRef);
+    if (!fundDoc.exists()) {
+      throw new Error("Sinking fund not found!");
+    }
+
+    const currentAmount = fundDoc.data().amount || 0;
+    const newAmount = currentAmount - amount;
+    const today = format(new Date(), 'yyyy-MM-dd');
+
+    transaction.update(fundRef, { amount: newAmount < 0 ? 0 : newAmount });
+
+    transaction.set(transactionRef, {
+      fundId,
+      amount,
+      type: 'withdraw',
+      date: today,
+      userId: userId,
+    });
+  });
+}
+
+export async function moveSinkingFundMoney(fromFundId: string, toFundId: string, amount: number, userId: string): Promise<void> {
+  await runTransaction(db, async (transaction) => {
+    const fromFundRef = doc(db, SAVINGS_COLLECTION, fromFundId);
+    const toFundRef = doc(db, SAVINGS_COLLECTION, toFundId);
+    
+    const fromTransactionRef = doc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION));
+    const toTransactionRef = doc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION));
+
+    const [fromFundDoc, toFundDoc] = await Promise.all([
+        transaction.get(fromFundRef),
+        transaction.get(toFundRef)
+    ]);
+    
+    if (!fromFundDoc.exists() || !toFundDoc.exists()) {
+        throw new Error("One or both sinking funds not found.");
+    }
+    
+    const fromFundData = fromFundDoc.data();
+    const toFundData = toFundDoc.data();
+    
+    const newFromAmount = (fromFundData.amount || 0) - amount;
+    const newToAmount = (toFundData.amount || 0) + amount;
+    const today = format(new Date(), 'yyyy-MM-dd');
+
+    transaction.update(fromFundRef, { amount: newFromAmount < 0 ? 0 : newFromAmount });
+    transaction.update(toFundRef, { amount: newToAmount });
+
+    transaction.set(fromTransactionRef, {
+        fundId: fromFundId,
+        amount: amount,
+        type: 'withdraw',
+        date: today,
+        userId: userId,
+        notes: `Moved to ${toFundData.name}`
+    });
+
+    transaction.set(toTransactionRef, {
+        fundId: toFundId,
+        amount: amount,
+        type: 'deposit',
+        date: today,
+        userId: userId,
+        notes: `Moved from ${fromFundData.name}`
+    });
+  });
+}
+
 
 export async function deleteSavingsItem(id: string): Promise<void> {
   const batch = writeBatch(db);
