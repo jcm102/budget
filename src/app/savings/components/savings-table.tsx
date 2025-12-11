@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -391,12 +390,12 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
             <TableHeader>
               <TableRow className="group">
                 {columnVisibility.name && <TableHead className="w-[30%]">Fund Name</TableHead>}
-                {columnVisibility.amount && <SortableHeader column="amount" label="Amount Saved" sortConfig={sortConfig} requestSort={(k) => {}} className="text-right w-[140px]"/>}
-                {columnVisibility.totalCost && <SortableHeader column="totalCost" label="Total Cost" sortConfig={sortConfig} requestSort={(k) => {}} className="text-right w-[120px]"/>}
-                {columnVisibility.savingsTarget && <SortableHeader column="savingsTarget" label="My Target" sortConfig={sortConfig} requestSort={(k) => {}} className="text-right w-[120px]"/>}
-                {columnVisibility.dueDate && <SortableHeader column="dueDate" label="Due Date" sortConfig={sortConfig} requestSort={(k) => {}} className="text-right w-[140px]"/>}
-                {columnVisibility.recurrence && <SortableHeader column="recurrence" label="Recurrence" sortConfig={sortConfig} requestSort={(k) => {}} className="w-[150px]"/>}
-                {columnVisibility.monthlyAmount && <SortableHeader column="monthlyAmount" label="Monthly Amount" sortConfig={sortConfig} requestSort={(k) => {}} className="text-right w-[160px]"/>}
+                {columnVisibility.amount && <TableHead className="text-right w-[140px]">Amount Saved</TableHead>}
+                {columnVisibility.totalCost && <TableHead className="text-right w-[120px]">Total Cost</TableHead>}
+                {columnVisibility.savingsTarget && <TableHead className="text-right w-[120px]">My Target</TableHead>}
+                {columnVisibility.dueDate && <TableHead className="text-right w-[140px]">Due Date</TableHead>}
+                {columnVisibility.recurrence && <TableHead className="w-[150px]">Recurrence</TableHead>}
+                {columnVisibility.monthlyAmount && <TableHead className="text-right w-[160px]">Monthly Amount</TableHead>}
                 {columnVisibility.actions && <TableHead className="w-[180px] text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>

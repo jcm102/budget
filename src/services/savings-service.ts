@@ -39,40 +39,43 @@ const calculateMonthlyAmount = (item: SavingsItem): number => {
   if (isCustomGoal && goal && goal > 0) {
     return goal;
   }
-
-  // Handle recurring items
+  
   if (recurrence && recurrence !== 'None' && totalCost && totalCost > 0) {
-    const interval = recurrenceIntervalMap[recurrence];
-    if (interval > 0) {
-      return totalCost / interval;
-    }
-    if (recurrence === 'Semi-Annually (Custom)') {
-      // This is a special case, typically it's half the cost spread over 6 months
-      // or handled via specific budget planning not just a simple monthly amount.
-      // For now, let's assume it's totalCost / 6 as a reasonable default.
-      return totalCost / 6;
-    }
+      if (recurrence === 'Annually') {
+           const today = new Date();
+            const due = parse(dueDate!, 'yyyy-MM-dd', new Date());
+            const isDueThisYear = isBefore(today, due) || today.getMonth() === due.getMonth();
+
+            if (isDueThisYear && today.getFullYear() === due.getFullYear()) {
+                 const monthsLeft = (due.getMonth() - today.getMonth());
+                 if (monthsLeft <= 0) return (totalCost - amount);
+                 return (totalCost - amount) / monthsLeft;
+            }
+            
+            // If due date has passed for this year, we are saving for next year
+            const monthsToSave = 11;
+            return totalCost / monthsToSave;
+      }
+      const interval = recurrenceIntervalMap[recurrence];
+      if (interval > 0) {
+          return totalCost / interval;
+      }
   }
   
   // Handle one-time, date-based goals
   if (!dueDate || !totalCost || totalCost <= 0) return 0;
-
   const remainingAmount = totalCost - amount;
   if (remainingAmount <= 0) return 0;
-  
-  const today = startOfToday();
-  const due = startOfMonth(parse(dueDate, 'yyyy-MM-dd', new Date()));
 
-  // If due date is in the past, or in the current month, you need the full amount now.
-  if (!isBefore(today, due)) {
-    return remainingAmount;
-  }
+  const today = new Date();
+  const due = parse(dueDate, 'yyyy-MM-dd', new Date());
 
   const yearDiff = due.getFullYear() - today.getFullYear();
-  const monthDiff = due.getMonth() - today.getMonth();
-  
+  let monthDiff = due.getMonth() - today.getMonth();
+
   let totalMonths = yearDiff * 12 + monthDiff;
 
+  // If due this month or past, full amount is due
   if (totalMonths <= 0) {
     return remainingAmount;
   }
