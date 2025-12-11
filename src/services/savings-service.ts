@@ -16,7 +16,7 @@ import {
   writeBatch,
   runTransaction
 } from 'firebase/firestore';
-import { addMonths, set, format, startOfToday, parse, isBefore, getYear, getMonth } from 'date-fns';
+import { addMonths, set, format, startOfToday, parse, isBefore, getYear, getMonth, differenceInCalendarMonths, startOfMonth } from 'date-fns';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
@@ -45,19 +45,14 @@ const calculateMonthlyAmount = (item: SavingsItem): number => {
     const remainingAmount = totalCost - amount;
     if (remainingAmount <= 0) return 0;
 
-    const today = startOfToday();
+    const today = new Date();
     const due = parse(dueDate, "yyyy-MM-dd", new Date());
 
     if (!isBefore(today, due)) {
         return remainingAmount;
     }
 
-    const todayYear = getYear(today);
-    const todayMonth = getMonth(today);
-    const dueYear = getYear(due);
-    const dueMonth = getMonth(due);
-
-    const monthsRemaining = (dueYear - todayYear) * 12 + (dueMonth - todayMonth);
+    const monthsRemaining = differenceInCalendarMonths(due, today);
 
     if (monthsRemaining <= 0) {
         return remainingAmount;
@@ -263,3 +258,5 @@ export async function getSinkingFundTransactions(userId: string, fundId: string)
         throw serverError;
     }
 }
+
+    
