@@ -16,7 +16,7 @@ import {
   writeBatch,
   runTransaction
 } from 'firebase/firestore';
-import { addMonths, set, format, startOfToday, parse, isBefore, differenceInCalendarMonths, getYear, getMonth } from 'date-fns';
+import { addMonths, set, format, startOfToday, parse, isBefore, getYear, getMonth } from 'date-fns';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
@@ -52,7 +52,14 @@ const calculateMonthlyAmount = (item: SavingsItem): number => {
         return remainingAmount;
     }
 
-    const monthsRemaining = (getYear(due) - getYear(today)) * 12 + (getMonth(due) - getMonth(today));
+    const todayYear = getYear(today);
+    const todayMonth = getMonth(today);
+    const dueYear = getYear(due);
+    const dueMonth = getMonth(due);
+
+    // Calculate the total number of full months between today and the due date.
+    // This is the number of payment periods we have.
+    const monthsRemaining = (dueYear - todayYear) * 12 + (dueMonth - todayMonth);
 
     if (monthsRemaining <= 0) {
         return remainingAmount;
