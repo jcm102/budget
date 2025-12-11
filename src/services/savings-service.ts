@@ -40,11 +40,12 @@ const calculateMonthlyAmount = (item: SavingsItem): number => {
     return goal;
   }
   
+  if (recurrence && recurrence === 'Annually' && totalCost && totalCost > 0) {
+      // For annual items, we are saving over 11 months for the next year's payment.
+      return totalCost / 11;
+  }
+
   if (recurrence && recurrence !== 'None' && totalCost && totalCost > 0) {
-      if (recurrence === 'Annually' && dueDate) {
-          // For annual items, we are saving over 11 months for the next year's payment.
-          return totalCost / 11;
-      }
       const interval = recurrenceIntervalMap[recurrence];
       if (interval > 0) {
           return totalCost / interval;
@@ -58,6 +59,8 @@ const calculateMonthlyAmount = (item: SavingsItem): number => {
 
   const today = startOfToday();
   const due = parse(dueDate, 'yyyy-MM-dd', new Date());
+
+  if (isBefore(due, today)) return remainingAmount; // If past due, you need it all now
 
   const monthsToSave = (due.getFullYear() - today.getFullYear()) * 12 + (due.getMonth() - today.getMonth());
 

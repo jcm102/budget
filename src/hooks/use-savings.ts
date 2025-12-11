@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -7,6 +6,7 @@ import type { SavingsItem, SubscriptionItem, AutoShipItem } from '@/types';
 import { useToast } from './use-toast';
 import * as SavingsService from '@/services/savings-service';
 import { useSelectedAccount } from './use-selected-account';
+import { useUser } from '@/firebase';
 
 
 export function useSavings() {
@@ -14,6 +14,7 @@ export function useSavings() {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { selectedAccountId } = useSelectedAccount();
+  const { user } = useUser();
 
   const fetchAllData = useCallback(async (accountId: string | null) => {
     if (!accountId) {
@@ -73,6 +74,29 @@ export function useSavings() {
     }
   }, [toast, selectedAccountId, fetchAllData]);
 
+  const fundSinkingFund = useCallback(async (fundId: string, amount: number, userId: string) => {
+    try {
+      await SavingsService.fundSinkingFund(fundId, amount, userId);
+      // Refetch data to update the UI
+      await fetchAllData(selectedAccountId);
+    } catch (error) {
+      console.error('Failed to fund sinking fund:', error);
+      // The service will throw, so we can re-throw to be caught in the component
+      throw error;
+    }
+  }, [selectedAccountId, fetchAllData]);
+  
+  const withdrawFromSinkingFund = useCallback(async (fundId: string, amount: number, userId: string) => {
+    try {
+      await SavingsService.withdrawFromSinkingFund(fundId, amount, userId);
+      await fetchAllData(selectedAccountId);
+    } catch (error) {
+      console.error('Failed to withdraw from sinking fund:', error);
+      throw error;
+    }
+  }, [selectedAccountId, fetchAllData]);
+
+
   const deleteSavingsItem = useCallback(async (id: string) => {
     const originalItems = savingsItems;
     setSavingsItems(prev => prev.filter(item => item.id !== id));
@@ -94,7 +118,9 @@ export function useSavings() {
     isLoading, 
     addSavingsItem, 
     updateSavingsItem, 
-    deleteSavingsItem, 
+    deleteSavingsItem,
+    fundSinkingFund,
+    withdrawFromSinkingFund, 
     fetchSavingsItems: () => fetchAllData(selectedAccountId)
   };
 }
