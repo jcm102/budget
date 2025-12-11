@@ -34,34 +34,38 @@ const recurrenceIntervalMap: Record<SavingsRecurrence, number> = {
 
 
 const calculateMonthlyAmount = (item: SavingsItem): number => {
-    const { totalCost, amount, dueDate, goal, isCustomGoal } = item;
+  const { totalCost, amount, dueDate, goal, isCustomGoal } = item;
 
-    if (isCustomGoal && goal && goal > 0) {
-        return goal;
-    }
-    
-    if (!dueDate || !totalCost || totalCost <= 0) return 0;
+  if (isCustomGoal && goal && goal > 0) {
+    return goal;
+  }
 
-    const remainingAmount = totalCost - amount;
-    if (remainingAmount <= 0) return 0;
-    
-    const today = startOfToday();
-    const due = startOfMonth(parse(dueDate, "yyyy-MM-dd", new Date()));
+  if (!dueDate || !totalCost || totalCost <= 0) return 0;
 
-    if (!isBefore(today, due)) {
-        return remainingAmount;
-    }
-    
-    const yearDiff = due.getFullYear() - today.getFullYear();
-    const monthDiff = due.getMonth() - today.getMonth();
+  const remainingAmount = totalCost - amount;
+  if (remainingAmount <= 0) return 0;
 
-    let totalMonths = yearDiff * 12 + monthDiff;
+  const today = new Date();
+  const due = new Date(dueDate);
 
-    if (totalMonths <= 0) {
-      return remainingAmount;
-    }
+  // Set to the start of the month to avoid day-of-month issues
+  const start = startOfMonth(today);
+  const end = startOfMonth(due);
 
-    return remainingAmount / totalMonths;
+  if (!isBefore(start, end)) {
+    return remainingAmount; // Due date is in the current month or has passed
+  }
+  
+  const yearDiff = end.getFullYear() - start.getFullYear();
+  const monthDiff = end.getMonth() - start.getMonth();
+  
+  const totalMonths = yearDiff * 12 + monthDiff;
+
+  if (totalMonths <= 0) {
+    return remainingAmount;
+  }
+
+  return remainingAmount / totalMonths;
 };
 
 
@@ -263,3 +267,5 @@ export async function getSinkingFundTransactions(userId: string, fundId: string)
         throw serverError;
     }
 }
+
+    
