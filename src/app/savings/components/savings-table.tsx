@@ -345,7 +345,7 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
   );
 
   const { totalSaved, totalCost, totalSavingsTarget, totalMonthlyContribution } = useMemo(() => {
-    const totals = sortedItems.reduce((acc, item) => {
+    const totals = savingsItems.reduce((acc, item) => {
         const rate = exchangeRate || 1.0;
         const savedAmount = item.currency === 'USD' ? item.amount * rate : item.amount;
         const costAmount = item.totalCost ? (item.currency === 'USD' ? item.totalCost * rate : item.totalCost) : 0;
@@ -367,7 +367,7 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
         totalSavingsTarget: totals.target,
         totalMonthlyContribution: totals.monthly
     };
-}, [sortedItems, exchangeRate]);
+}, [savingsItems, exchangeRate]);
 
   return (
     <>
@@ -478,10 +478,11 @@ export function SavingsTable({ columnVisibility }: SavingsTableProps) {
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
                                                             <div className='flex'>
+                                                                <TransactionDialog item={item} transactionType="deposit" onSave={(amount) => fundSinkingFund(item.id, amount, user!.uid)}>
+                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700"><DollarSign className="h-4 w-4" /></Button>
+                                                                </TransactionDialog>
                                                                 <TransactionDialog item={item} transactionType="withdraw" onSave={(amount) => handleWithdraw(item, amount)}>
-                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700">
-                                                                        <MinusCircle className="h-4 w-4" />
-                                                                    </Button>
+                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700"><MinusCircle className="h-4 w-4" /></Button>
                                                                 </TransactionDialog>
                                                                 {isFundedThisMonth ? (
                                                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-green-500 cursor-default">
