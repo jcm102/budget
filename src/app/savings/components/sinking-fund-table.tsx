@@ -1,11 +1,10 @@
 
-
 'use client';
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { format, parseISO } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, ArrowUpDown, DollarSign, MinusCircle, Info, ChevronDown } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, ArrowUpDown, DollarSign, MinusCircle, Info, ChevronDown, MoreHorizontal } from 'lucide-react';
 import type { SavingsItem, Category } from '@/types';
 import * as z from 'zod';
 import { useForm } from 'react-hook-form';
@@ -30,6 +29,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Form,
   FormControl,
@@ -183,8 +189,59 @@ function FundsTable({
         }
         return sortableItems;
     }, [items, sortConfig]);
+    
+    const [openDialog, setOpenDialog] = useState<'deposit' | 'withdraw' | 'delete' | null>(null);
+    const [currentItem, setCurrentItem] = useState<SavingsItem | null>(null);
+
+    const handleActionClick = (item: SavingsItem, action: 'deposit' | 'withdraw' | 'edit' | 'delete') => {
+        setCurrentItem(item);
+        if (action === 'edit') {
+            handleEdit(item);
+        } else {
+            setOpenDialog(action);
+        }
+    };
+    
+    const onDialogSave = (amount: number) => {
+        if (currentItem && openDialog) {
+            handleTransaction(currentItem, amount, openDialog as 'deposit' | 'withdraw');
+        }
+    }
+
 
     return (
+        <>
+            {currentItem && (
+                <>
+                 <TransactionDialog
+                    item={currentItem}
+                    transactionType="deposit"
+                    onSave={onDialogSave}
+                  >
+                    {/* This is a placeholder, the dialog is controlled externally */}
+                    <div data-state={openDialog === 'deposit' ? 'open' : 'closed'} />
+                </TransactionDialog>
+                <TransactionDialog
+                    item={currentItem}
+                    transactionType="withdraw"
+                    onSave={onDialogSave}
+                >
+                    <div data-state={openDialog === 'withdraw' ? 'open' : 'closed'} />
+                </TransactionDialog>
+                 <AlertDialog open={openDialog === 'delete'} onOpenChange={(isOpen) => !isOpen && setOpenDialog(null)}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>This will permanently delete this sinking fund and all its transaction history.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel onClick={() => setOpenDialog(null)}>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => { deleteSavingsItem(currentItem.id); setOpenDialog(null); }} className={cn(buttonVariants({ variant: "destructive" }))}>Delete</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+                </>
+            )}
         <Table>
             <TableHeader>
                 <TableRow className="group">
@@ -207,7 +264,7 @@ function FundsTable({
                             </Popover>
                         </div>
                     </TableHead>
-                    <TableHead className="w-[180px] text-right">Actions</TableHead>
+                    <TableHead className="w-[50px] text-right">Actions</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
@@ -234,28 +291,35 @@ function FundsTable({
                         <TableCell>{item.dueDate ? format(parseISO(item.dueDate), 'PPP') : '-'}</TableCell>
                         <TableCell className="text-right text-muted-foreground">{cadContribution ? formatCurrency(cadContribution, 'CAD') : '-'}</TableCell>
                         <TableCell className="text-right">
-                            <div className="flex justify-end gap-1">
-                                <TransactionDialog item={item} transactionType='deposit' onSave={(amount) => handleTransaction(item, amount, 'deposit')}>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700"><DollarSign className="h-4 w-4" /></Button>
-                                </TransactionDialog>
-                                <TransactionDialog item={item} transactionType='withdraw' onSave={(amount) => handleTransaction(item, amount, 'withdraw')}>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700"><MinusCircle className="h-4 w-4" /></Button>
-                                </TransactionDialog>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(item)}><Pencil className="h-4 w-4" /></Button>
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete this sinking fund and all its transaction history.</AlertDialogDescription></AlertDialogHeader>
-                                        <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => deleteSavingsItem(item.id)} className={cn(buttonVariants({ variant: "destructive" }))}>Delete</AlertDialogAction></AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                            </div>
+                             <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleActionClick(item, 'deposit')}>
+                                        <DollarSign className="mr-2 h-4 w-4" /> Deposit
+                                    </DropdownMenuItem>
+                                     <DropdownMenuItem onClick={() => handleActionClick(item, 'withdraw')}>
+                                        <MinusCircle className="mr-2 h-4 w-4" /> Withdraw
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleActionClick(item, 'edit')}>
+                                        <Pencil className="mr-2 h-4 w-4" /> Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => handleActionClick(item, 'delete')} className="text-destructive">
+                                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </TableCell>
                     </TableRow>
                     )
                 })}
             </TableBody>
         </Table>
+        </>
     )
 }
 
