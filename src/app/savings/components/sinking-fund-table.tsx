@@ -396,7 +396,14 @@ export function SinkingFundTable() {
     ))
   );
 
-  const totalMonthlyContribution = savingsItems.reduce((acc, item) => acc + (item.monthlyAmount || 0), 0);
+  const { grandTotalBalance, grandTotalGoal, grandTotalMonthly } = useMemo(() => {
+    return savingsItems.reduce((acc, item) => {
+        acc.grandTotalBalance += item.amount;
+        acc.grandTotalGoal += item.totalCost || 0;
+        acc.grandTotalMonthly += item.monthlyAmount || 0;
+        return acc;
+    }, { grandTotalBalance: 0, grandTotalGoal: 0, grandTotalMonthly: 0 });
+  }, [savingsItems]);
   
   const groupedFunds = useMemo(() => {
     const groupMap: Record<string, { category: Category | null, items: SavingsItem[] }> = {};
@@ -474,13 +481,20 @@ export function SinkingFundTable() {
             </div>
          )}
           {savingsItems.length > 0 && !isLoading && (
-            <div className="p-4 border-t flex justify-end items-center font-semibold text-lg">
-                <span className="text-muted-foreground mr-4">Total Monthly Contribution:</span>
-                <span>{formatCurrency(totalMonthlyContribution)}</span>
-            </div>
+            <Table>
+                <TableFooter>
+                    <TableRow className="bg-secondary hover:bg-secondary">
+                        <TableCell className="font-bold text-lg">Grand Totals</TableCell>
+                        <TableCell className="text-right font-bold text-lg">{formatCurrency(grandTotalBalance)}</TableCell>
+                        <TableCell className="text-right font-bold text-lg">{formatCurrency(grandTotalGoal)}</TableCell>
+                        <TableCell></TableCell>
+                        <TableCell className="text-right font-bold text-lg text-primary">{formatCurrency(grandTotalMonthly)}</TableCell>
+                        <TableCell colSpan={3}></TableCell>
+                    </TableRow>
+                </TableFooter>
+            </Table>
           )}
       </div>
     </>
   );
 }
-
