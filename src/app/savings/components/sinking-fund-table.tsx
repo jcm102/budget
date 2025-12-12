@@ -485,10 +485,10 @@ export function SinkingFundTable() {
                 <TableFooter>
                     <TableRow className="bg-secondary hover:bg-secondary">
                         <TableCell className="font-bold text-lg">Grand Totals</TableCell>
-                        <TableCell className="text-right font-bold text-lg">{formatCurrency(grandTotalBalance)}</TableCell>
-                        <TableCell className="text-right font-bold text-lg">{formatCurrency(grandTotalGoal)}</TableCell>
+                        <TableCell className="text-right font-semibold text-lg">{formatCurrency(grandTotalBalance)}</TableCell>
+                        <TableCell className="text-right font-semibold text-lg">{formatCurrency(grandTotalGoal)}</TableCell>
                         <TableCell></TableCell>
-                        <TableCell className="text-right font-bold text-lg text-primary">{formatCurrency(grandTotalMonthly)}</TableCell>
+                        <TableCell className="text-right font-semibold text-lg text-primary">{formatCurrency(grandTotalMonthly)}</TableCell>
                         <TableCell colSpan={3}></TableCell>
                     </TableRow>
                 </TableFooter>
