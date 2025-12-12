@@ -4,7 +4,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { format, parseISO } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, ArrowUpDown, DollarSign, MinusCircle, Info, ChevronDown, MoreHorizontal } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, DollarSign, MinusCircle, Info, ChevronDown, MoreHorizontal } from 'lucide-react';
 import type { SavingsItem, Category } from '@/types';
 import * as z from 'zod';
 import { useForm } from 'react-hook-form';
@@ -141,8 +141,8 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
     <TableHead className={className}>
       <Button variant="ghost" onClick={() => requestSort(column)}>
         {label}
-        {isSorted && <ArrowUpDown className={`ml-2 h-4 w-4 transform ${direction === 'descending' ? 'rotate-180' : ''}`} />}
-        {!isSorted && <ArrowUpDown className="ml-2 h-4 w-4 opacity-0 group-hover:opacity-50" />}
+        {isSorted && <ChevronDown className={`ml-2 h-4 w-4 transform ${direction === 'descending' ? 'rotate-180' : ''}`} />}
+        {!isSorted && <ChevronDown className="ml-2 h-4 w-4 opacity-0 group-hover:opacity-50" />}
       </Button>
     </TableHead>
   )
@@ -328,7 +328,7 @@ function FundsTable({
                     )
                 })}
             </TableBody>
-             <TableFooter>
+            <TableFooter>
                 <TableRow>
                     <TableCell className="font-semibold">Totals</TableCell>
                     <TableCell className="text-right font-semibold">{formatCurrency(totals.balance)}</TableCell>
@@ -489,7 +489,7 @@ export function SinkingFundTable() {
                     <CardTitle>Total Balance</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-3xl font-semibold">{formatCurrency(grandTotalBalance)}</CardTitle>
+                    <p className="text-3xl font-semibold">{formatCurrency(grandTotalBalance)}</p>
                 </CardContent>
             </Card>
              <Card>
@@ -497,7 +497,7 @@ export function SinkingFundTable() {
                     <CardTitle>Total Goal</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-3xl font-semibold">{formatCurrency(grandTotalGoal)}</CardTitle>
+                    <p className="text-3xl font-semibold">{formatCurrency(grandTotalGoal)}</p>
                 </CardContent>
             </Card>
              <Card>
@@ -505,7 +505,7 @@ export function SinkingFundTable() {
                     <CardTitle>Total Monthly Contribution</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-3xl font-semibold text-primary">{formatCurrency(grandTotalMonthly)}</CardTitle>
+                    <p className="text-3xl font-semibold text-primary">{formatCurrency(grandTotalMonthly)}</p>
                 </CardContent>
             </Card>
         </div>
