@@ -23,12 +23,31 @@ const SAVINGS_COLLECTION = 'sinking-funds';
 const TRANSACTIONS_COLLECTION = 'sinking-fund-transactions';
 
 const calculateMonthlyAmount = (item: SavingsItem): number => {
-    const { amount, totalCost, recurrence, dueDate } = item;
+    const { amount, totalCost, recurrence, dueDate, isCustomGoal, goal } = item;
     
+    if (isCustomGoal && goal) {
+        return goal;
+    }
+
     if (!totalCost || totalCost <= amount) return 0;
 
     const remainingAmount = totalCost - amount;
     
+    // If a due date is set, it takes precedence for calculation.
+    if (dueDate) {
+        const today = startOfToday();
+        const due = parseISO(dueDate);
+        
+        if (due <= today) return remainingAmount; // If due date is past, you need to save the full remaining amount now.
+
+        const totalMonths = (due.getFullYear() - today.getFullYear()) * 12 + (due.getMonth() - today.getMonth());
+        
+        if (totalMonths <= 0) return remainingAmount;
+
+        return remainingAmount / totalMonths;
+    }
+
+    // If no due date, fall back to recurrence-based calculation.
     if (recurrence && recurrence !== 'None') {
         switch (recurrence) {
             case 'Annually': return totalCost / 11;
@@ -38,21 +57,8 @@ const calculateMonthlyAmount = (item: SavingsItem): number => {
             default: return 0;
         }
     }
-
-    if (dueDate) {
-        const today = startOfToday();
-        const due = parseISO(dueDate);
-        
-        if (due <= today) return remainingAmount;
-
-        const totalMonths = (due.getFullYear() - today.getFullYear()) * 12 + (due.getMonth() - today.getMonth());
-        
-        if (totalMonths <= 0) return remainingAmount;
-
-        return remainingAmount / totalMonths;
-    }
     
-    return 0;
+    return 0; // If no due date and no recurrence, it's a manual fund.
 };
 
 

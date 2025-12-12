@@ -243,7 +243,7 @@ export function SinkingFundForm({ open, onOpenChange, addSavingsItem, updateSavi
                 />
                  <FormField control={form.control} name="dueDate" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Due Date (for one-time goals)</FormLabel>
+                      <FormLabel>Due Date (Optional)</FormLabel>
                       <FormControl><Input type="date" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
