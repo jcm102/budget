@@ -23,6 +23,8 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useGoals } from './hooks/use-goals';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
+import { SinkingFundTable } from './components/sinking-fund-table';
+import { useSavings } from './hooks/use-savings';
 
 
 export default function SavingsPage() {
@@ -31,6 +33,7 @@ export default function SavingsPage() {
   const { includeGoalSavings, setIncludeGoalSavings, includeSinkingFunds, setIncludeSinkingFunds } = useLedgerSettings();
   const { goals, isLoading: isLoadingGoals } = useGoals();
   const { exchangeRate } = useExchangeRate();
+  const { savingsItems } = useSavings();
 
   const handlePrint = () => {
     window.print();
@@ -38,16 +41,25 @@ export default function SavingsPage() {
   
   const selectedAccount = accounts.find(a => a.id === selectedAccountId);
 
-  const { goalsTotal } = useMemo(() => {
+  const { goalsTotal, sinkingFundsTotal } = useMemo(() => {
     const goalsSum = includeGoalSavings
       ? goals.reduce((acc, goal) => {
           // Assuming goals are always in CAD as there is no currency field
           return acc + goal.amount;
         }, 0)
       : 0;
+      
+    const fundsSum = includeSinkingFunds
+      ? savingsItems.reduce((acc, fund) => {
+          if (fund.currency === 'USD' && exchangeRate) {
+            return acc + (fund.amount * exchangeRate);
+          }
+          return acc + fund.amount;
+        }, 0)
+      : 0;
 
-    return { goalsTotal: goalsSum };
-  }, [goals, includeGoalSavings]);
+    return { goalsTotal: goalsSum, sinkingFundsTotal: fundsSum };
+  }, [goals, savingsItems, includeGoalSavings, includeSinkingFunds, exchangeRate]);
 
   return (
     <div className="container mx-auto max-w-7xl p-4 md:p-8">
@@ -89,23 +101,43 @@ export default function SavingsPage() {
         </div>
       </header>
       <main>
-        <Tabs defaultValue="ledger" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 bg-secondary/50 mb-6 no-print h-auto">
+        <Tabs defaultValue="sinking-funds" className="w-full">
+          <TabsList className="grid w-full grid-cols-5 bg-secondary/50 mb-6 no-print h-auto">
+            <TabsTrigger value="sinking-funds" className="py-2"><PiggyBank className="mr-2 h-4 w-4"/>Sinking Funds</TabsTrigger>
             <TabsTrigger value="ledger" className="py-2"><Landmark className="mr-2 h-4 w-4"/>Account Ledger</TabsTrigger>
             <TabsTrigger value="goals" className="py-2"><Star className="mr-2 h-4 w-4"/>Goal Savings</TabsTrigger>
             <TabsTrigger value="autoship" className="py-2"><Truck className="mr-2 h-4 w-4"/>Auto-Shipments</TabsTrigger>
             <TabsTrigger value="subscriptions" className="py-2"><Repeat className="mr-2 h-4 w-4"/>Subscriptions</TabsTrigger>
           </TabsList>
+          <TabsContent value="sinking-funds">
+              <div className="flex justify-between items-start mb-4">
+                 <div>
+                    <h2 className="text-2xl font-bold font-headline text-primary">Sinking Funds</h2>
+                     <p className="text-muted-foreground mt-2 max-w-2xl">
+                       Save for non-monthly expenses by putting a little bit aside each month. Your total monthly contribution will be shown in your budget.
+                     </p>
+                 </div>
+                 <div className="flex items-center space-x-2">
+                   <Switch 
+                     id="include-funds-switch" 
+                     checked={includeSinkingFunds}
+                     onCheckedChange={setIncludeSinkingFunds}
+                     />
+                   <Label htmlFor="include-funds-switch">Include in Ledger</Label>
+                 </div>
+               </div>
+            <SinkingFundTable />
+          </TabsContent>
           
           <TabsContent value="ledger">
             <h2 className="text-2xl font-bold font-headline text-primary mb-4">Account Ledger</h2>
             <p className="text-muted-foreground mb-6 max-w-2xl">
-              This is the master ledger for your future spending account. It includes balances from your goals.
+              This is the master ledger for your future spending account. It includes balances from your goals and sinking funds.
             </p>
             <AccountLedgerTable 
                 key={selectedAccountId} 
                 accountId={selectedAccountId} 
-                sinkingFundsTotal={0}
+                sinkingFundsTotal={sinkingFundsTotal}
                 goalsTotal={goalsTotal}
              />
           </TabsContent>
@@ -149,6 +181,5 @@ export default function SavingsPage() {
         </Tabs>
       </main>
     </div>
-    </>
   );
 }
