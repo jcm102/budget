@@ -34,6 +34,7 @@ import { Switch } from '@/components/ui/switch';
 import type { SavingsItem, SavingsRecurrence } from '@/types';
 import { useAccounts } from '@/hooks/use-accounts';
 import { useSinkingFundCategories } from '@/hooks/use-sinking-fund-categories';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 const formSchema = z.object({
@@ -142,7 +143,7 @@ export function SinkingFundForm({ open, onOpenChange, addSavingsItem, updateSavi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{editingItem ? 'Edit Sinking Fund' : 'Add New Sinking Fund'}</DialogTitle>
           <DialogDescription>
@@ -151,194 +152,197 @@ export function SinkingFundForm({ open, onOpenChange, addSavingsItem, updateSavi
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField control={form.control} name="name" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Fund Name</FormLabel>
-                  <FormControl><Input placeholder="e.g., Car Maintenance" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="accountId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Account</FormLabel>
-                   <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingAccounts}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select an account" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {accounts.map(account => (
-                        <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="categoryId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Category</FormLabel>
-                   <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingCategories}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a category" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {categories.map(cat => (
-                        <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-2 gap-4">
-                <FormField control={form.control} name="amount" render={({ field }) => (
+            <ScrollArea className="h-[60vh] pr-6 -mr-6">
+              <div className="space-y-4">
+                <FormField control={form.control} name="name" render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Current Balance</FormLabel>
-                    <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
-                    <FormMessage />
+                      <FormLabel>Fund Name</FormLabel>
+                      <FormControl><Input placeholder="e.g., Car Maintenance" {...field} /></FormControl>
+                      <FormMessage />
                     </FormItem>
-                )}
+                  )}
                 />
-                <FormField control={form.control} name="currency" render={({ field }) => (
+
+                <FormField
+                  control={form.control}
+                  name="accountId"
+                  render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Currency</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                            <SelectContent>
-                                <SelectItem value="CAD">CAD</SelectItem>
-                                <SelectItem value="USD">USD</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
+                      <FormLabel>Account</FormLabel>
+                       <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingAccounts}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select an account" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {accounts.map(account => (
+                            <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
                     </FormItem>
-                )}/>
-            </div>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="categoryId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Category</FormLabel>
+                       <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingCategories}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a category" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {categories.map(cat => (
+                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <FormField control={form.control} name="totalCost" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Total Cost / Goal</FormLabel>
-                  <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-             <FormField control={form.control} name="dueDate" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Due Date (for one-time goals)</FormLabel>
-                  <FormControl><Input type="date" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="recurrence"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Recurrence (for ongoing funds)</FormLabel>
-                   <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select recurrence pattern" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                        <SelectItem value="None">None (One-time Goal)</SelectItem>
-                        <SelectItem value="Annually">Annually</SelectItem>
-                        <SelectItem value="Semi-Annually">Semi-Annually (Jan/Jul)</SelectItem>
-                        <SelectItem value="Semi-Annually (Custom)">Semi-Annually (Custom)</SelectItem>
-                        <SelectItem value="Quarterly">Quarterly</SelectItem>
-                        <SelectItem value="Bi-Annually">Bi-Annually</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {recurrence === 'Semi-Annually (Custom)' && (
                 <div className="grid grid-cols-2 gap-4">
-                     <FormField
-                        control={form.control}
-                        name="primaryPaymentMonth"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>First Month</FormLabel>
-                                <Select onValueChange={(val) => field.onChange(parseInt(val))} value={String(field.value)}>
-                                    <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
-                                    <SelectContent>
-                                        {monthOptions.map(opt => <SelectItem key={opt.value} value={String(opt.value)}>{opt.label}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
+                    <FormField control={form.control} name="amount" render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Current Balance</FormLabel>
+                        <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
                     />
-                     <FormField
-                        control={form.control}
-                        name="secondaryPaymentMonth"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Second Month</FormLabel>
-                                <Select onValueChange={(val) => field.onChange(parseInt(val))} value={String(field.value)}>
-                                    <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
-                                    <SelectContent>
-                                        {monthOptions.map(opt => <SelectItem key={opt.value} value={String(opt.value)}>{opt.label}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+                    <FormField control={form.control} name="currency" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Currency</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                    <SelectItem value="CAD">CAD</SelectItem>
+                                    <SelectItem value="USD">USD</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )}/>
                 </div>
-            )}
-            
-             <FormField
-                control={form.control}
-                name="isCustomGoal"
-                render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                        <FormLabel>Set Custom Monthly Goal</FormLabel>
-                    </div>
-                    <FormControl>
-                        <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        />
-                    </FormControl>
-                    </FormItem>
-                )}
-                />
 
-            {isCustomGoal && (
-                 <FormField control={form.control} name="goal" render={({ field }) => (
+                <FormField control={form.control} name="totalCost" render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Monthly Contribution Goal</FormLabel>
-                    <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
-                    <FormMessage />
+                      <FormLabel>Total Cost / Goal</FormLabel>
+                      <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                      <FormMessage />
                     </FormItem>
-                )}
+                  )}
                 />
-            )}
+                 <FormField control={form.control} name="dueDate" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Due Date (for one-time goals)</FormLabel>
+                      <FormControl><Input type="date" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
+                <FormField
+                  control={form.control}
+                  name="recurrence"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Recurrence (for ongoing funds)</FormLabel>
+                       <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select recurrence pattern" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                            <SelectItem value="None">None (One-time Goal)</SelectItem>
+                            <SelectItem value="Annually">Annually</SelectItem>
+                            <SelectItem value="Semi-Annually">Semi-Annually (Jan/Jul)</SelectItem>
+                            <SelectItem value="Semi-Annually (Custom)">Semi-Annually (Custom)</SelectItem>
+                            <SelectItem value="Quarterly">Quarterly</SelectItem>
+                            <SelectItem value="Bi-Annually">Bi-Annually</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {recurrence === 'Semi-Annually (Custom)' && (
+                    <div className="grid grid-cols-2 gap-4">
+                         <FormField
+                            control={form.control}
+                            name="primaryPaymentMonth"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>First Month</FormLabel>
+                                    <Select onValueChange={(val) => field.onChange(parseInt(val))} value={String(field.value)}>
+                                        <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            {monthOptions.map(opt => <SelectItem key={opt.value} value={String(opt.value)}>{opt.label}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
+                            name="secondaryPaymentMonth"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Second Month</FormLabel>
+                                    <Select onValueChange={(val) => field.onChange(parseInt(val))} value={String(field.value)}>
+                                        <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            {monthOptions.map(opt => <SelectItem key={opt.value} value={String(opt.value)}>{opt.label}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                )}
+                
+                 <FormField
+                    control={form.control}
+                    name="isCustomGoal"
+                    render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                        <div className="space-y-0.5">
+                            <FormLabel>Set Custom Monthly Goal</FormLabel>
+                        </div>
+                        <FormControl>
+                            <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            />
+                        </FormControl>
+                        </FormItem>
+                    )}
+                    />
+
+                {isCustomGoal && (
+                     <FormField control={form.control} name="goal" render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Monthly Contribution Goal</FormLabel>
+                        <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                )}
+              </div>
+            </ScrollArea>
             <DialogFooter>
               <Button type="submit">{editingItem ? 'Save Changes' : 'Add Fund'}</Button>
             </DialogFooter>
