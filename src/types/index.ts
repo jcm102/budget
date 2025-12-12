@@ -250,7 +250,7 @@ export interface MonthlyBudgetItem {
     id: string;
     categoryId: string;
     budgeted: number;
-    month: string; // YYYY-MM format
+    month: string; // YYYY-MM
     breakdown?: BudgetSubItem[];
 }
 

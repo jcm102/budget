@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -59,6 +60,7 @@ import { useUser } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useSinkingFundCategories } from '@/hooks/use-sinking-fund-categories';
 
 
 const transactionSchema = z.object({
@@ -140,6 +142,7 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
 
 export function SinkingFundTable() {
   const { savingsItems, addSavingsItem, updateSavingsItem, deleteSavingsItem, fundSinkingFund, withdrawFromSinkingFund, isLoading } = useSavings();
+  const { categories, isLoading: isLoadingCategories } = useSinkingFundCategories();
   const { user } = useUser();
   const { toast } = useToast();
   const { exchangeRate } = useExchangeRate();
@@ -147,6 +150,13 @@ export function SinkingFundTable() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<SavingsItem | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
+  
+  const categoryMap = useMemo(() => {
+    return categories.reduce((map, cat) => {
+        map[cat.id] = cat.name;
+        return map;
+    }, {} as Record<string, string>);
+  }, [categories]);
 
   const handleEdit = (item: SavingsItem) => {
     setEditingItem(item);
@@ -242,6 +252,7 @@ export function SinkingFundTable() {
             <TableHeader>
               <TableRow className="group">
                 <SortableHeader column="name" label="Fund Name" sortConfig={sortConfig} requestSort={requestSort} />
+                <TableHead>Category</TableHead>
                 <SortableHeader column="amount" label="Balance" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
                 <SortableHeader column="totalCost" label="Total Goal" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
                 <SortableHeader column="progress" label="Progress" sortConfig={sortConfig} requestSort={requestSort}/>
@@ -276,6 +287,7 @@ export function SinkingFundTable() {
                                 <Link href={`/sinking-funds/${item.id}`} className="hover:underline">{item.name}</Link>
                                 {item.currency === 'USD' && <span className="text-xs text-muted-foreground ml-2">USD</span>}
                             </TableCell>
+                            <TableCell>{item.categoryId ? categoryMap[item.categoryId] : '-'}</TableCell>
                             <TableCell className="text-right">{formatCurrency(item.amount, item.currency)}</TableCell>
                             <TableCell className="text-right">{item.totalCost ? formatCurrency(item.totalCost, item.currency) : '-'}</TableCell>
                             <TableCell>
@@ -312,7 +324,7 @@ export function SinkingFundTable() {
                     })
                 ) : (
                     <TableRow>
-                    <TableCell colSpan={8} className="h-24 text-center">
+                    <TableCell colSpan={9} className="h-24 text-center">
                         No sinking funds created yet. Add one to get started!
                     </TableCell>
                     </TableRow>
@@ -321,7 +333,7 @@ export function SinkingFundTable() {
             {savingsItems.length > 0 && (
                 <TableFooter>
                     <TableRow>
-                        <TableCell colSpan={4} className="font-semibold text-right">Total Monthly Contribution</TableCell>
+                        <TableCell colSpan={5} className="font-semibold text-right">Total Monthly Contribution</TableCell>
                         <TableCell className="text-right font-semibold">{formatCurrency(totalMonthlyContribution)}</TableCell>
                         <TableCell colSpan={3}></TableCell>
                     </TableRow>
