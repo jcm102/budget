@@ -197,8 +197,8 @@ export function AccountLedgerTable({
   
   const totalCad = useMemo(() => {
     const currentLedgerTotal = ledgerItems.reduce((acc, item) => acc + item.amount, 0);
-    return currentLedgerTotal + sinkingFundsTotal + goalsTotal;
-  }, [ledgerItems, sinkingFundsTotal, goalsTotal]);
+    return currentLedgerTotal + goalsTotal;
+  }, [ledgerItems, goalsTotal]);
 
 
   return (
@@ -255,25 +255,6 @@ export function AccountLedgerTable({
                                 </TableCell>
                             </TableRow>
                         ))}
-                         {sinkingFundsTotal > 0 && (
-                            <TableRow className="bg-secondary/50 hover:bg-secondary/70">
-                                <TableCell className="font-medium flex items-center gap-2">
-                                    Sinking Funds Balance (CAD)
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:bg-transparent hover:text-foreground p-0">
-                                                <Info className="h-4 w-4" />
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-60 text-sm">
-                                            This is the total from your Sinking Funds table and is read-only. Its inclusion in the grand total is controlled by the switch on the Sinking Funds tab.
-                                        </PopoverContent>
-                                    </Popover>
-                                </TableCell>
-                                <TableCell className="text-right">{formatCurrency(sinkingFundsTotal, 'CAD')}</TableCell>
-                                <TableCell></TableCell>
-                            </TableRow>
-                         )}
                          {goalsTotal > 0 && (
                             <TableRow className="bg-secondary/50 hover:bg-secondary/70">
                                 <TableCell className="font-medium flex items-center gap-2">
@@ -295,7 +276,7 @@ export function AccountLedgerTable({
                          )}
                     </>
                 )}
-                 {(!isLoading && sortedItems.length === 0 && sinkingFundsTotal === 0 && goalsTotal === 0) && (
+                 {(!isLoading && sortedItems.length === 0 && goalsTotal === 0) && (
                      <TableRow>
                         <TableCell colSpan={3} className="h-24 text-center">
                             No ledger categories or linked funds found for this account.

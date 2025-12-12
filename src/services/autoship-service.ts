@@ -20,7 +20,6 @@ import {
 import { addMonths } from 'date-fns';
 
 const AUTOSHIP_COLLECTION = 'autoship-items';
-const SINKING_FUNDS_COLLECTION = 'sinking-funds';
 const MONTHLY_BUDGET_ITEMS_COLLECTION = 'monthly-budget-items';
 
 const frequencyMap: Record<AutoShipFrequency, number> = {
@@ -36,35 +35,6 @@ const getMonthlyCost = (item: Pick<AutoShipItem, 'estimatedCost' | 'frequency'>)
     return item.estimatedCost / months;
 };
 
-async function updateLinkedSinkingFund(
-    transaction: FirebaseFirestore.Transaction,
-    sinkingFundSnapshot: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>,
-    autoShipItem: AutoShipItem,
-    oldAutoShipData?: AutoShipItem
-) {
-    const monthlyCost = getMonthlyCost(autoShipItem);
-    
-    const fundData = {
-        name: autoShipItem.item,
-        amount: 0,
-        goal: monthlyCost,
-        totalCost: autoShipItem.estimatedCost,
-        dueDate: autoShipItem.nextShipmentDate,
-        accountId: autoShipItem.accountId,
-        currency: 'CAD', // Assuming CAD for now
-        type: 'Auto-Shipment',
-    };
-
-    if (sinkingFundSnapshot.empty) {
-        if (!oldAutoShipData) { // Only create if it's a new item
-             const newFundRef = doc(collection(db, SINKING_FUNDS_COLLECTION));
-             transaction.set(newFundRef, fundData);
-        }
-    } else {
-        const fundDoc = sinkingFundSnapshot.docs[0];
-        transaction.update(fundDoc.ref, fundData);
-    }
-}
 
 async function updateMonthlyBudget(
     transaction: FirebaseFirestore.Transaction,
@@ -130,8 +100,6 @@ export async function addAutoShipItem(itemData: Omit<AutoShipItem, 'id'>): Promi
         const newAutoShipItem = { id: newItemRef.id, ...itemData };
         
         // --- Start READS ---
-        const sinkingFundQuery = query(collection(db, SINKING_FUNDS_COLLECTION), where('name', '==', newAutoShipItem.item), where('accountId', '==', newAutoShipItem.accountId));
-        
         let budgetItemsQuery = null;
         if (newAutoShipItem.budgetCategoryId) {
              const currentMonth = new Date().toISOString().slice(0, 7);
@@ -142,14 +110,12 @@ export async function addAutoShipItem(itemData: Omit<AutoShipItem, 'id'>): Promi
             );
         }
 
-        const sinkingFundSnapshot = await getDocs(sinkingFundQuery);
         const budgetItemsSnapshot = budgetItemsQuery ? await getDocs(budgetItemsQuery) : null;
         // --- End READS ---
         
         // --- Start WRITES ---
         transaction.set(newItemRef, itemData);
 
-        await updateLinkedSinkingFund(transaction, sinkingFundSnapshot, newAutoShipItem);
         if (newAutoShipItem.budgetCategoryId) {
             await updateMonthlyBudget(transaction, budgetItemsSnapshot, null, newAutoShipItem);
         }
@@ -173,8 +139,6 @@ export async function updateAutoShipItem(id: string, itemData: Partial<Omit<Auto
         const oldData = itemSnap.data() as AutoShipItem;
         const newData = { ...oldData, ...itemData, id };
         
-        const sinkingFundQuery = query(collection(db, SINKING_FUNDS_COLLECTION), where('name', '==', newData.item), where('accountId', '==', newData.accountId));
-        
         const currentMonth = new Date().toISOString().slice(0, 7);
         let budgetItemsQuery = null;
         if (newData.budgetCategoryId) {
@@ -196,7 +160,6 @@ export async function updateAutoShipItem(id: string, itemData: Partial<Omit<Auto
              oldBudgetItemsQuery = budgetItemsQuery;
         }
         
-        const sinkingFundSnapshot = await getDocs(sinkingFundQuery);
         const [budgetItemsSnapshot, oldBudgetItemsSnapshot] = await Promise.all([
           budgetItemsQuery ? getDocs(budgetItemsQuery) : Promise.resolve(null),
           oldBudgetItemsQuery ? getDocs(oldBudgetItemsQuery) : Promise.resolve(null),
@@ -206,7 +169,6 @@ export async function updateAutoShipItem(id: string, itemData: Partial<Omit<Auto
 
         // --- Start WRITES ---
         transaction.update(itemRef, itemData);
-        await updateLinkedSinkingFund(transaction, sinkingFundSnapshot, newData, oldData);
         if (newData.budgetCategoryId || oldData.budgetCategoryId) {
             await updateMonthlyBudget(transaction, budgetItemsSnapshot, oldBudgetItemsSnapshot, newData, oldData);
         }
@@ -224,8 +186,6 @@ export async function deleteAutoShipItem(id: string): Promise<void> {
         }
         const itemToDelete = {id, ...itemSnap.data()} as AutoShipItem;
         
-        const sinkingFundQuery = query(collection(db, SINKING_FUNDS_COLLECTION), where('name', '==', itemToDelete.item), where('accountId', '==', itemToDelete.accountId));
-        
         let oldBudgetItemsQuery = null;
         if (itemToDelete.budgetCategoryId) {
             const currentMonth = new Date().toISOString().slice(0, 7);
@@ -235,16 +195,11 @@ export async function deleteAutoShipItem(id: string): Promise<void> {
                 where('categoryId', '==', itemToDelete.budgetCategoryId)
             );
         }
-        const sinkingFundSnapshot = await getDocs(sinkingFundQuery);
         const oldBudgetItemsSnapshot = oldBudgetItemsQuery ? await getDocs(oldBudgetItemsQuery) : null;
         // --- End READS ---
 
         // --- Start WRITES ---
         transaction.delete(itemRef);
-
-        if (!sinkingFundSnapshot.empty) {
-            transaction.delete(sinkingFundSnapshot.docs[0].ref);
-        }
 
         if (itemToDelete.budgetCategoryId) {
             await updateMonthlyBudget(transaction, null, oldBudgetItemsSnapshot, {} as AutoShipItem, itemToDelete);

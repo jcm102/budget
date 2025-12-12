@@ -4,8 +4,7 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { SavingsTable } from './components/savings-table';
-import { ArrowLeft, Printer, PiggyBank, Landmark, Truck, Repeat, Star, ChevronsUpDown, View, ArrowRightLeft } from 'lucide-react';
+import { ArrowLeft, Printer, PiggyBank, Landmark, Truck, Repeat, Star, ChevronsUpDown, View } from 'lucide-react';
 import { GoalTable } from './components/goal-table';
 import { AutoShipTable } from './components/autoship-table';
 import { SubscriptionTable } from './components/subscription-table';
@@ -18,54 +17,20 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuCheckboxItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { useLedgerSettings } from '@/hooks/use-ledger-settings';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { useSavings } from './hooks/use-savings';
 import { useGoals } from './hooks/use-goals';
-import type { SavingsItem } from '@/types';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
-import { MoveFundsDialog } from './components/move-funds-dialog';
 
-
-export type ColumnVisibility = {
-    [key in keyof SavingsItem | 'monthlyAmount' | 'actions']?: boolean;
-};
 
 export default function SavingsPage() {
   const { accounts, isLoading: isLoadingAccounts } = useAccounts();
   const { selectedAccountId, setSelectedAccountId } = useSelectedAccount();
   const { includeGoalSavings, setIncludeGoalSavings, includeSinkingFunds, setIncludeSinkingFunds } = useLedgerSettings();
-  const { savingsItems, isLoading: isLoadingSavings } = useSavings();
   const { goals, isLoading: isLoadingGoals } = useGoals();
   const { exchangeRate } = useExchangeRate();
-  const [isMoveFundsDialogOpen, setIsMoveFundsDialogOpen] = useState(false);
-
-  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
-    name: true,
-    amount: true,
-    totalCost: true,
-    savingsTarget: false,
-    dueDate: true,
-    recurrence: false,
-    monthlyAmount: true,
-    actions: true,
-  });
-
-   const columnConfig = {
-    name: { label: 'Fund Name' },
-    amount: { label: 'Amount Saved'},
-    totalCost: { label: 'Total Cost' },
-    savingsTarget: { label: 'My Target' },
-    dueDate: { label: 'Due Date' },
-    recurrence: { label: 'Recurrence' },
-    monthlyAmount: { label: 'Monthly Amount' },
-    actions: { label: 'Actions' },
-  };
 
   const handlePrint = () => {
     window.print();
@@ -73,16 +38,7 @@ export default function SavingsPage() {
   
   const selectedAccount = accounts.find(a => a.id === selectedAccountId);
 
-  const { sinkingFundsTotal, goalsTotal } = useMemo(() => {
-    const rate = exchangeRate || 1.0;
-    
-    const fundsTotal = includeSinkingFunds
-      ? savingsItems.reduce((acc, item) => {
-          const amountInCad = item.currency === 'USD' ? item.amount * rate : item.amount;
-          return acc + amountInCad;
-        }, 0)
-      : 0;
-
+  const { goalsTotal } = useMemo(() => {
     const goalsSum = includeGoalSavings
       ? goals.reduce((acc, goal) => {
           // Assuming goals are always in CAD as there is no currency field
@@ -90,16 +46,10 @@ export default function SavingsPage() {
         }, 0)
       : 0;
 
-    return { sinkingFundsTotal: fundsTotal, goalsTotal: goalsSum };
-  }, [savingsItems, goals, includeSinkingFunds, includeGoalSavings, exchangeRate]);
+    return { goalsTotal: goalsSum };
+  }, [goals, includeGoalSavings]);
 
   return (
-    <>
-    <MoveFundsDialog
-        isOpen={isMoveFundsDialogOpen}
-        onOpenChange={setIsMoveFundsDialogOpen}
-        funds={savingsItems}
-    />
     <div className="container mx-auto max-w-7xl p-4 md:p-8">
        <header className="mb-8 flex justify-between items-center no-print">
         <Button asChild variant="outline">
@@ -132,33 +82,6 @@ export default function SavingsPage() {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline">
-                  <View className="mr-2 h-4 w-4" />
-                  View
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[180px]">
-                <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {Object.entries(columnConfig).map(([key, { label }]) => (
-                   <DropdownMenuCheckboxItem
-                    key={key}
-                    className="capitalize"
-                    checked={columnVisibility[key as keyof ColumnVisibility]}
-                    onCheckedChange={(value) =>
-                      setColumnVisibility((prev) => ({
-                        ...prev,
-                        [key]: !!value,
-                      }))
-                    }
-                  >
-                    {label}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
             <Button variant="outline" onClick={handlePrint}>
                 <Printer className="mr-2 h-4 w-4" />
                 Print
@@ -167,10 +90,9 @@ export default function SavingsPage() {
       </header>
       <main>
         <Tabs defaultValue="ledger" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 bg-secondary/50 mb-6 no-print h-auto">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 bg-secondary/50 mb-6 no-print h-auto">
             <TabsTrigger value="ledger" className="py-2"><Landmark className="mr-2 h-4 w-4"/>Account Ledger</TabsTrigger>
             <TabsTrigger value="goals" className="py-2"><Star className="mr-2 h-4 w-4"/>Goal Savings</TabsTrigger>
-            <TabsTrigger value="funds" className="py-2"><PiggyBank className="mr-2 h-4 w-4"/>Sinking Funds</TabsTrigger>
             <TabsTrigger value="autoship" className="py-2"><Truck className="mr-2 h-4 w-4"/>Auto-Shipments</TabsTrigger>
             <TabsTrigger value="subscriptions" className="py-2"><Repeat className="mr-2 h-4 w-4"/>Subscriptions</TabsTrigger>
           </TabsList>
@@ -178,12 +100,12 @@ export default function SavingsPage() {
           <TabsContent value="ledger">
             <h2 className="text-2xl font-bold font-headline text-primary mb-4">Account Ledger</h2>
             <p className="text-muted-foreground mb-6 max-w-2xl">
-              This is the master ledger for your future spending account. It includes balances from your sinking funds and goals.
+              This is the master ledger for your future spending account. It includes balances from your goals.
             </p>
             <AccountLedgerTable 
                 key={selectedAccountId} 
                 accountId={selectedAccountId} 
-                sinkingFundsTotal={sinkingFundsTotal}
+                sinkingFundsTotal={0}
                 goalsTotal={goalsTotal}
              />
           </TabsContent>
@@ -206,32 +128,6 @@ export default function SavingsPage() {
               </div>
             </div>
             <GoalTable />
-          </TabsContent>
-
-          <TabsContent value="funds">
-             <div className="flex justify-between items-start mb-4">
-                <div>
-                    <h2 className="text-2xl font-bold font-headline text-primary">Sinking Funds</h2>
-                    <p className="text-muted-foreground mt-2 max-w-2xl">
-                        Set aside money for anticipated future expenses. Link subscriptions and auto-shipments to automatically calculate what you need to save each month.
-                    </p>
-                </div>
-                <div className="flex items-center gap-2">
-                     <Button variant="outline" onClick={() => setIsMoveFundsDialogOpen(true)}>
-                        <ArrowRightLeft className="mr-2 h-4 w-4"/>
-                        Move Funds
-                    </Button>
-                    <div className="flex items-center space-x-2">
-                        <Switch 
-                        id="include-funds-switch" 
-                        checked={includeSinkingFunds}
-                        onCheckedChange={setIncludeSinkingFunds}
-                        />
-                        <Label htmlFor="include-funds-switch">Include in Ledger</Label>
-                    </div>
-                 </div>
-            </div>
-            <SavingsTable columnVisibility={columnVisibility} />
           </TabsContent>
 
           <TabsContent value="autoship">
