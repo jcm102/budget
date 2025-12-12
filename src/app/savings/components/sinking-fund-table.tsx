@@ -277,7 +277,7 @@ function FundsTable({
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {sortedItems.map((item) => {
+                {items.map((item) => {
                     const progress = item.totalCost && item.totalCost > 0 ? (item.amount / item.totalCost) * 100 : 0;
                     const cadContribution = item.currency === 'USD' && item.monthlyAmount && exchangeRate ? item.monthlyAmount * exchangeRate : null;
                     return (
