@@ -68,6 +68,7 @@ import { useExchangeRate } from '@/hooks/use-exchange-rate';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useSinkingFundCategories } from '@/hooks/use-sinking-fund-categories';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 
 const transactionSchema = z.object({
@@ -480,21 +481,35 @@ export function SinkingFundTable() {
               <p>No sinking funds created yet. Add one to get started!</p>
             </div>
          )}
-          {savingsItems.length > 0 && !isLoading && (
-            <Table>
-                <TableFooter>
-                    <TableRow className="bg-secondary hover:bg-secondary">
-                        <TableCell className="font-bold text-lg">Grand Totals</TableCell>
-                        <TableCell className="text-right font-semibold text-lg">{formatCurrency(grandTotalBalance)}</TableCell>
-                        <TableCell className="text-right font-semibold text-lg">{formatCurrency(grandTotalGoal)}</TableCell>
-                        <TableCell></TableCell>
-                        <TableCell className="text-right font-semibold text-lg text-primary">{formatCurrency(grandTotalMonthly)}</TableCell>
-                        <TableCell colSpan={3}></TableCell>
-                    </TableRow>
-                </TableFooter>
-            </Table>
-          )}
       </div>
+      {savingsItems.length > 0 && !isLoading && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Total Balance</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-3xl font-semibold">{formatCurrency(grandTotalBalance)}</CardTitle>
+                </CardContent>
+            </Card>
+             <Card>
+                <CardHeader>
+                    <CardTitle>Total Goal</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-3xl font-semibold">{formatCurrency(grandTotalGoal)}</CardTitle>
+                </CardContent>
+            </Card>
+             <Card>
+                <CardHeader>
+                    <CardTitle>Total Monthly Contribution</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-3xl font-semibold text-primary">{formatCurrency(grandTotalMonthly)}</CardTitle>
+                </CardContent>
+            </Card>
+        </div>
+      )}
     </>
   );
 }
