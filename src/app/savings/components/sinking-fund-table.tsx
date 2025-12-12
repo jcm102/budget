@@ -207,6 +207,15 @@ function FundsTable({
             handleTransaction(currentItem, amount, openDialog as 'deposit' | 'withdraw');
         }
     }
+    
+    const totals = useMemo(() => {
+        return items.reduce((acc, item) => {
+            acc.balance += item.amount;
+            acc.goal += item.totalCost || 0;
+            acc.monthly += item.monthlyAmount || 0;
+            return acc;
+        }, { balance: 0, goal: 0, monthly: 0 });
+    }, [items]);
 
 
     return (
@@ -318,6 +327,16 @@ function FundsTable({
                     )
                 })}
             </TableBody>
+             <TableFooter>
+                <TableRow>
+                    <TableCell className="font-semibold">Totals</TableCell>
+                    <TableCell className="text-right font-semibold">{formatCurrency(totals.balance)}</TableCell>
+                    <TableCell className="text-right font-semibold">{formatCurrency(totals.goal)}</TableCell>
+                    <TableCell></TableCell>
+                    <TableCell className="text-right font-semibold text-primary">{formatCurrency(totals.monthly)}</TableCell>
+                    <TableCell colSpan={3}></TableCell>
+                </TableRow>
+            </TableFooter>
         </Table>
         </>
     )
