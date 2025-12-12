@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -33,18 +34,20 @@ const calculateMonthlyAmount = (item: SavingsItem): number => {
 
     const remainingAmount = totalCost - amount;
     
-    // If a due date is set, it takes precedence for calculation.
     if (dueDate) {
         const today = startOfToday();
         const due = parseISO(dueDate);
         
-        if (due <= today) return remainingAmount; // If due date is past, you need to save the full remaining amount now.
+        if (due <= today) return remainingAmount;
 
         const totalMonths = (due.getFullYear() - today.getFullYear()) * 12 + (due.getMonth() - today.getMonth());
         
-        if (totalMonths <= 0) return remainingAmount;
+        // Exclude the current month from the savings period.
+        const savingMonths = totalMonths -1;
 
-        return remainingAmount / totalMonths;
+        if (savingMonths <= 0) return remainingAmount;
+
+        return remainingAmount / savingMonths;
     }
 
     // If no due date, fall back to recurrence-based calculation.
@@ -153,3 +156,4 @@ export async function getSinkingFundTransactions(fundId: string): Promise<Sinkin
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SinkingFundTransaction));
 }
+
