@@ -113,17 +113,18 @@ export function ExpenseTable({
         updateHonorarium={updateHonorarium}
         editingItem={editingItem}
       />
-      <div className="flex justify-end items-center mb-6 gap-2">
-        {!isArchived && (
-          <Button onClick={() => {
-            setEditingItem(null); // Explicitly set to null for new item
-            setIsFormOpen(true);
-          }}>
-            <PlusCircle className="mr-2 h-5 w-5" />
-            Add Monetary Expense
-          </Button>
-        )}
-      </div>
+      {!isArchived && (
+        <div className="flex justify-end items-center mb-6 gap-2">
+            <Button onClick={() => {
+                setEditingItem(null); // Explicitly set to null for new item
+                setIsFormOpen(true);
+            }}>
+                <PlusCircle className="mr-2 h-5 w-5" />
+                Add Monetary Expense
+            </Button>
+        </div>
+      )}
+
 
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
         <Table>
@@ -157,7 +158,7 @@ export function ExpenseTable({
                   <TableCell>{format(parseDate(item.date), 'PPP')}</TableCell>
                   <TableCell className={cn("font-medium", item.completed && "line-through")}>
                     <div className="flex items-center gap-2">
-                      {item.description}
+                      <span>{item.description}</span>
                       {item.receiptUrl && (
                         <Link href={item.receiptUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
                           <Paperclip className="h-4 w-4 text-muted-foreground hover:text-primary" />

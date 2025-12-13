@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -25,20 +24,14 @@ const EXPENSE_COLLECTION = 'expenses';
 const LEDGER_ITEMS_COLLECTION = 'account-ledger-items';
 
 
-export async function getExpenses(status: 'active' | 'archived', archiveKey?: string): Promise<Expense[]> {
-  const expenseCollection = collection(db, EXPENSE_COLLECTION);
-  
-  let q;
-  if (status === 'active') {
-    q = query(expenseCollection, where('type', '==', 'Monetary'), where('status', '==', 'active'));
-  } else {
-    q = query(expenseCollection, where('type', '==', 'Monetary'), where('status', '==', 'archived'), where('archiveKey', '==', archiveKey));
-  }
-
-  const querySnapshot = await getDocs(q);
-  const allItems = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense));
-
-  return allItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+export async function getActiveMonetaryExpenses(): Promise<Expense[]> {
+  const q = query(
+    collection(db, EXPENSE_COLLECTION),
+    where('type', '==', 'Monetary'),
+    where('status', '==', 'active')
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense));
 }
 
 export async function getHonorariums(status: 'active' | 'archived', archiveKey?: string): Promise<Honorarium[]> {
@@ -204,11 +197,18 @@ export async function getArchivedMonths(): Promise<string[]> {
 }
 
 export async function getExpensesForMonth(archiveKey: string): Promise<{ expenses: Expense[], mileageLogs: MileageLog[], honorariums: Honorarium[] }> {
-  const expenses = await getExpenses('archived', archiveKey);
-  const honorariums = await getHonorariums('archived', archiveKey);
-
+  const expenseQuery = query(collection(db, EXPENSE_COLLECTION), where('type', '==', 'Monetary'), where('status', '==', 'archived'), where('archiveKey', '==', archiveKey));
+  const honorariumQuery = query(collection(db, EXPENSE_COLLECTION), where('type', '==', 'Honorarium'), where('status', '==', 'archived'), where('archiveKey', '==', archiveKey));
   const mileageQuery = query(collection(db, EXPENSE_COLLECTION), where('type', '==', 'Mileage'), where('status', '==', 'archived'), where('archiveKey', '==', archiveKey));
-  const mileageSnapshot = await getDocs(mileageQuery);
+
+  const [expenseSnapshot, honorariumSnapshot, mileageSnapshot] = await Promise.all([
+      getDocs(expenseQuery),
+      getDocs(honorariumQuery),
+      getDocs(mileageQuery),
+  ]);
+
+  const expenses = expenseSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense));
+  const honorariums = honorariumSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Honorarium));
   const mileageLogs = mileageSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MileageLog))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   

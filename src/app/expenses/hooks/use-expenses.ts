@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -20,7 +19,7 @@ export function useExpenses() {
     try {
       setIsLoading(true);
       const [fetchedExpenses, fetchedMileage, fetchedHonorariums] = await Promise.all([
-        ExpenseService.getExpenses('active'),
+        ExpenseService.getActiveMonetaryExpenses(),
         MileageService.getMileageLogs('active'),
         ExpenseService.getHonorariums('active'),
       ]);
