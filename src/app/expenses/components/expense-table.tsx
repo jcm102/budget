@@ -152,7 +152,7 @@ export function ExpenseTable({
                           checked={item.completed}
                           onCheckedChange={() => toggleExpenseCompleted(item.id, item.completed || false)}
                           aria-label={`Mark ${item.description} as paid`}
-                          disabled={isArchived || item.frequency === 'One-Time'}
+                          disabled={isArchived}
                         />
                       </TableCell>
                   <TableCell>{format(parseDate(item.date), 'PPP')}</TableCell>

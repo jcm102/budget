@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -107,24 +106,18 @@ export function useExpenses() {
   }, [toast, fetchData]);
 
   const toggleExpenseCompleted = useCallback(async (id: string, completed: boolean) => {
-    const originalItems = [...expenses];
-    setExpenses(prev =>
-      prev.map(item =>
-        item.id === id ? { ...item, completed: !item.completed } : item
-      )
-    );
     try {
       await ExpenseService.updateExpense(id, { completed: !completed });
+      await fetchData(); // Refetch to ensure UI is in sync with backend
     } catch (error) {
       console.error('Failed to toggle expense:', error);
-      setExpenses(originalItems);
       toast({
         title: 'Error',
         description: 'Failed to update item completion status.',
         variant: 'destructive',
       });
     }
-  }, [expenses, toast]);
+  }, [fetchData, toast]);
 
   // Mileage functions
   const addMileage = useCallback(async (itemData: Omit<MileageLog, 'id'>) => {
