@@ -175,7 +175,7 @@ export function ExpenseForm({
         form.reset({
           expenseType: itemType,
           description: editingItem.description,
-          date: new Date(editingItem.date).toISOString().split('T')[0],
+          date: editingItem.date ? new Date(editingItem.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
           amount: 'amount' in editingItem ? editingItem.amount : 0,
           category: 'category' in editingItem ? editingItem.category : '',
           transferee: 'transferee' in editingItem ? editingItem.transferee : '',
@@ -269,9 +269,9 @@ export function ExpenseForm({
   };
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    const [year, month, day] = values.date.split('-').map(Number);
-    const localDate = new Date(year, month - 1, day);
-    
+    // This creates a date object that represents the START of the selected day in UTC.
+    const utcDate = new Date(values.date + 'T00:00:00Z');
+
     if (values.expenseType === 'Monetary') {
         const submissionData: Omit<Expense, 'id'> = {
             type: 'Monetary',
@@ -279,7 +279,7 @@ export function ExpenseForm({
             amount: values.amount!,
             category: values.category!,
             transferee: values.transferee!,
-            date: localDate.toISOString(),
+            date: utcDate.toISOString(),
             reimbursable: values.reimbursable!,
             frequency: values.frequency as BudgetItemFrequency,
             completed: false,
@@ -303,7 +303,7 @@ export function ExpenseForm({
             destination: values.destination || '',
             distance: values.distance!,
             rate: values.rate!,
-            date: localDate.toISOString(),
+            date: utcDate.toISOString(),
             tripType: values.tripType as TripType,
             forNextMonth: values.forNextMonth,
         };
@@ -318,7 +318,7 @@ export function ExpenseForm({
             type: 'Honorarium',
             description: values.description,
             amount: values.amount!,
-            date: localDate.toISOString(),
+            date: utcDate.toISOString(),
         };
          if (editingItem && editingItem.type === 'Honorarium') {
             updateHonorarium(editingItem.id, submissionData);
@@ -663,3 +663,5 @@ export function ExpenseForm({
     </Dialog>
   );
 }
+
+    
