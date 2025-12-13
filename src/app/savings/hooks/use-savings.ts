@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -105,6 +104,16 @@ export function useSavings() {
         throw error;
     }
   }, [selectedAccountId, fetchAllData]);
+  
+  const transferSinkingFund = useCallback(async (fromFundId: string, toFundId: string, amount: number, userId: string) => {
+      try {
+        await SavingsService.transferSinkingFund(fromFundId, toFundId, amount, userId);
+        await fetchAllData(selectedAccountId);
+      } catch (error) {
+        console.error('Failed to transfer sinking funds:', error);
+        throw error;
+      }
+  }, [selectedAccountId, fetchAllData]);
 
 
   const deleteSavingsItem = useCallback(async (id: string) => {
@@ -132,6 +141,7 @@ export function useSavings() {
     fundSinkingFund,
     withdrawFromSinkingFund, 
     resetSinkingFund,
+    transferSinkingFund,
     fetchSavingsItems: () => fetchAllData(selectedAccountId)
   };
 }

@@ -1,4 +1,3 @@
-
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -42,7 +41,7 @@ const calculateMonthlyAmount = (item: SavingsItem): number => {
         const totalMonths = (due.getFullYear() - today.getFullYear()) * 12 + (due.getMonth() - today.getMonth());
         
         // Exclude the current month from the savings period.
-        const savingMonths = totalMonths - 1;
+        const savingMonths = totalMonths;
 
         if (savingMonths <= 0) return remainingAmount;
 
@@ -139,6 +138,58 @@ export async function withdrawFromSinkingFund(fundId: string, amount: number, us
     });
   });
 }
+
+export async function transferSinkingFund(fromFundId: string, toFundId: string, amount: number, userId: string): Promise<void> {
+  const fromFundRef = doc(db, SAVINGS_COLLECTION, fromFundId);
+  const toFundRef = doc(db, SAVINGS_COLLECTION, toFundId);
+  const fromTransactionRef = doc(collection(db, TRANSACTIONS_COLLECTION));
+  const toTransactionRef = doc(collection(db, TRANSACTIONS_COLLECTION));
+
+  await runTransaction(db, async (transaction) => {
+    const [fromFundDoc, toFundDoc] = await Promise.all([
+      transaction.get(fromFundRef),
+      transaction.get(toFundRef),
+    ]);
+
+    if (!fromFundDoc.exists()) throw new Error("Source fund not found!");
+    if (!toFundDoc.exists()) throw new Error("Destination fund not found!");
+
+    const fromFundData = fromFundDoc.data();
+    const toFundData = toFundDoc.data();
+
+    if ((fromFundData.amount || 0) < amount) {
+      throw new Error("Transfer amount exceeds source fund balance.");
+    }
+
+    const newFromAmount = (fromFundData.amount || 0) - amount;
+    const newToAmount = (toFundData.amount || 0) + amount;
+
+    // Update balances
+    transaction.update(fromFundRef, { amount: newFromAmount });
+    transaction.update(toFundRef, { amount: newToAmount });
+
+    const now = new Date().toISOString();
+
+    // Log transactions
+    transaction.set(fromTransactionRef, {
+      fundId: fromFundId,
+      amount,
+      type: 'withdraw',
+      date: now,
+      userId,
+      notes: `Transfer to ${toFundData.name}`
+    });
+    transaction.set(toTransactionRef, {
+      fundId: toFundId,
+      amount,
+      type: 'deposit',
+      date: now,
+      userId,
+      notes: `Transfer from ${fromFundData.name}`
+    });
+  });
+}
+
 
 export async function resetSinkingFund(fundId: string, userId: string): Promise<void> {
     const fundRef = doc(db, SAVINGS_COLLECTION, fundId);

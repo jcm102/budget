@@ -1,10 +1,9 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { format, parseISO } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, DollarSign, MinusCircle, Info, ChevronDown, MoreHorizontal, RotateCcw } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, DollarSign, MinusCircle, Info, ChevronDown, MoreHorizontal, RotateCcw, ArrowRightLeft } from 'lucide-react';
 import type { SavingsItem, Category } from '@/types';
 import * as z from 'zod';
 import { useForm } from 'react-hook-form';
@@ -69,6 +68,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useSinkingFundCategories } from '@/hooks/use-sinking-fund-categories';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { SinkingFundTransferForm } from './sinking-fund-transfer-form';
 
 
 const transactionSchema = z.object({
@@ -156,7 +156,8 @@ function FundsTable({
     handleTransaction,
     handleReset,
     deleteSavingsItem,
-    exchangeRate 
+    exchangeRate,
+    onOpenTransfer
 } : {
     items: SavingsItem[],
     sortConfig: SortConfig,
@@ -165,7 +166,8 @@ function FundsTable({
     handleTransaction: (item: SavingsItem, amount: number, type: 'deposit' | 'withdraw') => void,
     handleReset: (item: SavingsItem) => void,
     deleteSavingsItem: (id: string) => void,
-    exchangeRate: number | null
+    exchangeRate: number | null,
+    onOpenTransfer: (sourceFund: SavingsItem) => void;
 }) {
      const sortedItems = useMemo(() => {
         let sortableItems = [...items];
@@ -273,6 +275,9 @@ function FundsTable({
                                             <MinusCircle className="mr-2 h-4 w-4" /> Withdraw
                                         </button>
                                     </TransactionDialog>
+                                    <DropdownMenuItem onClick={() => onOpenTransfer(item)}>
+                                        <ArrowRightLeft className="mr-2 h-4 w-4" /> Transfer
+                                    </DropdownMenuItem>
                                     {!item.dueDate && (
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
@@ -335,7 +340,7 @@ function FundsTable({
 }
 
 export function SinkingFundTable() {
-  const { savingsItems, addSavingsItem, updateSavingsItem, deleteSavingsItem, fundSinkingFund, withdrawFromSinkingFund, resetSinkingFund, isLoading } = useSavings();
+  const { savingsItems, addSavingsItem, updateSavingsItem, deleteSavingsItem, fundSinkingFund, withdrawFromSinkingFund, resetSinkingFund, transferSinkingFund, isLoading } = useSavings();
   const { categories, isLoading: isLoadingCategories } = useSinkingFundCategories();
   const { user } = useUser();
   const { toast } = useToast();
@@ -345,6 +350,14 @@ export function SinkingFundTable() {
   const [editingItem, setEditingItem] = useState<SavingsItem | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
   
+  const [isTransferFormOpen, setIsTransferFormOpen] = useState(false);
+  const [sourceFund, setSourceFund] = useState<SavingsItem | null>(null);
+
+  const handleOpenTransferForm = (fund: SavingsItem) => {
+    setSourceFund(fund);
+    setIsTransferFormOpen(true);
+  };
+
   const handleEdit = (item: SavingsItem) => {
     setEditingItem(item);
     setIsFormOpen(true);
@@ -390,6 +403,17 @@ export function SinkingFundTable() {
         toast({ title: 'Error', description: error.message || 'Could not reset the fund.', variant: 'destructive'});
     }
   };
+
+  const handleTransfer = async (fromFundId: string, toFundId: string, amount: number) => {
+    if (!user) return;
+    try {
+        await transferSinkingFund(fromFundId, toFundId, amount, user.uid);
+        toast({ title: 'Success!', description: 'Funds have been transferred.'});
+        setIsTransferFormOpen(false);
+    } catch (error: any) {
+        toast({ title: 'Error', description: error.message || 'Could not complete transfer.', variant: 'destructive'});
+    }
+  }
 
 
   const renderLoadingSkeleton = () => (
@@ -438,6 +462,15 @@ export function SinkingFundTable() {
         updateSavingsItem={updateSavingsItem}
         editingItem={editingItem}
       />
+      {sourceFund && (
+          <SinkingFundTransferForm
+            open={isTransferFormOpen}
+            onOpenChange={setIsTransferFormOpen}
+            sourceFund={sourceFund}
+            allFunds={savingsItems}
+            onConfirm={handleTransfer}
+          />
+      )}
       <div className="flex justify-end items-center mb-6 gap-2">
           <Button onClick={() => setIsFormOpen(true)}>
             <PlusCircle className="mr-2 h-5 w-5" />
@@ -472,6 +505,7 @@ export function SinkingFundTable() {
                          handleReset={handleReset}
                          deleteSavingsItem={deleteSavingsItem}
                          exchangeRate={exchangeRate}
+                         onOpenTransfer={handleOpenTransferForm}
                        />
                     </AccordionContent>
                   </AccordionItem>
