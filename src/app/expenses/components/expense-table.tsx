@@ -116,7 +116,10 @@ export function ExpenseTable({
       />
       <div className="flex justify-end items-center mb-6 gap-2">
         {!isArchived && (
-          <Button onClick={() => setIsFormOpen(true)}>
+          <Button onClick={() => {
+            setEditingItem({ type: 'Monetary' } as any); // Pre-select type
+            setIsFormOpen(true);
+          }}>
             <PlusCircle className="mr-2 h-5 w-5" />
             Add Monetary Expense
           </Button>
