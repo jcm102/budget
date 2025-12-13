@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState } from 'react';
@@ -117,7 +116,7 @@ export function ExpenseTable({
       <div className="flex justify-end items-center mb-6 gap-2">
         {!isArchived && (
           <Button onClick={() => {
-            setEditingItem({ type: 'Monetary' } as any); // Pre-select type
+            setEditingItem(null); // Explicitly set to null for new item
             setIsFormOpen(true);
           }}>
             <PlusCircle className="mr-2 h-5 w-5" />
@@ -160,7 +159,7 @@ export function ExpenseTable({
                     <div className="flex items-center gap-2">
                       {item.description}
                       {item.receiptUrl && (
-                        <Link href={item.receiptUrl} target="_blank" rel="noopener noreferrer">
+                        <Link href={item.receiptUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
                           <Paperclip className="h-4 w-4 text-muted-foreground hover:text-primary" />
                         </Link>
                       )}

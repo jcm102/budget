@@ -218,7 +218,7 @@ export function ExpenseForm({
         oneWayDistanceRef.current = null;
       }
     }
-  }, [editingItem, open, form.reset, mileageRate]);
+  }, [editingItem, open, form, mileageRate]);
 
 
    useEffect(() => {
@@ -376,7 +376,7 @@ export function ExpenseForm({
                 <FormField control={form.control} name="date" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Date</FormLabel>
-                      <FormControl><Input type="date" {...field} /></FormControl>
+                      <FormControl><Input type="date" {...field} value={field.value ? field.value.split('T')[0] : ''} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -504,7 +504,7 @@ export function ExpenseForm({
                                             />
                                             <div className="flex items-center justify-center h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground">
                                                 <Paperclip className="mr-2 h-4 w-4" />
-                                                <span>{editingItem?.receiptUrl ? 'Replace receipt' : 'Attach a receipt'}</span>
+                                                <span>{(editingItem as Expense)?.receiptUrl ? 'Replace receipt' : 'Attach a receipt'}</span>
                                             </div>
                                         </div>
                                     </FormControl>
@@ -663,5 +663,3 @@ export function ExpenseForm({
     </Dialog>
   );
 }
-
-    
