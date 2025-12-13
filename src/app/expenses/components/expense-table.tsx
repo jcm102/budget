@@ -3,8 +3,9 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { format, parse } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, Repeat } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, Repeat, Paperclip } from 'lucide-react';
 import type { Expense, MileageLog, Honorarium } from '@/types';
 import {
   Table,
@@ -36,7 +37,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 
 type ExpenseTableProps = {
   expenses: Expense[];
-  addExpense: (item: Omit<Expense, 'id'>, ledgerAccountId: string | undefined, callback: (success: boolean) => void) => void;
+  addExpense: (item: Omit<Expense, 'id'>, ledgerAccountId: string | undefined, receiptFile: File | undefined, callback: (success: boolean) => void) => void;
   updateExpense: (id: string, item: Partial<Omit<Expense, 'id'>>) => void;
   deleteExpense: (id: string) => void;
   toggleExpenseCompleted: (id: string, completed: boolean) => void;
@@ -152,7 +153,16 @@ export function ExpenseTable({
                         />
                       </TableCell>
                   <TableCell>{format(parseDate(item.date), 'PPP')}</TableCell>
-                  <TableCell className={cn("font-medium", item.completed && "line-through")}>{item.description}</TableCell>
+                  <TableCell className={cn("font-medium", item.completed && "line-through")}>
+                    <div className="flex items-center gap-2">
+                      {item.description}
+                      {item.receiptUrl && (
+                        <Link href={item.receiptUrl} target="_blank" rel="noopener noreferrer">
+                          <Paperclip className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                        </Link>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>{item.category}</TableCell>
                   <TableCell>{item.transferee}</TableCell>
                    <TableCell>

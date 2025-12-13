@@ -122,6 +122,7 @@ export interface Expense extends BaseExpense {
   frequency: BudgetItemFrequency;
   originalId?: string;
   completed?: boolean;
+  receiptUrl?: string | null;
 }
 
 export interface Honorarium extends BaseExpense {

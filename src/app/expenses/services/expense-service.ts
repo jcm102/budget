@@ -3,6 +3,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { Expense, MileageLog, Honorarium, AccountLedgerItem } from '@/types';
 import {
   collection,
@@ -54,8 +55,22 @@ export async function getHonorariums(status: 'active' | 'archived', archiveKey?:
 }
 
 
-export async function addExpense(itemData: Omit<Expense, 'id'>, ledgerAccountId?: string): Promise<Expense> {
-  const dataWithStatus = { ...itemData, status: 'active', forNextMonth: itemData.forNextMonth || false };
+export async function addExpense(itemData: Omit<Expense, 'id'>, ledgerAccountId?: string, receiptFile?: File): Promise<Expense> {
+  let receiptUrl: string | null = null;
+  
+  if (receiptFile) {
+    const storage = getStorage();
+    const receiptRef = ref(storage, `receipts/${new Date().toISOString()}_${receiptFile.name}`);
+    await uploadBytes(receiptRef, receiptFile);
+    receiptUrl = await getDownloadURL(receiptRef);
+  }
+
+  const dataWithStatus = { 
+      ...itemData, 
+      status: 'active', 
+      forNextMonth: itemData.forNextMonth || false,
+      receiptUrl: receiptUrl,
+  };
   
   return runTransaction(db, async (transaction) => {
     // 1. READ from the ledger if an ID is provided

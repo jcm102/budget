@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
@@ -36,7 +37,7 @@ import { useAccountDetails } from '@/hooks/use-account-details';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useMileageRate } from '@/hooks/use-mileage-rate';
 import { calculateDistance } from '@/ai/flows/calculate-distance';
-import { Loader2, Route } from 'lucide-react';
+import { Loader2, Route, Paperclip, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AddressAutocompleteInput } from '@/components/address-autocomplete-input';
 import { useAccountLedger } from '@/app/savings/hooks/use-account-ledger';
@@ -52,6 +53,7 @@ const formSchema = z.object({
   transferee: z.string().optional(),
   reimbursable: z.boolean().optional(),
   frequency: z.enum(['One-Time', 'Weekly', 'Bi-Weekly', 'Monthly']).optional(),
+  receipt: z.instanceof(File).optional().nullable(),
   // Mileage fields
   origin: z.string().optional(),
   destination: z.string().optional(),
@@ -91,7 +93,7 @@ const formSchema = z.object({
 type ExpenseFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  addExpense: (item: Omit<Expense, 'id'>, ledgerAccountId: string | undefined, callback: (success: boolean) => void) => void;
+  addExpense: (item: Omit<Expense, 'id'>, ledgerAccountId: string | undefined, receiptFile: File | undefined, callback: (success: boolean) => void) => void;
   updateExpense: (id: string, item: Partial<Omit<Expense, 'id'>>) => void;
   addMileage: (item: Omit<MileageLog, 'id'>) => void;
   updateMileage: (id: string, item: Omit<MileageLog, 'id'>) => void;
@@ -130,6 +132,7 @@ export function ExpenseForm({
       transferee: '',
       reimbursable: true, // Default to true now
       frequency: 'One-Time',
+      receipt: null,
       origin: '',
       destination: '',
       distance: 0,
@@ -144,6 +147,7 @@ export function ExpenseForm({
   const tripType = form.watch('tripType');
   const category = form.watch('category');
   const isReimbursable = form.watch('reimbursable');
+  const receiptFile = form.watch('receipt');
   
   // Set reimbursable to false if category is Church Expense
   useEffect(() => {
@@ -176,6 +180,7 @@ export function ExpenseForm({
           transferee: 'transferee' in editingItem ? editingItem.transferee : '',
           reimbursable: 'reimbursable' in editingItem ? editingItem.reimbursable : true,
           frequency: 'frequency' in editingItem ? editingItem.frequency : 'One-Time',
+          receipt: null, // Don't allow re-uploading for now
           forNextMonth: 'forNextMonth' in editingItem ? editingItem.forNextMonth : false,
           origin: 'origin' in editingItem ? editingItem.origin : '',
           destination: 'destination' in editingItem ? editingItem.destination : '',
@@ -200,6 +205,7 @@ export function ExpenseForm({
           transferee: '',
           reimbursable: true,
           frequency: 'One-Time',
+          receipt: null,
           forNextMonth: false,
           origin: '',
           destination: '',
@@ -282,7 +288,7 @@ export function ExpenseForm({
             updateExpense(editingItem.id, submissionData);
             onOpenChange(false);
         } else {
-             addExpense(submissionData, values.ledgerAccountId, (success) => {
+             addExpense(submissionData, values.ledgerAccountId, values.receipt || undefined, (success) => {
               if (success) {
                 onOpenChange(false);
               }
@@ -466,6 +472,45 @@ export function ExpenseForm({
                             <FormMessage />
                             </FormItem>
                         )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="receipt"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Receipt (Optional)</FormLabel>
+                                {receiptFile ? (
+                                    <div className="flex items-center justify-between p-2 border rounded-md">
+                                        <span className="text-sm truncate">{receiptFile.name}</span>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6"
+                                            onClick={() => form.setValue('receipt', null)}
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <FormControl>
+                                        <div className="relative">
+                                            <Input
+                                                type="file"
+                                                accept="image/*,.pdf"
+                                                onChange={(e) => field.onChange(e.target.files ? e.target.files[0] : null)}
+                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                            />
+                                            <div className="flex items-center justify-center h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground">
+                                                <Paperclip className="mr-2 h-4 w-4" />
+                                                <span>{editingItem?.receiptUrl ? 'Replace receipt' : 'Attach a receipt'}</span>
+                                            </div>
+                                        </div>
+                                    </FormControl>
+                                )}
+                                <FormMessage />
+                                </FormItem>
+                            )}
                         />
                     </>
                 )}

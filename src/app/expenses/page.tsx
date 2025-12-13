@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -82,8 +83,8 @@ export default function ExpensesPage() {
         }
     }, [selectedArchive]);
 
-    const handleAddExpense = (item: any, ledgerAccountId: any, callback: any) => {
-        addExpense(item, ledgerAccountId, (success) => {
+    const handleAddExpense = (item: any, ledgerAccountId: any, receiptFile: any, callback: any) => {
+        addExpense(item, ledgerAccountId, receiptFile, (success) => {
             if (success) {
                 fetchFunds();
             }
