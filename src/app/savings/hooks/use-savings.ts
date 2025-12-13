@@ -95,6 +95,16 @@ export function useSavings() {
       throw error;
     }
   }, [selectedAccountId, fetchAllData]);
+  
+  const resetSinkingFund = useCallback(async (fundId: string, userId: string) => {
+    try {
+        await SavingsService.resetSinkingFund(fundId, userId);
+        await fetchAllData(selectedAccountId);
+    } catch (error) {
+        console.error('Failed to reset sinking fund:', error);
+        throw error;
+    }
+  }, [selectedAccountId, fetchAllData]);
 
 
   const deleteSavingsItem = useCallback(async (id: string) => {
@@ -121,6 +131,7 @@ export function useSavings() {
     deleteSavingsItem,
     fundSinkingFund,
     withdrawFromSinkingFund, 
+    resetSinkingFund,
     fetchSavingsItems: () => fetchAllData(selectedAccountId)
   };
 }

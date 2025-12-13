@@ -4,7 +4,7 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { format, parseISO } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, DollarSign, MinusCircle, Info, ChevronDown, MoreHorizontal } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, DollarSign, MinusCircle, Info, ChevronDown, MoreHorizontal, RotateCcw } from 'lucide-react';
 import type { SavingsItem, Category } from '@/types';
 import * as z from 'zod';
 import { useForm } from 'react-hook-form';
@@ -153,7 +153,8 @@ function FundsTable({
     sortConfig, 
     requestSort,
     handleEdit, 
-    handleTransaction, 
+    handleTransaction,
+    handleReset,
     deleteSavingsItem,
     exchangeRate 
 } : {
@@ -162,6 +163,7 @@ function FundsTable({
     requestSort: (key: any) => void,
     handleEdit: (item: SavingsItem) => void,
     handleTransaction: (item: SavingsItem, amount: number, type: 'deposit' | 'withdraw') => void,
+    handleReset: (item: SavingsItem) => void,
     deleteSavingsItem: (id: string) => void,
     exchangeRate: number | null
 }) {
@@ -191,10 +193,10 @@ function FundsTable({
         return sortableItems;
     }, [items, sortConfig]);
     
-    const [openDialog, setOpenDialog] = useState<'deposit' | 'withdraw' | 'delete' | null>(null);
+    const [openDialog, setOpenDialog] = useState<'deposit' | 'withdraw' | 'delete' | 'reset' | null>(null);
     const [currentItem, setCurrentItem] = useState<SavingsItem | null>(null);
 
-    const handleActionClick = (item: SavingsItem, action: 'deposit' | 'withdraw' | 'edit' | 'delete') => {
+    const handleActionClick = (item: SavingsItem, action: 'deposit' | 'withdraw' | 'edit' | 'delete' | 'reset') => {
         setCurrentItem(item);
         if (action === 'edit') {
             handleEdit(item);
@@ -238,6 +240,18 @@ function FundsTable({
                 >
                     <div data-state={openDialog === 'withdraw' ? 'open' : 'closed'} />
                 </TransactionDialog>
+                <AlertDialog open={openDialog === 'reset'} onOpenChange={(isOpen) => !isOpen && setOpenDialog(null)}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>This will reset the saved balance for &quot;{currentItem.name}&quot; to zero. This is useful for ongoing funds you've just spent.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel onClick={() => setOpenDialog(null)}>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => { handleReset(currentItem); setOpenDialog(null); }}>Reset Balance</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
                  <AlertDialog open={openDialog === 'delete'} onOpenChange={(isOpen) => !isOpen && setOpenDialog(null)}>
                     <AlertDialogContent>
                         <AlertDialogHeader>
@@ -314,10 +328,15 @@ function FundsTable({
                                      <DropdownMenuItem onClick={() => handleActionClick(item, 'withdraw')}>
                                         <MinusCircle className="mr-2 h-4 w-4" /> Withdraw
                                     </DropdownMenuItem>
+                                    {!item.dueDate && (
+                                        <DropdownMenuItem onClick={() => handleActionClick(item, 'reset')}>
+                                            <RotateCcw className="mr-2 h-4 w-4" /> Reset
+                                        </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuSeparator />
                                     <DropdownMenuItem onClick={() => handleActionClick(item, 'edit')}>
                                         <Pencil className="mr-2 h-4 w-4" /> Edit
                                     </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
                                     <DropdownMenuItem onClick={() => handleActionClick(item, 'delete')} className="text-destructive">
                                         <Trash2 className="mr-2 h-4 w-4" /> Delete
                                     </DropdownMenuItem>
@@ -344,7 +363,7 @@ function FundsTable({
 }
 
 export function SinkingFundTable() {
-  const { savingsItems, addSavingsItem, updateSavingsItem, deleteSavingsItem, fundSinkingFund, withdrawFromSinkingFund, isLoading } = useSavings();
+  const { savingsItems, addSavingsItem, updateSavingsItem, deleteSavingsItem, fundSinkingFund, withdrawFromSinkingFund, resetSinkingFund, isLoading } = useSavings();
   const { categories, isLoading: isLoadingCategories } = useSinkingFundCategories();
   const { user } = useUser();
   const { toast } = useToast();
@@ -387,6 +406,16 @@ export function SinkingFundTable() {
         }
     } catch (error: any) {
         toast({ title: 'Error', description: error.message || 'Transaction failed.', variant: 'destructive'});
+    }
+  };
+
+  const handleReset = async (item: SavingsItem) => {
+    if (!user) return;
+    try {
+        await resetSinkingFund(item.id, user.uid);
+        toast({ title: 'Success!', description: `"${item.name}" has been reset.`});
+    } catch (error: any) {
+        toast({ title: 'Error', description: error.message || 'Could not reset the fund.', variant: 'destructive'});
     }
   };
 
@@ -468,6 +497,7 @@ export function SinkingFundTable() {
                          requestSort={requestSort}
                          handleEdit={handleEdit}
                          handleTransaction={handleTransaction}
+                         handleReset={handleReset}
                          deleteSavingsItem={deleteSavingsItem}
                          exchangeRate={exchangeRate}
                        />

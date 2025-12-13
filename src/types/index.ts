@@ -165,7 +165,7 @@ export interface SinkingFundTransaction {
   id: string;
   fundId: string;
   amount: number;
-  type: 'deposit' | 'withdraw';
+  type: 'deposit' | 'withdraw' | 'reset';
   date: string; // ISO string
 }
 

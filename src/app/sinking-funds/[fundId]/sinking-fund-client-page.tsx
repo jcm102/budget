@@ -95,8 +95,8 @@ export function SinkingFundClientPage({ fundId, initialTransactions }: { fundId:
                     <TableRow key={tx.id}>
                       <TableCell>{format(parseDate(tx.date), 'PPP')}</TableCell>
                       <TableCell className="capitalize">{tx.type}</TableCell>
-                      <TableCell className={`text-right ${tx.type === 'deposit' ? 'text-green-600' : 'text-destructive'}`}>
-                        {tx.type === 'deposit' ? '+' : '-'} {formatCurrency(tx.amount, fundDetails?.currency)}
+                      <TableCell className={`text-right ${tx.type === 'deposit' ? 'text-green-600' : tx.type === 'withdraw' ? 'text-destructive' : ''}`}>
+                        {tx.type === 'deposit' ? '+' : tx.type === 'withdraw' ? '-' : ''} {formatCurrency(tx.amount, fundDetails?.currency)}
                       </TableCell>
                     </TableRow>
                   ))

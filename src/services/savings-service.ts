@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -43,7 +42,7 @@ const calculateMonthlyAmount = (item: SavingsItem): number => {
         const totalMonths = (due.getFullYear() - today.getFullYear()) * 12 + (due.getMonth() - today.getMonth());
         
         // Exclude the current month from the savings period.
-        const savingMonths = totalMonths -1;
+        const savingMonths = totalMonths - 1;
 
         if (savingMonths <= 0) return remainingAmount;
 
@@ -141,6 +140,31 @@ export async function withdrawFromSinkingFund(fundId: string, amount: number, us
   });
 }
 
+export async function resetSinkingFund(fundId: string, userId: string): Promise<void> {
+    const fundRef = doc(db, SAVINGS_COLLECTION, fundId);
+    const transactionRef = doc(collection(db, TRANSACTIONS_COLLECTION));
+
+    await runTransaction(db, async (transaction) => {
+        const fundDoc = await transaction.get(fundRef);
+        if (!fundDoc.exists()) {
+            throw new Error("Sinking fund not found!");
+        }
+        
+        const oldAmount = fundDoc.data().amount || 0;
+        
+        transaction.update(fundRef, { amount: 0 });
+        
+        // Log a transaction for the reset action
+        transaction.set(transactionRef, {
+            fundId,
+            amount: oldAmount,
+            type: 'reset',
+            date: new Date().toISOString(),
+            userId
+        });
+    });
+}
+
 
 export async function deleteSavingsItem(id: string): Promise<void> {
   const itemRef = doc(db, SAVINGS_COLLECTION, id);
@@ -156,4 +180,3 @@ export async function getSinkingFundTransactions(fundId: string): Promise<Sinkin
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SinkingFundTransaction));
 }
-
