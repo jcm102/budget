@@ -31,11 +31,13 @@ import { buttonVariants } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { ColumnVisibility } from '@/app/debt/components/debt-table';
 import { DebtSnowballCalculator } from '@/app/debt/components/debt-snowball-calculator';
+import { useUser } from '@/firebase';
+import { Loader2 } from 'lucide-react';
 
 export default function DebtPage() {
-  const { debts, addDebt, updateDebt, deleteDebt, resetDebtValues, cycleToNextMonth, updateDebtOrder, toggleDebtPaid, isLoading } = useDebt();
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingDebt, setEditingDebt] = useState(null);
+  const { user, isUserLoading } = useUser();
+  const { debts, cycleToNextMonth, resetDebtValues, isLoading } = useDebt();
+  
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
     paid: true,
     name: true,
@@ -62,7 +64,16 @@ export default function DebtPage() {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  if (isLoading || isUserLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
+
   return (
     <div className="container mx-auto max-w-6xl p-4 md:p-8">
        <header className="mb-8 flex justify-between items-center no-print">

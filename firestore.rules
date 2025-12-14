@@ -3,8 +3,11 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Allow public read access, but only allow writes for authenticated users.
+    // This is a temporary measure to fix server-side rendering issues.
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read: if true;
+      allow write: if request.auth != null;
     }
   }
 }

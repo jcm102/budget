@@ -1,3 +1,4 @@
+
 'use client';
 
 import { getAccountDetails, getTransactionsForAccount } from '@/app/monthly-budget/services/monthly-budget-service';
@@ -8,6 +9,8 @@ import { notFound, useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AccountDetails, Category, Transaction } from '@/types';
 import { useUser } from '@/firebase';
+import { Loader2 } from 'lucide-react';
+
 
 export default function AccountDetailPage() {
   const params = useParams();
@@ -21,7 +24,7 @@ export default function AccountDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
+    if (user && accountId) {
       const fetchData = async () => {
         setIsLoading(true);
         try {
@@ -42,11 +45,18 @@ export default function AccountDetailPage() {
         }
       };
       fetchData();
+    } else if (!isUserLoading && !user) {
+        // Handle case where user is not logged in but tries to access the page
+        setIsLoading(false);
     }
-  }, [accountId, user]);
+  }, [accountId, user, isUserLoading]);
 
   if (isLoading || isUserLoading) {
-    return <div>Loading...</div>; // Or a proper skeleton loader
+    return (
+        <div className="flex h-screen items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+    );
   }
 
   if (!account) {
