@@ -1,6 +1,5 @@
 
-
-'use server';
+'use client';
 
 import { db } from '@/lib/firebase';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -23,6 +22,18 @@ import { createAutomatedBackup } from '@/services/backup-service';
 
 const EXPENSE_COLLECTION = 'expenses';
 const LEDGER_ITEMS_COLLECTION = 'account-ledger-items';
+
+// Helper function to convert data URI to Blob
+function dataURItoBlob(dataURI: string) {
+    const byteString = atob(dataURI.split(',')[1]);
+    const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+    }
+    return new Blob([ab], { type: mimeString });
+}
 
 
 export async function getActiveMonetaryExpenses(): Promise<Expense[]> {
@@ -55,11 +66,9 @@ export async function addExpense(itemData: Omit<Expense, 'id'>, ledgerAccountId?
     const storage = getStorage();
     const receiptRef = ref(storage, `receipts/${new Date().toISOString()}_${receiptFile.name}`);
     
-    // The data URI needs to be stripped of its prefix and converted to a buffer
-    const base64Data = receiptFile.data.split(',')[1];
-    const buffer = Buffer.from(base64Data, 'base64');
+    const blob = dataURItoBlob(receiptFile.data);
     
-    await uploadBytes(receiptRef, buffer, { contentType: receiptFile.type });
+    await uploadBytes(receiptRef, blob, { contentType: receiptFile.type });
     receiptUrl = await getDownloadURL(receiptRef);
   }
 
