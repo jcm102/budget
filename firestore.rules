@@ -1,9 +1,19 @@
 
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow authenticated users to read and write files
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null;
     }
   }
 }
