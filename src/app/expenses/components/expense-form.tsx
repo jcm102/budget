@@ -93,10 +93,10 @@ const formSchema = z.object({
 type ExpenseFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  addExpense: (item: Omit<Expense, 'id'>, ledgerAccountId: string | undefined, receiptFile: File | undefined, callback: (success: boolean) => void) => void;
+  addExpense: (item: Omit<Expense, 'id'>, ledgerAccountId: string | undefined, receiptFile: File | undefined | null, callback: (success: boolean) => void) => void;
   updateExpense: (id: string, item: Partial<Omit<Expense, 'id'>>) => void;
   addMileage: (item: Omit<MileageLog, 'id'>) => void;
-  updateMileage: (id: string, item: Omit<MileageLog, 'id'>) => void;
+  updateMileage: (id: string, item: Partial<Omit<MileageLog, 'id'>>) => void;
   addHonorarium: (item: Omit<Honorarium, 'id'>) => void;
   updateHonorarium: (id: string, item: Partial<Omit<Honorarium, 'id'>>) => void;
   editingItem: Expense | MileageLog | Honorarium | null;
@@ -289,7 +289,7 @@ export function ExpenseForm({
             updateExpense(editingItem.id, submissionData);
             onOpenChange(false);
         } else {
-             addExpense(submissionData, values.ledgerAccountId, values.receipt || undefined, (success) => {
+             addExpense(submissionData, values.ledgerAccountId, values.receipt, (success) => {
               if (success) {
                 onOpenChange(false);
               }

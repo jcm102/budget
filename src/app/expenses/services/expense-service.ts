@@ -64,32 +64,24 @@ export async function addExpense(itemData: Omit<Expense, 'id'>, ledgerAccountId?
       forNextMonth: itemData.forNextMonth || false,
       receiptUrl: receiptUrl,
   };
-  
-  return runTransaction(db, async (transaction) => {
-    // 1. READ from the ledger if an ID is provided
-    let ledgerItemRef;
-    let ledgerItemSnap;
-    if (ledgerAccountId && !itemData.forNextMonth) { // Only debit for current month expenses
-      ledgerItemRef = doc(db, LEDGER_ITEMS_COLLECTION, ledgerAccountId);
-      ledgerItemSnap = await transaction.get(ledgerItemRef);
+
+  const newExpenseRef = await addDoc(collection(db, EXPENSE_COLLECTION), dataWithStatus);
+
+  // If a ledger account is specified for a current month expense, perform the balance update.
+  if (ledgerAccountId && !itemData.forNextMonth) {
+    await runTransaction(db, async (transaction) => {
+      const ledgerItemRef = doc(db, LEDGER_ITEMS_COLLECTION, ledgerAccountId);
+      const ledgerItemSnap = await transaction.get(ledgerItemRef);
       if (!ledgerItemSnap.exists()) {
         throw new Error(`Ledger item with id ${ledgerAccountId} not found.`);
       }
-    }
-
-    // 2. All reads are done. Now perform WRITES.
-    const newExpenseRef = doc(collection(db, EXPENSE_COLLECTION));
-    transaction.set(newExpenseRef, dataWithStatus);
-
-    if (ledgerItemRef && ledgerItemSnap) {
       const ledgerItemData = ledgerItemSnap.data() as AccountLedgerItem;
       const newBalance = ledgerItemData.amount - (itemData.amount || 0);
       transaction.update(ledgerItemRef, { amount: newBalance });
-    }
+    });
+  }
 
-    // Return the new expense object without a final read
-    return { id: newExpenseRef.id, ...dataWithStatus } as Expense;
-  });
+  return { id: newExpenseRef.id, ...dataWithStatus };
 }
 
 

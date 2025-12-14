@@ -41,7 +41,7 @@ type ExpenseTableProps = {
   deleteExpense: (id: string) => void;
   toggleExpenseCompleted: (id: string, completed: boolean) => void;
   addMileage: (item: Omit<MileageLog, 'id'>) => void;
-  updateMileage: (id: string, item: Omit<MileageLog, 'id'>) => void;
+  updateMileage: (id: string, item: Partial<Omit<MileageLog, 'id'>>) => void;
   addHonorarium: (item: Omit<Honorarium, 'id'>) => void;
   updateHonorarium: (id: string, item: Partial<Omit<Honorarium, 'id'>>) => void;
   isLoading: boolean;

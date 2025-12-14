@@ -135,7 +135,7 @@ export function useExpenses() {
     }
   }, [toast, fetchData]);
 
-  const updateMileage = useCallback(async (id: string, itemData: Omit<MileageLog, 'id'>) => {
+  const updateMileage = useCallback(async (id: string, itemData: Partial<Omit<MileageLog, 'id'>>) => {
     try {
       await MileageService.updateMileageLog(id, itemData);
        await fetchData();
