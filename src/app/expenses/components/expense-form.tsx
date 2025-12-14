@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
@@ -164,7 +162,7 @@ export function ExpenseForm({
     if (!isRateLoading && mileageRate !== null) {
         form.setValue('rate', mileageRate);
     }
-  }, [isRateLoading, mileageRate, form.setValue]);
+  }, [isRateLoading, mileageRate, form]);
   
   // Effect to reset form state when opening for a new item or editing an existing one
   useEffect(() => {
@@ -284,6 +282,7 @@ export function ExpenseForm({
             frequency: values.frequency as BudgetItemFrequency,
             completed: false,
             forNextMonth: values.forNextMonth,
+            status: 'active'
         };
         if (editingItem && editingItem.type === 'Monetary') {
             updateExpense(editingItem.id, submissionData);
@@ -306,6 +305,7 @@ export function ExpenseForm({
             date: utcDate.toISOString(),
             tripType: values.tripType as TripType,
             forNextMonth: values.forNextMonth,
+            status: 'active'
         };
         if (editingItem && editingItem.type === 'Mileage') {
             updateMileage(editingItem.id, submissionData);
@@ -319,6 +319,7 @@ export function ExpenseForm({
             description: values.description,
             amount: values.amount!,
             date: utcDate.toISOString(),
+            status: 'active'
         };
          if (editingItem && editingItem.type === 'Honorarium') {
             updateHonorarium(editingItem.id, submissionData);
