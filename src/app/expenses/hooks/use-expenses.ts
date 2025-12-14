@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import type { Expense, MileageLog, Honorarium } from '@/types';
+import type { Expense, MileageLog, Honorarium, UploadableFile } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import * as ExpenseService from '../services/expense-service';
 import * as MileageService from '../services/mileage-service';
@@ -62,7 +62,7 @@ export function useExpenses() {
     }
   }, [fetchData, toast]);
 
-  const addExpense = useCallback(async (itemData: Omit<Expense, 'id'>, ledgerAccountId: string | undefined, receiptFile: File | undefined | null, callback: (success: boolean) => void) => {
+  const addExpense = useCallback(async (itemData: Omit<Expense, 'id'>, ledgerAccountId: string | undefined, receiptFile: UploadableFile | undefined | null, callback: (success: boolean) => void) => {
     try {
       await ExpenseService.addExpense(itemData, ledgerAccountId, receiptFile);
       await fetchData(); 

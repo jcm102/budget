@@ -100,6 +100,11 @@ export interface AccountDetails {
     isCalculated?: boolean;
 }
 
+export type UploadableFile = {
+  name: string;
+  type: string;
+  data: string; // base64 encoded
+};
 
 export type ExpenseType = 'Monetary' | 'Mileage' | 'Honorarium';
 

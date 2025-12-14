@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import type { Expense, MileageLog, Honorarium, BudgetItemFrequency, TripType } from '@/types';
+import type { Expense, MileageLog, Honorarium, BudgetItemFrequency, TripType, UploadableFile } from '@/types';
 import { useWorkCategories } from '@/hooks/use-work-categories';
 import { useAccountDetails } from '@/hooks/use-account-details';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -53,7 +53,7 @@ const formSchema = z.object({
   transferee: z.string().optional(),
   reimbursable: z.boolean().optional(),
   frequency: z.enum(['One-Time', 'Weekly', 'Bi-Weekly', 'Monthly']).optional(),
-  receipt: z.instanceof(File).optional().nullable(),
+  receipt: z.any().optional().nullable(),
   // Mileage fields
   origin: z.string().optional(),
   destination: z.string().optional(),
@@ -93,13 +93,22 @@ const formSchema = z.object({
 type ExpenseFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  addExpense: (item: Omit<Expense, 'id'>, ledgerAccountId: string | undefined, receiptFile: File | null | undefined, callback: (success: boolean) => void) => void;
+  addExpense: (item: Omit<Expense, 'id'>, ledgerAccountId: string | undefined, receiptFile: UploadableFile | null | undefined, callback: (success: boolean) => void) => void;
   updateExpense: (id: string, item: Partial<Omit<Expense, 'id'>>) => void;
   addMileage: (item: Omit<MileageLog, 'id'>) => void;
   updateMileage: (id: string, item: Partial<Omit<MileageLog, 'id'>>) => void;
   addHonorarium: (item: Omit<Honorarium, 'id'>) => void;
   updateHonorarium: (id: string, item: Partial<Omit<Honorarium, 'id'>>) => void;
   editingItem: Expense | MileageLog | Honorarium | null;
+};
+
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = error => reject(error);
+  });
 };
 
 export function ExpenseForm({ 
@@ -267,11 +276,21 @@ export function ExpenseForm({
     }
   };
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     // This creates a date object that represents the START of the selected day in UTC.
     const utcDate = new Date(values.date + 'T00:00:00Z');
 
     if (values.expenseType === 'Monetary') {
+        let uploadableReceipt: UploadableFile | null = null;
+        if (values.receipt instanceof File) {
+            const base64 = await fileToBase64(values.receipt);
+            uploadableReceipt = {
+                name: values.receipt.name,
+                type: values.receipt.type,
+                data: base64,
+            };
+        }
+
         const submissionData: Omit<Expense, 'id'> = {
             type: 'Monetary',
             description: values.description,
@@ -289,7 +308,7 @@ export function ExpenseForm({
             updateExpense(editingItem.id, submissionData);
             onOpenChange(false);
         } else {
-             addExpense(submissionData, values.ledgerAccountId, values.receipt, (success) => {
+             addExpense(submissionData, values.ledgerAccountId, uploadableReceipt, (success) => {
               if (success) {
                 onOpenChange(false);
               }
@@ -482,7 +501,7 @@ export function ExpenseForm({
                             render={({ field }) => (
                                 <FormItem>
                                 <FormLabel>Receipt (Optional)</FormLabel>
-                                {receiptFile ? (
+                                {receiptFile && receiptFile instanceof File ? (
                                     <div className="flex items-center justify-between p-2 border rounded-md">
                                         <span className="text-sm truncate">{receiptFile.name}</span>
                                         <Button

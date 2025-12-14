@@ -1,9 +1,10 @@
 
+
 'use server';
 
 import { db } from '@/lib/firebase';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import type { Expense, MileageLog, Honorarium, AccountLedgerItem } from '@/types';
+import type { Expense, MileageLog, Honorarium, AccountLedgerItem, UploadableFile } from '@/types';
 import {
   collection,
   getDocs,
@@ -47,49 +48,44 @@ export async function getHonorariums(status: 'active' | 'archived', archiveKey?:
   return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
-
-export async function addExpense(itemData: Omit<Expense, 'id'>, ledgerAccountId?: string, receiptFile?: File): Promise<Expense> {
+export async function addExpense(itemData: Omit<Expense, 'id'>, ledgerAccountId?: string, receiptFile?: UploadableFile | null): Promise<Expense> {
   let receiptUrl: string | null = null;
   
   if (receiptFile) {
     const storage = getStorage();
     const receiptRef = ref(storage, `receipts/${new Date().toISOString()}_${receiptFile.name}`);
-    await uploadBytes(receiptRef, receiptFile);
+    
+    // The data URI needs to be stripped of its prefix and converted to a buffer
+    const base64Data = receiptFile.data.split(',')[1];
+    const buffer = Buffer.from(base64Data, 'base64');
+    
+    await uploadBytes(receiptRef, buffer, { contentType: receiptFile.type });
     receiptUrl = await getDownloadURL(receiptRef);
   }
 
-  const dataWithStatus = { 
-      ...itemData, 
-      status: 'active', 
-      forNextMonth: itemData.forNextMonth || false,
-      receiptUrl: receiptUrl,
+  const dataToSave: Omit<Expense, 'id'> = {
+    ...itemData,
+    status: 'active',
+    forNextMonth: itemData.forNextMonth || false,
+    receiptUrl: receiptUrl,
   };
-  
-  return runTransaction(db, async (transaction) => {
-    // 1. READ from the ledger if an ID is provided
-    let ledgerItemRef;
-    let ledgerItemSnap;
-    if (ledgerAccountId && !itemData.forNextMonth) { // Only debit for current month expenses
-      ledgerItemRef = doc(db, LEDGER_ITEMS_COLLECTION, ledgerAccountId);
-      ledgerItemSnap = await transaction.get(ledgerItemRef);
+
+  const newExpenseRef = await addDoc(collection(db, EXPENSE_COLLECTION), dataToSave);
+
+  if (ledgerAccountId && !itemData.forNextMonth) {
+    await runTransaction(db, async (transaction) => {
+      const ledgerItemRef = doc(db, LEDGER_ITEMS_COLLECTION, ledgerAccountId);
+      const ledgerItemSnap = await transaction.get(ledgerItemRef);
       if (!ledgerItemSnap.exists()) {
         throw new Error(`Ledger item with id ${ledgerAccountId} not found.`);
       }
-    }
-
-    // 2. All reads are done. Now perform WRITES.
-    const newExpenseRef = doc(collection(db, EXPENSE_COLLECTION));
-    transaction.set(newExpenseRef, dataWithStatus);
-
-    if (ledgerItemRef && ledgerItemSnap) {
       const ledgerItemData = ledgerItemSnap.data() as AccountLedgerItem;
       const newBalance = ledgerItemData.amount - (itemData.amount || 0);
       transaction.update(ledgerItemRef, { amount: newBalance });
-    }
+    });
+  }
 
-    // Return the new expense object without a final read
-    return { id: newExpenseRef.id, ...dataWithStatus } as Expense;
-  });
+  return { id: newExpenseRef.id, ...dataToSave };
 }
 
 
