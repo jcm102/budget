@@ -1,8 +1,6 @@
 
+'use client';
 
-'use server';
-
-import { db } from '@/lib/firebase';
 import type { MileageLog } from '@/types';
 import {
   collection,
@@ -14,11 +12,12 @@ import {
   addDoc,
   where,
   updateDoc,
+  Firestore,
 } from 'firebase/firestore';
 
 const EXPENSE_COLLECTION = 'expenses'; // We store mileage in the same collection
 
-export async function getMileageLogs(status: 'active' | 'archived', archiveKey?: string): Promise<MileageLog[]> {
+export async function getMileageLogs(db: Firestore, status: 'active' | 'archived', archiveKey?: string): Promise<MileageLog[]> {
   const expenseCollection = collection(db, EXPENSE_COLLECTION);
   let q;
 
@@ -33,7 +32,7 @@ export async function getMileageLogs(status: 'active' | 'archived', archiveKey?:
   return mileageLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
-export async function addMileageLog(itemData: Omit<MileageLog, 'id'>): Promise<MileageLog> {
+export async function addMileageLog(db: Firestore, itemData: Omit<MileageLog, 'id'>): Promise<MileageLog> {
   // New mileage logs are always active
   const dataWithStatus = { ...itemData, status: 'active', forNextMonth: itemData.forNextMonth || false };
   const docRef = await addDoc(collection(db, EXPENSE_COLLECTION), dataWithStatus);
@@ -41,12 +40,12 @@ export async function addMileageLog(itemData: Omit<MileageLog, 'id'>): Promise<M
   return { id: docSnap.id, ...docSnap.data() } as MileageLog;
 }
 
-export async function updateMileageLog(id: string, itemData: Partial<Omit<MileageLog, 'id'>>): Promise<void> {
+export async function updateMileageLog(db: Firestore, id: string, itemData: Partial<Omit<MileageLog, 'id'>>): Promise<void> {
   const itemRef = doc(db, EXPENSE_COLLECTION, id);
   await updateDoc(itemRef, itemData);
 }
 
-export async function deleteMileageLog(id: string): Promise<void> {
+export async function deleteMileageLog(db: Firestore, id: string): Promise<void> {
   const itemRef = doc(db, EXPENSE_COLLECTION, id);
   await deleteDoc(itemRef);
 }

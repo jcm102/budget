@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -30,6 +29,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
+import { useFirestore } from '@/firebase';
 
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
@@ -56,6 +56,7 @@ export default function ExpensesPage() {
         fetchData,
         cycleExpensesToNextMonth,
     } = useExpenses();
+    const db = useFirestore();
     
     const { toast } = useToast();
     const [archivedMonths, setArchivedMonths] = useState<string[]>([]);
@@ -64,24 +65,26 @@ export default function ExpensesPage() {
 
      useEffect(() => {
         const fetchMonths = async () => {
-            const months = await ExpenseService.getArchivedMonths();
+            const months = await ExpenseService.getArchivedMonths(db);
             setArchivedMonths(months);
             if (months.length > 0 && !selectedArchive) {
                 setSelectedArchive(months[0]);
             }
         };
-        fetchMonths();
-    }, []);
+        if (db) {
+            fetchMonths();
+        }
+    }, [db, selectedArchive]);
 
     useEffect(() => {
-        if (selectedArchive) {
+        if (selectedArchive && db) {
             const fetchArchiveData = async () => {
-                const data = await ExpenseService.getExpensesForMonth(selectedArchive);
+                const data = await ExpenseService.getExpensesForMonth(db, selectedArchive);
                 setArchivedData(data);
             };
             fetchArchiveData();
         }
-    }, [selectedArchive]);
+    }, [selectedArchive, db]);
 
     const handleAddExpense = (item: any, ledgerAccountId: any, receiptFile: any, callback: any) => {
         addExpense(item, ledgerAccountId, receiptFile, (success) => {

@@ -7,6 +7,8 @@ import { useToast } from '@/hooks/use-toast';
 import * as ExpenseService from '../services/expense-service';
 import * as MileageService from '../services/mileage-service';
 import { format } from 'date-fns';
+import { useFirestore } from '@/firebase';
+import { getStorage } from 'firebase/storage';
 
 export function useExpenses() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -14,14 +16,17 @@ export function useExpenses() {
   const [honorariums, setHonorariums] = useState<Honorarium[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const db = useFirestore();
+  const storage = getStorage();
 
   const fetchData = useCallback(async () => {
+    if (!db) return;
     try {
       setIsLoading(true);
       const [fetchedExpenses, fetchedMileage, fetchedHonorariums] = await Promise.all([
-        ExpenseService.getActiveMonetaryExpenses(),
-        MileageService.getMileageLogs('active'),
-        ExpenseService.getHonorariums('active'),
+        ExpenseService.getActiveMonetaryExpenses(db),
+        MileageService.getMileageLogs(db, 'active'),
+        ExpenseService.getHonorariums(db, 'active'),
       ]);
       setExpenses(fetchedExpenses);
       setMileageLogs(fetchedMileage);
@@ -36,7 +41,7 @@ export function useExpenses() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, db]);
 
   useEffect(() => {
     fetchData();
@@ -45,8 +50,8 @@ export function useExpenses() {
   const cycleExpensesToNextMonth = useCallback(async () => {
     try {
         const archiveKey = format(new Date(), 'yyyy-MM');
-        await ExpenseService.archiveCurrentExpenses(archiveKey);
-        await ExpenseService.cycleExpensesToNextMonth();
+        await ExpenseService.archiveCurrentExpenses(db, archiveKey);
+        await ExpenseService.cycleExpensesToNextMonth(db);
         await fetchData();
         toast({
             title: 'Success!',
@@ -60,11 +65,11 @@ export function useExpenses() {
             variant: 'destructive',
         });
     }
-  }, [fetchData, toast]);
+  }, [fetchData, toast, db]);
 
   const addExpense = useCallback(async (itemData: Omit<Expense, 'id'>, ledgerAccountId: string | undefined, receiptFile: UploadableFile | undefined | null, callback: (success: boolean) => void) => {
     try {
-      await ExpenseService.addExpense(itemData, ledgerAccountId, receiptFile);
+      await ExpenseService.addExpense(db, storage, itemData, ledgerAccountId, receiptFile);
       await fetchData(); 
       callback(true);
     } catch (error) {
@@ -76,11 +81,11 @@ export function useExpenses() {
       });
       callback(false);
     }
-  }, [toast, fetchData]);
+  }, [toast, fetchData, db, storage]);
 
   const updateExpense = useCallback(async (id: string, itemData: Partial<Omit<Expense, 'id' | 'originalId'>>) => {
     try {
-      await ExpenseService.updateExpense(id, itemData);
+      await ExpenseService.updateExpense(db, id, itemData);
       await fetchData();
     } catch (error) {
       console.error('Failed to update expense:', error);
@@ -90,11 +95,11 @@ export function useExpenses() {
         variant: 'destructive',
       });
     }
-  }, [toast, fetchData]);
+  }, [toast, fetchData, db]);
 
   const deleteExpense = useCallback(async (id: string) => {
     try {
-      await ExpenseService.deleteExpense(id);
+      await ExpenseService.deleteExpense(db, id);
       await fetchData();
     } catch (error) {
       console.error('Failed to delete expense:', error);
@@ -104,11 +109,11 @@ export function useExpenses() {
         variant: 'destructive',
       });
     }
-  }, [toast, fetchData]);
+  }, [toast, fetchData, db]);
 
   const toggleExpenseCompleted = useCallback(async (id: string, completed: boolean) => {
     try {
-      await ExpenseService.updateExpense(id, { completed: !completed });
+      await ExpenseService.updateExpense(db, id, { completed: !completed });
       await fetchData(); // Refetch to ensure UI is in sync with backend
     } catch (error) {
       console.error('Failed to toggle expense:', error);
@@ -118,12 +123,12 @@ export function useExpenses() {
         variant: 'destructive',
       });
     }
-  }, [fetchData, toast]);
+  }, [fetchData, toast, db]);
 
   // Mileage functions
   const addMileage = useCallback(async (itemData: Omit<MileageLog, 'id'>) => {
     try {
-      await MileageService.addMileageLog(itemData);
+      await MileageService.addMileageLog(db, itemData);
       await fetchData();
     } catch (error) {
       console.error('Failed to add mileage log:', error);
@@ -133,11 +138,11 @@ export function useExpenses() {
         variant: 'destructive',
       });
     }
-  }, [toast, fetchData]);
+  }, [toast, fetchData, db]);
 
   const updateMileage = useCallback(async (id: string, itemData: Partial<Omit<MileageLog, 'id'>>) => {
     try {
-      await MileageService.updateMileageLog(id, itemData);
+      await MileageService.updateMileageLog(db, id, itemData);
        await fetchData();
     } catch (error) {
       console.error('Failed to update mileage log:', error);
@@ -147,11 +152,11 @@ export function useExpenses() {
         variant: 'destructive',
       });
     }
-  }, [toast, fetchData]);
+  }, [toast, fetchData, db]);
 
   const deleteMileage = useCallback(async (id: string) => {
     try {
-      await MileageService.deleteMileageLog(id);
+      await MileageService.deleteMileageLog(db, id);
        await fetchData();
     } catch (error) {
       console.error('Failed to delete mileage log:', error);
@@ -161,12 +166,12 @@ export function useExpenses() {
         variant: 'destructive',
       });
     }
-  }, [toast, fetchData]);
+  }, [toast, fetchData, db]);
 
   // Honorarium functions
   const addHonorarium = useCallback(async (itemData: Omit<Honorarium, 'id'>) => {
     try {
-      await ExpenseService.addHonorarium(itemData);
+      await ExpenseService.addHonorarium(db, itemData);
       await fetchData();
     } catch (error) {
       console.error('Failed to add honorarium:', error);
@@ -177,11 +182,11 @@ export function useExpenses() {
       });
       throw error;
     }
-  }, [toast, fetchData]);
+  }, [toast, fetchData, db]);
 
   const updateHonorarium = useCallback(async (id: string, itemData: Partial<Omit<Honorarium, 'id'>>) => {
     try {
-      await ExpenseService.updateHonorarium(id, itemData);
+      await ExpenseService.updateHonorarium(db, id, itemData);
       await fetchData();
     } catch (error) {
       console.error('Failed to update honorarium:', error);
@@ -191,11 +196,11 @@ export function useExpenses() {
         variant: 'destructive',
       });
     }
-  }, [toast, fetchData]);
+  }, [toast, fetchData, db]);
 
   const deleteHonorarium = useCallback(async (id: string) => {
     try {
-      await ExpenseService.deleteHonorarium(id);
+      await ExpenseService.deleteHonorarium(db, id);
       await fetchData();
     } catch (error) {
       console.error('Failed to delete honorarium:', error);
@@ -206,7 +211,7 @@ export function useExpenses() {
       });
       throw error;
     }
-  }, [toast, fetchData]);
+  }, [toast, fetchData, db]);
 
   return { 
     expenses, 

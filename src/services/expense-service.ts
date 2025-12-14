@@ -1,8 +1,7 @@
 
 'use client';
 
-import { db, storage } from '@/lib/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { Expense, MileageLog, Honorarium, AccountLedgerItem, UploadableFile } from '@/types';
 import {
   collection,
@@ -17,6 +16,7 @@ import {
   writeBatch,
   orderBy,
   runTransaction,
+  Firestore
 } from 'firebase/firestore';
 import { createAutomatedBackup } from '@/services/backup-service';
 
@@ -36,7 +36,7 @@ function dataURItoBlob(dataURI: string) {
 }
 
 
-export async function getActiveMonetaryExpenses(): Promise<Expense[]> {
+export async function getActiveMonetaryExpenses(db: Firestore): Promise<Expense[]> {
   const q = query(
     collection(db, EXPENSE_COLLECTION),
     where('type', '==', 'Monetary'),
@@ -46,7 +46,7 @@ export async function getActiveMonetaryExpenses(): Promise<Expense[]> {
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense));
 }
 
-export async function getHonorariums(status: 'active' | 'archived', archiveKey?: string): Promise<Honorarium[]> {
+export async function getHonorariums(db: Firestore, status: 'active' | 'archived', archiveKey?: string): Promise<Honorarium[]> {
   const expenseCollection = collection(db, EXPENSE_COLLECTION);
   let q;
   if (status === 'active') {
@@ -59,7 +59,7 @@ export async function getHonorariums(status: 'active' | 'archived', archiveKey?:
   return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
-export async function addExpense(itemData: Omit<Expense, 'id'>, ledgerAccountId?: string, receiptFile?: UploadableFile | null): Promise<Expense> {
+export async function addExpense(db: Firestore, storage: any, itemData: Omit<Expense, 'id'>, ledgerAccountId?: string, receiptFile?: UploadableFile | null): Promise<Expense> {
   let receiptUrl: string | null = null;
   
   if (receiptFile?.data) {
@@ -95,7 +95,7 @@ export async function addExpense(itemData: Omit<Expense, 'id'>, ledgerAccountId?
 }
 
 
-export async function addHonorarium(itemData: Omit<Honorarium, 'id'>): Promise<Honorarium> {
+export async function addHonorarium(db: Firestore, itemData: Omit<Honorarium, 'id'>): Promise<Honorarium> {
     const dataWithStatus = { ...itemData, status: 'active' };
 
     return runTransaction(db, async (transaction) => {
@@ -132,7 +132,7 @@ export async function addHonorarium(itemData: Omit<Honorarium, 'id'>): Promise<H
     });
 }
 
-export async function updateExpense(id: string, itemData: Partial<Omit<Expense, 'id' | 'originalId'>>): Promise<void> {
+export async function updateExpense(db: Firestore, id: string, itemData: Partial<Omit<Expense, 'id' | 'originalId'>>): Promise<void> {
     const itemRef = doc(db, EXPENSE_COLLECTION, id);
     const docSnap = await getDoc(itemRef);
     if (docSnap.exists()) {
@@ -142,19 +142,19 @@ export async function updateExpense(id: string, itemData: Partial<Omit<Expense, 
     }
 }
 
-export async function deleteExpense(id: string): Promise<void> {
+export async function deleteExpense(db: Firestore, id: string): Promise<void> {
     const itemRef = doc(db, EXPENSE_COLLECTION, id);
     await deleteDoc(itemRef);
 }
 
-export async function updateHonorarium(id: string, itemData: Partial<Omit<Honorarium, 'id'>>): Promise<void> {
+export async function updateHonorarium(db: Firestore, id: string, itemData: Partial<Omit<Honorarium, 'id'>>): Promise<void> {
     // This function will need to handle amount changes carefully if it's ever used
     // to prevent desyncing the ledger. For now, it's just for non-amount fields.
     const itemRef = doc(db, EXPENSE_COLLECTION, id);
     await updateDoc(itemRef, itemData);
 }
 
-export async function deleteHonorarium(id: string): Promise<void> {
+export async function deleteHonorarium(db: Firestore, id: string): Promise<void> {
     const itemRef = doc(db, EXPENSE_COLLECTION, id);
     
     await runTransaction(db, async (transaction) => {
@@ -185,7 +185,7 @@ export async function deleteHonorarium(id: string): Promise<void> {
 }
 
 // New functions for archiving
-export async function getArchivedMonths(): Promise<string[]> {
+export async function getArchivedMonths(db: Firestore): Promise<string[]> {
   const q = query(collection(db, EXPENSE_COLLECTION), where('status', '==', 'archived'));
   const querySnapshot = await getDocs(q);
   const archiveKeys = new Set<string>();
@@ -198,7 +198,7 @@ export async function getArchivedMonths(): Promise<string[]> {
   return Array.from(archiveKeys).sort().reverse();
 }
 
-export async function getExpensesForMonth(archiveKey: string): Promise<{ expenses: Expense[], mileageLogs: MileageLog[], honorariums: Honorarium[] }> {
+export async function getExpensesForMonth(db: Firestore, archiveKey: string): Promise<{ expenses: Expense[], mileageLogs: MileageLog[], honorariums: Honorarium[] }> {
   const expenseQuery = query(collection(db, EXPENSE_COLLECTION), where('type', '==', 'Monetary'), where('status', '==', 'archived'), where('archiveKey', '==', archiveKey));
   const honorariumQuery = query(collection(db, EXPENSE_COLLECTION), where('type', '==', 'Honorarium'), where('status', '==', 'archived'), where('archiveKey', '==', archiveKey));
   const mileageQuery = query(collection(db, EXPENSE_COLLECTION), where('type', '==', 'Mileage'), where('status', '==', 'archived'), where('archiveKey', '==', archiveKey));
@@ -217,7 +217,7 @@ export async function getExpensesForMonth(archiveKey: string): Promise<{ expense
   return { expenses, mileageLogs, honorariums };
 }
 
-export async function archiveCurrentExpenses(archiveKey: string): Promise<void> {
+export async function archiveCurrentExpenses(db: Firestore, archiveKey: string): Promise<void> {
   const batch = writeBatch(db);
   
   const activeQuery = query(collection(db, EXPENSE_COLLECTION), where('status', '==', 'active'), where('forNextMonth', '==', false));
@@ -233,9 +233,9 @@ export async function archiveCurrentExpenses(archiveKey: string): Promise<void> 
 }
 
 
-export async function cycleExpensesToNextMonth(): Promise<void> {
+export async function cycleExpensesToNextMonth(db: Firestore): Promise<void> {
     await createAutomatedBackup('pre-expense-cycle');
-    await archiveCurrentExpenses(new Date().toISOString().slice(0, 7));
+    await archiveCurrentExpenses(db, new Date().toISOString().slice(0, 7));
     
     const batch = writeBatch(db);
     const q = query(collection(db, EXPENSE_COLLECTION), where('forNextMonth', '==', true));
