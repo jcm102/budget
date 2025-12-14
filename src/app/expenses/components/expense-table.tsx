@@ -5,7 +5,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { format, parse } from 'date-fns';
 import { Pencil, Trash2, PlusCircle, Repeat, Paperclip } from 'lucide-react';
-import type { Expense, MileageLog, Honorarium } from '@/types';
+import type { Expense, MileageLog, Honorarium, UploadableFile } from '@/types';
 import {
   Table,
   TableBody,
@@ -36,7 +36,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 
 type ExpenseTableProps = {
   expenses: Expense[];
-  addExpense: (item: Omit<Expense, 'id'>, ledgerAccountId: string | undefined, receiptFile: File | null | undefined, callback: (success: boolean) => void) => void;
+  addExpense: (item: Omit<Expense, 'id'>, ledgerAccountId: string | undefined, receiptFile: UploadableFile | null | undefined, callback: (success: boolean) => void) => void;
   updateExpense: (id: string, item: Partial<Omit<Expense, 'id'>>) => void;
   deleteExpense: (id: string) => void;
   toggleExpenseCompleted: (id: string, completed: boolean) => void;
