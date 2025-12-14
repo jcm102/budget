@@ -1,8 +1,8 @@
 
 'use client';
 
-import { db } from '@/lib/firebase';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { Expense, MileageLog, Honorarium, AccountLedgerItem, UploadableFile } from '@/types';
 import {
   collection,
@@ -23,7 +23,7 @@ import { createAutomatedBackup } from '@/services/backup-service';
 const EXPENSE_COLLECTION = 'expenses';
 const LEDGER_ITEMS_COLLECTION = 'account-ledger-items';
 
-// Helper function to convert data URI to Blob
+// Helper function to convert data URI to Blob - stays on the client
 function dataURItoBlob(dataURI: string) {
     const byteString = atob(dataURI.split(',')[1]);
     const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
@@ -62,14 +62,11 @@ export async function getHonorariums(status: 'active' | 'archived', archiveKey?:
 export async function addExpense(itemData: Omit<Expense, 'id'>, ledgerAccountId?: string, receiptFile?: UploadableFile | null): Promise<Expense> {
   let receiptUrl: string | null = null;
   
-  if (receiptFile) {
-    const storage = getStorage();
-    const receiptRef = ref(storage, `receipts/${new Date().toISOString()}_${receiptFile.name}`);
-    
+  if (receiptFile?.data) {
+    const storageRef = ref(storage, `receipts/${new Date().toISOString()}_${receiptFile.name}`);
     const blob = dataURItoBlob(receiptFile.data);
-    
-    await uploadBytes(receiptRef, blob, { contentType: receiptFile.type });
-    receiptUrl = await getDownloadURL(receiptRef);
+    await uploadBytes(storageRef, blob, { contentType: receiptFile.type });
+    receiptUrl = await getDownloadURL(storageRef);
   }
 
   const dataToSave: Omit<Expense, 'id'> = {
