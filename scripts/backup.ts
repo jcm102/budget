@@ -1,7 +1,7 @@
 // To run this script, use: npx tsx ./scripts/backup.ts
 
 import * as fs from 'fs';
-import { db } from '../src/lib/firebase';
+import { db } from '../src/lib/firebase-admin'; // Use the admin instance
 import { collection, getDocs } from 'firebase/firestore';
 
 const collectionsToBackup = [
