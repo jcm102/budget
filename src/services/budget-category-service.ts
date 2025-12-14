@@ -1,6 +1,5 @@
 
-
-'use server';
+'use client';
 
 import { db } from '@/lib/firebase';
 import type { Category } from '@/types';

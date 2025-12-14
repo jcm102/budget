@@ -1,6 +1,5 @@
 
-
-'use server';
+'use client';
 
 import { db } from '@/lib/firebase';
 import type { AutoShipItem, AutoShipFrequency, MonthlyBudgetItem } from '@/types';
@@ -17,7 +16,7 @@ import {
   where,
   runTransaction,
 } from 'firebase/firestore';
-import { addMonths } from 'date-fns';
+import { addMonths, format } from 'date-fns';
 
 const AUTOSHIP_COLLECTION = 'autoship-items';
 const MONTHLY_BUDGET_ITEMS_COLLECTION = 'monthly-budget-items';
@@ -195,9 +194,10 @@ export async function deleteAutoShipItem(id: string): Promise<void> {
                 where('categoryId', '==', itemToDelete.budgetCategoryId)
             );
         }
+        
         const oldBudgetItemsSnapshot = oldBudgetItemsQuery ? await getDocs(oldBudgetItemsQuery) : null;
         // --- End READS ---
-
+        
         // --- Start WRITES ---
         transaction.delete(itemRef);
 
