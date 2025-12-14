@@ -47,8 +47,7 @@ export async function getHonorariums(status: 'active' | 'archived', archiveKey?:
   return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
-
-export async function addExpense(itemData: Omit<Expense, 'id'>, ledgerAccountId?: string, receiptFile?: File): Promise<Expense> {
+export async function addExpense(itemData: Omit<Expense, 'id'>, ledgerAccountId?: string, receiptFile?: File | null): Promise<Expense> {
   let receiptUrl: string | null = null;
   
   if (receiptFile) {
@@ -58,16 +57,15 @@ export async function addExpense(itemData: Omit<Expense, 'id'>, ledgerAccountId?
     receiptUrl = await getDownloadURL(receiptRef);
   }
 
-  const dataWithStatus = { 
-      ...itemData, 
-      status: 'active', 
-      forNextMonth: itemData.forNextMonth || false,
-      receiptUrl: receiptUrl,
+  const dataToSave: Omit<Expense, 'id'> = {
+    ...itemData,
+    status: 'active',
+    forNextMonth: itemData.forNextMonth || false,
+    receiptUrl: receiptUrl,
   };
 
-  const newExpenseRef = await addDoc(collection(db, EXPENSE_COLLECTION), dataWithStatus);
+  const newExpenseRef = await addDoc(collection(db, EXPENSE_COLLECTION), dataToSave);
 
-  // If a ledger account is specified for a current month expense, perform the balance update.
   if (ledgerAccountId && !itemData.forNextMonth) {
     await runTransaction(db, async (transaction) => {
       const ledgerItemRef = doc(db, LEDGER_ITEMS_COLLECTION, ledgerAccountId);
@@ -81,7 +79,7 @@ export async function addExpense(itemData: Omit<Expense, 'id'>, ledgerAccountId?
     });
   }
 
-  return { id: newExpenseRef.id, ...dataWithStatus };
+  return { id: newExpenseRef.id, ...dataToSave };
 }
 
 

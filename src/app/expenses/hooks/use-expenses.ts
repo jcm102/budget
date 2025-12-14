@@ -62,7 +62,7 @@ export function useExpenses() {
     }
   }, [fetchData, toast]);
 
-  const addExpense = useCallback(async (itemData: Omit<Expense, 'id'>, ledgerAccountId: string | undefined, receiptFile: File | undefined, callback: (success: boolean) => void) => {
+  const addExpense = useCallback(async (itemData: Omit<Expense, 'id'>, ledgerAccountId: string | undefined, receiptFile: File | undefined | null, callback: (success: boolean) => void) => {
     try {
       await ExpenseService.addExpense(itemData, ledgerAccountId, receiptFile);
       await fetchData(); 
