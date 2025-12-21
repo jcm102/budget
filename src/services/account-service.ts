@@ -1,5 +1,5 @@
 
-'use client';
+'use server';
 
 import { db } from '@/lib/firebase-admin';
 import type { Account, SavingsItem, Goal, AccountLedgerItem } from '@/types';

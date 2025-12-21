@@ -1,8 +1,22 @@
 
 'use client';
 
-import { Firestore, collection, getDocs, doc, deleteDoc, query, orderBy, addDoc, writeBatch, getDoc, limit, where } from 'firebase/firestore';
+import { db } from '@/lib/firebase-admin';
 import type { Category } from '@/types';
+import {
+  collection,
+  getDocs,
+  doc,
+  deleteDoc,
+  query,
+  orderBy,
+  addDoc,
+  writeBatch,
+  getDoc,
+  limit,
+  where,
+  Firestore,
+} from 'firebase/firestore';
 
 const CATEGORY_COLLECTION = 'income-categories';
 const defaultCategories = ['DSW', 'Government Benefits', 'Honoraria', 'Mileage', 'Paycheque'];
@@ -27,7 +41,7 @@ async function seedDefaultCategories(db: Firestore) {
   }
 }
 
-export async function getCategories(db: Firestore): Promise<Category[]> {
+export async function getCategories(): Promise<Category[]> {
   await seedDefaultCategories(db);
   const categoryCollection = collection(db, CATEGORY_COLLECTION);
   const q = query(categoryCollection, orderBy('name'));
@@ -35,7 +49,7 @@ export async function getCategories(db: Firestore): Promise<Category[]> {
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
 }
 
-export async function addCategory(db: Firestore, name: string): Promise<Category> {
+export async function addCategory(name: string): Promise<Category> {
   const categoryCollection = collection(db, CATEGORY_COLLECTION);
   const docRef = await addDoc(categoryCollection, { name });
   const docSnap = await getDoc(docRef);
@@ -43,7 +57,7 @@ export async function addCategory(db: Firestore, name: string): Promise<Category
   return newCategory;
 }
 
-export async function deleteCategory(db: Firestore, id: string): Promise<void> {
+export async function deleteCategory(id: string): Promise<void> {
   const categoryRef = doc(db, CATEGORY_COLLECTION, id);
   await deleteDoc(categoryRef);
 }

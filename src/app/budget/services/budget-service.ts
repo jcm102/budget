@@ -1,7 +1,7 @@
 
 'use server';
 
-import { db } from '@/lib/firebase';
+import { db } from '@/lib/firebase-admin';
 import type { BudgetItem, Debt, AccountDetails, MonthlyBudgetItem, BudgetItemType } from '@/types';
 import {
   collection,

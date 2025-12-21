@@ -1,6 +1,5 @@
 
-
-'use client';
+'use server';
 
 import { db } from '@/lib/firebase-admin';
 import type { AutoShipItem, AutoShipFrequency, MonthlyBudgetItem } from '@/types';

@@ -1,12 +1,13 @@
 
 'use server';
 
-import { Firestore, collection, getDocs, doc, setDoc, deleteDoc, query, getDoc, addDoc, updateDoc, writeBatch } from 'firebase/firestore';
+import { db } from '@/lib/firebase-admin';
 import type { Task, Subtask } from '@/types';
+import { Firestore, collection, getDocs, doc, setDoc, deleteDoc, query, getDoc, addDoc, updateDoc, writeBatch } from 'firebase/firestore';
 
 const TASKS_COLLECTION = 'tasks';
 
-export async function getTasks(db: Firestore): Promise<Task[]> {
+export async function getTasks(): Promise<Task[]> {
   const tasksCollection = collection(db, TASKS_COLLECTION);
   const q = query(tasksCollection);
   const querySnapshot = await getDocs(q);
@@ -14,7 +15,6 @@ export async function getTasks(db: Firestore): Promise<Task[]> {
 }
 
 export async function addTask(
-  db: Firestore,
   taskData: Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks' | 'order'>,
   order: number
 ): Promise<Task> {
@@ -30,12 +30,12 @@ export async function addTask(
   return { id: docSnap.id, ...(docSnap.data() as Omit<Task, 'id'>) };
 }
 
-export async function updateTask(db: Firestore, id: string, taskData: Partial<Omit<Task, 'id' | 'subtasks'>>): Promise<void> {
+export async function updateTask(id: string, taskData: Partial<Omit<Task, 'id' | 'subtasks'>>): Promise<void> {
   const taskRef = doc(db, TASKS_COLLECTION, id);
   await updateDoc(taskRef, taskData);
 }
 
-export async function updateTaskOrder(db: Firestore, reorderedTasks: Task[]): Promise<void> {
+export async function updateTaskOrder(reorderedTasks: Task[]): Promise<void> {
     const batch = writeBatch(db);
     reorderedTasks.forEach((task, index) => {
         const taskRef = doc(db, TASKS_COLLECTION, task.id);
@@ -45,12 +45,12 @@ export async function updateTaskOrder(db: Firestore, reorderedTasks: Task[]): Pr
 }
 
 
-export async function deleteTask(db: Firestore, id: string): Promise<void> {
+export async function deleteTask(id: string): Promise<void> {
   const taskRef = doc(db, TASKS_COLLECTION, id);
   await deleteDoc(taskRef);
 }
 
-export async function addSubtask(db: Firestore, taskId: string, data: Omit<Subtask, 'id' | 'completed' | 'order'>): Promise<void> {
+export async function addSubtask(taskId: string, data: Omit<Subtask, 'id' | 'completed' | 'order'>): Promise<void> {
     const taskRef = doc(db, TASKS_COLLECTION, taskId);
     const taskSnap = await getDoc(taskRef);
     if (taskSnap.exists()) {
@@ -70,7 +70,7 @@ export async function addSubtask(db: Firestore, taskId: string, data: Omit<Subta
     }
 }
 
-export async function updateSubtask(db: Firestore, taskId: string, subtaskId: string, data: Partial<Omit<Subtask, 'id' | 'completed' | 'order'>>): Promise<void> {
+export async function updateSubtask(taskId: string, subtaskId: string, data: Partial<Omit<Subtask, 'id' | 'completed' | 'order'>>): Promise<void> {
     const taskRef = doc(db, TASKS_COLLECTION, taskId);
     const taskSnap = await getDoc(taskRef);
     if (taskSnap.exists()) {
@@ -82,14 +82,14 @@ export async function updateSubtask(db: Firestore, taskId: string, subtaskId: st
     }
 }
 
-export async function updateSubtaskOrder(db: Firestore, taskId: string, reorderedSubtasks: Subtask[]): Promise<void> {
+export async function updateSubtaskOrder(taskId: string, reorderedSubtasks: Subtask[]): Promise<void> {
     const taskRef = doc(db, TASKS_COLLECTION, taskId);
     const updatedSubtasks = reorderedSubtasks.map((subtask, index) => ({...subtask, order: index }));
     await updateDoc(taskRef, { subtasks: updatedSubtasks });
 }
 
 
-export async function toggleSubtask(db: Firestore, taskId: string, subtaskId: string): Promise<void> {
+export async function toggleSubtask(taskId: string, subtaskId: string): Promise<void> {
     const taskRef = doc(db, TASKS_COLLECTION, taskId);
     const taskSnap = await getDoc(taskRef);
     if (taskSnap.exists()) {
@@ -106,7 +106,7 @@ export async function toggleSubtask(db: Firestore, taskId: string, subtaskId: st
     }
 }
 
-export async function deleteSubtask(db: Firestore, taskId: string, subtaskId: string): Promise<void> {
+export async function deleteSubtask(taskId: string, subtaskId: string): Promise<void> {
     const taskRef = doc(db, TASKS_COLLECTION, taskId);
     const taskSnap = await getDoc(taskRef);
     if (taskSnap.exists()) {
