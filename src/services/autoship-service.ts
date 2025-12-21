@@ -1,7 +1,8 @@
 
+
 'use client';
 
-import { db } from '@/lib/firebase';
+import { db } from '@/lib/firebase-admin';
 import type { AutoShipItem, AutoShipFrequency, MonthlyBudgetItem } from '@/types';
 import {
   collection,
@@ -39,43 +40,43 @@ async function updateMonthlyBudget(
     transaction: FirebaseFirestore.Transaction,
     budgetItemsSnapshot: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData> | null,
     oldBudgetItemsSnapshot: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData> | null,
-    autoShipItem: AutoShipItem,
-    oldAutoShipData?: AutoShipItem
+    subscription: AutoShipItem,
+    oldSubscriptionData?: AutoShipItem
 ) {
     const currentMonth = new Date().toISOString().slice(0, 7);
-    const newMonthlyCost = getMonthlyCost(autoShipItem);
+    const newMonthlyCost = getMonthlyCost(subscription);
     
     // Handle removal from the old category first
-    if (oldBudgetItemsSnapshot && !oldBudgetItemsSnapshot.empty && oldAutoShipData) {
+    if (oldBudgetItemsSnapshot && !oldBudgetItemsSnapshot.empty && oldSubscriptionData) {
         const oldBudgetDoc = oldBudgetItemsSnapshot.docs[0];
         const oldBudgetData = oldBudgetDoc.data() as MonthlyBudgetItem;
         // Filter out the old item from the breakdown
-        const newBreakdown = oldBudgetData.breakdown?.filter(b => b.name !== oldAutoShipData.item) || [];
+        const newBreakdown = oldBudgetData.breakdown?.filter(b => b.name !== oldSubscriptionData.item) || [];
         const newBudgeted = newBreakdown.reduce((sum, item) => sum + item.amount, 0);
         transaction.update(oldBudgetDoc.ref, { breakdown: newBreakdown, budgeted: newBudgeted });
     }
 
     // Handle adding to the new category
-    if (autoShipItem.budgetCategoryId && budgetItemsSnapshot) {
+    if (subscription.budgetCategoryId && budgetItemsSnapshot) {
          if (budgetItemsSnapshot.empty) {
             // Category has no budget item for this month yet, create a new one.
             const newBudgetItemRef = doc(collection(db, MONTHLY_BUDGET_ITEMS_COLLECTION));
             transaction.set(newBudgetItemRef, {
-                categoryId: autoShipItem.budgetCategoryId,
+                categoryId: subscription.budgetCategoryId,
                 month: currentMonth,
                 budgeted: newMonthlyCost,
-                breakdown: [{ name: autoShipItem.item, amount: newMonthlyCost }],
+                breakdown: [{ name: subscription.item, amount: newMonthlyCost }],
             });
         } else {
             // Category already has a budget item, update its breakdown and total.
             const budgetDoc = budgetItemsSnapshot.docs[0];
             const budgetData = budgetDoc.data() as MonthlyBudgetItem;
             
-            const nameToFilter = oldAutoShipData ? oldAutoShipData.item : autoShipItem.item;
+            const nameToFilter = oldSubscriptionData ? oldSubscriptionData.item : subscription.item;
 
             const existingBreakdown = budgetData.breakdown?.filter(b => b.name !== nameToFilter) || [];
              
-            const newBreakdown = [...existingBreakdown, { name: autoShipItem.item, amount: newMonthlyCost }];
+            const newBreakdown = [...existingBreakdown, { name: subscription.item, amount: newMonthlyCost }];
             
             const newBudgeted = newBreakdown.reduce((sum, item) => sum + item.amount, 0);
             

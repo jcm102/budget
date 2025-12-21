@@ -1,7 +1,8 @@
 
+
 'use server';
 
-import { db } from '@/lib/firebase';
+import { db } from '@/lib/firebase-admin';
 import type { Goal } from '@/types';
 import {
   collection,

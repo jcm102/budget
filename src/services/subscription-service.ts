@@ -2,7 +2,7 @@
 
 'use server';
 
-import { db } from '@/lib/firebase';
+import { db } from '@/lib/firebase-admin';
 import type { SubscriptionItem, MonthlyBudgetItem } from '@/types';
 import {
   collection,

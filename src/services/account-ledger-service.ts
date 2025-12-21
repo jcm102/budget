@@ -1,7 +1,7 @@
 
 'use client';
 
-import { db } from '@/lib/firebase';
+import { db } from '@/lib/firebase-admin';
 import type { AccountLedgerItem } from '@/types';
 import {
   collection,
