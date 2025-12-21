@@ -2,11 +2,11 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { SavingsItem, SubscriptionItem, AutoShipItem } from '@/types';
+import type { SavingsItem } from '@/types';
 import { useToast } from './use-toast';
 import * as SavingsService from '@/services/savings-service';
 import { useSelectedAccount } from './use-selected-account';
-import { useUser } from '@/firebase';
+import { useUser, useFirestore } from '@/firebase';
 
 
 export function useSavings() {
@@ -15,9 +15,10 @@ export function useSavings() {
   const { toast } = useToast();
   const { selectedAccountId } = useSelectedAccount();
   const { user } = useUser();
+  const db = useFirestore();
 
   const fetchAllData = useCallback(async (accountId: string | null) => {
-    if (!accountId) {
+    if (!db || !accountId) {
       setSavingsItems([]);
       setIsLoading(false);
       return;
@@ -25,7 +26,7 @@ export function useSavings() {
     try {
       setIsLoading(true);
       // Fetch all data from the service, which now includes the calculated monthlyAmount
-      const fetchedItems = await SavingsService.getSavingsItems(accountId);
+      const fetchedItems = await SavingsService.getSavingsItems(db, accountId);
       setSavingsItems(fetchedItems);
     } catch (error) {
       console.error('Failed to load savings-related data:', error);
@@ -37,16 +38,17 @@ export function useSavings() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, db]);
 
   useEffect(() => {
     fetchAllData(selectedAccountId);
   }, [selectedAccountId, fetchAllData]);
 
   const addSavingsItem = useCallback(async (itemData: Omit<SavingsItem, 'id' | 'monthlyAmount'>) => {
+    if (!db) return;
     try {
       // The service now returns the new item with the monthlyAmount calculated
-      const newItem = await SavingsService.addSavingsItem(itemData);
+      const newItem = await SavingsService.addSavingsItem(db, itemData);
       setSavingsItems(prev => [...prev, newItem].sort((a, b) => a.name.localeCompare(b.name)));
     } catch (error) {
       console.error('Failed to add savings item:', error);
@@ -56,11 +58,12 @@ export function useSavings() {
         variant: 'destructive',
       });
     }
-  }, [toast]);
+  }, [toast, db]);
 
   const updateSavingsItem = useCallback(async (id: string, itemData: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>) => {
+    if (!db) return;
     try {
-      await SavingsService.updateSavingsItem(id, itemData);
+      await SavingsService.updateSavingsItem(db, id, itemData);
       // After any update, refetch everything to get recalculated values
       await fetchAllData(selectedAccountId);
     } catch (error) {
@@ -72,11 +75,12 @@ export function useSavings() {
         variant: 'destructive',
       });
     }
-  }, [toast, selectedAccountId, fetchAllData]);
+  }, [toast, selectedAccountId, fetchAllData, db]);
 
   const fundSinkingFund = useCallback(async (fundId: string, amount: number, userId: string) => {
+    if (!db) return;
     try {
-      await SavingsService.fundSinkingFund(fundId, amount, userId);
+      await SavingsService.fundSinkingFund(db, fundId, amount, userId);
       // Refetch data to update the UI
       await fetchAllData(selectedAccountId);
     } catch (error) {
@@ -84,24 +88,48 @@ export function useSavings() {
       // The service will throw, so we can re-throw to be caught in the component
       throw error;
     }
-  }, [selectedAccountId, fetchAllData]);
+  }, [selectedAccountId, fetchAllData, db]);
   
   const withdrawFromSinkingFund = useCallback(async (fundId: string, amount: number, userId: string) => {
+    if (!db) return;
     try {
-      await SavingsService.withdrawFromSinkingFund(fundId, amount, userId);
+      await SavingsService.withdrawFromSinkingFund(db, fundId, amount, userId);
       await fetchAllData(selectedAccountId);
     } catch (error) {
       console.error('Failed to withdraw from sinking fund:', error);
       throw error;
     }
-  }, [selectedAccountId, fetchAllData]);
+  }, [selectedAccountId, fetchAllData, db]);
+
+  const resetSinkingFund = useCallback(async (fundId: string, userId: string) => {
+    if (!db) return;
+    try {
+        await SavingsService.resetSinkingFund(db, fundId, userId);
+        await fetchAllData(selectedAccountId);
+    } catch (error) {
+        console.error('Failed to reset sinking fund:', error);
+        throw error;
+    }
+  }, [selectedAccountId, fetchAllData, db]);
+  
+  const transferSinkingFund = useCallback(async (fromFundId: string, toFundId: string, amount: number, userId: string) => {
+      if (!db) return;
+      try {
+        await SavingsService.transferSinkingFund(db, fromFundId, toFundId, amount, userId);
+        await fetchAllData(selectedAccountId);
+      } catch (error) {
+        console.error('Failed to transfer sinking funds:', error);
+        throw error;
+      }
+  }, [selectedAccountId, fetchAllData, db]);
 
 
   const deleteSavingsItem = useCallback(async (id: string) => {
+    if (!db) return;
     const originalItems = savingsItems;
     setSavingsItems(prev => prev.filter(item => item.id !== id));
     try {
-      await SavingsService.deleteSavingsItem(id);
+      await SavingsService.deleteSavingsItem(db, id);
     } catch (error) {
       console.error('Failed to delete savings item:', error);
       setSavingsItems(originalItems);
@@ -111,7 +139,7 @@ export function useSavings() {
         variant: 'destructive',
       });
     }
-  }, [savingsItems, toast]);
+  }, [savingsItems, toast, db]);
 
   return { 
     savingsItems, 
@@ -120,7 +148,9 @@ export function useSavings() {
     updateSavingsItem, 
     deleteSavingsItem,
     fundSinkingFund,
-    withdrawFromSinkingFund, 
+    withdrawFromSinkingFund,
+    resetSinkingFund,
+    transferSinkingFund,
     fetchSavingsItems: () => fetchAllData(selectedAccountId)
   };
 }

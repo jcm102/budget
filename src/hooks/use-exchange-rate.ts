@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -14,7 +13,10 @@ export function useExchangeRate() {
   const db = useFirestore();
 
   const fetchRate = useCallback(async () => {
-    if (!db) return;
+    if (!db) {
+        setIsLoading(false);
+        return;
+    };
     try {
       setIsLoading(true);
       const rate = await SettingsService.getExchangeRate(db);
@@ -56,5 +58,3 @@ export function useExchangeRate() {
 
   return { exchangeRate, updateExchangeRate, isLoading };
 }
-
-    
