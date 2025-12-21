@@ -1,24 +1,8 @@
 
 'use server';
 
-import { db } from '@/lib/firebase-admin';
+import { Firestore, collection, getDocs, doc, setDoc, deleteDoc, query, getDoc, addDoc, where, writeBatch, updateDoc, orderBy, runTransaction, limit } from 'firebase/firestore';
 import type { BudgetItem, Debt, AccountDetails, MonthlyBudgetItem, BudgetItemType } from '@/types';
-import {
-  collection,
-  getDocs,
-  doc,
-  setDoc,
-  deleteDoc,
-  query,
-  getDoc,
-  addDoc,
-  where,
-  writeBatch,
-  updateDoc,
-  orderBy,
-  runTransaction,
-  limit,
-} from 'firebase/firestore';
 import { isSameMonth, startOfMonth, addWeeks, isBefore, lastDayOfMonth, addMonths, startOfDay, format, endOfMonth } from 'date-fns';
 import { getDebts } from '@/app/debt/services/debt-service';
 import { getCategories as getBudgetCategories } from '@/services/budget-category-service';
@@ -29,7 +13,7 @@ const MONTHLY_BUDGET_COLLECTION = 'monthly-budget-items';
 const ACCOUNTS_COLLECTION = 'transferees';
 
 
-export async function getBudgetItems(): Promise<BudgetItem[]> {
+export async function getBudgetItems(db: Firestore): Promise<BudgetItem[]> {
   const budgetCollectionRef = collection(db, BUDGET_COLLECTION);
   const q = query(budgetCollectionRef, where('type', 'in', ['Income', 'Pre-Authorized Payments', 'Transfers', 'Debt Payments']));
   const querySnapshot = await getDocs(q);
@@ -133,7 +117,7 @@ export async function getBudgetItems(): Promise<BudgetItem[]> {
   return generatedItems.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 }
 
-export async function addBudgetItem(itemData: Omit<BudgetItem, 'id'>): Promise<BudgetItem> {
+export async function addBudgetItem(db: Firestore, itemData: Omit<BudgetItem, 'id'>): Promise<BudgetItem> {
   const dataWithCompleted = { ...itemData, completed: false, forNextMonth: itemData.forNextMonth || false };
   
   await runTransaction(db, async (transaction) => {
@@ -215,7 +199,7 @@ export async function addBudgetItem(itemData: Omit<BudgetItem, 'id'>): Promise<B
 }
 
 
-export async function updateBudgetItem(id: string, itemData: Partial<Omit<BudgetItem, 'id' | 'originalId'>>): Promise<void> {
+export async function updateBudgetItem(db: Firestore, id: string, itemData: Partial<Omit<BudgetItem, 'id' | 'originalId'>>): Promise<void> {
     const currentMonth = new Date().toISOString().slice(0, 7);
     
     await runTransaction(db, async (transaction) => {
@@ -331,7 +315,7 @@ export async function updateBudgetItem(id: string, itemData: Partial<Omit<Budget
     });
 }
 
-export async function deleteBudgetItem(id: string): Promise<void> {
+export async function deleteBudgetItem(db: Firestore, id: string): Promise<void> {
     const batch = writeBatch(db);
     
     // --- Step 1: READ all necessary data first ---
@@ -406,7 +390,7 @@ export async function deleteBudgetItem(id: string): Promise<void> {
 }
 
 
-export async function cycleBudgetItems(itemType: BudgetItemType): Promise<void> {
+export async function cycleBudgetItems(db: Firestore, itemType: BudgetItemType): Promise<void> {
   const batch = writeBatch(db);
   const q = query(
     collection(db, BUDGET_COLLECTION), 
@@ -422,7 +406,7 @@ export async function cycleBudgetItems(itemType: BudgetItemType): Promise<void> 
   await batch.commit();
 }
   
-export async function syncDebtPaymentsFromWorksheet(forNextMonth: boolean): Promise<void> {
+export async function syncDebtPaymentsFromWorksheet(db: Firestore, forNextMonth: boolean): Promise<void> {
     await runTransaction(db, async (transaction) => {
         // 1. Fetch existing debt payments for the target month
         const clearQuery = query(
@@ -463,16 +447,16 @@ export async function syncDebtPaymentsFromWorksheet(forNextMonth: boolean): Prom
     });
 
     if (forNextMonth) {
-        await syncDebtPaymentsToMonthlyBudget();
+        await syncDebtPaymentsToMonthlyBudget(db);
     }
 }
 
 
-export async function syncDebtPaymentsToMonthlyBudget(): Promise<void> {
+export async function syncDebtPaymentsToMonthlyBudget(db: Firestore): Promise<void> {
     // 1. Fetch all necessary data outside the transaction
     const [debts, budgetCategories] = await Promise.all([
-        getDebts(),
-        getBudgetCategories()
+        getDebts(db as any),
+        getBudgetCategories(db as any)
     ]);
     
     await runTransaction(db, async (transaction) => {

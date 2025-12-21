@@ -3,7 +3,7 @@
 
 import { db } from '@/lib/firebase-admin';
 import type { Task, Subtask } from '@/types';
-import { Firestore, collection, getDocs, doc, setDoc, deleteDoc, query, getDoc, addDoc, updateDoc, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, deleteDoc, query, getDoc, addDoc, updateDoc, writeBatch } from 'firebase/firestore';
 
 const TASKS_COLLECTION = 'tasks';
 

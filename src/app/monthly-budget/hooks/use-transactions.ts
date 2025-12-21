@@ -9,12 +9,14 @@ import { useAccountDetails } from '@/hooks/use-transferees';
 import { useBudget } from '@/app/budget/hooks/use-budget';
 import { format } from 'date-fns';
 import * as MonthlyBudgetService from '../services/monthly-budget-service';
+import { useFirestore } from '@/firebase';
 
 export function useTransactions(month?: string) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accountTransactions, setAccountTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const db = useFirestore();
 
   const selectedMonth = month || format(new Date(), 'yyyy-MM');
   
@@ -23,9 +25,10 @@ export function useTransactions(month?: string) {
   const { fetchBudgetItems } = useBudget(); // Import from useBudget
 
   const fetchTransactions = useCallback(async () => {
+    if (!db) return;
     try {
       setIsLoading(true);
-      const fetchedTransactions = await MonthlyBudgetService.getTransactionsForMonth(selectedMonth);
+      const fetchedTransactions = await MonthlyBudgetService.getTransactionsForMonth(db, selectedMonth);
       setTransactions(fetchedTransactions);
     } catch (error) {
       console.error('Failed to load transactions:', error);
@@ -37,12 +40,13 @@ export function useTransactions(month?: string) {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedMonth, toast]);
+  }, [selectedMonth, toast, db]);
 
   const fetchTransactionsForAccount = useCallback(async (accountId: string) => {
+    if (!db) return;
     try {
         setIsLoading(true);
-        const fetched = await MonthlyBudgetService.getTransactionsForAccount(accountId);
+        const fetched = await MonthlyBudgetService.getTransactionsForAccount(db, accountId);
         setAccountTransactions(fetched);
     } catch (error) {
         console.error('Failed to load account transactions:', error);
@@ -54,7 +58,7 @@ export function useTransactions(month?: string) {
     } finally {
         setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, db]);
 
   useEffect(() => {
     fetchTransactions();
@@ -63,19 +67,22 @@ export function useTransactions(month?: string) {
   }, [selectedMonth]);
 
   const addTransaction = useCallback(async (transactionData: Partial<Omit<Transaction, 'id'>>) => {
-    await MonthlyBudgetService.addTransaction(transactionData);
+    if (!db) return;
+    await MonthlyBudgetService.addTransaction(db, transactionData);
     // Refetch all relevant data
     await Promise.all([fetchTransactions(), fetchBudget(), fetchAccounts(), fetchBudgetItems()]); 
-  }, [fetchTransactions, fetchBudget, fetchAccounts, fetchBudgetItems]);
+  }, [fetchTransactions, fetchBudget, fetchAccounts, fetchBudgetItems, db]);
 
   const updateTransaction = useCallback(async (id: string, transactionData: Partial<Omit<Transaction, 'id'>>) => {
-    await MonthlyBudgetService.updateTransaction(id, transactionData);
+    if (!db) return;
+    await MonthlyBudgetService.updateTransaction(db, id, transactionData);
     await Promise.all([fetchTransactions(), fetchBudget(), fetchAccounts(), fetchBudgetItems()]); // Refetch all
-  }, [fetchTransactions, fetchBudget, fetchAccounts, fetchBudgetItems]);
+  }, [fetchTransactions, fetchBudget, fetchAccounts, fetchBudgetItems, db]);
 
   const deleteTransaction = useCallback(async (id: string, accountId?: string) => {
+    if (!db) return;
     try {
-      await MonthlyBudgetService.deleteTransaction(id);
+      await MonthlyBudgetService.deleteTransaction(db, id);
       const refetchPromises = [
         fetchTransactions(),
         fetchBudget(),
@@ -94,7 +101,7 @@ export function useTransactions(month?: string) {
         variant: 'destructive',
       });
     }
-  }, [toast, fetchTransactions, fetchBudget, fetchAccounts, fetchBudgetItems, fetchTransactionsForAccount]);
+  }, [toast, fetchTransactions, fetchBudget, fetchAccounts, fetchBudgetItems, fetchTransactionsForAccount, db]);
 
   return { transactions, accountTransactions, accounts, addTransaction, updateTransaction, deleteTransaction, isLoading, fetchTransactions, fetchTransactionsForAccount };
 }

@@ -1,8 +1,7 @@
 
-
 'use server';
 
-import { db } from '@/lib/firebase';
+import { db } from '@/lib/firebase-admin';
 import type { MonthlyBudgetItem, Transaction, TransactionSplit, BudgetItem, AccountDetails, Debt, BudgetSubItem } from '@/types';
 import {
   collection,
@@ -17,7 +16,8 @@ import {
   runTransaction,
   deleteDoc,
   writeBatch,
-  limit
+  limit,
+  Firestore
 } from 'firebase/firestore';
 import { format, addMonths } from 'date-fns';
 import { createAutomatedBackup } from '@/services/backup-service';
@@ -32,25 +32,25 @@ const DEBT_COLLECTION = 'debts';
 
 // ===== Budget Items =====
 
-export async function getBudgetForMonth(month: string): Promise<MonthlyBudgetItem[]> {
+export async function getBudgetForMonth(db: Firestore, month: string): Promise<MonthlyBudgetItem[]> {
   const q = query(collection(db, BUDGET_ITEMS_COLLECTION), where('month', '==', month));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MonthlyBudgetItem));
 }
 
-export async function addBudgetItem(itemData: Omit<MonthlyBudgetItem, 'id'>): Promise<MonthlyBudgetItem> {
+export async function addBudgetItem(db: Firestore, itemData: Omit<MonthlyBudgetItem, 'id'>): Promise<MonthlyBudgetItem> {
   const docRef = await addDoc(collection(db, BUDGET_ITEMS_COLLECTION), itemData);
   const docSnap = await getDoc(docRef);
   return { id: docSnap.id, ...(docSnap.data() as Omit<MonthlyBudgetItem, 'id'>) };
 }
 
-export async function updateBudgetItem(id: string, itemData: { budgeted: number, breakdown?: BudgetSubItem[] | null }): Promise<void> {
+export async function updateBudgetItem(db: Firestore, id: string, itemData: { budgeted: number, breakdown?: BudgetSubItem[] | null }): Promise<void> {
   const itemRef = doc(db, BUDGET_ITEMS_COLLECTION, id);
   // The hook now calculates the total, so we just need to save it.
   await updateDoc(itemRef, itemData);
 }
 
-export async function copyBudgetItemToNextMonth(budgetItem: MonthlyBudgetItem): Promise<void> {
+export async function copyBudgetItemToNextMonth(db: Firestore, budgetItem: MonthlyBudgetItem): Promise<void> {
   const nextMonth = format(addMonths(new Date(), 1), 'yyyy-MM');
   const q = query(collection(db, BUDGET_ITEMS_COLLECTION), where('month', '==', nextMonth), where('categoryId', '==', budgetItem.categoryId));
   const querySnapshot = await getDocs(q);
@@ -69,7 +69,7 @@ export async function copyBudgetItemToNextMonth(budgetItem: MonthlyBudgetItem): 
   }
 }
 
-export async function cycleToNextMonth(): Promise<void> {
+export async function cycleToNextMonth(db: Firestore): Promise<void> {
   await createAutomatedBackup('pre-monthly-budget-cycle');
   const today = new Date();
   const currentMonth = format(today, 'yyyy-MM');
@@ -96,14 +96,14 @@ export async function cycleToNextMonth(): Promise<void> {
   });
 
   // After successfully cycling the main budget, also cycle the overview items.
-  await cycleOverviewItems('Pre-Authorized Payments');
-  await cycleOverviewItems('Debt Payments');
+  await cycleOverviewItems(db, 'Pre-Authorized Payments');
+  await cycleOverviewItems(db, 'Debt Payments');
 }
 
 
 // ===== Transactions & Accounts =====
 
-export async function getAccountDetails(accountId: string): Promise<AccountDetails | null> {
+export async function getAccountDetails(db: Firestore, accountId: string): Promise<AccountDetails | null> {
     const accountRef = doc(db, ACCOUNTS_COLLECTION, accountId);
     const docSnap = await getDoc(accountRef);
     if (!docSnap.exists()) {
@@ -124,7 +124,7 @@ export async function getAccountDetails(accountId: string): Promise<AccountDetai
     return accountData;
 }
 
-export async function getTransactionsForMonth(month: string): Promise<Transaction[]> {
+export async function getTransactionsForMonth(db: Firestore, month: string): Promise<Transaction[]> {
   const startDate = new Date(`${month}-01T00:00:00`);
   
   const startString = `${month}-01`;
@@ -141,7 +141,7 @@ export async function getTransactionsForMonth(month: string): Promise<Transactio
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
 }
 
-export async function getTransactionsByDateRange(startDate: string, endDate: string): Promise<Transaction[]> {
+export async function getTransactionsByDateRange(db: Firestore, startDate: string, endDate: string): Promise<Transaction[]> {
   const q = query(
     collection(db, TRANSACTIONS_COLLECTION),
     where('date', '>=', startDate),
@@ -153,7 +153,7 @@ export async function getTransactionsByDateRange(startDate: string, endDate: str
 }
 
 
-export async function getTransactionsForAccount(accountId: string): Promise<Transaction[]> {
+export async function getTransactionsForAccount(db: Firestore, accountId: string): Promise<Transaction[]> {
     // This query is difficult because Firestore cannot query for a specific element in an array of objects.
     // A better approach is to fetch all transactions for the month and filter client-side, 
     // but for now we will fetch all and filter here.
@@ -179,7 +179,7 @@ export async function getTransactionsForAccount(accountId: string): Promise<Tran
 }
 
 
-export async function addTransaction(transactionData: Partial<Omit<Transaction, 'id'>>): Promise<Transaction> {
+export async function addTransaction(db: Firestore, transactionData: Partial<Omit<Transaction, 'id'>>): Promise<Transaction> {
     const newDocRef = await runTransaction(db, async (transaction) => {
         const { sourceAccountId, amount, splits, paidById } = transactionData;
         
@@ -197,7 +197,7 @@ export async function addTransaction(transactionData: Partial<Omit<Transaction, 
         const newTransactionRef = doc(collection(db, TRANSACTIONS_COLLECTION));
         transaction.set(newTransactionRef, transactionData);
         
-        await applyTransaction(transaction, transactionData as Transaction, accountSnapsMap);
+        await applyTransaction(db, transaction, transactionData as Transaction, accountSnapsMap);
         
         return newTransactionRef;
     });
@@ -226,7 +226,7 @@ export async function addTransaction(transactionData: Partial<Omit<Transaction, 
     return { id: docSnap.id, ...(docSnap.data() as Omit<Transaction, 'id'>) };
 }
 
-async function revertTransaction(transaction: FirebaseFirestore.Transaction, oldData: Transaction, accountSnaps: Map<string, FirebaseFirestore.DocumentSnapshot>) {
+async function revertTransaction(db: Firestore, transaction: FirebaseFirestore.Transaction, oldData: Transaction, accountSnaps: Map<string, FirebaseFirestore.DocumentSnapshot>) {
     const effectiveSourceId = oldData.paidById || oldData.sourceAccountId;
     if (effectiveSourceId) {
         const sourceSnap = accountSnaps.get(effectiveSourceId);
@@ -257,7 +257,7 @@ async function revertTransaction(transaction: FirebaseFirestore.Transaction, old
     }
 }
 
-async function applyTransaction(transaction: FirebaseFirestore.Transaction, newData: Transaction, accountSnaps: Map<string, FirebaseFirestore.DocumentSnapshot>) {
+async function applyTransaction(db: Firestore, transaction: FirebaseFirestore.Transaction, newData: Transaction, accountSnaps: Map<string, FirebaseFirestore.DocumentSnapshot>) {
     const effectiveSourceId = newData.paidById || newData.sourceAccountId;
     if (effectiveSourceId) {
         const sourceSnap = accountSnaps.get(effectiveSourceId);
@@ -294,7 +294,7 @@ async function applyTransaction(transaction: FirebaseFirestore.Transaction, newD
 }
 
 
-export async function updateTransaction(id: string, transactionData: Partial<Omit<Transaction, 'id'>>): Promise<void> {
+export async function updateTransaction(db: Firestore, id: string, transactionData: Partial<Omit<Transaction, 'id'>>): Promise<void> {
     await runTransaction(db, async (transaction) => {
         // --- Start READS ---
         const transactionRef = doc(db, TRANSACTIONS_COLLECTION, id);
@@ -329,14 +329,14 @@ export async function updateTransaction(id: string, transactionData: Partial<Omi
         // --- End READS ---
 
         // --- Start WRITES ---
-        await revertTransaction(transaction, oldData, accountSnapsMap);
-        await applyTransaction(transaction, newData, accountSnapsMap);
+        await revertTransaction(db, transaction, oldData, accountSnapsMap);
+        await applyTransaction(db, transaction, newData, accountSnapsMap);
         
         transaction.update(transactionRef, transactionData);
     });
 }
 
-export async function deleteTransaction(id: string): Promise<void> {
+export async function deleteTransaction(db: Firestore, id: string): Promise<void> {
    await runTransaction(db, async (transaction) => {
         // --- Start READS ---
         const transactionRef = doc(db, TRANSACTIONS_COLLECTION, id);
@@ -364,7 +364,7 @@ export async function deleteTransaction(id: string): Promise<void> {
         // --- End READS ---
         
         // --- Start WRITES ---
-        await revertTransaction(transaction, oldData, accountSnapsMap);
+        await revertTransaction(db, transaction, oldData, accountSnapsMap);
         transaction.delete(transactionRef);
     });
 }

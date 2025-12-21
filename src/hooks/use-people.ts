@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -94,3 +95,5 @@ export function usePeople() {
 
   return { people, addPerson, updatePerson, deletePerson, isLoading };
 }
+
+    

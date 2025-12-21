@@ -1,23 +1,9 @@
 
-'use client';
+'use server';
 
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { Firestore, collection, getDocs, doc, updateDoc, deleteDoc, query, getDoc, addDoc, where, writeBatch, orderBy, runTransaction } from 'firebase/firestore';
 import type { Expense, MileageLog, Honorarium, AccountLedgerItem, UploadableFile } from '@/types';
-import {
-  collection,
-  getDocs,
-  doc,
-  updateDoc,
-  deleteDoc,
-  query,
-  getDoc,
-  addDoc,
-  where,
-  writeBatch,
-  orderBy,
-  runTransaction,
-  Firestore
-} from 'firebase/firestore';
 import { createAutomatedBackup } from '@/services/backup-service';
 
 const EXPENSE_COLLECTION = 'expenses';

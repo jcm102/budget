@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -68,3 +69,5 @@ export function useIncomeCategories() {
 
   return { categories, addCategory, deleteCategory, isLoading };
 }
+
+    

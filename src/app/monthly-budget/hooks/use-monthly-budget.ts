@@ -8,6 +8,7 @@ import * as MonthlyBudgetService from '../services/monthly-budget-service';
 import * as BudgetCategoryService from '@/services/budget-category-service';
 import { format, subMonths, addMonths } from 'date-fns';
 import { useBudget } from '@/app/budget/hooks/use-budget';
+import { useFirestore } from '@/firebase';
 
 export function useMonthlyBudget(month?: string) {
   const [budgetItems, setBudgetItems] = useState<MonthlyBudgetItem[]>([]);
@@ -16,19 +17,21 @@ export function useMonthlyBudget(month?: string) {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { fetchBudgetItems } = useBudget();
+  const db = useFirestore();
   
   const selectedMonth = month || format(new Date(), 'yyyy-MM');
 
   const fetchBudget = useCallback(async () => {
+    if (!db) return;
     try {
       setIsLoading(true);
       const currentMonthDate = new Date(selectedMonth + '-02'); // Use day 2 to avoid timezone issues
       const previousMonthString = format(subMonths(currentMonthDate, 1), 'yyyy-MM');
 
       const [fetchedBudgetItems, fetchedPreviousBudgetItems, fetchedCategories] = await Promise.all([
-        MonthlyBudgetService.getBudgetForMonth(selectedMonth),
-        MonthlyBudgetService.getBudgetForMonth(previousMonthString),
-        BudgetCategoryService.getCategories(),
+        MonthlyBudgetService.getBudgetForMonth(db, selectedMonth),
+        MonthlyBudgetService.getBudgetForMonth(db, previousMonthString),
+        BudgetCategoryService.getCategories(db),
       ]);
       setBudgetItems(fetchedBudgetItems);
       setPreviousMonthBudgetItems(fetchedPreviousBudgetItems);
@@ -43,13 +46,14 @@ export function useMonthlyBudget(month?: string) {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedMonth, toast]);
+  }, [selectedMonth, toast, db]);
 
   useEffect(() => {
     fetchBudget();
   }, [fetchBudget]);
 
   const updateBudgetItem = useCallback(async (categoryId: string, budgeted: number, breakdown?: BudgetSubItem[] | null) => {
+    if (!db) return;
     try {
       const existingItem = budgetItems.find(item => item.categoryId === categoryId);
       const itemData = {
@@ -58,9 +62,9 @@ export function useMonthlyBudget(month?: string) {
       };
 
       if (existingItem) {
-        await MonthlyBudgetService.updateBudgetItem(existingItem.id, itemData);
+        await MonthlyBudgetService.updateBudgetItem(db, existingItem.id, itemData);
       } else {
-        await MonthlyBudgetService.addBudgetItem({ categoryId, month: selectedMonth, ...itemData });
+        await MonthlyBudgetService.addBudgetItem(db, { categoryId, month: selectedMonth, ...itemData });
       }
       // Refetch to get the latest state
       await fetchBudget();
@@ -72,17 +76,18 @@ export function useMonthlyBudget(month?: string) {
         variant: 'destructive',
       });
     }
-  }, [budgetItems, selectedMonth, toast, fetchBudget]);
+  }, [budgetItems, selectedMonth, toast, fetchBudget, db]);
   
   const updateBudgetItemWithBreakdown = useCallback(async (categoryId: string, breakdown: BudgetSubItem[]) => {
+    if (!db) return;
     try {
         const existingItem = budgetItems.find(item => item.categoryId === categoryId);
         const totalBudgeted = breakdown.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
 
         if (existingItem) {
-            await MonthlyBudgetService.updateBudgetItem(existingItem.id, { budgeted: totalBudgeted, breakdown });
+            await MonthlyBudgetService.updateBudgetItem(db, existingItem.id, { budgeted: totalBudgeted, breakdown });
         } else {
-            await MonthlyBudgetService.addBudgetItem({ categoryId, budgeted: totalBudgeted, month: selectedMonth, breakdown });
+            await MonthlyBudgetService.addBudgetItem(db, { categoryId, budgeted: totalBudgeted, month: selectedMonth, breakdown });
         }
         await fetchBudget();
     } catch (error) {
@@ -93,9 +98,10 @@ export function useMonthlyBudget(month?: string) {
             variant: 'destructive',
         });
     }
-  }, [budgetItems, selectedMonth, toast, fetchBudget]);
+  }, [budgetItems, selectedMonth, toast, fetchBudget, db]);
 
   const copyCategoryFromPreviousMonth = useCallback(async (categoryId: string) => {
+    if (!db) return;
     const prevBudgetItem = previousMonthBudgetItems.find(item => item.categoryId === categoryId);
     if (prevBudgetItem) {
       await updateBudgetItem(categoryId, prevBudgetItem.budgeted, prevBudgetItem.breakdown);
@@ -110,11 +116,12 @@ export function useMonthlyBudget(month?: string) {
         variant: 'destructive',
       });
     }
-  }, [previousMonthBudgetItems, updateBudgetItem, toast]);
+  }, [previousMonthBudgetItems, updateBudgetItem, toast, db]);
 
   const copyBudgetItemToNextMonth = useCallback(async (budgetItem: MonthlyBudgetItem) => {
+    if (!db) return;
     try {
-      await MonthlyBudgetService.copyBudgetItemToNextMonth(budgetItem);
+      await MonthlyBudgetService.copyBudgetItemToNextMonth(db, budgetItem);
       toast({
         title: 'Success!',
         description: `Budget item copied to next month's plan.`,
@@ -127,11 +134,12 @@ export function useMonthlyBudget(month?: string) {
         variant: 'destructive',
       });
     }
-  }, [toast]);
+  }, [toast, db]);
 
   const cycleToNextMonth = useCallback(async () => {
+    if (!db) return;
     try {
-      await MonthlyBudgetService.cycleToNextMonth();
+      await MonthlyBudgetService.cycleToNextMonth(db);
       // After cycling the monthly budget, we need to refetch both budget hooks
       await fetchBudget();
       await fetchBudgetItems();
@@ -147,7 +155,7 @@ export function useMonthlyBudget(month?: string) {
         variant: 'destructive',
       });
     }
-  }, [fetchBudget, fetchBudgetItems, toast]);
+  }, [fetchBudget, fetchBudgetItems, toast, db]);
 
 
   return { budgetItems, categories, updateBudgetItem, updateBudgetItemWithBreakdown, isLoading, fetchBudget, copyCategoryFromPreviousMonth, cycleToNextMonth, copyBudgetItemToNextMonth };

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -88,3 +89,5 @@ export function useAccountDetails() {
 
   return { accounts, addAccount, updateAccount, deleteAccount, isLoading, fetchAccounts };
 }
+
+    

@@ -6,18 +6,21 @@ import type { BudgetItem, BudgetItemType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import * as BudgetService from '@/app/budget/services/budget-service';
 import { useAccountDetails } from '@/hooks/use-account-details';
+import { useFirestore } from '@/firebase';
 
 export function useBudget() {
   const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { fetchAccounts } = useAccountDetails();
+  const db = useFirestore();
 
 
   const fetchBudgetItems = useCallback(async () => {
+      if (!db) return;
       try {
         setIsLoading(true);
-        const fetchedItems = await BudgetService.getBudgetItems();
+        const fetchedItems = await BudgetService.getBudgetItems(db);
         setBudgetItems(fetchedItems);
       } catch (error: any) {
         console.error('Failed to load budget items:', error);
@@ -30,15 +33,16 @@ export function useBudget() {
       } finally {
         setIsLoading(false);
       }
-    }, [toast]);
+    }, [toast, db]);
 
   useEffect(() => {
     fetchBudgetItems();
   }, [fetchBudgetItems]);
 
   const addBudgetItem = useCallback(async (itemData: Omit<BudgetItem, 'id'>) => {
+    if (!db) return;
     try {
-      await BudgetService.addBudgetItem(itemData);
+      await BudgetService.addBudgetItem(db, itemData);
       await fetchBudgetItems(); // refetch to get the correct state
       if (itemData.type === 'Income' || itemData.type === 'Transfers') {
         await fetchAccounts();
@@ -51,11 +55,12 @@ export function useBudget() {
         variant: 'destructive',
       });
     }
-  }, [toast, fetchAccounts, fetchBudgetItems]);
+  }, [toast, fetchAccounts, fetchBudgetItems, db]);
 
   const updateBudgetItem = useCallback(async (id: string, itemData: Partial<Omit<BudgetItem, 'id' | 'originalId'>>) => {
+    if (!db) return;
     try {
-      await BudgetService.updateBudgetItem(id, itemData);
+      await BudgetService.updateBudgetItem(db, id, itemData);
       await fetchBudgetItems(); // Refetch to show the new one-time item and remove the old instance
       if (itemData.type === 'Income' || itemData.type === 'Transfers') {
         await fetchAccounts();
@@ -68,11 +73,12 @@ export function useBudget() {
         variant: 'destructive',
       });
     }
-  }, [toast, fetchAccounts, fetchBudgetItems]);
+  }, [toast, fetchAccounts, fetchBudgetItems, db]);
 
   const deleteBudgetItem = useCallback(async (id: string) => {
+    if (!db) return;
     try {
-      await BudgetService.deleteBudgetItem(id);
+      await BudgetService.deleteBudgetItem(db, id);
       await fetchBudgetItems();
     } catch (error) {
       console.error('Failed to delete budget item:', error);
@@ -82,9 +88,10 @@ export function useBudget() {
         variant: 'destructive',
       });
     }
-  }, [toast, fetchBudgetItems]);
+  }, [toast, fetchBudgetItems, db]);
 
   const toggleBudgetItemCompleted = useCallback(async (id: string, completed: boolean) => {
+    if (!db) return;
     const originalItems = [...budgetItems];
     setBudgetItems(prev =>
       prev.map(item =>
@@ -92,7 +99,7 @@ export function useBudget() {
       )
     );
     try {
-      await BudgetService.updateBudgetItem(id, { completed: !completed });
+      await BudgetService.updateBudgetItem(db, id, { completed: !completed });
     } catch (error) {
       console.error('Failed to toggle budget item:', error);
       setBudgetItems(originalItems);
@@ -102,11 +109,12 @@ export function useBudget() {
         variant: 'destructive',
       });
     }
-  }, [budgetItems, toast]);
+  }, [budgetItems, toast, db]);
 
   const cycleBudgetItems = useCallback(async (itemType: BudgetItemType) => {
+    if (!db) return;
     try {
-      await BudgetService.cycleBudgetItems(itemType);
+      await BudgetService.cycleBudgetItems(db, itemType);
       await fetchBudgetItems();
       toast({
         title: 'Success!',
@@ -120,7 +128,7 @@ export function useBudget() {
         variant: 'destructive',
       });
     }
-  }, [fetchBudgetItems, toast]);
+  }, [fetchBudgetItems, toast, db]);
 
   return { 
     budgetItems, 

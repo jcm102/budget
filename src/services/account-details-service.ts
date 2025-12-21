@@ -1,5 +1,5 @@
 
-'use client';
+'use server';
 
 import { Firestore, collection, getDocs, doc, deleteDoc, query, orderBy, addDoc, writeBatch, limit, updateDoc, where } from 'firebase/firestore';
 import type { AccountDetails, Debt, AccountLedgerItem } from '@/types';
@@ -31,7 +31,7 @@ async function seedDefaultAccounts(db: Firestore) {
   }
 }
 
-export async function getAccounts(): Promise<AccountDetails[]> {
+export async function getAccounts(db: Firestore): Promise<AccountDetails[]> {
   await seedDefaultAccounts(db);
   
   const accountCollection = collection(db, ACCOUNT_DETAILS_COLLECTION);
@@ -71,18 +71,18 @@ export async function getAccounts(): Promise<AccountDetails[]> {
   return accounts;
 }
 
-export async function addAccount(accountData: Omit<AccountDetails, 'id'>): Promise<AccountDetails> {
+export async function addAccount(db: Firestore, accountData: Omit<AccountDetails, 'id'>): Promise<AccountDetails> {
   const accountCollection = collection(db, ACCOUNT_DETAILS_COLLECTION);
   const docRef = await addDoc(accountCollection, accountData);
   return { id: docRef.id, ...accountData };
 }
 
-export async function updateAccount(id: string, accountData: Partial<Omit<AccountDetails, 'id'>>): Promise<void> {
+export async function updateAccount(db: Firestore, id: string, accountData: Partial<Omit<AccountDetails, 'id'>>): Promise<void> {
     const accountRef = doc(db, ACCOUNT_DETAILS_COLLECTION, id);
     await updateDoc(accountRef, accountData);
 }
 
-export async function deleteAccount(id: string): Promise<void> {
+export async function deleteAccount(db: Firestore, id: string): Promise<void> {
   const accountRef = doc(db, ACCOUNT_DETAILS_COLLECTION, id);
   await deleteDoc(accountRef);
 }

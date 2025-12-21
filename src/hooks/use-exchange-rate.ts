@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -55,3 +56,5 @@ export function useExchangeRate() {
 
   return { exchangeRate, updateExchangeRate, isLoading };
 }
+
+    

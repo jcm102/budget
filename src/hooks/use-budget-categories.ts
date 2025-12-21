@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -67,3 +68,5 @@ export function useBudgetCategories() {
 
   return { categories, addCategory, deleteCategory, isLoading, fetchCategories };
 }
+
+    
