@@ -1,23 +1,20 @@
 
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from './use-toast';
 import * as SettingsService from '@/services/settings-service';
-import { useFirestore } from '@/firebase';
+import { db } from '@/lib/firebase';
 
 export function useMileageRate() {
   const [mileageRate, setMileageRate] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
-  const db = useFirestore();
 
   const fetchRate = useCallback(async () => {
-    if (!db) return;
     try {
       setIsLoading(true);
-      const rate = await SettingsService.getMileageRate(db);
+      const rate = await SettingsService.getMileageRate();
       setMileageRate(rate);
     } catch (error) {
       console.error('Failed to load mileage rate:', error);
@@ -29,16 +26,15 @@ export function useMileageRate() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast, db]);
+  }, [toast]);
 
   useEffect(() => {
     fetchRate();
   }, [fetchRate]);
 
   const updateMileageRate = useCallback(async (newRate: number) => {
-    if (!db) return;
     try {
-      await SettingsService.updateMileageRate(db, newRate);
+      await SettingsService.updateMileageRate(newRate);
       setMileageRate(newRate);
       toast({
         title: 'Success!',
@@ -52,9 +48,7 @@ export function useMileageRate() {
         variant: 'destructive',
       });
     }
-  }, [toast, db]);
+  }, [toast]);
 
   return { mileageRate, updateMileageRate, isLoading };
 }
-
-    

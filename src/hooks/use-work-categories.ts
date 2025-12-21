@@ -1,25 +1,22 @@
 
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Category } from '@/types';
 import { useToast } from './use-toast';
 import * as WorkCategoryService from '@/services/work-category-service';
-import { useFirestore } from '@/firebase';
+import { db } from '@/lib/firebase';
 
 export function useWorkCategories() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
-  const db = useFirestore();
 
   useEffect(() => {
     const fetchCategories = async () => {
-      if (!db) return;
       try {
         setIsLoading(true);
-        const fetchedCategories = await WorkCategoryService.getCategories(db);
+        const fetchedCategories = await WorkCategoryService.getCategories();
         setCategories(fetchedCategories);
       } catch (error) {
         console.error('Failed to load categories:', error);
@@ -33,12 +30,11 @@ export function useWorkCategories() {
       }
     };
     fetchCategories();
-  }, [toast, db]);
+  }, [toast]);
 
   const addCategory = useCallback(async (name: string) => {
-    if (!db) return;
     try {
-      const newCategory = await WorkCategoryService.addCategory(db, name);
+      const newCategory = await WorkCategoryService.addCategory(name);
       setCategories((prev) => [...prev, newCategory]);
     } catch (error) {
       console.error('Failed to add category:', error);
@@ -48,14 +44,13 @@ export function useWorkCategories() {
         variant: 'destructive',
       });
     }
-  }, [toast, db]);
+  }, [toast]);
 
   const deleteCategory = useCallback(async (id: string) => {
-    if (!db) return;
     const originalCategories = categories;
     setCategories((prev) => prev.filter((category) => category.id !== id));
     try {
-      await WorkCategoryService.deleteCategory(db, id);
+      await WorkCategoryService.deleteCategory(id);
     } catch (error) {
       console.error('Failed to delete category:', error);
       setCategories(originalCategories);
@@ -65,9 +60,7 @@ export function useWorkCategories() {
         variant: 'destructive',
       });
     }
-  }, [categories, toast, db]);
+  }, [categories, toast]);
 
   return { categories, addCategory, deleteCategory, isLoading };
 }
-
-    

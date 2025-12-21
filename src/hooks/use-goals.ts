@@ -6,24 +6,23 @@ import type { Goal } from '@/types';
 import { useToast } from './use-toast';
 import * as GoalService from '@/services/goal-service';
 import { useSelectedAccount } from './use-selected-account';
-import { useFirestore } from '@/firebase';
+import { db } from '@/lib/firebase';
 
 export function useGoals() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { selectedAccountId } = useSelectedAccount();
-  const db = useFirestore();
 
   const fetchGoals = useCallback(async (accountId: string | null) => {
-    if (!db || !accountId) {
+    if (!accountId) {
         setGoals([]);
         setIsLoading(false);
         return;
     }
     try {
       setIsLoading(true);
-      const fetchedItems = await GoalService.getGoals(db, accountId);
+      const fetchedItems = await GoalService.getGoals(accountId);
       setGoals(fetchedItems);
     } catch (error) {
       console.error('Failed to load goals:', error);
@@ -35,16 +34,15 @@ export function useGoals() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast, db]);
+  }, [toast]);
 
   useEffect(() => {
     fetchGoals(selectedAccountId);
   }, [selectedAccountId, fetchGoals]);
 
   const addGoal = useCallback(async (itemData: Omit<Goal, 'id'>) => {
-    if (!db) return;
     try {
-      const newItem = await GoalService.addGoal(db, itemData);
+      const newItem = await GoalService.addGoal(itemData);
       setGoals(prev => [...prev, newItem].sort((a, b) => a.name.localeCompare(b.name)));
     } catch (error) {
       console.error('Failed to add goal:', error);
@@ -54,14 +52,13 @@ export function useGoals() {
         variant: 'destructive',
       });
     }
-  }, [toast, db]);
+  }, [toast]);
 
   const updateGoal = useCallback(async (id: string, itemData: Partial<Omit<Goal, 'id'>>) => {
-    if (!db) return;
     const originalItems = goals;
     setGoals(prev => prev.map(item => (item.id === id ? { ...item, ...itemData } as Goal : item)));
     try {
-      await GoalService.updateGoal(db, id, itemData);
+      await GoalService.updateGoal(id, itemData);
       await fetchGoals(selectedAccountId);
     } catch (error) {
       console.error('Failed to update goal:', error);
@@ -72,14 +69,13 @@ export function useGoals() {
         variant: 'destructive',
       });
     }
-  }, [goals, toast, selectedAccountId, fetchGoals, db]);
+  }, [goals, toast, selectedAccountId, fetchGoals]);
 
   const deleteGoal = useCallback(async (id: string) => {
-    if (!db) return;
     const originalItems = goals;
     setGoals(prev => prev.filter(item => item.id !== id));
     try {
-      await GoalService.deleteGoal(db, id);
+      await GoalService.deleteGoal(id);
     } catch (error) {
       console.error('Failed to delete goal:', error);
       setGoals(originalItems);
@@ -89,7 +85,7 @@ export function useGoals() {
         variant: 'destructive',
       });
     }
-  }, [goals, toast, db]);
+  }, [goals, toast]);
 
   return { goals, isLoading, addGoal, updateGoal, deleteGoal, fetchGoals: () => fetchGoals(selectedAccountId) };
 }

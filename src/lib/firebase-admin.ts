@@ -1,9 +1,8 @@
-
 // This file is intended for server-side scripts and uses the Admin SDK.
 // It should not be imported into client-side components.
 'use server';
 
-import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
+import { initializeApp, getApps, App } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
 const appName = 'firebase-admin-app';

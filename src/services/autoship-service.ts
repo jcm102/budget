@@ -14,8 +14,7 @@ import {
   getDoc,
   orderBy,
   where,
-  runTransaction,
-  Firestore
+  runTransaction
 } from 'firebase/firestore';
 import { addMonths, format } from 'date-fns';
 
@@ -37,7 +36,6 @@ const getMonthlyCost = (item: Pick<AutoShipItem, 'estimatedCost' | 'frequency'>)
 
 
 async function updateMonthlyBudget(
-    db: Firestore,
     transaction: FirebaseFirestore.Transaction,
     budgetItemsSnapshot: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData> | null,
     oldBudgetItemsSnapshot: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData> | null,
@@ -87,7 +85,7 @@ async function updateMonthlyBudget(
 }
 
 
-export async function getAutoShipItems(db: Firestore, accountId: string): Promise<AutoShipItem[]> {
+export async function getAutoShipItems(accountId: string): Promise<AutoShipItem[]> {
   const autoShipCollection = collection(db, AUTOSHIP_COLLECTION);
   const q = query(autoShipCollection, where('accountId', '==', accountId));
   const querySnapshot = await getDocs(q);
@@ -95,7 +93,7 @@ export async function getAutoShipItems(db: Firestore, accountId: string): Promis
   return items.sort((a, b) => new Date(a.nextShipmentDate).getTime() - new Date(b.nextShipmentDate).getTime());
 }
 
-export async function addAutoShipItem(db: Firestore, itemData: Omit<AutoShipItem, 'id'>): Promise<AutoShipItem> {
+export async function addAutoShipItem(itemData: Omit<AutoShipItem, 'id'>): Promise<AutoShipItem> {
   const docRef = await runTransaction(db, async (transaction) => {
         const newItemRef = doc(collection(db, AUTOSHIP_COLLECTION));
         const newAutoShipItem = { id: newItemRef.id, ...itemData };
@@ -128,7 +126,7 @@ export async function addAutoShipItem(db: Firestore, itemData: Omit<AutoShipItem
   return { id: docSnap.id, ...(docSnap.data() as Omit<AutoShipItem, 'id'>) };
 }
 
-export async function updateAutoShipItem(db: Firestore, id: string, itemData: Partial<Omit<AutoShipItem, 'id'>>): Promise<void> {
+export async function updateAutoShipItem(id: string, itemData: Partial<Omit<AutoShipItem, 'id'>>): Promise<void> {
    await runTransaction(db, async (transaction) => {
         const itemRef = doc(db, AUTOSHIP_COLLECTION, id);
 
@@ -176,7 +174,7 @@ export async function updateAutoShipItem(db: Firestore, id: string, itemData: Pa
     });
 }
 
-export async function deleteAutoShipItem(db: Firestore, id: string): Promise<void> {
+export async function deleteAutoShipItem(id: string): Promise<void> {
    await runTransaction(db, async (transaction) => {
         const itemRef = doc(db, AUTOSHIP_COLLECTION, id);
         
@@ -209,7 +207,7 @@ export async function deleteAutoShipItem(db: Firestore, id: string): Promise<voi
     });
 }
 
-export async function advanceShipmentDate(db: Firestore, id: string): Promise<void> {
+export async function advanceShipmentDate(id: string): Promise<void> {
     const itemRef = doc(db, AUTOSHIP_COLLECTION, id);
     const docSnap = await getDoc(itemRef);
 

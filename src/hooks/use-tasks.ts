@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -7,22 +6,20 @@ import type { Task, Subtask, LinkGroup } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import * as TaskService from '@/services/task-service';
 import * as LinkGroupService from '@/services/link-group-service';
-import { useFirestore } from '@/firebase';
+import { db } from '@/lib/firebase';
 
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [linkGroups, setLinkGroups] = useState<LinkGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
-  const db = useFirestore();
 
   const fetchData = useCallback(async () => {
-    if (!db) return;
     try {
       setIsLoading(true);
       const [fetchedTasks, fetchedLinkGroups] = await Promise.all([
-        TaskService.getTasks(db),
-        LinkGroupService.getLinkGroups(db),
+        TaskService.getTasks(),
+        LinkGroupService.getLinkGroups(),
       ]);
       setTasks(fetchedTasks);
       setLinkGroups(fetchedLinkGroups);
@@ -36,17 +33,16 @@ export function useTasks() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast, db]);
+  }, [toast]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
   const addTask = useCallback(async (taskData: Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks' | 'order'>) => {
-    if (!db) return;
     try {
       const newOrder = tasks.filter(t => t.frequency === taskData.frequency).length;
-      const newTask = await TaskService.addTask(db, taskData, newOrder);
+      const newTask = await TaskService.addTask(taskData, newOrder);
       setTasks((prevTasks) => [...prevTasks, newTask]);
     } catch (error) {
       console.error('Failed to add task:', error);
@@ -56,12 +52,11 @@ export function useTasks() {
         variant: 'destructive',
       });
     }
-  }, [toast, tasks, db]);
+  }, [toast, tasks]);
 
   const updateTask = useCallback(async (id: string, taskData: Partial<Omit<Task, 'id'>>) => {
-    if (!db) return;
     try {
-      await TaskService.updateTask(db, id, taskData);
+      await TaskService.updateTask(id, taskData);
        // Refetch all data to ensure consistency
       await fetchData();
     } catch (error) {
@@ -72,14 +67,13 @@ export function useTasks() {
         variant: 'destructive',
       });
     }
-  }, [toast, fetchData, db]);
+  }, [toast, fetchData]);
 
   const updateTaskOrder = useCallback(async (reorderedTasks: Task[]) => {
-    if (!db) return;
     // Optimistically update the UI
     setTasks(reorderedTasks);
     try {
-      await TaskService.updateTaskOrder(db, reorderedTasks);
+      await TaskService.updateTaskOrder(reorderedTasks);
     } catch (error) {
       console.error('Failed to update task order:', error);
       // Revert on error - though fetching might be better
@@ -89,10 +83,9 @@ export function useTasks() {
         variant: 'destructive',
       });
     }
-  }, [toast, db]);
+  }, [toast]);
 
   const toggleTask = useCallback(async (id: string) => {
-    if (!db) return;
     const originalTasks = tasks;
     const taskToToggle = tasks.find((t) => t.id === id);
     if (!taskToToggle) return;
@@ -106,7 +99,7 @@ export function useTasks() {
     setTasks(tasks.map((t) => (t.id === id ? updatedTask : t)));
 
     try {
-      await TaskService.updateTask(db, id, { completed: newCompleted, completedAt: newCompletedAt, subtasks: updatedSubtasks });
+      await TaskService.updateTask(id, { completed: newCompleted, completedAt: newCompletedAt, subtasks: updatedSubtasks });
     } catch (error) {
       console.error('Failed to toggle task:', error);
       setTasks(originalTasks);
@@ -116,14 +109,13 @@ export function useTasks() {
         variant: 'destructive',
       });
     }
-  }, [tasks, toast, db]);
+  }, [tasks, toast]);
 
   const deleteTask = useCallback(async (id: string) => {
-    if (!db) return;
     const originalTasks = tasks;
     setTasks((prevTasks) => prevTasks.filter((task) => task.id !== id));
     try {
-      await TaskService.deleteTask(db, id);
+      await TaskService.deleteTask(id);
     } catch (error) {
       console.error('Failed to delete task:', error);
       setTasks(originalTasks);
@@ -133,32 +125,29 @@ export function useTasks() {
         variant: 'destructive',
       });
     }
-  }, [tasks, toast, db]);
+  }, [tasks, toast]);
 
   const addSubtask = useCallback(async (taskId: string, data: Omit<Subtask, 'id' | 'completed' | 'order'>) => {
-    if (!db) return;
     try {
-      await TaskService.addSubtask(db, taskId, data);
+      await TaskService.addSubtask(taskId, data);
       await fetchData();
     } catch (error) {
       console.error('Failed to add subtask:', error);
       toast({ title: 'Error', description: 'Failed to add subtask.', variant: 'destructive' });
     }
-  }, [fetchData, toast, db]);
+  }, [fetchData, toast]);
   
   const updateSubtask = useCallback(async (taskId: string, subtaskId: string, data: Partial<Omit<Subtask, 'id' | 'completed' | 'order'>>) => {
-    if (!db) return;
     try {
-      await TaskService.updateSubtask(db, taskId, subtaskId, data);
+      await TaskService.updateSubtask(taskId, subtaskId, data);
       await fetchData();
     } catch (error) {
       console.error('Failed to update subtask:', error);
       toast({ title: 'Error', description: 'Failed to update subtask.', variant: 'destructive' });
     }
-  }, [fetchData, toast, db]);
+  }, [fetchData, toast]);
 
   const updateSubtaskOrder = useCallback(async (taskId: string, reorderedSubtasks: Subtask[]) => {
-    if (!db) return;
     const originalTasks = [...tasks];
     const newTasks = tasks.map(task => {
         if (task.id === taskId) {
@@ -169,16 +158,15 @@ export function useTasks() {
     setTasks(newTasks);
 
     try {
-        await TaskService.updateSubtaskOrder(db, taskId, reorderedSubtasks);
+        await TaskService.updateSubtaskOrder(taskId, reorderedSubtasks);
     } catch (error) {
         console.error('Failed to update subtask order:', error);
         setTasks(originalTasks);
         toast({ title: 'Error', description: 'Failed to save subtask order.', variant: 'destructive' });
     }
-  }, [tasks, toast, db]);
+  }, [tasks, toast]);
 
   const toggleSubtask = useCallback(async (taskId: string, subtaskId: string) => {
-    if (!db) return;
     const originalTasks = tasks;
      setTasks(prevTasks => prevTasks.map(task => {
       if (task.id === taskId) {
@@ -197,16 +185,15 @@ export function useTasks() {
     }));
 
     try {
-        await TaskService.toggleSubtask(db, taskId, subtaskId);
+        await TaskService.toggleSubtask(taskId, subtaskId);
     } catch (error) {
         console.error('Failed to toggle subtask:', error);
         setTasks(originalTasks); // Revert on error
         toast({ title: 'Error', description: 'Failed to toggle subtask status.', variant: 'destructive' });
     }
-  }, [tasks, toast, db]);
+  }, [tasks, toast]);
 
   const deleteSubtask = useCallback(async (taskId: string, subtaskId: string) => {
-    if (!db) return;
     const originalTasks = tasks;
      setTasks(prevTasks => prevTasks.map(task => {
         if (task.id === taskId) {
@@ -222,16 +209,14 @@ export function useTasks() {
         return task;
     }));
     try {
-        await TaskService.deleteSubtask(db, taskId, subtaskId);
+        await TaskService.deleteSubtask(taskId, subtaskId);
     } catch (error) {
         console.error('Failed to delete subtask:', error);
         setTasks(originalTasks);
         toast({ title: 'Error', description: 'Failed to delete subtask.', variant: 'destructive' });
     }
-  }, [tasks, toast, db]);
+  }, [tasks, toast]);
 
 
   return { tasks, linkGroups, addTask, updateTask, toggleTask, deleteTask, isLoading, updateTaskOrder, addSubtask, updateSubtask, updateSubtaskOrder, toggleSubtask, deleteSubtask };
 }
-
-    

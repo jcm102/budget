@@ -4,22 +4,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from './use-toast';
 import * as SettingsService from '@/services/settings-service';
-import { useFirestore } from '@/firebase';
+import { db } from '@/lib/firebase';
 
 export function useExchangeRate() {
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
-  const db = useFirestore();
 
   const fetchRate = useCallback(async () => {
-    if (!db) {
-        setIsLoading(false);
-        return;
-    };
     try {
       setIsLoading(true);
-      const rate = await SettingsService.getExchangeRate(db);
+      const rate = await SettingsService.getExchangeRate();
       setExchangeRate(rate);
     } catch (error) {
       console.error('Failed to load exchange rate:', error);
@@ -31,16 +26,15 @@ export function useExchangeRate() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast, db]);
+  }, [toast]);
 
   useEffect(() => {
     fetchRate();
   }, [fetchRate]);
 
   const updateExchangeRate = useCallback(async (newRate: number) => {
-    if (!db) return;
     try {
-      await SettingsService.updateExchangeRate(db, newRate);
+      await SettingsService.updateExchangeRate(newRate);
       setExchangeRate(newRate);
       toast({
         title: 'Success!',
@@ -54,7 +48,7 @@ export function useExchangeRate() {
         variant: 'destructive',
       });
     }
-  }, [toast, db]);
+  }, [toast]);
 
   return { exchangeRate, updateExchangeRate, isLoading };
 }
