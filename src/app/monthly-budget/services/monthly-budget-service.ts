@@ -1,24 +1,8 @@
 
 'use server';
 
-import { db } from '@/lib/firebase-admin';
+import { Firestore, collection, getDocs, doc, updateDoc, addDoc, getDoc, query, where, orderBy, runTransaction, deleteDoc, writeBatch, limit } from 'firebase/firestore';
 import type { MonthlyBudgetItem, Transaction, TransactionSplit, BudgetItem, AccountDetails, Debt, BudgetSubItem } from '@/types';
-import {
-  collection,
-  getDocs,
-  doc,
-  updateDoc,
-  addDoc,
-  getDoc,
-  query,
-  where,
-  orderBy,
-  runTransaction,
-  deleteDoc,
-  writeBatch,
-  limit,
-  Firestore
-} from 'firebase/firestore';
 import { format, addMonths } from 'date-fns';
 import { createAutomatedBackup } from '@/services/backup-service';
 import { cycleBudgetItems as cycleOverviewItems } from '@/app/budget/services/budget-service';

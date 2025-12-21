@@ -3,7 +3,6 @@
 
 import { Firestore, collection, getDocs, doc, deleteDoc, query, orderBy, addDoc, writeBatch, limit, updateDoc, where } from 'firebase/firestore';
 import type { AccountDetails, Debt, AccountLedgerItem } from '@/types';
-import { db } from '@/lib/firebase-admin';
 
 const ACCOUNT_DETAILS_COLLECTION = 'transferees'; // Keeping the old collection name to avoid data loss
 const DEBT_COLLECTION = 'debts';
