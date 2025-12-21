@@ -1,27 +1,11 @@
 
 'use server';
 
-import { db } from '@/lib/firebase';
+import { Firestore, collection, getDocs, doc, setDoc, deleteDoc, query, getDoc, addDoc, where, writeBatch, updateDoc, orderBy, runTransaction, limit } from 'firebase/firestore';
 import type { BudgetItem, Debt, AccountDetails, MonthlyBudgetItem } from '@/types';
-import {
-  collection,
-  getDocs,
-  doc,
-  setDoc,
-  deleteDoc,
-  query,
-  getDoc,
-  addDoc,
-  where,
-  writeBatch,
-  updateDoc,
-  orderBy,
-  runTransaction,
-  limit,
-} from 'firebase/firestore';
-import { isSameMonth, startOfMonth, getDate, getMonth, getYear, set, addWeeks, isAfter, isBefore, isLastDayOfMonth, lastDayOfMonth, addMonths, startOfDay, format } from 'date-fns';
+import { isSameMonth, startOfMonth, addWeeks, isBefore, lastDayOfMonth, addMonths, startOfDay, format, endOfMonth } from 'date-fns';
 import { getDebts } from '@/app/debt/services/debt-service';
-import { getCategories as getBudgetCategories } from './budget-category-service';
+import { getCategories as getBudgetCategories } from '@/services/budget-category-service';
 
 const BUDGET_COLLECTION = 'budget-items';
 const DEBT_COLLECTION = 'debts';
@@ -29,98 +13,111 @@ const MONTHLY_BUDGET_COLLECTION = 'monthly-budget-items';
 const ACCOUNTS_COLLECTION = 'transferees';
 
 
-export async function getBudgetItems(): Promise<BudgetItem[]> {
-  const budgetCollection = collection(db, BUDGET_COLLECTION);
-  const q = query(budgetCollection, where('type', 'in', ['Income', 'Pre-Authorized Payments', 'Transfers', 'Debt Payments']));
+export async function getBudgetItems(db: Firestore): Promise<BudgetItem[]> {
+  const budgetCollectionRef = collection(db, BUDGET_COLLECTION);
+  const q = query(budgetCollectionRef, where('type', 'in', ['Income', 'Pre-Authorized Payments', 'Transfers', 'Debt Payments']));
   const querySnapshot = await getDocs(q);
-  
-  const today = new Date();
-  const allGeneratedItems: BudgetItem[] = [];
-  const startOfCurrentMonth = startOfMonth(today);
   
   const allItems = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BudgetItem));
 
-  // First, find all modified one-time items for the current month
-  const modifiedItemsInMonth = allItems.filter(item => 
-      item.originalId && isSameMonth(new Date(item.date), today)
-  );
+  const today = startOfDay(new Date());
+  const startOfCurrentMonth = startOfMonth(today);
+  const endOfNextMonth = endOfMonth(addMonths(startOfCurrentMonth, 1));
 
-  const processedRecurringInstances = new Set<string>();
-  modifiedItemsInMonth.forEach(item => {
-      allGeneratedItems.push(item);
-      // Keep track of which original instances have been processed
-      if (item.originalId) {
-          processedRecurringInstances.add(item.originalId);
-      }
-  });
+  const generatedItems: BudgetItem[] = [];
 
-  allItems.forEach(item => {
-    // Skip modified items as they are already handled
-    if (item.originalId) return;
+  // Separate base items from one-time overrides
+  const baseItems = allItems.filter(item => !item.originalId);
+  const overrideItems = allItems.filter(item => !!item.originalId);
 
-    if (item.completed === undefined) {
-      item.completed = false;
-    }
+  // A map to track which recurring instances have been overridden
+  const overriddenInstances = new Set<string>();
 
-    const itemStartDate = new Date(item.date);
-    
-    // For one-time items, we now include them regardless of the month to fix the bug.
-    if (item.frequency === 'One-Time') {
-        allGeneratedItems.push(item);
-    } else if (item.frequency === 'Monthly' || item.frequency === 'Monthly (Last Day)') {
-        let currentDate;
-        if (item.frequency === 'Monthly (Last Day)') {
-            currentDate = lastDayOfMonth(startOfCurrentMonth);
-        } else {
-             // Handle regular monthly items
-            let tempDate = startOfDay(itemStartDate);
-            while (isBefore(tempDate, startOfCurrentMonth)) {
-                tempDate = addMonths(tempDate, 1);
-            }
-            currentDate = tempDate;
-        }
-
-        if (isSameMonth(currentDate, today)) {
-            const instanceId = `${item.id}-${currentDate.getTime()}`;
-             if (!processedRecurringInstances.has(instanceId)) {
-                allGeneratedItems.push({
-                    ...item,
-                    id: instanceId,
-                    date: currentDate.toISOString(),
-                    completed: item.completed || false
-                });
-            }
-        }
-    } else if (item.frequency === 'Weekly' || item.frequency === 'Bi-Weekly') {
-      let currentDate = itemStartDate;
-      const increment = item.frequency === 'Weekly' ? 1 : 2;
-
-      while (isBefore(currentDate, startOfCurrentMonth)) {
-        currentDate = addWeeks(currentDate, increment);
-      }
-      
-      while (isSameMonth(currentDate, today)) {
-          const instanceId = `${item.id}-${currentDate.getTime()}`;
-          if (isAfter(currentDate, itemStartDate) || isSameMonth(itemStartDate, currentDate)) {
-              if (!processedRecurringInstances.has(instanceId)) {
-                allGeneratedItems.push({
-                    ...item,
-                    id: instanceId, 
-                    date: currentDate.toISOString(),
-                    completed: item.completed || false
-                });
-              }
+  // Process overrides first and populate generatedItems and the tracking set
+  overrideItems.forEach(override => {
+      const overrideDate = startOfDay(new Date(override.date));
+      if (overrideDate >= startOfCurrentMonth && overrideDate <= endOfNextMonth) {
+          generatedItems.push({
+              ...override,
+              forNextMonth: !isSameMonth(overrideDate, startOfCurrentMonth),
+          });
+          // Mark the original instance as overridden
+          if (override.originalId) {
+            overriddenInstances.add(override.originalId);
           }
-          currentDate = addWeeks(currentDate, increment);
       }
+  });
+  
+  // Process base recurring and one-time items
+  baseItems.forEach(item => {
+    const itemStartDate = startOfDay(new Date(item.date));
+
+    // Handle one-time items that are not overrides
+    if (item.frequency === 'One-Time') {
+        if (itemStartDate >= startOfCurrentMonth && itemStartDate <= endOfNextMonth) {
+            generatedItems.push({
+                ...item,
+                forNextMonth: !isSameMonth(itemStartDate, startOfCurrentMonth),
+            });
+        }
+        return; // Continue to next item
+    }
+
+    // --- Handle Recurring Items ---
+    
+    // Find the first occurrence of the event in the current or future months
+    let effectiveDate = itemStartDate;
+    if (item.frequency === 'Weekly' || item.frequency === 'Bi-Weekly') {
+      const increment = item.frequency === 'Weekly' ? 1 : 2;
+      while (isBefore(effectiveDate, startOfCurrentMonth)) {
+        effectiveDate = addWeeks(effectiveDate, increment);
+      }
+    } else { // Monthly frequencies
+       while (isBefore(effectiveDate, startOfCurrentMonth)) {
+        effectiveDate = addMonths(effectiveDate, 1);
+      }
+    }
+
+    // Generate instances from the effective date until the end of the next month
+    let currentDate = effectiveDate;
+    while (currentDate <= endOfNextMonth) {
+        let instanceDate = currentDate;
+
+        if (item.frequency === 'Monthly (Last Day)') {
+             // Ensure it's the last day of the month for this frequency type
+             instanceDate = lastDayOfMonth(currentDate);
+        }
+
+        // Only generate if the instance date is within our window
+        if (instanceDate >= startOfCurrentMonth && instanceDate <= endOfNextMonth) {
+            const instanceId = `${item.id}-${instanceDate.getTime()}`;
+
+            // If this instance hasn't been overridden, add it to the list
+            if (!overriddenInstances.has(instanceId)) {
+                generatedItems.push({
+                    ...item,
+                    id: instanceId, // Use a unique ID for this specific instance
+                    date: instanceDate.toISOString(),
+                    completed: item.completed || false, // Ensure completed has a value
+                    forNextMonth: !isSameMonth(instanceDate, startOfCurrentMonth),
+                });
+            }
+        }
+
+        // Move to the next potential date
+        if (item.frequency === 'Weekly' || item.frequency === 'Bi-Weekly') {
+            const increment = item.frequency === 'Weekly' ? 1 : 2;
+            currentDate = addWeeks(currentDate, increment);
+        } else {
+            currentDate = addMonths(currentDate, 1);
+        }
     }
   });
 
-
-  return allGeneratedItems.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  return generatedItems.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 }
 
-export async function addBudgetItem(itemData: Omit<BudgetItem, 'id'>): Promise<BudgetItem> {
+export async function addBudgetItem(db: Firestore, itemData: Omit<BudgetItem, 'id'>): Promise<BudgetItem> {
   const dataWithCompleted = { ...itemData, completed: false, forNextMonth: itemData.forNextMonth || false };
   
   await runTransaction(db, async (transaction) => {
@@ -202,7 +199,7 @@ export async function addBudgetItem(itemData: Omit<BudgetItem, 'id'>): Promise<B
 }
 
 
-export async function updateBudgetItem(id: string, itemData: Partial<Omit<BudgetItem, 'id' | 'originalId'>>): Promise<void> {
+export async function updateBudgetItem(db: Firestore, id: string, itemData: Partial<Omit<BudgetItem, 'id' | 'originalId'>>): Promise<void> {
     const currentMonth = new Date().toISOString().slice(0, 7);
     
     await runTransaction(db, async (transaction) => {
@@ -318,7 +315,7 @@ export async function updateBudgetItem(id: string, itemData: Partial<Omit<Budget
     });
 }
 
-export async function deleteBudgetItem(id: string): Promise<void> {
+export async function deleteBudgetItem(db: Firestore, id: string): Promise<void> {
     const batch = writeBatch(db);
     
     // --- Step 1: READ all necessary data first ---
@@ -393,28 +390,23 @@ export async function deleteBudgetItem(id: string): Promise<void> {
 }
 
 
-export async function cycleBudgetItems(): Promise<void> {
+export async function cycleBudgetItems(db: Firestore, itemType: BudgetItemType): Promise<void> {
   const batch = writeBatch(db);
+  const q = query(
+    collection(db, BUDGET_COLLECTION), 
+    where('type', '==', itemType),
+  );
   
-  // Query for items that are for the current month (or have no forNextMonth flag, for backward compatibility)
-  const currentMonthQuery = query(collection(db, BUDGET_COLLECTION), where('forNextMonth', '!=', true));
-  const currentMonthSnapshot = await getDocs(currentMonthQuery);
-  currentMonthSnapshot.forEach(doc => {
-      batch.delete(doc.ref);
-  });
+  const snapshot = await getDocs(q);
   
-  // Query for items planned for next month
-  const nextMonthQuery = query(collection(db, BUDGET_COLLECTION), where('forNextMonth', '==', true));
-  const nextMonthSnapshot = await getDocs(nextMonthQuery);
-  nextMonthSnapshot.forEach(doc => {
-      // Update them to be for the current month now
-      batch.update(doc.ref, { forNextMonth: false, completed: false });
+  snapshot.forEach(doc => {
+      batch.update(doc.ref, { completed: false });
   });
 
   await batch.commit();
 }
   
-export async function syncDebtPaymentsFromWorksheet(forNextMonth: boolean): Promise<void> {
+export async function syncDebtPaymentsFromWorksheet(db: Firestore, forNextMonth: boolean): Promise<void> {
     await runTransaction(db, async (transaction) => {
         // 1. Fetch existing debt payments for the target month
         const clearQuery = query(
@@ -455,16 +447,16 @@ export async function syncDebtPaymentsFromWorksheet(forNextMonth: boolean): Prom
     });
 
     if (forNextMonth) {
-        await syncDebtPaymentsToMonthlyBudget();
+        await syncDebtPaymentsToMonthlyBudget(db);
     }
 }
 
 
-export async function syncDebtPaymentsToMonthlyBudget(): Promise<void> {
+export async function syncDebtPaymentsToMonthlyBudget(db: Firestore): Promise<void> {
     // 1. Fetch all necessary data outside the transaction
     const [debts, budgetCategories] = await Promise.all([
-        getDebts(),
-        getBudgetCategories()
+        getDebts(db),
+        getBudgetCategories(db)
     ]);
     
     await runTransaction(db, async (transaction) => {

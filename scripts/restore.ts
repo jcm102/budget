@@ -1,7 +1,7 @@
 // To run this script, use: npx tsx ./scripts/restore.ts
 
 import * as fs from 'fs';
-import { db } from '../src/lib/firebase-admin'; // Use the admin instance
+import { db } from '@/lib/firebase-admin'; // Use the admin instance
 import { collection, doc, writeBatch, getDocs } from 'firebase/firestore';
 import readline from 'readline';
 

@@ -1,8 +1,7 @@
 
 'use client';
 
-import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { Firestore, doc, getDoc, setDoc } from 'firebase/firestore';
 
 const SETTINGS_COLLECTION = 'settings';
 const MILEAGE_RATE_DOC = 'mileageRate';
@@ -31,7 +30,7 @@ interface CommonAccountsSetting {
 }
 
 
-export async function getMileageRate(): Promise<number> {
+export async function getMileageRate(db: Firestore): Promise<number> {
   const docRef = doc(db, SETTINGS_COLLECTION, MILEAGE_RATE_DOC);
   const docSnap = await getDoc(docRef);
 
@@ -44,12 +43,12 @@ export async function getMileageRate(): Promise<number> {
   }
 }
 
-export async function updateMileageRate(rate: number): Promise<void> {
+export async function updateMileageRate(db: Firestore, rate: number): Promise<void> {
   const docRef = doc(db, SETTINGS_COLLECTION, MILEAGE_RATE_DOC);
   await setDoc(docRef, { rate });
 }
 
-export async function getExchangeRate(): Promise<number> {
+export async function getExchangeRate(db: Firestore): Promise<number> {
   const docRef = doc(db, SETTINGS_COLLECTION, EXCHANGE_RATE_DOC);
   const docSnap = await getDoc(docRef);
 
@@ -61,12 +60,12 @@ export async function getExchangeRate(): Promise<number> {
   }
 }
 
-export async function updateExchangeRate(rate: number): Promise<void> {
+export async function updateExchangeRate(db: Firestore, rate: number): Promise<void> {
   const docRef = doc(db, SETTINGS_COLLECTION, EXCHANGE_RATE_DOC);
   await setDoc(docRef, { usdToCad: rate });
 }
 
-export async function getCreditCardReportLastRunDate(): Promise<string | null> {
+export async function getCreditCardReportLastRunDate(db: Firestore): Promise<string | null> {
     const docRef = doc(db, SETTINGS_COLLECTION, CREDIT_CARD_REPORT_DATE_DOC);
     const docSnap = await getDoc(docRef);
 
@@ -76,12 +75,12 @@ export async function getCreditCardReportLastRunDate(): Promise<string | null> {
     return null;
 }
 
-export async function updateCreditCardReportLastRunDate(date: string): Promise<void> {
+export async function updateCreditCardReportLastRunDate(db: Firestore, date: string): Promise<void> {
     const docRef = doc(db, SETTINGS_COLLECTION, CREDIT_CARD_REPORT_DATE_DOC);
     await setDoc(docRef, { lastRunDate: date });
 }
 
-export async function getCommonAccountIds(): Promise<string[]> {
+export async function getCommonAccountIds(db: Firestore): Promise<string[]> {
     const docRef = doc(db, SETTINGS_COLLECTION, COMMON_ACCOUNTS_DOC);
     const docSnap = await getDoc(docRef);
 
@@ -93,7 +92,7 @@ export async function getCommonAccountIds(): Promise<string[]> {
     }
 }
 
-export async function updateCommonAccountIds(accountIds: string[]): Promise<void> {
+export async function updateCommonAccountIds(db: Firestore, accountIds: string[]): Promise<void> {
     const docRef = doc(db, SETTINGS_COLLECTION, COMMON_ACCOUNTS_DOC);
     await setDoc(docRef, { accountIds });
 }

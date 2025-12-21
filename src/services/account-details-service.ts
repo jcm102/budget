@@ -1,21 +1,8 @@
 
 'use client';
 
-import { db } from '@/lib/firebase';
+import { Firestore, collection, getDocs, doc, deleteDoc, query, orderBy, addDoc, writeBatch, limit, updateDoc, where } from 'firebase/firestore';
 import type { AccountDetails, Debt, AccountLedgerItem } from '@/types';
-import {
-  collection,
-  getDocs,
-  doc,
-  deleteDoc,
-  query,
-  orderBy,
-  addDoc,
-  writeBatch,
-  limit,
-  updateDoc,
-  where,
-} from 'firebase/firestore';
 
 const ACCOUNT_DETAILS_COLLECTION = 'transferees'; // Keeping the old collection name to avoid data loss
 const DEBT_COLLECTION = 'debts';
@@ -28,7 +15,7 @@ const defaultAccounts = [
     { name: 'EQ Reimbursable Expenses', type: 'Chequing', balance: 0, isCalculated: true },
 ];
 
-async function seedDefaultAccounts() {
+async function seedDefaultAccounts(db: Firestore) {
   const accountCollectionRef = collection(db, ACCOUNT_DETAILS_COLLECTION);
   const q = query(accountCollectionRef, limit(1));
   const snapshot = await getDocs(q);
@@ -43,8 +30,8 @@ async function seedDefaultAccounts() {
   }
 }
 
-export async function getAccounts(): Promise<AccountDetails[]> {
-  await seedDefaultAccounts();
+export async function getAccounts(db: Firestore): Promise<AccountDetails[]> {
+  await seedDefaultAccounts(db);
   
   const accountCollection = collection(db, ACCOUNT_DETAILS_COLLECTION);
   const debtCollection = collection(db, DEBT_COLLECTION);
@@ -83,18 +70,18 @@ export async function getAccounts(): Promise<AccountDetails[]> {
   return accounts;
 }
 
-export async function addAccount(accountData: Omit<AccountDetails, 'id'>): Promise<AccountDetails> {
+export async function addAccount(db: Firestore, accountData: Omit<AccountDetails, 'id'>): Promise<AccountDetails> {
   const accountCollection = collection(db, ACCOUNT_DETAILS_COLLECTION);
   const docRef = await addDoc(accountCollection, accountData);
   return { id: docRef.id, ...accountData };
 }
 
-export async function updateAccount(id: string, accountData: Partial<Omit<AccountDetails, 'id'>>): Promise<void> {
+export async function updateAccount(db: Firestore, id: string, accountData: Partial<Omit<AccountDetails, 'id'>>): Promise<void> {
     const accountRef = doc(db, ACCOUNT_DETAILS_COLLECTION, id);
     await updateDoc(accountRef, accountData);
 }
 
-export async function deleteAccount(id: string): Promise<void> {
+export async function deleteAccount(db: Firestore, id: string): Promise<void> {
   const accountRef = doc(db, ACCOUNT_DETAILS_COLLECTION, id);
   await deleteDoc(accountRef);
 }

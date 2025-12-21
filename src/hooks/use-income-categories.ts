@@ -1,20 +1,24 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Category } from '@/types';
 import { useToast } from './use-toast';
 import * as IncomeCategoryService from '@/services/income-category-service';
+import { useFirestore } from '@/firebase';
 
 export function useIncomeCategories() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const db = useFirestore();
 
   useEffect(() => {
     const fetchCategories = async () => {
+      if (!db) return;
       try {
         setIsLoading(true);
-        const fetchedCategories = await IncomeCategoryService.getCategories();
+        const fetchedCategories = await IncomeCategoryService.getCategories(db);
         setCategories(fetchedCategories);
       } catch (error) {
         console.error('Failed to load categories:', error);
@@ -28,11 +32,12 @@ export function useIncomeCategories() {
       }
     };
     fetchCategories();
-  }, [toast]);
+  }, [toast, db]);
 
   const addCategory = useCallback(async (name: string) => {
+    if (!db) return;
     try {
-      const newCategory = await IncomeCategoryService.addCategory(name);
+      const newCategory = await IncomeCategoryService.addCategory(db, name);
       setCategories((prev) => [...prev, newCategory]);
     } catch (error) {
       console.error('Failed to add category:', error);
@@ -42,13 +47,14 @@ export function useIncomeCategories() {
         variant: 'destructive',
       });
     }
-  }, [toast]);
+  }, [toast, db]);
 
   const deleteCategory = useCallback(async (id: string) => {
+    if (!db) return;
     const originalCategories = categories;
     setCategories((prev) => prev.filter((category) => category.id !== id));
     try {
-      await IncomeCategoryService.deleteCategory(id);
+      await IncomeCategoryService.deleteCategory(db, id);
     } catch (error) {
       console.error('Failed to delete category:', error);
       setCategories(originalCategories);
@@ -58,7 +64,7 @@ export function useIncomeCategories() {
         variant: 'destructive',
       });
     }
-  }, [categories, toast]);
+  }, [categories, toast, db]);
 
   return { categories, addCategory, deleteCategory, isLoading };
 }

@@ -1,29 +1,15 @@
 
 'use client';
 
-import { db } from '@/lib/firebase';
+import { Firestore, collection, getDocs, doc, deleteDoc, query, orderBy, addDoc, writeBatch, getDoc, limit, where, setDoc } from 'firebase/firestore';
 import type { Category } from '@/types';
-import {
-  collection,
-  getDocs,
-  doc,
-  deleteDoc,
-  query,
-  orderBy,
-  addDoc,
-  writeBatch,
-  getDoc,
-  limit,
-  where,
-  setDoc,
-} from 'firebase/firestore';
 
 const CATEGORY_COLLECTION = 'budget-categories';
 const BUDGET_ITEMS_COLLECTION = 'monthly-budget-items';
 const defaultCategories = ['Groceries', 'Utilities', 'Rent/Mortgage', 'Transportation', 'Entertainment', 'Other', 'Credit Cards', 'Loans', 'Line of Credit'];
 
 // This function now uses a flag to ensure it only runs once.
-async function seedDefaultCategories() {
+async function seedDefaultCategories(db: Firestore) {
   const seedFlagRef = doc(db, CATEGORY_COLLECTION, '_seeded');
   const seedFlagSnap = await getDoc(seedFlagRef);
 
@@ -48,8 +34,8 @@ async function seedDefaultCategories() {
 }
 
 
-export async function getCategories(): Promise<Category[]> {
-  await seedDefaultCategories();
+export async function getCategories(db: Firestore): Promise<Category[]> {
+  await seedDefaultCategories(db);
   const categoryCollection = collection(db, CATEGORY_COLLECTION);
   // Exclude the seeding flag document from the results returned to the app.
   const q = query(categoryCollection, where('__name__', '!=', '_seeded'), orderBy('__name__'));
@@ -60,7 +46,7 @@ export async function getCategories(): Promise<Category[]> {
   return categories.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export async function addCategory(name: string, parentId: string | null = null): Promise<Category> {
+export async function addCategory(db: Firestore, name: string, parentId: string | null = null): Promise<Category> {
   const categoryCollection = collection(db, CATEGORY_COLLECTION);
   const docRef = await addDoc(categoryCollection, { name, parentId });
   const docSnap = await getDoc(docRef);
@@ -78,7 +64,7 @@ const findAllDescendantIds = (categoryId: string, allCategories: Category[]): st
     return descendantIds;
 };
 
-export async function deleteCategory(id: string): Promise<void> {
+export async function deleteCategory(db: Firestore, id: string): Promise<void> {
   const batch = writeBatch(db);
   
   // 1. Fetch all categories once to build the hierarchy in memory

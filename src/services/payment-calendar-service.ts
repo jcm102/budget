@@ -1,9 +1,8 @@
 
 'use client';
 
-import { db } from '@/lib/firebase';
+import { Firestore, doc, getDoc, setDoc } from 'firebase/firestore';
 import type { CalendarColumn, CalendarRow } from '@/types';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 const CALENDAR_COLLECTION = 'payment-calendar';
 const CALENDAR_STATE_DOC = 'singleton_state';
@@ -13,7 +12,7 @@ interface CalendarState {
     rows: CalendarRow[];
 }
 
-export async function getCalendarState(): Promise<CalendarState | null> {
+export async function getCalendarState(db: Firestore): Promise<CalendarState | null> {
   const docRef = doc(db, CALENDAR_COLLECTION, CALENDAR_STATE_DOC);
   const docSnap = await getDoc(docRef);
 
@@ -26,7 +25,7 @@ export async function getCalendarState(): Promise<CalendarState | null> {
   }
 }
 
-export async function updateCalendarState(state: CalendarState): Promise<void> {
+export async function updateCalendarState(db: Firestore, state: CalendarState): Promise<void> {
   const docRef = doc(db, CALENDAR_COLLECTION, CALENDAR_STATE_DOC);
   // Using setDoc with merge: false will overwrite the entire document, which is what we want.
   await setDoc(docRef, state);

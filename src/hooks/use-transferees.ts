@@ -1,19 +1,23 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import type { AccountDetails } from '@/types';
 import { useToast } from './use-toast';
 import * as AccountDetailsService from '@/services/account-details-service';
+import { useFirestore } from '@/firebase';
 
 export function useAccountDetails() {
   const [accounts, setAccounts] = useState<AccountDetails[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const db = useFirestore();
 
   const fetchAccounts = useCallback(async () => {
+    if (!db) return;
       try {
         setIsLoading(true);
-        const fetchedAccounts = await AccountDetailsService.getAccounts();
+        const fetchedAccounts = await AccountDetailsService.getAccounts(db);
         setAccounts(fetchedAccounts);
       } catch (error) {
         console.error('Failed to load accounts:', error);
@@ -25,16 +29,16 @@ export function useAccountDetails() {
       } finally {
         setIsLoading(false);
       }
-    }, [toast]);
+    }, [toast, db]);
 
   useEffect(() => {
     fetchAccounts();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchAccounts]);
 
   const addAccount = useCallback(async (accountData: Omit<AccountDetails, 'id'>) => {
+    if (!db) return;
     try {
-      await AccountDetailsService.addAccount(accountData);
+      await AccountDetailsService.addAccount(db, accountData);
       await fetchAccounts();
     } catch (error) {
       console.error('Failed to add account:', error);
@@ -44,13 +48,14 @@ export function useAccountDetails() {
         variant: 'destructive',
       });
     }
-  }, [toast, fetchAccounts]);
+  }, [toast, fetchAccounts, db]);
   
   const updateAccount = useCallback(async (id: string, accountData: Partial<Omit<AccountDetails, 'id'>>) => {
+    if (!db) return;
     const originalAccounts = accounts;
     setAccounts(prev => prev.map(acc => acc.id === id ? { ...acc, ...accountData } as AccountDetails : acc));
     try {
-      await AccountDetailsService.updateAccount(id, accountData);
+      await AccountDetailsService.updateAccount(db, id, accountData);
       // We don't need a full fetch here, optimistic update is enough unless balances change
       if (accountData.balance !== undefined || accountData.isCalculated !== undefined || accountData.linkedDebtId !== undefined) {
           await fetchAccounts();
@@ -60,14 +65,15 @@ export function useAccountDetails() {
        console.error('Failed to update account:', error);
        toast({ title: 'Error', description: 'Failed to update account.', variant: 'destructive'});
     }
-  }, [accounts, toast, fetchAccounts]);
+  }, [accounts, toast, fetchAccounts, db]);
 
 
   const deleteAccount = useCallback(async (id: string) => {
+    if (!db) return;
     const originalAccounts = accounts;
     setAccounts((prev) => prev.filter((acc) => acc.id !== id));
     try {
-      await AccountDetailsService.deleteAccount(id);
+      await AccountDetailsService.deleteAccount(db, id);
       await fetchAccounts();
     } catch (error) {
       console.error('Failed to delete account:', error);
@@ -78,7 +84,7 @@ export function useAccountDetails() {
         variant: 'destructive',
       });
     }
-  }, [accounts, toast, fetchAccounts]);
+  }, [accounts, toast, fetchAccounts, db]);
 
   return { accounts, addAccount, updateAccount, deleteAccount, isLoading, fetchAccounts };
 }

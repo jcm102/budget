@@ -48,6 +48,7 @@ export function useExpenses() {
   }, [fetchData]);
   
   const cycleExpensesToNextMonth = useCallback(async () => {
+    if (!db) return;
     try {
         const archiveKey = format(new Date(), 'yyyy-MM');
         await ExpenseService.archiveCurrentExpenses(db, archiveKey);
@@ -68,6 +69,7 @@ export function useExpenses() {
   }, [fetchData, toast, db]);
 
   const addExpense = useCallback(async (itemData: Omit<Expense, 'id'>, ledgerAccountId: string | undefined, receiptFile: UploadableFile | undefined | null, callback: (success: boolean) => void) => {
+    if (!db) return;
     try {
       await ExpenseService.addExpense(db, storage, itemData, ledgerAccountId, receiptFile);
       await fetchData(); 
@@ -84,6 +86,7 @@ export function useExpenses() {
   }, [toast, fetchData, db, storage]);
 
   const updateExpense = useCallback(async (id: string, itemData: Partial<Omit<Expense, 'id' | 'originalId'>>) => {
+    if (!db) return;
     try {
       await ExpenseService.updateExpense(db, id, itemData);
       await fetchData();
@@ -98,6 +101,7 @@ export function useExpenses() {
   }, [toast, fetchData, db]);
 
   const deleteExpense = useCallback(async (id: string) => {
+    if (!db) return;
     try {
       await ExpenseService.deleteExpense(db, id);
       await fetchData();
@@ -112,6 +116,7 @@ export function useExpenses() {
   }, [toast, fetchData, db]);
 
   const toggleExpenseCompleted = useCallback(async (id: string, completed: boolean) => {
+    if (!db) return;
     try {
       await ExpenseService.updateExpense(db, id, { completed: !completed });
       await fetchData(); // Refetch to ensure UI is in sync with backend
@@ -127,6 +132,7 @@ export function useExpenses() {
 
   // Mileage functions
   const addMileage = useCallback(async (itemData: Omit<MileageLog, 'id'>) => {
+    if (!db) return;
     try {
       await MileageService.addMileageLog(db, itemData);
       await fetchData();
@@ -141,6 +147,7 @@ export function useExpenses() {
   }, [toast, fetchData, db]);
 
   const updateMileage = useCallback(async (id: string, itemData: Partial<Omit<MileageLog, 'id'>>) => {
+    if (!db) return;
     try {
       await MileageService.updateMileageLog(db, id, itemData);
        await fetchData();
@@ -155,6 +162,7 @@ export function useExpenses() {
   }, [toast, fetchData, db]);
 
   const deleteMileage = useCallback(async (id: string) => {
+    if (!db) return;
     try {
       await MileageService.deleteMileageLog(db, id);
        await fetchData();
@@ -170,6 +178,7 @@ export function useExpenses() {
 
   // Honorarium functions
   const addHonorarium = useCallback(async (itemData: Omit<Honorarium, 'id'>) => {
+    if (!db) return;
     try {
       await ExpenseService.addHonorarium(db, itemData);
       await fetchData();
@@ -185,6 +194,7 @@ export function useExpenses() {
   }, [toast, fetchData, db]);
 
   const updateHonorarium = useCallback(async (id: string, itemData: Partial<Omit<Honorarium, 'id'>>) => {
+    if (!db) return;
     try {
       await ExpenseService.updateHonorarium(db, id, itemData);
       await fetchData();
@@ -199,6 +209,7 @@ export function useExpenses() {
   }, [toast, fetchData, db]);
 
   const deleteHonorarium = useCallback(async (id: string) => {
+    if (!db) return;
     try {
       await ExpenseService.deleteHonorarium(db, id);
       await fetchData();

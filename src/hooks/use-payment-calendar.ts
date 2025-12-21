@@ -6,20 +6,23 @@ import type { CalendarColumn, CalendarRow } from '@/types';
 import { useToast } from './use-toast';
 import * as PaymentCalendarService from '@/services/payment-calendar-service';
 import { useDebounce } from './use-debounce';
+import { useFirestore } from '@/firebase';
 
 export function usePaymentCalendar() {
   const [columns, setColumns] = useState<CalendarColumn[]>([]);
   const [rows, setRows] = useState<CalendarRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const db = useFirestore();
 
   const debouncedColumns = useDebounce(columns, 500);
   const debouncedRows = useDebounce(rows, 500);
 
   const fetchData = useCallback(async () => {
+    if (!db) return;
     try {
       setIsLoading(true);
-      const data = await PaymentCalendarService.getCalendarState();
+      const data = await PaymentCalendarService.getCalendarState(db);
       if (data) {
         setColumns(data.columns);
         setRows(data.rows);
@@ -38,7 +41,7 @@ export function usePaymentCalendar() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, db]);
 
   useEffect(() => {
     fetchData();
@@ -46,10 +49,10 @@ export function usePaymentCalendar() {
 
   // Effect to save debounced state to Firestore
   useEffect(() => {
-    if (!isLoading) {
-      PaymentCalendarService.updateCalendarState({ columns: debouncedColumns, rows: debouncedRows });
+    if (!isLoading && db) {
+      PaymentCalendarService.updateCalendarState(db, { columns: debouncedColumns, rows: debouncedRows });
     }
-  }, [debouncedColumns, debouncedRows, isLoading]);
+  }, [debouncedColumns, debouncedRows, isLoading, db]);
 
 
   const addColumn = () => {
@@ -82,12 +85,13 @@ export function usePaymentCalendar() {
   };
   
   const clearAll = async () => {
+    if (!db) return;
     const defaultColumns = [{ id: crypto.randomUUID(), payeeId: '' }];
     const defaultRows = [{ id: crypto.randomUUID(), description: '', values: {} }];
     setColumns(defaultColumns);
     setRows(defaultRows);
     try {
-      await PaymentCalendarService.updateCalendarState({ columns: defaultColumns, rows: defaultRows });
+      await PaymentCalendarService.updateCalendarState(db, { columns: defaultColumns, rows: defaultRows });
       toast({ title: 'Success', description: 'Payment calendar has been cleared.'});
     } catch (error) {
        toast({ title: 'Error', description: 'Could not clear the calendar.', variant: 'destructive'});
