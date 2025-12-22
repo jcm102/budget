@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { useFirestore } from '@/firebase';
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
@@ -90,6 +91,7 @@ function CollapsibleTableRow({ item, groupedTransactions, showTransactions }: { 
 
 export function CreditCardReport() {
   const { toast } = useToast();
+  const db = useFirestore();
   const [startDate, setStartDate] = useState<string | undefined>();
   const [endDate, setEndDate] = useState<string | undefined>();
   const [reportData, setReportData] = useState<ReportData[]>([]);
@@ -99,9 +101,9 @@ export function CreditCardReport() {
   const { accounts } = useAccountDetails();
 
   const handleGenerateReport = async () => {
-    if (!startDate || !endDate) {
+    if (!startDate || !endDate || !db) {
         toast({
-            title: 'Missing Dates',
+            title: 'Missing Dates or DB',
             description: 'Please select both a start and end date.',
             variant: 'destructive',
         });
@@ -121,7 +123,7 @@ export function CreditCardReport() {
     setReportData([]);
     setGroupedTransactions({});
     try {
-      const transactions = await getTransactionsByDateRange(startDate, endDate);
+      const transactions = await getTransactionsByDateRange(db, startDate, endDate);
       
       const totalsByCard = new Map<string, number>();
       const transactionsByCard: GroupedTransactions = {};
@@ -149,7 +151,7 @@ export function CreditCardReport() {
       setReportData(formattedReport);
       setGroupedTransactions(transactionsByCard);
       
-      await updateCreditCardReportLastRunDate(endDate);
+      await updateCreditCardReportLastRunDate(db, endDate);
 
     } catch (error) {
       console.error("Failed to generate report:", error);
