@@ -3,10 +3,7 @@ import * as admin from 'firebase-admin';
 // Check if the admin SDK is already initialized to prevent errors on hot-reload
 if (!admin.apps.length) {
   try {
-    admin.initializeApp({
-      // applicationDefault() automatically uses the App Hosting service account
-      credential: admin.credential.applicationDefault(),
-    });
+    admin.initializeApp();
   } catch (error) {
     console.error('Firebase admin initialization error:', error);
   }
