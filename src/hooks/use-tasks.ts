@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -6,7 +5,6 @@ import type { Task, Subtask, LinkGroup } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import * as TaskService from '@/services/task-service';
 import * as LinkGroupService from '@/services/link-group-service';
-import { db } from '@/lib/firebase';
 
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
