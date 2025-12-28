@@ -18,16 +18,23 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       return; // Do nothing while loading
     }
     
-    if (user && pathname === '/login') {
-      const redirectPath = isMobile ? '/monthly-budget/add' : '/tasks';
-      router.replace(redirectPath);
-    } else if (!user && pathname !== '/login') {
+    // If user is logged in, handle redirects away from login or root
+    if (user) {
+      if (pathname === '/login') {
+        router.replace('/tasks');
+      } else if (pathname === '/') {
+        router.replace('/tasks');
+      }
+    } 
+    // If user is not logged in, redirect any protected page to login
+    else if (!user && pathname !== '/login') {
       router.replace('/login');
     }
 
   }, [user, isUserLoading, router, pathname, isMobile]);
 
-  if (isUserLoading || (!user && pathname !== '/login') || (user && pathname === '/login')) {
+  // Show a loader while authentication is in progress or if a redirect is imminent.
+  if (isUserLoading || (!user && pathname !== '/login') || (user && (pathname === '/login' || pathname === '/'))) {
      return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
