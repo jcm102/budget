@@ -96,7 +96,7 @@ export function AccountClientPage({
     return filtered.sort((a, b) => {
         const dateA = new Date(a.date).getTime();
         const dateB = new Date(b.date).getTime();
-        return sortDirection === 'asc' ? dateA - dateB : dateB - a;
+        return sortDirection === 'asc' ? dateA - dateB : dateB - a.amount;
     });
 
   }, [accountTransactions, startDate, endDate, sortDirection]);

@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { SavingsItem } from '@/types';
+import type { SavingsItem, SubscriptionItem, AutoShipItem } from '@/types';
 import { useToast } from './use-toast';
 import * as SavingsService from '@/services/savings-service';
 import { useSelectedAccount } from './use-selected-account';

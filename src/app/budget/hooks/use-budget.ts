@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { BudgetItem, BudgetItemType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import * as BudgetService from '@/app/budget/services/budget-service';
-import { useAccountDetails } from '@/hooks/use-account-details';
+import { useAccountDetails } from '@/hooks/use-transferees';
 import { useFirestore } from '@/firebase';
 
 export function useBudget() {

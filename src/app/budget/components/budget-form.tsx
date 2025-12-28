@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import type { BudgetItem, BudgetItemType, BudgetItemFrequency, Category, MonthlyBudgetItem } from '@/types';
 import { useIncomeCategories } from '@/hooks/use-income-categories';
-import { useAccountDetails } from '@/hooks/use-account-details';
+import { useAccountDetails } from '@/hooks/use-transferees';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useGoals } from '@/app/savings/hooks/use-goals';
 import { useDebt } from '@/app/debt/hooks/use-debt';

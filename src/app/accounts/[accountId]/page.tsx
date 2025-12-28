@@ -8,7 +8,7 @@ import { AccountClientPage } from '@/app/accounts/components/account-client-page
 import { notFound, useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AccountDetails, Category, Transaction } from '@/types';
-import { useUser } from '@/firebase';
+import { useUser, useFirestore } from '@/firebase';
 import { Loader2 } from 'lucide-react';
 
 
@@ -16,6 +16,7 @@ export default function AccountDetailPage() {
   const params = useParams();
   const accountId = params.accountId as string;
   const { user, isUserLoading } = useUser();
+  const db = useFirestore();
 
   const [account, setAccount] = useState<AccountDetails | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -24,15 +25,15 @@ export default function AccountDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (user && accountId) {
+    if (user && accountId && db) {
       const fetchData = async () => {
         setIsLoading(true);
         try {
           const [accountData, transactionsData, allAccountsData, categoriesData] = await Promise.all([
-            getAccountDetails(accountId),
-            getTransactionsForAccount(accountId),
-            getAccounts(),
-            getCategories()
+            getAccountDetails(db, accountId),
+            getTransactionsForAccount(db, accountId),
+            getAccounts(db),
+            getCategories(db)
           ]);
           setAccount(accountData);
           setTransactions(transactionsData);
@@ -45,11 +46,11 @@ export default function AccountDetailPage() {
         }
       };
       fetchData();
-    } else if (!isUserLoading && !user) {
+    } else if (!isUserLoading && (!user || !db)) {
         // Handle case where user is not logged in but tries to access the page
         setIsLoading(false);
     }
-  }, [accountId, user, isUserLoading]);
+  }, [accountId, user, isUserLoading, db]);
 
   if (isLoading || isUserLoading) {
     return (
