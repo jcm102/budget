@@ -1,30 +1,33 @@
-
 'use server';
 
 import { db } from '@/lib/firebase-admin';
 import type { LinkGroup } from '@/types';
-import { collection, getDocs, doc, addDoc, updateDoc, deleteDoc, query } from 'firebase/firestore';
 
-const LINK_GROUPS_COLLECTION = 'link-groups';
+const COLLECTION_NAME = 'link-groups';
 
 export async function getLinkGroups(): Promise<LinkGroup[]> {
-  const linkGroupsCollection = collection(db, LINK_GROUPS_COLLECTION);
-  const q = query(linkGroupsCollection);
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LinkGroup));
+  try {
+    const snapshot = await db.collection(COLLECTION_NAME).get();
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as LinkGroup));
+  } catch (error) {
+    console.error('Error getting link groups:', error);
+    throw new Error('Failed to fetch link groups');
+  }
 }
 
-export async function addLinkGroup(name: string, links: string[]): Promise<LinkGroup> {
-  const docRef = await addDoc(collection(db, LINK_GROUPS_COLLECTION), { name, links });
-  return { id: docRef.id, name, links };
+export async function addLinkGroup(group: Omit<LinkGroup, 'id'>): Promise<LinkGroup> {
+  const docRef = await db.collection(COLLECTION_NAME).add(group);
+  const doc = await docRef.get();
+  return { id: doc.id, ...doc.data() } as LinkGroup;
 }
 
-export async function updateLinkGroup(id: string, name: string, links: string[]): Promise<void> {
-  const linkGroupRef = doc(db, LINK_GROUPS_COLLECTION, id);
-  await updateDoc(linkGroupRef, { name, links });
+export async function updateLinkGroup(id: string, data: Partial<LinkGroup>): Promise<void> {
+  await db.collection(COLLECTION_NAME).doc(id).update(data);
 }
 
 export async function deleteLinkGroup(id: string): Promise<void> {
-  const linkGroupRef = doc(db, LINK_GROUPS_COLLECTION, id);
-  await deleteDoc(linkGroupRef);
+  await db.collection(COLLECTION_NAME).doc(id).delete();
 }

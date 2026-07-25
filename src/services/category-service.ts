@@ -1,34 +1,19 @@
-
 'use server';
 
-import { db } from '@/lib/firebase';
+import { db } from '@/lib/firebase-admin';
 import type { Category } from '@/types';
-import {
-  collection,
-  getDocs,
-  doc,
-  deleteDoc,
-  query,
-  orderBy,
-  addDoc,
-  writeBatch,
-  getDoc,
-  limit,
-  where
-} from 'firebase/firestore';
 
 const CATEGORY_COLLECTION = 'income-categories';
 const defaultCategories = ['Paycheck', 'Bonus', 'Freelance', 'Other'];
 
 async function seedDefaultCategories() {
-  const categoryCollectionRef = collection(db, CATEGORY_COLLECTION);
-  const q = query(categoryCollectionRef, limit(1));
-  const snapshot = await getDocs(q);
+  const categoryCol = db.collection(CATEGORY_COLLECTION);
+  const snapshot = await categoryCol.limit(1).get();
   
   if (snapshot.empty) {
-    const batch = writeBatch(db);
+    const batch = db.batch();
     defaultCategories.forEach(categoryName => {
-      const newDocRef = doc(categoryCollectionRef);
+      const newDocRef = categoryCol.doc();
       batch.set(newDocRef, { name: categoryName });
     });
     await batch.commit();
@@ -36,22 +21,24 @@ async function seedDefaultCategories() {
 }
 
 export async function getCategories(): Promise<Category[]> {
-  await seedDefaultCategories();
-  const categoryCollection = collection(db, CATEGORY_COLLECTION);
-  const q = query(categoryCollection, orderBy('name'));
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
+  try {
+    await seedDefaultCategories();
+    const snapshot = await db.collection(CATEGORY_COLLECTION).orderBy('name').get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    // Fallback in case index is building
+    const snapshot = await db.collection(CATEGORY_COLLECTION).get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
+  }
 }
 
 export async function addCategory(name: string): Promise<Category> {
-  const categoryCollection = collection(db, CATEGORY_COLLECTION);
-  const docRef = await addDoc(categoryCollection, { name });
-  const docSnap = await getDoc(docRef);
-  const newCategory = { id: docSnap.id, ...docSnap.data() } as Category;
-  return newCategory;
+  const docRef = await db.collection(CATEGORY_COLLECTION).add({ name });
+  const docSnap = await docRef.get();
+  return { id: docSnap.id, ...docSnap.data() } as Category;
 }
 
 export async function deleteCategory(id: string): Promise<void> {
-  const categoryRef = doc(db, CATEGORY_COLLECTION, id);
-  await deleteDoc(categoryRef);
+  await db.collection(CATEGORY_COLLECTION).doc(id).delete();
 }

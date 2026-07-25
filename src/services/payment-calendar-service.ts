@@ -1,7 +1,7 @@
 
 'use server';
 
-import { db } from '@/lib/firebase-admin';
+import { db } from '@/lib/firebase';
 import type { CalendarColumn, CalendarRow } from '@/types';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 

@@ -1,7 +1,7 @@
 
 'use server';
 
-import { db } from '@/lib/firebase-admin';
+import { db } from '@/lib/firebase';
 import type { SubscriptionItem, MonthlyBudgetItem } from '@/types';
 import {
   collection,
@@ -14,7 +14,10 @@ import {
   getDoc,
   orderBy,
   where,
-  runTransaction
+  runTransaction,
+  type Transaction,
+  type QuerySnapshot,
+  type DocumentData
 } from 'firebase/firestore';
 
 const SUBSCRIPTION_COLLECTION = 'subscriptions';
@@ -30,9 +33,9 @@ const getMonthlyCost = (item: Pick<SubscriptionItem, 'cost' | 'billingFrequency'
 };
 
 async function updateMonthlyBudget(
-    transaction: FirebaseFirestore.Transaction,
-    budgetItemsSnapshot: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData> | null,
-    oldBudgetItemsSnapshot: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData> | null,
+    transaction: Transaction,
+    budgetItemsSnapshot: QuerySnapshot<DocumentData> | null,
+    oldBudgetItemsSnapshot: QuerySnapshot<DocumentData> | null,
     subscription: SubscriptionItem,
     oldSubscriptionData?: SubscriptionItem
 ) {

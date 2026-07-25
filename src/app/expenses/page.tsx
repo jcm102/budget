@@ -1,10 +1,9 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Landmark, HandCoins, DollarSign, FileClock, Archive, FileText, Route, Car, FileSpreadsheet, CalendarClock } from 'lucide-react';
+import { ArrowLeft, Landmark, HandCoins, DollarSign, FileClock, FileText, Route, Car, FileSpreadsheet, CalendarClock } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useExpenses } from './hooks/use-expenses';
 import { useExpenseFunds } from './hooks/use-expense-funds';
@@ -29,7 +28,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
-import { useFirestore } from '@/firebase';
 
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
@@ -56,38 +54,45 @@ export default function ExpensesPage() {
         fetchData,
         cycleExpensesToNextMonth,
     } = useExpenses();
-    const db = useFirestore();
     
     const { toast } = useToast();
     const [archivedMonths, setArchivedMonths] = useState<string[]>([]);
     const [selectedArchive, setSelectedArchive] = useState<string | null>(null);
     const [archivedData, setArchivedData] = useState<{ expenses: any[], mileageLogs: any[], honorariums: any[] } | null>(null);
 
-     useEffect(() => {
+    // Fetch archived months on mount
+    useEffect(() => {
         const fetchMonths = async () => {
-            const months = await ExpenseService.getArchivedMonths(db);
-            setArchivedMonths(months);
-            if (months.length > 0 && !selectedArchive) {
-                setSelectedArchive(months[0]);
+            try {
+                const months = await ExpenseService.getArchivedMonths();
+                setArchivedMonths(months);
+                if (months.length > 0 && !selectedArchive) {
+                    setSelectedArchive(months[0]);
+                }
+            } catch (error) {
+                console.error("Error fetching archived months", error);
             }
         };
-        if (db) {
-            fetchMonths();
-        }
-    }, [db, selectedArchive]);
+        fetchMonths();
+    }, [selectedArchive]);
 
+    // Fetch archive data when selected month changes
     useEffect(() => {
-        if (selectedArchive && db) {
+        if (selectedArchive) {
             const fetchArchiveData = async () => {
-                const data = await ExpenseService.getExpensesForMonth(db, selectedArchive);
-                setArchivedData(data);
+                try {
+                    const data = await ExpenseService.getExpensesForMonth(selectedArchive);
+                    setArchivedData(data);
+                } catch (error) {
+                    console.error("Error fetching archive data", error);
+                }
             };
             fetchArchiveData();
         }
-    }, [selectedArchive, db]);
+    }, [selectedArchive]);
 
     const handleAddExpense = (item: any, ledgerAccountId: any, receiptFile: any, callback: any) => {
-        addExpense(item, ledgerAccountId, receiptFile, (success) => {
+        addExpense(item, ledgerAccountId, receiptFile, (success: boolean) => {
             if (success) {
                 fetchFunds();
             }
@@ -98,84 +103,51 @@ export default function ExpensesPage() {
     const handleAddHonorarium = (item: any) => {
         addHonorarium(item).then(() => {
             fetchFunds();
-        }).catch(() => {
-            // Error is already toasted in the hook
-        });
+        }).catch(() => {});
     };
 
     const handleDeleteHonorarium = (id: string) => {
         deleteHonorarium(id).then(() => {
             fetchFunds();
-        }).catch(() => {
-            // Error is already toasted in the hook
-        });
+        }).catch(() => {});
     };
     
     const handleExport = () => {
         const wb = XLSX.utils.book_new();
         const allData: any[] = [];
-
         const currentExpenses = expenses.filter(e => !e.forNextMonth);
         const currentMileage = mileageLogs.filter(m => !m.forNextMonth);
 
-        // Monetary Expenses Section
         if (currentExpenses.length > 0) {
-            allData.push(['Monetary Expenses']); // Section Header
-            const expensesHeaders = ['Date', 'Description', 'Category', 'Payment Source', 'Amount', 'Reimbursable', 'Frequency', 'Completed'];
-            allData.push(expensesHeaders);
+            allData.push(['Monetary Expenses']);
+            allData.push(['Date', 'Description', 'Category', 'Payment Source', 'Amount', 'Reimbursable', 'Frequency', 'Completed']);
             currentExpenses.forEach(e => {
-                allData.push([
-                    format(new Date(e.date), 'PPP'),
-                    e.description,
-                    e.category,
-                    e.transferee,
-                    e.amount,
-                    e.reimbursable ? 'Yes' : 'No',
-                    e.frequency,
-                    e.completed ? 'Yes' : 'No'
-                ]);
+                allData.push([format(new Date(e.date), 'PPP'), e.description, e.category, e.transferee, e.amount, e.reimbursable ? 'Yes' : 'No', e.frequency, e.completed ? 'Yes' : 'No']);
             });
-            allData.push([]); // Spacer row
+            allData.push([]);
         }
 
-        // Mileage Section
         if (currentMileage.length > 0) {
-            allData.push(['Mileage']); // Section Header
-            const mileageHeaders = ['Date', 'Description', 'Origin', 'Destination', 'Distance (km)', 'Rate', 'Total'];
-            allData.push(mileageHeaders);
+            allData.push(['Mileage']);
+            allData.push(['Date', 'Description', 'Origin', 'Destination', 'Distance (km)', 'Rate', 'Total']);
             currentMileage.forEach(m => {
-                allData.push([
-                    format(new Date(m.date), 'PPP'),
-                    m.description,
-                    m.origin,
-                    m.destination,
-                    m.distance,
-                    m.rate,
-                    m.distance * m.rate
-                ]);
+                allData.push([format(new Date(m.date), 'PPP'), m.description, m.origin, m.destination, m.distance, m.rate, m.distance * m.rate]);
             });
-            allData.push([]); // Spacer row
+            allData.push([]);
         }
 
-        // Honorariums Section
         if (honorariums.length > 0) {
-            allData.push(['Honorariums']); // Section Header
-            const honorariumsHeaders = ['Date', 'Description', 'Amount'];
-            allData.push(honorariumsHeaders);
+            allData.push(['Honorariums']);
+            allData.push(['Date', 'Description', 'Amount']);
             honorariums.forEach(h => {
-                allData.push([
-                    format(new Date(h.date), 'PPP'),
-                    h.description,
-                    h.amount
-                ]);
+                allData.push([format(new Date(h.date), 'PPP'), h.description, h.amount]);
             });
         }
         
         const ws = XLSX.utils.aoa_to_sheet(allData);
         XLSX.utils.book_append_sheet(wb, ws, "Work Expenses");
-        
         XLSX.writeFile(wb, `Work-Expenses-${new Date().toISOString().slice(0,10)}.xlsx`);
-    }
+    };
 
     const { currentExpenses, nextExpenses, currentMileage, nextMileage } = useMemo(() => {
         return {
@@ -183,7 +155,7 @@ export default function ExpensesPage() {
             nextExpenses: expenses.filter(e => e.forNextMonth),
             currentMileage: mileageLogs.filter(m => !m.forNextMonth),
             nextMileage: mileageLogs.filter(m => m.forNextMonth),
-        }
+        };
     }, [expenses, mileageLogs]);
     
     const totalReimbursable = currentExpenses.filter(e => e.reimbursable).reduce((acc, e) => acc + e.amount, 0);
@@ -202,10 +174,10 @@ export default function ExpensesPage() {
         <div className="container mx-auto max-w-7xl p-4 md:p-8">
             <header className="mb-8 flex justify-between items-center no-print">
                 <Button asChild variant="outline">
-                <Link href="/">
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back to Home
-                </Link>
+                    <Link href="/">
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Back to Home
+                    </Link>
                 </Button>
                  <div className="flex items-center gap-2">
                      <AlertDialog>
@@ -219,7 +191,7 @@ export default function ExpensesPage() {
                             <AlertDialogHeader>
                             <AlertDialogTitle>Cycle to Next Month?</AlertDialogTitle>
                             <AlertDialogDescription>
-                                This will archive all current month expenses and move any planned expenses for next month into the current view. This action cannot be undone.
+                                This will archive all current month expenses and move any planned expenses for next month into the current view.
                             </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -236,6 +208,7 @@ export default function ExpensesPage() {
                     </Button>
                 </div>
             </header>
+
             <main>
                 <h1 className="text-3xl font-bold font-headline text-primary mb-6">Work Expenses</h1>
 
@@ -267,6 +240,7 @@ export default function ExpensesPage() {
                         <TabsTrigger value="current">Current Month</TabsTrigger>
                         <TabsTrigger value="next">Next Month</TabsTrigger>
                     </TabsList>
+                    
                     <TabsContent value="current">
                         <Tabs defaultValue="expenses" className="w-full">
                             <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 bg-secondary/50 mb-6 no-print h-auto">
@@ -321,6 +295,7 @@ export default function ExpensesPage() {
                                     isArchived={false}
                                 />
                             </TabsContent>
+
                             <TabsContent value="archive">
                                 <div className="space-y-6">
                                     <h2 className="text-2xl font-bold font-headline text-primary">Archived Expenses</h2>
@@ -336,15 +311,49 @@ export default function ExpensesPage() {
                                         <div className="space-y-8">
                                             <div>
                                                 <h3 className="text-xl font-semibold mb-4">Monetary Expenses</h3>
-                                                <ExpenseTable expenses={archivedData.expenses} isLoading={false} isArchived={true} addExpense={()=>{}} updateExpense={()=>{}} deleteExpense={()=>{}} toggleExpenseCompleted={()=>{}} addMileage={()=>{}} updateMileage={()=>{}} addHonorarium={()=>{}} updateHonorarium={()=>{}} />
+                                                <ExpenseTable 
+                                                    expenses={archivedData.expenses} 
+                                                    isLoading={false} 
+                                                    isArchived={true} 
+                                                    addExpense={()=>{}} 
+                                                    updateExpense={()=>{}} 
+                                                    deleteExpense={()=>{}} 
+                                                    toggleExpenseCompleted={()=>{}} 
+                                                    addMileage={()=>{}} 
+                                                    updateMileage={()=>{}} 
+                                                    addHonorarium={()=>{}} 
+                                                    updateHonorarium={()=>{}} 
+                                                />
                                             </div>
                                             <div>
                                                 <h3 className="text-xl font-semibold mb-4">Mileage</h3>
-                                                <MileageTable mileageLogs={archivedData.mileageLogs} isLoading={false} isArchived={true} addExpense={()=>{}} updateExpense={()=>{}} addMileage={()=>{}} updateMileage={()=>{}} deleteMileage={()=>{}} addHonorarium={()=>{}} updateHonorarium={()=>{}} />
+                                                <MileageTable 
+                                                    mileageLogs={archivedData.mileageLogs} 
+                                                    isLoading={false} 
+                                                    isArchived={true} 
+                                                    addExpense={()=>{}} 
+                                                    updateExpense={()=>{}} 
+                                                    addMileage={()=>{}} 
+                                                    updateMileage={()=>{}} 
+                                                    deleteMileage={()=>{}} 
+                                                    addHonorarium={()=>{}} 
+                                                    updateHonorarium={()=>{}} 
+                                                />
                                             </div>
                                             <div>
                                                 <h3 className="text-xl font-semibold mb-4">Honorariums</h3>
-                                                <HonorariumTable honorariums={archivedData.honorariums} isLoading={false} isArchived={true} addExpense={()=>{}} updateExpense={()=>{}} addMileage={()=>{}} updateMileage={()=>{}} deleteHonorarium={()=>{}} addHonorarium={()=>{}} updateHonorarium={()=>{}} />
+                                                <HonorariumTable 
+                                                    honorariums={archivedData.honorariums} 
+                                                    isLoading={false} 
+                                                    isArchived={true} 
+                                                    addExpense={()=>{}} 
+                                                    updateExpense={()=>{}} 
+                                                    addMileage={()=>{}} 
+                                                    updateMileage={()=>{}} 
+                                                    deleteHonorarium={()=>{}} 
+                                                    addHonorarium={()=>{}} 
+                                                    updateHonorarium={()=>{}} 
+                                                />
                                             </div>
                                         </div>
                                     )}
@@ -352,6 +361,7 @@ export default function ExpensesPage() {
                             </TabsContent>
                         </Tabs>
                     </TabsContent>
+
                     <TabsContent value="next">
                          <Tabs defaultValue="expenses" className="w-full">
                             <TabsList className="grid w-full grid-cols-2 bg-secondary/50 mb-6 no-print h-auto">

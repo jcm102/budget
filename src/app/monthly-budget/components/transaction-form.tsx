@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -26,13 +25,12 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, SelectLabel } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Trash2, PlusCircle, User, Users, Info, Copy, Loader2, Handshake } from 'lucide-react';
+import { Trash2, User, Users, Info, Copy, Loader2, Handshake } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Calculator } from '@/components/calculator';
-import type { Transaction, TransactionSplit, AccountDetails, Category } from '@/types';
+import type { Transaction, AccountDetails, Category } from '@/types';
 import { useMonthlyBudget } from '../hooks/use-monthly-budget';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -60,14 +58,12 @@ const formSchema = z.object({
   paidById: z.string().optional(),
 }).refine(data => {
     const totalSplitAmount = data.splits.reduce((sum, split) => sum + split.amount, 0);
-    return Math.abs(totalSplitAmount - data.amount) < 0.01; // Allow for floating point inaccuracies
+    return Math.abs(totalSplitAmount - data.amount) < 0.01; 
 }, {
     message: 'The sum of the splits must equal the total transaction amount.',
     path: ['splits'],
 }).refine(data => {
-    if (data.isIOUPayment) {
-        return !!data.paidById;
-    }
+    if (data.isIOUPayment) return !!data.paidById;
     return !!data.sourceAccountId;
 }, {
     message: 'A source account is required.',
@@ -202,24 +198,13 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
     try {
         if (editingTransaction) {
           await updateTransaction(editingTransaction.id, submissionData);
-           toast({
-            title: "Transaction Updated",
-            description: "Your transaction has been successfully updated.",
-          });
         } else {
           await addTransaction(submissionData, values.isIOUPayment);
-           toast({
-            title: "Transaction Added",
-            description: "Your new transaction has been successfully added.",
-          });
         }
+        toast({ title: "Success", description: "Transaction saved." });
         onOpenChange(false);
     } catch (error) {
-         toast({
-            title: "Error",
-            description: "There was a problem saving your transaction.",
-            variant: "destructive"
-        });
+        toast({ title: "Error", description: "Failed to save.", variant: "destructive" });
     } finally {
         setIsSubmitting(false);
     }
@@ -232,17 +217,11 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
   const copyDescriptionToSplits = () => {
     const description = form.getValues('description');
     if (description) {
-        toast({
-            title: "Description copied!",
-            description: "The main description has been copied to all split items."
-        })
+        toast({ title: "Copied!", description: "Description applied to all splits." });
     }
   }
 
   const renderCategoryOptions = (nodes: CategoryWithChildren[], level = 0): JSX.Element[] => {
-    if (!Array.isArray(nodes)) {
-        return [];
-    }
     let options: JSX.Element[] = [];
     nodes.forEach(node => {
         options.push(
@@ -273,7 +252,6 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
         )}
     </>
   );
-
 
   const formContent = (
     <Form {...form}>
@@ -477,9 +455,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
     </Form>
   )
   
-  if (isPage) {
-    return formContent;
-  }
+  if (isPage) return formContent;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

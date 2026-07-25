@@ -1,122 +1,169 @@
-
 'use server';
 
 import { db } from '@/lib/firebase-admin';
 import type { Task, Subtask } from '@/types';
-import { collection, getDocs, doc, setDoc, deleteDoc, query, getDoc, addDoc, updateDoc, writeBatch } from 'firebase/firestore';
 
 const TASKS_COLLECTION = 'tasks';
 
+/**
+ * FETCH ALL TASKS
+ */
 export async function getTasks(): Promise<Task[]> {
-  const tasksCollection = collection(db, TASKS_COLLECTION);
-  const q = query(tasksCollection);
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
+  try {
+    const snapshot = await db.collection(TASKS_COLLECTION).orderBy('order', 'asc').get();
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as Task));
+  } catch (error) {
+    console.error('Error fetching tasks (likely missing index):', error);
+    // Fallback if the index isn't ready yet
+    const snapshot = await db.collection(TASKS_COLLECTION).get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
+  }
 }
 
+/**
+ * ADD NEW TASK
+ */
 export async function addTask(
-  taskData: Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks' | 'order'>,
+  taskData: Omit<Task, 'id' | 'completed' | 'completedAt' | 'subtasks' | 'order'>, 
   order: number
 ): Promise<Task> {
-  const newTaskData = {
+  const newTask = {
     ...taskData,
+    order,
     completed: false,
     completedAt: null,
     subtasks: [],
-    order: order,
+    createdAt: new Date().toISOString()
   };
-  const docRef = await addDoc(collection(db, TASKS_COLLECTION), newTaskData);
-  const docSnap = await getDoc(docRef);
-  return { id: docSnap.id, ...(docSnap.data() as Omit<Task, 'id'>) };
+  
+  const docRef = await db.collection(TASKS_COLLECTION).add(newTask);
+  const doc = await docRef.get();
+  return { id: doc.id, ...doc.data() } as Task;
 }
 
-export async function updateTask(id: string, taskData: Partial<Omit<Task, 'id' | 'subtasks'>>): Promise<void> {
-  const taskRef = doc(db, TASKS_COLLECTION, id);
-  await updateDoc(taskRef, taskData);
+/**
+ * UPDATE TASK
+ */
+export async function updateTask(id: string, taskData: Partial<Task>): Promise<void> {
+  await db.collection(TASKS_COLLECTION).doc(id).update(taskData);
 }
 
-export async function updateTaskOrder(reorderedTasks: Task[]): Promise<void> {
-    const batch = writeBatch(db);
-    reorderedTasks.forEach((task, index) => {
-        const taskRef = doc(db, TASKS_COLLECTION, task.id);
-        batch.update(taskRef, { order: index });
-    });
-    await batch.commit();
-}
-
-
+/**
+ * DELETE TASK
+ */
 export async function deleteTask(id: string): Promise<void> {
-  const taskRef = doc(db, TASKS_COLLECTION, id);
-  await deleteDoc(taskRef);
+  await db.collection(TASKS_COLLECTION).doc(id).delete();
 }
 
-export async function addSubtask(taskId: string, data: Omit<Subtask, 'id' | 'completed' | 'order'>): Promise<void> {
-    const taskRef = doc(db, TASKS_COLLECTION, taskId);
-    const taskSnap = await getDoc(taskRef);
-    if (taskSnap.exists()) {
-        const task = taskSnap.data() as Task;
-        const newOrder = task.subtasks ? task.subtasks.length : 0;
-        const newSubtask: Subtask = {
-            id: crypto.randomUUID(),
-            description: data.description,
-            completed: false,
-            order: newOrder,
-            links: data.links || [],
-            linkGroupId: data.linkGroupId || null,
-            internalLink: data.internalLink || null,
-        };
-        const updatedSubtasks = [...(task.subtasks || []), newSubtask];
-        await updateDoc(taskRef, { subtasks: updatedSubtasks, completed: false, completedAt: null });
-    }
+/**
+ * UPDATE TASK ORDER (BATCH)
+ */
+export async function updateTaskOrder(tasks: Task[]): Promise<void> {
+  const batch = db.batch();
+  tasks.forEach((task) => {
+    const ref = db.collection(TASKS_COLLECTION).doc(task.id);
+    batch.update(ref, { order: task.order });
+  });
+  await batch.commit();
 }
 
-export async function updateSubtask(taskId: string, subtaskId: string, data: Partial<Omit<Subtask, 'id' | 'completed' | 'order'>>): Promise<void> {
-    const taskRef = doc(db, TASKS_COLLECTION, taskId);
-    const taskSnap = await getDoc(taskRef);
-    if (taskSnap.exists()) {
-        const task = taskSnap.data() as Task;
-        const updatedSubtasks = (task.subtasks || []).map(subtask => 
-            subtask.id === subtaskId ? { ...subtask, ...data } : subtask
-        );
-        await updateDoc(taskRef, { subtasks: updatedSubtasks });
-    }
+/**
+ * SUBTASK: ADD
+ */
+export async function addSubtask(taskId: string, subtask: Omit<Subtask, 'id' | 'completed' | 'order'>): Promise<void> {
+  const taskRef = db.collection(TASKS_COLLECTION).doc(taskId);
+  
+  await db.runTransaction(async (transaction) => {
+    const taskDoc = await transaction.get(taskRef);
+    if (!taskDoc.exists) throw new Error('Task not found');
+
+    const subtasks = taskDoc.data()?.subtasks || [];
+    const newSubtask = {
+      ...subtask,
+      id: Math.random().toString(36).substring(2, 9),
+      completed: false,
+      order: subtasks.length
+    };
+
+    transaction.update(taskRef, {
+      subtasks: [...subtasks, newSubtask]
+    });
+  });
 }
 
-export async function updateSubtaskOrder(taskId: string, reorderedSubtasks: Subtask[]): Promise<void> {
-    const taskRef = doc(db, TASKS_COLLECTION, taskId);
-    const updatedSubtasks = reorderedSubtasks.map((subtask, index) => ({...subtask, order: index }));
-    await updateDoc(taskRef, { subtasks: updatedSubtasks });
+/**
+ * SUBTASK: UPDATE
+ */
+export async function updateSubtask(taskId: string, subtaskId: string, data: Partial<Subtask>): Promise<void> {
+  const taskRef = db.collection(TASKS_COLLECTION).doc(taskId);
+  
+  await db.runTransaction(async (transaction) => {
+    const taskDoc = await transaction.get(taskRef);
+    if (!taskDoc.exists) return;
+
+    const subtasks = (taskDoc.data()?.subtasks || []).map((st: Subtask) => 
+      st.id === subtaskId ? { ...st, ...data } : st
+    );
+
+    transaction.update(taskRef, { subtasks });
+  });
 }
 
-
-export async function toggleSubtask(taskId: string, subtaskId: string): Promise<void> {
-    const taskRef = doc(db, TASKS_COLLECTION, taskId);
-    const taskSnap = await getDoc(taskRef);
-    if (taskSnap.exists()) {
-        const task = taskSnap.data() as Task;
-        const updatedSubtasks = (task.subtasks || []).map(st => 
-            st.id === subtaskId ? { ...st, completed: !st.completed } : st
-        );
-        const allSubtasksCompleted = updatedSubtasks.every(st => st.completed);
-        await updateDoc(taskRef, { 
-            subtasks: updatedSubtasks,
-            completed: allSubtasksCompleted,
-            completedAt: allSubtasksCompleted ? new Date().toISOString() : null,
-        });
-    }
-}
-
+/**
+ * SUBTASK: DELETE
+ */
 export async function deleteSubtask(taskId: string, subtaskId: string): Promise<void> {
-    const taskRef = doc(db, TASKS_COLLECTION, taskId);
-    const taskSnap = await getDoc(taskRef);
-    if (taskSnap.exists()) {
-        const task = taskSnap.data() as Task;
-        const updatedSubtasks = (task.subtasks || []).filter(st => st.id !== subtaskId);
-        const allSubtasksCompleted = updatedSubtasks.length > 0 && updatedSubtasks.every(st => st.completed);
-        await updateDoc(taskRef, { 
-            subtasks: updatedSubtasks,
-            completed: allSubtasksCompleted,
-            completedAt: allSubtasksCompleted ? new Date().toISOString() : null,
-        });
-    }
+  const taskRef = db.collection(TASKS_COLLECTION).doc(taskId);
+  
+  await db.runTransaction(async (transaction) => {
+    const taskDoc = await transaction.get(taskRef);
+    if (!taskDoc.exists) return;
+
+    const subtasks = (taskDoc.data()?.subtasks || []).filter((st: Subtask) => st.id !== subtaskId);
+    
+    // Recalculate if the parent task is now completed (if no subtasks left or all remaining are done)
+    const allDone = subtasks.length > 0 && subtasks.every((st: Subtask) => st.completed);
+
+    transaction.update(taskRef, { 
+      subtasks,
+      completed: allDone,
+      completedAt: allDone ? new Date().toISOString() : taskDoc.data()?.completedAt
+    });
+  });
+}
+
+/**
+ * SUBTASK: UPDATE ORDER
+ */
+export async function updateSubtaskOrder(taskId: string, reorderedSubtasks: Subtask[]): Promise<void> {
+  await db.collection(TASKS_COLLECTION).doc(taskId).update({
+    subtasks: reorderedSubtasks
+  });
+}
+
+/**
+ * SUBTASK: TOGGLE COMPLETED
+ */
+export async function toggleSubtask(taskId: string, subtaskId: string): Promise<void> {
+  const taskRef = db.collection(TASKS_COLLECTION).doc(taskId);
+  
+  await db.runTransaction(async (transaction) => {
+    const taskDoc = await transaction.get(taskRef);
+    if (!taskDoc.exists) return;
+
+    const subtasks = (taskDoc.data()?.subtasks || []).map((st: Subtask) => {
+      if (st.id === subtaskId) return { ...st, completed: !st.completed };
+      return st;
+    });
+
+    const allDone = subtasks.every((st: Subtask) => st.completed);
+    transaction.update(taskRef, {
+      subtasks,
+      completed: allDone,
+      completedAt: allDone ? new Date().toISOString() : null
+    });
+  });
 }

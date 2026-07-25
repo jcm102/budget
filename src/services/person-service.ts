@@ -1,7 +1,7 @@
 
 'use server';
 
-import { db } from '@/lib/firebase-admin';
+import { db } from '@/lib/firebase';
 import type { Person } from '@/types';
 import { collection, getDocs, doc, deleteDoc, query, orderBy, addDoc, updateDoc, getDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 

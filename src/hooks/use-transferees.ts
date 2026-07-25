@@ -1,92 +1,37 @@
-
-
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { collection, onSnapshot, query } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import type { AccountDetails } from '@/types';
-import { useToast } from './use-toast';
-import * as AccountDetailsService from '@/services/account-details-service';
-import { useFirestore } from '@/firebase';
 
-export function useAccountDetails() {
+export function useTransferees() {
   const [accounts, setAccounts] = useState<AccountDetails[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
-  const db = useFirestore();
-
-  const fetchAccounts = useCallback(async () => {
-      if (!db) return;
-      try {
-        setIsLoading(true);
-        const fetchedAccounts = await AccountDetailsService.getAccounts(db);
-        setAccounts(fetchedAccounts);
-      } catch (error) {
-        console.error('Failed to load accounts:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load accounts from the database.',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    }, [toast, db]);
+  const [loading, setLoading] = useState(true);
+  const isInitialized = useRef(false);
 
   useEffect(() => {
-    fetchAccounts();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchAccounts]);
+    if (isInitialized.current) return;
+    isInitialized.current = true;
 
-  const addAccount = useCallback(async (accountData: Omit<AccountDetails, 'id'>) => {
-    if (!db) return;
-    try {
-      await AccountDetailsService.addAccount(db, accountData);
-      await fetchAccounts();
-    } catch (error) {
-      console.error('Failed to add account:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to add the new account.',
-        variant: 'destructive',
-      });
-    }
-  }, [toast, fetchAccounts, db]);
-  
-  const updateAccount = useCallback(async (id: string, accountData: Partial<Omit<AccountDetails, 'id'>>) => {
-    if (!db) return;
-    const originalAccounts = accounts;
-    setAccounts(prev => prev.map(acc => acc.id === id ? { ...acc, ...accountData } as AccountDetails : acc));
-    try {
-      await AccountDetailsService.updateAccount(db, id, accountData);
-      // We don't need a full fetch here, optimistic update is enough unless balances change
-      if (accountData.balance !== undefined || accountData.isCalculated !== undefined || accountData.linkedDebtId !== undefined) {
-          await fetchAccounts();
-      }
-    } catch (error) {
-       setAccounts(originalAccounts);
-       console.error('Failed to update account:', error);
-       toast({ title: 'Error', description: 'Failed to update account.', variant: 'destructive'});
-    }
-  }, [accounts, toast, fetchAccounts, db]);
+    console.log("Initializing Transferees listener...");
 
+    const q = query(collection(db, 'transferees'));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const accs = snapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data() 
+      } as AccountDetails));
+      setAccounts(accs);
+      setLoading(false);
+    }, (error) => {
+      console.error("Firestore Error (transferees):", error);
+      setLoading(false);
+    });
 
-  const deleteAccount = useCallback(async (id: string) => {
-    if (!db) return;
-    const originalAccounts = accounts;
-    setAccounts((prev) => prev.filter((acc) => acc.id !== id));
-    try {
-      await AccountDetailsService.deleteAccount(db, id);
-      await fetchAccounts();
-    } catch (error) {
-      console.error('Failed to delete account:', error);
-      setAccounts(originalAccounts);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete the account.',
-        variant: 'destructive',
-      });
-    }
-  }, [accounts, toast, fetchAccounts, db]);
+    return () => unsubscribe();
+  }, []);
 
-  return { accounts, addAccount, updateAccount, deleteAccount, isLoading, fetchAccounts };
+  return { accounts, loading };
 }
