@@ -94,7 +94,7 @@ export async function syncSinkingFundsBudget(targetMonth?: string): Promise<void
     const BUDGET_ITEMS_COLLECTION = 'monthly-budget-items';
 
     for (const month of months) {
-      if (month < '2026-07') {
+      if (month < '2026-08') {
         const querySnapshot = await db.collection(BUDGET_ITEMS_COLLECTION)
           .where('month', '==', month)
           .where('categoryId', '==', SINKING_FUNDS_CATEGORY_ID)
