@@ -77,8 +77,13 @@ function calculateMonthlyAmount(item: any, targetMonthStr?: string): number {
 
 export async function syncSinkingFundsBudget(targetMonth?: string): Promise<void> {
   try {
+    const transfereesSnapshot = await db.collection('transferees').get();
+    const activeAccountIds = new Set(transfereesSnapshot.docs.map(doc => doc.id));
+
     const snapshot = await db.collection(SAVINGS_COLLECTION).get();
-    const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SavingsItem));
+    const items = snapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() } as SavingsItem))
+      .filter(item => activeAccountIds.has(item.accountId));
 
     const today = new Date();
     const currentMonth = format(today, 'yyyy-MM');
@@ -89,7 +94,7 @@ export async function syncSinkingFundsBudget(targetMonth?: string): Promise<void
     const BUDGET_ITEMS_COLLECTION = 'monthly-budget-items';
 
     for (const month of months) {
-      if (month < '2026-08') {
+      if (month < '2026-07') {
         const querySnapshot = await db.collection(BUDGET_ITEMS_COLLECTION)
           .where('month', '==', month)
           .where('categoryId', '==', SINKING_FUNDS_CATEGORY_ID)
@@ -100,7 +105,7 @@ export async function syncSinkingFundsBudget(targetMonth?: string): Promise<void
         continue;
       }
 
-      const totalMonthly = items.reduce((sum, item) => sum + calculateMonthlyAmount(item, month), 0);
+      const totalMonthly = items.reduce((sum, item) => sum + calculateMonthlyAmount(item), 0);
 
       const querySnapshot = await db.collection(BUDGET_ITEMS_COLLECTION)
         .where('month', '==', month)
