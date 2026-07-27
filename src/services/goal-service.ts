@@ -1,28 +1,16 @@
-
 'use server';
 
 import { db } from '@/lib/firebase-admin';
 import type { Goal } from '@/types';
-import {
-  collection,
-  getDocs,
-  doc,
-  deleteDoc,
-  query,
-  updateDoc,
-  addDoc,
-  getDoc,
-  orderBy,
-  runTransaction,
-  where,
-} from 'firebase/firestore';
 
 const GOAL_COLLECTION = 'goals';
 
 export async function getGoals(accountId: string): Promise<Goal[]> {
-  const goalCollection = collection(db, GOAL_COLLECTION);
-  const q = query(goalCollection, where('accountId', '==', accountId));
-  const querySnapshot = await getDocs(q);
+  let query = db.collection(GOAL_COLLECTION);
+  if (accountId !== 'all') {
+    query = query.where('accountId', '==', accountId) as any;
+  }
+  const querySnapshot = await query.get();
   const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Goal));
   return items.sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -34,30 +22,27 @@ export async function addGoal(itemData: Omit<Goal, 'id'>): Promise<Goal> {
     cost: itemData.cost || 0,
     link: itemData.link || null,
   };
-  const docRef = await addDoc(collection(db, GOAL_COLLECTION), dataWithDefaults);
-  const docSnap = await getDoc(docRef);
+  const docRef = await db.collection(GOAL_COLLECTION).add(dataWithDefaults);
+  const docSnap = await docRef.get();
   return { id: docSnap.id, ...(docSnap.data() as Omit<Goal, 'id'>) };
 }
 
 export async function updateGoal(id: string, itemData: Partial<Omit<Goal, 'id'>>): Promise<void> {
-  const itemRef = doc(db, GOAL_COLLECTION, id);
-  await updateDoc(itemRef, itemData);
+  await db.collection(GOAL_COLLECTION).doc(id).update(itemData);
 }
 
 export async function addToGoal(id: string, amount: number): Promise<void> {
-  const goalRef = doc(db, GOAL_COLLECTION, id);
-  await runTransaction(db, async (transaction) => {
+  await db.runTransaction(async (transaction) => {
+    const goalRef = db.collection(GOAL_COLLECTION).doc(id);
     const goalDoc = await transaction.get(goalRef);
-    if (!goalDoc.exists()) {
-      throw "Goal document does not exist!";
+    if (!goalDoc.exists) {
+      throw new Error('Goal document does not exist!');
     }
-    const currentAmount = goalDoc.data().amount || 0;
-    const newAmount = currentAmount + amount;
-    transaction.update(goalRef, { amount: newAmount });
+    const currentAmount = goalDoc.data()?.amount || 0;
+    transaction.update(goalRef, { amount: currentAmount + amount });
   });
 }
 
 export async function deleteGoal(id: string): Promise<void> {
-  const itemRef = doc(db, GOAL_COLLECTION, id);
-  await deleteDoc(itemRef);
+  await db.collection(GOAL_COLLECTION).doc(id).delete();
 }

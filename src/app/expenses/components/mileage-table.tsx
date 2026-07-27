@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { format, parse } from 'date-fns';
 import { Pencil, Trash2, PlusCircle, Fuel, Wrench } from 'lucide-react';
-import type { Expense, MileageLog, Honorarium } from '@/types';
+import type { Expense, MileageLog, Honorarium, UploadableFile } from '@/types';
 import {
   Table,
   TableBody,
@@ -36,10 +36,10 @@ import { Badge } from '@/components/ui/badge';
 
 type MileageTableProps = {
   mileageLogs: MileageLog[];
-  addExpense: (item: Omit<Expense, 'id'>, ledgerAccountId: string | undefined, callback: (success: boolean) => void) => void;
+  addExpense: (item: Omit<Expense, 'id'>, ledgerAccountId: string | undefined, receiptFile: UploadableFile | null | undefined, callback: (success: boolean) => void) => void;
   updateExpense: (id: string, item: Partial<Omit<Expense, 'id'>>) => void;
   addMileage: (item: Omit<MileageLog, 'id'>) => void;
-  updateMileage: (id: string, item: Omit<MileageLog, 'id'>) => void;
+  updateMileage: (id: string, item: Partial<Omit<MileageLog, 'id'>>) => void;
   deleteMileage: (id: string) => void;
   addHonorarium: (item: Omit<Honorarium, 'id'>) => void;
   updateHonorarium: (id: string, item: Partial<Omit<Honorarium, 'id'>>) => void;
@@ -115,7 +115,6 @@ export function MileageTable({
         updateExpense={updateExpense}
         addMileage={addMileage}
         updateMileage={updateMileage}
-        deleteMileage={deleteMileage}
         addHonorarium={addHonorarium}
         updateHonorarium={updateHonorarium}
         editingItem={editingItem}

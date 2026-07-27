@@ -11,7 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { SinkingFundTransaction, SavingsItem } from '@/types';
 import * as SavingsService from '@/services/savings-service';
-import { useUser, useFirestore } from '@/firebase';
+import { useUser } from '@/firebase';
+import { calculateMonthlyAmount } from '@/app/savings/hooks/use-savings';
 
 const parseDate = (dateString: string) => {
     return new Date(dateString);
@@ -21,33 +22,36 @@ const formatCurrency = (amount: number, currency: 'CAD' | 'USD' = 'USD') => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
 };
 
-export function SinkingFundClientPage({ fundId, initialTransactions }: { fundId: string, initialTransactions: SinkingFundTransaction[]}) {
+type SinkingFundClientPageProps = {
+  fundId: string;
+  initialTransactions: SinkingFundTransaction[];
+};
+
+export function SinkingFundClientPage({ fundId, initialTransactions }: SinkingFundClientPageProps) {
   const [transactions, setTransactions] = useState<SinkingFundTransaction[]>(initialTransactions);
   const [fundDetails, setFundDetails] = useState<SavingsItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useUser();
-  const db = useFirestore();
 
   const fetchFundDetails = async () => {
-    if (!db) return;
-    // This is a simplified fetch. In a real app, you might get this from a context or a more robust fetching mechanism.
-    const allSavingsItems = await SavingsService.getSavingsItems(db, user?.uid || ''); // This is inefficient but works for now.
-    const fund = allSavingsItems.find(item => item.id === fundId);
-    setFundDetails(fund || null);
+    const fund = await SavingsService.getSavingsItemById(fundId);
+    if (fund) {
+      fund.monthlyAmount = calculateMonthlyAmount(fund);
+    }
+    setFundDetails(fund);
     setIsLoading(false);
   }
 
   const fetchTransactions = async () => {
-    if (!db) return;
-    const fetchedTransactions = await SavingsService.getSinkingFundTransactions(db, fundId);
+    const fetchedTransactions = await SavingsService.getSinkingFundTransactions(fundId);
     setTransactions(fetchedTransactions);
   }
   
   useEffect(() => {
-    if (user && db) {
+    if (user) {
         fetchFundDetails();
     }
-  }, [user, fundId, db]);
+  }, [user, fundId]);
 
   return (
     <div className="container mx-auto max-w-4xl p-4 md:p-8">

@@ -16,7 +16,6 @@ export function useTasks() {
   const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
-      // We no longer pass 'db' here; the server actions handle it via admin SDK
       const [fetchedTasks, fetchedGroups] = await Promise.all([
         TaskService.getTasks(),
         LinkGroupService.getLinkGroups()
@@ -55,15 +54,46 @@ export function useTasks() {
 
   const updateTask = useCallback(async (id: string, data: Partial<Task>) => {
     try {
-      // Optimistic UI update
       setTasks(prev => prev.map(t => t.id === id ? { ...t, ...data } : t));
       await TaskService.updateTask(id, data);
     } catch (error) {
       console.error('Failed to update task:', error);
-      fetchData(); // Revert to server state on error
+      fetchData();
       toast({ title: 'Error', description: 'Failed to update task.', variant: 'destructive' });
     }
   }, [fetchData, toast]);
+
+  const updateTaskOrder = useCallback(async (reorderedTasks: Task[]) => {
+    setTasks(reorderedTasks);
+    try {
+      await TaskService.updateTaskOrder(reorderedTasks);
+    } catch (error) {
+      console.error('Failed to update task order:', error);
+      fetchData();
+      toast({ title: 'Error', description: 'Failed to save the new task order.', variant: 'destructive' });
+    }
+  }, [fetchData, toast]);
+
+  const toggleTask = useCallback(async (id: string) => {
+    const originalTasks = tasks;
+    const taskToToggle = tasks.find((t) => t.id === id);
+    if (!taskToToggle) return;
+
+    const newCompleted = !taskToToggle.completed;
+    const newCompletedAt = newCompleted ? new Date().toISOString() : null;
+    const updatedSubtasks = (taskToToggle.subtasks || []).map(st => ({ ...st, completed: newCompleted }));
+
+    const updatedTask = { ...taskToToggle, completed: newCompleted, completedAt: newCompletedAt, subtasks: updatedSubtasks };
+    setTasks(tasks.map((t) => (t.id === id ? updatedTask : t)));
+
+    try {
+      await TaskService.updateTask(id, { completed: newCompleted, completedAt: newCompletedAt, subtasks: updatedSubtasks });
+    } catch (error) {
+      console.error('Failed to toggle task:', error);
+      setTasks(originalTasks);
+      toast({ title: 'Error', description: 'Failed to update the task status.', variant: 'destructive' });
+    }
+  }, [tasks, toast]);
 
   const deleteTask = useCallback(async (id: string) => {
     try {
@@ -95,6 +125,24 @@ export function useTasks() {
     }
   }, [fetchData, toast]);
 
+  const updateSubtaskOrder = useCallback(async (taskId: string, reorderedSubtasks: Subtask[]) => {
+    const originalTasks = [...tasks];
+    setTasks(prev => prev.map(task => {
+      if (task.id === taskId) {
+        return { ...task, subtasks: reorderedSubtasks };
+      }
+      return task;
+    }));
+
+    try {
+      await TaskService.updateSubtaskOrder(taskId, reorderedSubtasks);
+    } catch (error) {
+      console.error('Failed to update subtask order:', error);
+      setTasks(originalTasks);
+      toast({ title: 'Error', description: 'Failed to save subtask order.', variant: 'destructive' });
+    }
+  }, [tasks, toast]);
+
   const toggleSubtask = useCallback(async (taskId: string, subtaskId: string) => {
     try {
       await TaskService.toggleSubtask(taskId, subtaskId);
@@ -113,27 +161,20 @@ export function useTasks() {
     }
   }, [fetchData, toast]);
 
-  // 5. DRAG & DROP REORDERING
-  const reorderTasks = useCallback(async (reorderedTasks: Task[]) => {
-    try {
-      setTasks(reorderedTasks);
-      await TaskService.updateTaskOrder(reorderedTasks);
-    } catch (error) {
-      fetchData();
-      toast({ title: 'Error', description: 'Failed to save new order.', variant: 'destructive' });
-    }
-  }, [fetchData, toast]);
-
-  return { 
-    tasks, 
-    linkGroups, 
-    isLoading, 
-    addTask, 
-    updateTask, 
-    deleteTask, 
-    reorderTasks,
-    addSubtask, 
+  return {
+    tasks,
+    linkGroups,
+    isLoading,
+    addTask,
+    updateTask,
+    updateTaskOrder,
+    toggleTask,
+    deleteTask,
+    addSubtask,
     updateSubtask,
-    toggleSubtask, 
+    updateSubtaskOrder,
+    toggleSubtask,
     deleteSubtask,
-    refreshTasks
+    refreshTasks: fetchData,
+  };
+}

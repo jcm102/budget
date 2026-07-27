@@ -115,7 +115,7 @@ export function AutoShipTable() {
     let sortableItems = [...autoShipItems];
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
-        let aValue, bValue;
+        let aValue: any, bValue: any;
         if (sortConfig.key === 'nextShipmentDate') {
             aValue = parse(a.nextShipmentDate, 'yyyy-MM-dd', new Date()).getTime();
             bValue = parse(b.nextShipmentDate, 'yyyy-MM-dd', new Date()).getTime();

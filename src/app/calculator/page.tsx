@@ -11,7 +11,7 @@ export default function CalculatorPage() {
     <div className="container mx-auto max-w-sm p-4 md:p-8 flex flex-col h-full">
        <header className="mb-8 flex-shrink-0">
         <Button asChild variant="outline">
-          <Link href="/tasks">
+          <Link href="/">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Home
           </Link>

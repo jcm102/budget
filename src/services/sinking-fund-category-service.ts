@@ -20,3 +20,7 @@ export async function getCategories() {
 export async function addCategory(name: string) {
   await db.collection(COLLECTION).add({ name });
 }
+
+export async function deleteCategory(id: string) {
+  await db.collection(COLLECTION).doc(id).delete();
+}

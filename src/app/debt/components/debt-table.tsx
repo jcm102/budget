@@ -1,10 +1,8 @@
-
-
 'use client';
 
 import { useState } from 'react';
 import { format, parse } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, GripVertical } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, GripVertical, Archive, ArchiveRestore } from 'lucide-react';
 import type { Debt } from '@/types';
 import {
   DndContext,
@@ -55,11 +53,8 @@ export type ColumnVisibility = {
     [key in keyof Debt | 'actions']?: boolean;
 };
 
-type DebtView = 'current' | 'next';
-
 const parseDate = (dateString: string) => {
     if (!dateString) return new Date();
-    // Handles both 'YYYY-MM-DD' and full ISO strings by splitting on 'T'
     const datePart = dateString.split('T')[0];
     return parse(datePart, 'yyyy-MM-dd', new Date());
 };
@@ -67,15 +62,15 @@ const parseDate = (dateString: string) => {
 
 type SortableDebtRowProps = {
   debt: Debt;
-  view: DebtView;
   onEdit: (debt: Debt) => void;
   onDelete: (id: string) => void;
-  onTogglePaid: (id: string, view: DebtView) => void;
+  onTogglePaid: (id: string) => void;
+  onArchive: (id: string, archived: boolean) => void;
   formatCurrency: (amount: number) => string;
   columnVisibility: ColumnVisibility;
 };
 
-function SortableDebtRow({ debt, view, onEdit, onDelete, onTogglePaid, formatCurrency, columnVisibility }: SortableDebtRowProps) {
+function SortableDebtRow({ debt, onEdit, onDelete, onTogglePaid, onArchive, formatCurrency, columnVisibility }: SortableDebtRowProps) {
   const {
     attributes,
     listeners,
@@ -89,16 +84,16 @@ function SortableDebtRow({ debt, view, onEdit, onDelete, onTogglePaid, formatCur
     transition,
   };
 
-  const isCurrentView = view === 'current';
-  const balance = isCurrentView ? debt.balance : debt.nextBalance;
-  const minPayment = isCurrentView ? debt.minimumPayment : debt.nextMinimumPayment;
-  const plannedPayment = isCurrentView ? debt.plannedPayment : undefined;
-  const dueDate = isCurrentView ? debt.dueDate : debt.nextDueDate;
-  const isPaid = isCurrentView ? debt.paid : debt.nextPaid;
+  const balance = debt.balance;
+  const minPayment = debt.minimumPayment;
+  const plannedPayment = debt.plannedPayment;
+  const dueDate = debt.dueDate;
+  const isPaid = debt.paid;
   const interestRate = debt.interestRate;
+  const isArchived = debt.archived === true;
 
   return (
-    <TableRow ref={setNodeRef} style={style} {...attributes} className={cn(isPaid && "bg-accent/30 text-muted-foreground")}>
+    <TableRow ref={setNodeRef} style={style} {...attributes} className={cn(isPaid && "bg-accent/30 text-muted-foreground", isArchived && "border-l-4 border-l-amber-500 bg-amber-50/20")}>
         <TableCell className="w-[24px] p-0 pr-2">
             <Button variant="ghost" size="icon" className="h-8 w-8 cursor-grab" {...listeners}>
                 <GripVertical className="h-4 w-4 text-muted-foreground" />
@@ -107,20 +102,33 @@ function SortableDebtRow({ debt, view, onEdit, onDelete, onTogglePaid, formatCur
         {columnVisibility.paid && <TableCell>
             <Checkbox
               checked={isPaid}
-              onCheckedChange={() => onTogglePaid(debt.id, view)}
+              onCheckedChange={() => onTogglePaid(debt.id)}
               aria-label={`Mark ${debt.name} as paid`}
               className="mr-2"
             />
         </TableCell>}
-        {columnVisibility.name && <TableCell className={cn("font-medium", isPaid && "line-through")}>{debt.name}</TableCell>}
+        {columnVisibility.name && (
+          <TableCell className={cn("font-medium", isPaid && "line-through")}>
+            {debt.name} {isArchived && <span className="ml-1 text-xs text-amber-600 font-semibold">(Archived)</span>}
+          </TableCell>
+        )}
         {columnVisibility.debtType && <TableCell>{debt.debtType}</TableCell>}
         {columnVisibility.balance && <TableCell className="text-right">{formatCurrency(balance || 0)}</TableCell>}
         {columnVisibility.interestRate && <TableCell className="text-right">{interestRate ? `${interestRate}%` : '-'}</TableCell>}
         {columnVisibility.minimumPayment && <TableCell className="text-right">{formatCurrency(minPayment || 0)}</TableCell>}
-        {columnVisibility.plannedPayment && isCurrentView && <TableCell className="text-right font-bold">{formatCurrency(plannedPayment || 0)}</TableCell>}
+        {columnVisibility.plannedPayment && <TableCell className="text-right font-bold">{formatCurrency(plannedPayment || 0)}</TableCell>}
         {columnVisibility.dueDate && <TableCell>{dueDate ? format(parseDate(dueDate), 'PPP') : '-'}</TableCell>}
         {columnVisibility.actions && <TableCell className="text-right">
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-1">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className={cn("h-8 w-8", isArchived ? "text-green-600 hover:text-green-700" : "text-muted-foreground hover:text-amber-600")}
+              onClick={() => onArchive(debt.id, !isArchived)}
+              title={isArchived ? "Restore from Archive" : "Archive Debt"}
+            >
+              {isArchived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+            </Button>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(debt)}>
             <Pencil className="h-4 w-4" />
             </Button>
@@ -134,7 +142,7 @@ function SortableDebtRow({ debt, view, onEdit, onDelete, onTogglePaid, formatCur
                 <AlertDialogHeader>
                 <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                 <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete this debt entry and all its data for both current and next month.
+                    This action cannot be undone. This will permanently delete this debt entry and all its monthly logs from the database.
                 </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -153,15 +161,26 @@ function SortableDebtRow({ debt, view, onEdit, onDelete, onTogglePaid, formatCur
 
 
 type DebtTableProps = {
-    view: DebtView;
+    month: string;
+    includeArchived: boolean;
     columnVisibility: ColumnVisibility;
     columnConfig: Record<string, { label: string; isNumeric?: boolean; isAction?: boolean }>;
 };
 
-export function DebtTable({ view, columnVisibility, columnConfig }: DebtTableProps) {
-  const { debts, addDebt, updateDebt, deleteDebt, updateDebtOrder, toggleDebtPaid, isLoading } = useDebt();
+export function DebtTable({ month, includeArchived, columnVisibility, columnConfig }: DebtTableProps) {
+  const { debts, addDebt, updateDebt, deleteDebt, updateDebtOrder, toggleDebtPaid, archiveDebt, setIncludeArchived, isLoading } = useDebt(month);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
+
+  // Sync state
+  useState(() => {
+    setIncludeArchived(includeArchived);
+  });
+  
+  // Update hook's archiving setting if parent switches
+  useState(() => {
+    setIncludeArchived(includeArchived);
+  });
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -199,13 +218,8 @@ export function DebtTable({ view, columnVisibility, columnConfig }: DebtTablePro
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
-  
-  const isCurrentView = view === 'current';
 
-  const visibleColumns = Object.keys(columnConfig).filter(key => {
-    if (!isCurrentView && key === 'plannedPayment') return false;
-    return columnVisibility[key as keyof ColumnVisibility];
-  });
+  const visibleColumns = Object.keys(columnConfig).filter(key => columnVisibility[key as keyof ColumnVisibility]);
 
   const renderLoadingSkeleton = () => (
     Array.from({ length: 3 }).map((_, i) => (
@@ -215,9 +229,9 @@ export function DebtTable({ view, columnVisibility, columnConfig }: DebtTablePro
     ))
   );
 
-  const totalBalance = debts.reduce((acc, debt) => acc + (isCurrentView ? debt.balance : debt.nextBalance || 0), 0);
-  const totalMinimumPayment = debts.reduce((acc, debt) => acc + (isCurrentView ? debt.minimumPayment : debt.nextMinimumPayment || 0), 0);
-  const totalPlannedPayment = isCurrentView ? debts.reduce((acc, debt) => acc + debt.plannedPayment, 0) : 0;
+  const totalBalance = debts.reduce((acc, debt) => acc + (debt.balance || 0), 0);
+  const totalMinimumPayment = debts.reduce((acc, debt) => acc + (debt.minimumPayment || 0), 0);
+  const totalPlannedPayment = debts.reduce((acc, debt) => acc + (debt.plannedPayment || 0), 0);
   
   const getColSpanForTotalsLabel = () => {
     let span = 0;
@@ -258,11 +272,9 @@ export function DebtTable({ view, columnVisibility, columnConfig }: DebtTablePro
                 <TableHead className="w-[24px] p-0"></TableHead>
                 {Object.entries(columnConfig).map(([key, { label, isNumeric, isAction }]) => (
                     columnVisibility[key as keyof ColumnVisibility] && (
-                        // Hide 'plannedPayment' for next month view
-                        !(key === 'plannedPayment' && !isCurrentView) &&
                         <TableHead key={key} className={cn(
                             isNumeric && "text-right",
-                            isAction && "w-[100px] text-right",
+                            isAction && "w-[120px] text-right",
                             key === 'paid' && "w-[50px]"
                         )}>{label}</TableHead>
                     )
@@ -278,10 +290,10 @@ export function DebtTable({ view, columnVisibility, columnConfig }: DebtTablePro
                       <SortableDebtRow 
                           key={debt.id} 
                           debt={debt} 
-                          view={view}
                           onEdit={handleEdit} 
                           onDelete={deleteDebt}
                           onTogglePaid={toggleDebtPaid}
+                          onArchive={archiveDebt}
                           formatCurrency={formatCurrency}
                           columnVisibility={columnVisibility}
                       />
@@ -301,7 +313,7 @@ export function DebtTable({ view, columnVisibility, columnConfig }: DebtTablePro
                 {columnVisibility.balance && <TableCell className="text-right font-semibold">{formatCurrency(totalBalance)}</TableCell>}
                 {columnVisibility.interestRate && <TableCell></TableCell>}
                 {columnVisibility.minimumPayment && <TableCell className="text-right font-semibold">{formatCurrency(totalMinimumPayment)}</TableCell>}
-                {columnVisibility.plannedPayment && isCurrentView && <TableCell className="text-right font-bold">{formatCurrency(totalPlannedPayment)}</TableCell>}
+                {columnVisibility.plannedPayment && <TableCell className="text-right font-bold">{formatCurrency(totalPlannedPayment)}</TableCell>}
                 <TableCell colSpan={getColSpanForTotalsSpacer()}></TableCell>
               </TableRow>
             </TableFooter>

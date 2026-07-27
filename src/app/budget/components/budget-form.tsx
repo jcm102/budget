@@ -87,7 +87,7 @@ type BudgetFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   addBudgetItem: (item: Omit<BudgetItem, 'id'>) => void;
-  updateBudgetItem: (id: string, item: Omit<BudgetItem, 'id'>) => void;
+  updateBudgetItem: (id: string, item: Omit<BudgetItem, 'id'>, updateType?: 'instance' | 'pattern') => void;
   editingItem: BudgetItem | null;
 };
 
@@ -99,6 +99,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
   const { debts, fetchDebts } = useDebt();
   const [split, setSplit] = useState({ savings: 0, charity: 0, fun: 0 });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingUpdate, setPendingUpdate] = useState<any | null>(null);
   const { toast } = useToast();
   
   const form = useForm<z.infer<typeof formSchema>>({
@@ -234,7 +235,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
             } else if (allocationType === 'debt') {
                 const debtToUpdate = debts.find(d => d.id === allocationTargetId);
                  if (debtToUpdate) {
-                    await DebtService.addExtraPayment(allocationTargetId, allocationAmount);
+                    await DebtService.addExtraPayment(allocationTargetId, values.date.substring(0, 7), allocationAmount);
                     toast({
                         title: 'Debt Updated!',
                         description: `An extra payment of ${formatCurrency(allocationAmount)} was made to "${debtToUpdate.name}".`
@@ -253,14 +254,17 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
     }
 
 
-    if (editingItem) {
-      updateBudgetItem(editingItem.id, submissionData);
+    if (editingItem && editingItem.id.includes('-')) {
+      setPendingUpdate(submissionData);
     } else {
-      addBudgetItem(submissionData);
+      if (editingItem) {
+        updateBudgetItem(editingItem.id, submissionData);
+      } else {
+        addBudgetItem(submissionData);
+      }
+      setIsSubmitting(false);
+      onOpenChange(false);
     }
-    
-    setIsSubmitting(false);
-    onOpenChange(false);
   }
 
   const formatCurrency = (value: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
@@ -293,7 +297,8 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{editingItem ? 'Edit Item' : 'Add New Item'}</DialogTitle>
@@ -595,5 +600,42 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
         </Form>
       </DialogContent>
     </Dialog>
+
+    <Dialog open={!!pendingUpdate} onOpenChange={(open) => !open && setPendingUpdate(null)}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Update Recurring Item</DialogTitle>
+          <DialogDescription>
+            This is a recurring pre-authorized payment. Would you like to update only this specific instance, or the entire recurring series?
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:justify-end mt-4">
+          <Button variant="outline" onClick={() => setPendingUpdate(null)}>
+            Cancel
+          </Button>
+          <Button variant="outline" onClick={async () => {
+            if (pendingUpdate && editingItem) {
+              await updateBudgetItem(editingItem.id, pendingUpdate, 'instance');
+              setPendingUpdate(null);
+              onOpenChange(false);
+              setIsSubmitting(false);
+            }
+          }}>
+            This Instance Only
+          </Button>
+          <Button variant="default" onClick={async () => {
+            if (pendingUpdate && editingItem) {
+              await updateBudgetItem(editingItem.id, pendingUpdate, 'pattern');
+              setPendingUpdate(null);
+              onOpenChange(false);
+              setIsSubmitting(false);
+            }
+          }}>
+            Entire Series
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

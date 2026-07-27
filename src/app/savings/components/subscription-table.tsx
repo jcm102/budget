@@ -37,7 +37,6 @@ import { Badge } from '@/components/ui/badge';
 import { useSavings } from '../hooks/use-savings';
 import { useToast } from '@/hooks/use-toast';
 import { useMonthlyBudget } from '@/app/monthly-budget/hooks/use-monthly-budget';
-import { CreateSinkingFundDialog } from './create-sinking-fund-dialog';
 
 type SortableHeaderProps = {
   column: keyof SubscriptionItem | 'monthlyCost';

@@ -32,8 +32,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { AutoShipItem, AutoShipFrequency, Category } from '@/types';
-import { useAccounts } from '@/hooks/use-accounts';
+import { useAccountDetails } from '@/hooks/use-account-details';
 import { useMonthlyBudget } from '@/app/monthly-budget/hooks/use-monthly-budget';
+import { useSelectedAccount } from '@/hooks/use-selected-account';
 
 type CategoryWithChildren = Category & { children: CategoryWithChildren[] };
 
@@ -55,8 +56,9 @@ type AutoShipFormProps = {
 };
 
 export function AutoShipForm({ open, onOpenChange, addAutoShipItem, updateAutoShipItem, editingItem }: AutoShipFormProps) {
-  const { accounts, isLoading: isLoadingAccounts } = useAccounts();
+  const { accounts, isLoading: isLoadingAccounts } = useAccountDetails();
   const { categories: budgetCategories, isLoading: isLoadingCategories } = useMonthlyBudget();
+  const { selectedAccountId } = useSelectedAccount();
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -110,7 +112,7 @@ export function AutoShipForm({ open, onOpenChange, addAutoShipItem, updateAutoSh
         });
       } else {
         form.reset({
-          accountId: accounts[0]?.id || '',
+          accountId: selectedAccountId || accounts[0]?.id || '',
           item: '',
           nextShipmentDate: new Date().toISOString().split('T')[0],
           frequency: 'Monthly',
@@ -127,6 +129,7 @@ export function AutoShipForm({ open, onOpenChange, addAutoShipItem, updateAutoSh
         ...values, 
         frequency: values.frequency as AutoShipFrequency,
         budgetCategoryId: values.budgetCategoryId === 'null' ? undefined : values.budgetCategoryId,
+        type: 'Auto-Shipment' as const,
     };
     if (editingItem) {
       updateAutoShipItem(editingItem.id, submissionData);

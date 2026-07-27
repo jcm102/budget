@@ -31,7 +31,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { AccountLedgerItem } from '@/types';
-import { useAccounts } from '@/hooks/use-accounts';
+import { useAccountDetails } from '@/hooks/use-account-details';
+import { useSelectedAccount } from '@/hooks/use-selected-account';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Category name must be at least 2 characters.'),
@@ -48,7 +49,8 @@ type AccountLedgerFormProps = {
 };
 
 export function AccountLedgerForm({ open, onOpenChange, addItem, updateItem, editingItem }: AccountLedgerFormProps) {
-  const { accounts, isLoading: isLoadingAccounts } = useAccounts();
+  const { accounts, isLoading: isLoadingAccounts } = useAccountDetails();
+  const { selectedAccountId } = useSelectedAccount();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -70,7 +72,7 @@ export function AccountLedgerForm({ open, onOpenChange, addItem, updateItem, edi
         form.reset({
           name: '',
           amount: 0,
-          accountId: accounts[0]?.id || '',
+          accountId: selectedAccountId || accounts[0]?.id || '',
         });
       }
     }

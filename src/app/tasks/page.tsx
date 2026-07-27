@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useTasks } from '@/app/tasks/hooks/use-tasks';
+import { useTasks } from '@/hooks/use-tasks';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { TaskForm } from '@/app/tasks/components/task-form';
 import { TaskList } from '@/app/tasks/components/task-list';

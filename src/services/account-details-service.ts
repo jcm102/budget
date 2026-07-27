@@ -38,13 +38,14 @@ export async function getAccounts(): Promise<AccountDetails[]> {
 }
 
 export async function addAccount(accountData: Omit<AccountDetails, 'id'>) {
-  return await db.collection(ACCOUNT_DETAILS_COLLECTION).add(accountData);
+  const docRef = await db.collection(ACCOUNT_DETAILS_COLLECTION).add(accountData);
+  return { id: docRef.id };
 }
 
 export async function updateAccount(id: string, data: any) {
-  return await db.collection(ACCOUNT_DETAILS_COLLECTION).doc(id).update(data);
+  await db.collection(ACCOUNT_DETAILS_COLLECTION).doc(id).update(data);
 }
 
 export async function deleteAccount(id: string) {
-  return await db.collection(ACCOUNT_DETAILS_COLLECTION).doc(id).delete();
+  await db.collection(ACCOUNT_DETAILS_COLLECTION).doc(id).delete();
 }

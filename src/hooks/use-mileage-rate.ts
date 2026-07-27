@@ -23,5 +23,14 @@ export function useMileageRate() {
     fetchRate();
   }, [fetchRate]);
 
-  return { rate, isLoading };
+  const updateMileageRate = async (newRate: number) => {
+    try {
+      await SettingsService.updateMileageRate(newRate);
+      setRate(newRate);
+    } catch (error) {
+      console.error("Failed to update mileage rate", error);
+    }
+  };
+
+  return { mileageRate: rate, updateMileageRate, isLoading };
 }

@@ -32,5 +32,5 @@ export function useExchangeRate() {
     }
   };
 
-  return { exchangeRate, updateRate, isLoading };
+  return { exchangeRate, updateExchangeRate: updateRate, isLoading };
 }

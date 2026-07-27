@@ -6,7 +6,7 @@ export const internalPages = [
   { name: 'Debt Worksheet', path: '/debt' },
   { name: 'Budget Overview', path: '/budget' },
   { name: 'Work Expenses', path: '/expenses' },
-  { name: 'Future Spending', path: '/savings' },
+  { name: 'Sinking Funds', path: '/savings' },
   { name: 'Reports', path: '/reports' },
   { name: 'Split Calculator', path: '/split' },
   { name: 'Settings', path: '/settings' },
@@ -58,6 +58,7 @@ export interface Debt {
   nextMinimumPayment?: number;
   nextDueDate?: string;
   nextPaid?: boolean;
+  archived?: boolean;
 }
 
 export type BudgetItemType = 'Income' | 'Debt Payments' | 'Transfers' | 'Pre-Authorized Payments';
@@ -81,12 +82,16 @@ export interface BudgetItem {
   allocationAmount?: number;
   forNextMonth?: boolean;
   budgetCategoryId?: string | null; // New field to link to a budget category
+  archived?: boolean;
+  deleted?: boolean;
+  isVirtual?: boolean;
 }
 
 export interface Category {
     id: string;
     name: string;
     parentId?: string | null;
+    paymentMethod?: string | null;
 }
 
 export type AccountType = 'Chequing' | 'Savings' | 'Credit' | 'Gift Card' | 'IOU';
@@ -246,11 +251,16 @@ export interface CalendarRow {
 export interface Account {
   id: string;
   name: string;
+  userId?: string;
+  createdAt?: string;
 }
 
 export interface BudgetSubItem {
   name: string;
   amount: number;
+  paymentMethod?: string | null;
+  recurring?: boolean;
+  defaultAmount?: number | null;
 }
 
 export interface MonthlyBudgetItem {

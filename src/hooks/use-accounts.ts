@@ -37,9 +37,55 @@ export function useAccounts() {
     fetchAccounts();
   }, [fetchAccounts]);
 
+  const addAccount = useCallback(async (name: string) => {
+    if (!user?.uid) return;
+    try {
+      await AccountService.addAccount({ name, userId: user.uid });
+      await fetchAccounts();
+    } catch (error) {
+      console.error('Failed to add account:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to add the account.',
+        variant: 'destructive',
+      });
+    }
+  }, [user?.uid, fetchAccounts, toast]);
+
+  const updateAccount = useCallback(async (id: string, name: string) => {
+    try {
+      await AccountService.updateAccount(id, { name });
+      await fetchAccounts();
+    } catch (error) {
+      console.error('Failed to update account:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update the account.',
+        variant: 'destructive',
+      });
+    }
+  }, [fetchAccounts, toast]);
+
+  const deleteAccount = useCallback(async (id: string) => {
+    try {
+      await AccountService.deleteAccount(id);
+      await fetchAccounts();
+    } catch (error) {
+      console.error('Failed to delete account:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete the account.',
+        variant: 'destructive',
+      });
+    }
+  }, [fetchAccounts, toast]);
+
   return { 
     accounts, 
     isLoading, 
+    addAccount,
+    updateAccount,
+    deleteAccount,
     refreshAccounts: fetchAccounts 
   };
 }

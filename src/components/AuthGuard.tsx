@@ -21,9 +21,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     // If user is logged in, handle redirects away from login or root
     if (user) {
       if (pathname === '/login') {
-        router.replace('/tasks');
+        router.replace('/budget');
       } else if (pathname === '/') {
-        router.replace('/tasks');
+        router.replace('/budget');
       }
     } 
     // If user is not logged in, redirect any protected page to login

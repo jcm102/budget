@@ -96,6 +96,7 @@ export default function MonthlyBudgetPage() {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [view, setView] = useState<'current' | 'next' | 'previous'>('current');
+  const [groupBy, setGroupBy] = useState<'category' | 'source'>('category');
   
   const currentDate = new Date();
   const currentMonthString = format(currentDate, 'yyyy-MM');
@@ -186,7 +187,7 @@ export default function MonthlyBudgetPage() {
       splits: [
         {
           id: crypto.randomUUID(),
-          type: 'expense',
+          type: 'expense' as const,
           amount: amount,
           categoryId: categoryId,
           budgetItemName: budgetItemName
@@ -238,6 +239,7 @@ export default function MonthlyBudgetPage() {
         onSave={handleSaveBreakdown}
         category={selectedCategory}
         budgetItem={selectedBudgetItem}
+        accounts={accounts}
       />
        {applyBudgetData && (
         <ApplyBudgetDialog
@@ -257,29 +259,25 @@ export default function MonthlyBudgetPage() {
               Back to Home
             </Link>
           </Button>
-           <div className="flex items-center gap-2">
-             <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline">
-                  <CalendarClock className="mr-2 h-4 w-4" />
-                  Cycle to Next Month
+            <div className="flex items-center gap-2">
+              <div className="flex items-center border rounded-md p-1 bg-secondary/30 gap-1 text-xs no-print">
+                <Button
+                  variant={groupBy === 'category' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-8 py-1 px-3 text-xs font-semibold"
+                  onClick={() => setGroupBy('category')}
+                >
+                  By Category
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Cycle to Next Month?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will finalize your planned budget, making it the current month's budget and clearing the plan for next month. This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={cycleToNextMonth} className={cn(buttonVariants({ variant: "default" }))}>
-                    Yes, Cycle Month
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+                <Button
+                  variant={groupBy === 'source' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-8 py-1 px-3 text-xs font-semibold"
+                  onClick={() => setGroupBy('source')}
+                >
+                  By Payment Source
+                </Button>
+              </div>
             <Button asChild variant="outline" className="md:hidden">
                 <Link href="/monthly-budget/add">
                     <PlusCircle className="mr-2 h-4 w-4" />
@@ -344,6 +342,7 @@ export default function MonthlyBudgetPage() {
                         budgetItems={monthlyBudgetItems}
                         categories={categories}
                         transactions={transactions}
+                        accounts={accounts}
                         isLoading={isLoadingBudget || isLoadingTransactions || isLoadingIncome}
                         onEditBreakdown={handleEditBreakdown}
                         onEditTransaction={handleOpenTransactionForm}
@@ -351,6 +350,7 @@ export default function MonthlyBudgetPage() {
                         onCopyCategory={copyCategoryFromPreviousMonth}
                         onCopyToNextMonth={copyBudgetItemToNextMonth}
                         view={view}
+                        groupBy={groupBy}
                         onApplyBudget={handleApplyBudget}
                     />
                 </TabsContent>
@@ -359,6 +359,7 @@ export default function MonthlyBudgetPage() {
                         budgetItems={monthlyBudgetItems}
                         categories={categories}
                         transactions={transactions}
+                        accounts={accounts}
                         isLoading={isLoadingBudget || isLoadingTransactions || isLoadingIncome}
                         onEditBreakdown={handleEditBreakdown}
                         onEditTransaction={handleOpenTransactionForm}
@@ -366,6 +367,7 @@ export default function MonthlyBudgetPage() {
                         onCopyCategory={copyCategoryFromPreviousMonth}
                         onCopyToNextMonth={copyBudgetItemToNextMonth}
                         view={view}
+                        groupBy={groupBy}
                         onApplyBudget={handleApplyBudget}
                     />
                 </TabsContent>
@@ -374,6 +376,7 @@ export default function MonthlyBudgetPage() {
                         budgetItems={monthlyBudgetItems}
                         categories={categories}
                         transactions={transactions}
+                        accounts={accounts}
                         isLoading={isLoadingBudget || isLoadingTransactions || isLoadingIncome}
                         onEditBreakdown={handleEditBreakdown}
                         onEditTransaction={handleOpenTransactionForm}
@@ -381,6 +384,7 @@ export default function MonthlyBudgetPage() {
                         onCopyCategory={copyCategoryFromPreviousMonth}
                         onCopyToNextMonth={copyBudgetItemToNextMonth}
                         view={view}
+                        groupBy={groupBy}
                         onApplyBudget={handleApplyBudget}
                     />
                 </TabsContent>

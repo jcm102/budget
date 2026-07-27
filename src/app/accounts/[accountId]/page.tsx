@@ -32,8 +32,8 @@ export default function AccountDetailPage() {
           const [accountData, transactionsData, allAccountsData, categoriesData] = await Promise.all([
             getAccountDetails(db, accountId),
             getTransactionsForAccount(db, accountId),
-            getAccounts(db),
-            getCategories(db)
+            getAccounts(),
+            getCategories()
           ]);
           setAccount(accountData);
           setTransactions(transactionsData);

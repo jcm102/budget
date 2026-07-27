@@ -3,7 +3,9 @@
 
 import React, { useState, useMemo } from 'react';
 import { useBudgetCategories } from '@/hooks/use-budget-categories';
+import { useAccountDetails } from '@/hooks/use-transferees';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Trash2, PlusCircle, ChevronRight, CornerDownRight } from 'lucide-react';
@@ -33,18 +35,22 @@ function CategoryItem({
   children,
   onDelete,
   onAddSubCategory,
+  onUpdatePaymentMethod,
+  paymentMethodOptions,
 }: {
   category: Category;
   children: React.ReactNode;
   onDelete: (id: string) => void;
   onAddSubCategory: (parentId: string) => void;
+  onUpdatePaymentMethod: (id: string, val: string | null) => void;
+  paymentMethodOptions: string[];
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <div className="flex items-center justify-between p-2 border rounded-md group">
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
           <CollapsibleTrigger asChild>
              <Button variant="ghost" size="icon" className="h-8 w-8" disabled={!children}>
                 <ChevronRight className={cn("h-4 w-4 transition-transform", isOpen && "rotate-90")} />
@@ -52,31 +58,49 @@ function CategoryItem({
           </CollapsibleTrigger>
           <span>{category.name}</span>
         </div>
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onAddSubCategory(category.id)}>
-              <PlusCircle className="h-4 w-4" />
-           </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive">
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will permanently delete the &quot;{category.name}&quot; category. This cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={() => onDelete(category.id)} className={cn(buttonVariants({ variant: "destructive" }))}>
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+        <div className="flex items-center gap-2">
+          <Select 
+            value={category.paymentMethod || 'none'} 
+            onValueChange={(val) => onUpdatePaymentMethod(category.id, val === 'none' ? null : val)}
+          >
+            <SelectTrigger className="w-[180px] h-8 text-xs">
+              <SelectValue placeholder="Payment Method" />
+            </SelectTrigger>
+            <SelectContent>
+              {paymentMethodOptions.map(opt => (
+                <SelectItem key={opt} value={opt}>
+                  {opt === 'none' ? 'None' : opt}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onAddSubCategory(category.id)}>
+                <PlusCircle className="h-4 w-4" />
+             </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete the &quot;{category.name}&quot; category. This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => onDelete(category.id)} className={cn(buttonVariants({ variant: "destructive" }))}>
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
       </div>
        <CollapsibleContent>
@@ -89,7 +113,8 @@ function CategoryItem({
 }
 
 export function BudgetCategoryManager() {
-  const { categories, addCategory, deleteCategory, isLoading } = useBudgetCategories();
+  const { categories, addCategory, deleteCategory, updateCategory, isLoading } = useBudgetCategories();
+  const { accounts } = useAccountDetails();
   const [newCategoryName, setNewCategoryName] = useState('');
   const [addingToParentId, setAddingToParentId] = useState<string | null>(null);
 
@@ -125,13 +150,32 @@ export function BudgetCategoryManager() {
     return tree;
   }, [categories]);
 
-  const renderCategoryTree = (nodes: (Category & { children: Category[] })[]) => {
+  const paymentMethodOptions = useMemo(() => {
+    const topNames = ['Libro Chequing', 'EQ Bank Mastercard', 'Wealthsimple Mastercard'];
+    const options = ['none', ...topNames];
+    
+    accounts.forEach(acc => {
+      if (!topNames.includes(acc.name)) {
+        options.push(acc.name);
+      }
+    });
+    
+    return options;
+  }, [accounts]);
+
+  const handleUpdatePaymentMethod = (id: string, paymentMethod: string | null) => {
+    updateCategory(id, { paymentMethod });
+  };
+
+  const renderCategoryTree = (nodes: any[]) => {
     return nodes.map(node => (
       <CategoryItem
         key={node.id}
         category={node}
         onDelete={deleteCategory}
         onAddSubCategory={handleInitiateAdd}
+        onUpdatePaymentMethod={handleUpdatePaymentMethod}
+        paymentMethodOptions={paymentMethodOptions}
       >
         {node.children.length > 0 && renderCategoryTree(node.children)}
         {addingToParentId === node.id && (
@@ -146,7 +190,7 @@ export function BudgetCategoryManager() {
                     onBlur={() => setAddingToParentId(null)}
                     className="h-9"
                 />
-            </div>
+             </div>
         )}
       </CategoryItem>
     ));

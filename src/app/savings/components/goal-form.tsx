@@ -26,7 +26,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Goal } from '@/types';
-import { useAccounts } from '@/hooks/use-accounts';
+import { useAccountDetails } from '@/hooks/use-account-details';
+import { useSelectedAccount } from '@/hooks/use-selected-account';
 
 
 const formSchema = z.object({
@@ -47,7 +48,8 @@ type GoalFormProps = {
 };
 
 export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem }: GoalFormProps) {
-  const { accounts, isLoading: isLoadingAccounts } = useAccounts();
+  const { accounts, isLoading: isLoadingAccounts } = useAccountDetails();
+  const { selectedAccountId } = useSelectedAccount();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -72,7 +74,7 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
       } else {
         form.reset({
           name: '',
-          accountId: accounts[0]?.id || '',
+          accountId: selectedAccountId || accounts[0]?.id || '',
           cost: 0,
           amount: 0,
           link: '',

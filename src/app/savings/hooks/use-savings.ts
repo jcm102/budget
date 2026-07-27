@@ -7,6 +7,55 @@ import * as SavingsService from '@/services/savings-service';
 import { useSelectedAccount } from '@/hooks/use-selected-account';
 import { initializeFirebase } from '@/firebase';
 
+export function calculateMonthlyAmount(item: Omit<SavingsItem, 'monthlyAmount'>): number {
+  if (item.isCustomGoal && item.goal != null) {
+    return item.goal;
+  }
+
+  const totalCost = item.totalCost || 0;
+  const amount = item.amount || 0;
+  const remainingCost = Math.max(0, totalCost - amount);
+
+  if (item.dueDate) {
+    const today = new Date();
+    const parts = item.dueDate.split('T')[0].split('-');
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      const dueDate = new Date(year, month, day);
+
+      // Calculate months remaining including current month
+      const yearDiff = dueDate.getFullYear() - today.getFullYear();
+      const monthDiff = dueDate.getMonth() - today.getMonth();
+      const monthsRemaining = yearDiff * 12 + monthDiff + 1;
+
+      if (monthsRemaining > 0) {
+        return remainingCost / monthsRemaining;
+      }
+    }
+  }
+
+  // If no due date or due date is in the past, fall back to recurrence
+  if (item.recurrence) {
+    switch (item.recurrence) {
+      case 'Quarterly':
+        return totalCost / 3;
+      case 'Semi-Annually':
+      case 'Semi-Annually (Custom)':
+        return totalCost / 6;
+      case 'Annually':
+        return totalCost / 12;
+      case 'Bi-Annually':
+        return totalCost / 24;
+      default:
+        return 0;
+    }
+  }
+
+  return 0;
+}
+
 export function useSavings() {
   const [savingsItems, setSavingsItems] = useState<SavingsItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -28,7 +77,11 @@ export function useSavings() {
       isFetching.current = true;
       setIsLoading(true);
       const fetchedItems = await SavingsService.getSavingsItems(accountId);
-      setSavingsItems(fetchedItems);
+      const calculatedItems = fetchedItems.map(item => ({
+        ...item,
+        monthlyAmount: calculateMonthlyAmount(item)
+      }));
+      setSavingsItems(calculatedItems);
     } catch (error) {
       console.error('Failed to load savings data:', error);
       toast({
@@ -86,14 +139,34 @@ export function useSavings() {
   };
 
   const transferSinkingFund = async (fromFundId: string, toFundId: string, amount: number) => {
-    const userId = getUserId();
-    if (!userId) return;
     try {
-      await SavingsService.transferSinkingFund(fromFundId, toFundId, amount, userId);
+      await SavingsService.transferSinkingFund(fromFundId, toFundId, amount);
       await fetchAllData(selectedAccountId);
     } catch (error) {
       console.error(error);
       throw error;
+    }
+  };
+
+  const addSavingsItem = async (itemData: Omit<SavingsItem, 'id' | 'monthlyAmount'>) => {
+    try {
+      await SavingsService.addSavingsItem(itemData);
+      await fetchAllData(selectedAccountId);
+      toast({ title: 'Success', description: 'Sinking fund added.' });
+    } catch (error) {
+      console.error(error);
+      toast({ title: 'Error', description: 'Failed to add sinking fund.', variant: 'destructive' });
+    }
+  };
+
+  const updateSavingsItem = async (id: string, itemData: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>) => {
+    try {
+      await SavingsService.updateSavingsItem(id, itemData);
+      await fetchAllData(selectedAccountId);
+      toast({ title: 'Success', description: 'Sinking fund updated.' });
+    } catch (error) {
+      console.error(error);
+      toast({ title: 'Error', description: 'Failed to update sinking fund.', variant: 'destructive' });
     }
   };
 
@@ -110,6 +183,8 @@ export function useSavings() {
   return { 
     savingsItems, 
     isLoading, 
+    addSavingsItem,
+    updateSavingsItem,
     deleteSavingsItem,
     fundSinkingFund,
     withdrawFromSinkingFund,

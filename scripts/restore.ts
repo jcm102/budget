@@ -2,7 +2,6 @@
 
 import * as fs from 'fs';
 import { db } from '@/lib/firebase-admin'; // Use the admin instance
-import { collection, doc, writeBatch, getDocs } from 'firebase/firestore';
 import readline from 'readline';
 
 const collectionsToBackup = [
@@ -58,12 +57,12 @@ async function restoreData() {
 
             // Clear existing collections before restoring
             console.log('Clearing existing data...');
-            const deleteBatch = writeBatch(db);
+            const deleteBatch = db.batch();
             for (const collectionName of collectionsToBackup) {
-                const collectionRef = collection(db, collectionName);
-                const snapshot = await getDocs(collectionRef);
+                const collectionRef = db.collection(collectionName);
+                const snapshot = await collectionRef.get();
                 console.log(`- Deleting ${snapshot.size} documents from '${collectionName}'...`);
-                snapshot.forEach(doc => {
+                snapshot.docs.forEach(doc => {
                     deleteBatch.delete(doc.ref);
                 });
             }
@@ -71,7 +70,7 @@ async function restoreData() {
             console.log('Existing data cleared successfully.');
 
             // Restore from backup
-            const restoreBatch = writeBatch(db);
+            const restoreBatch = db.batch();
             console.log('Restoring data...');
             for (const collectionName in backupData) {
                 if (Object.prototype.hasOwnProperty.call(backupData, collectionName)) {
@@ -84,7 +83,7 @@ async function restoreData() {
                             console.warn(`  ...document in '${collectionName}' is missing an 'id'. Skipping.`);
                             continue;
                         }
-                        const docRef = doc(db, collectionName, docId);
+                        const docRef = db.collection(collectionName).doc(docId);
                         const { id, ...data } = docData;
                         restoreBatch.set(docRef, data);
                     }

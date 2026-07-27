@@ -34,7 +34,7 @@ export function useLinkGroups() {
 
   const addLinkGroup = useCallback(async (name: string, links: string[]) => {
     try {
-      const newGroup = await LinkGroupService.addLinkGroup(name, links);
+      const newGroup = await LinkGroupService.addLinkGroup({ name, links });
       setLinkGroups((prev) => [...prev, newGroup]);
     } catch (error) {
       console.error('Failed to add link group:', error);
@@ -50,7 +50,7 @@ export function useLinkGroups() {
     const originalGroups = [...linkGroups];
     setLinkGroups(prev => prev.map(g => g.id === id ? {...g, name, links} : g));
     try {
-        await LinkGroupService.updateLinkGroup(id, name, links);
+        await LinkGroupService.updateLinkGroup(id, { name, links });
     } catch (error) {
         setLinkGroups(originalGroups);
         console.error('Failed to update link group:', error);

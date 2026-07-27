@@ -2,7 +2,6 @@
 
 import * as fs from 'fs';
 import { db } from '@/lib/firebase-admin'; // Use the admin instance
-import { collection, getDocs } from 'firebase/firestore';
 
 const collectionsToBackup = [
     'accounts',
@@ -36,7 +35,7 @@ async function backupData() {
     for (const collectionName of collectionsToBackup) {
         try {
             console.log(`- Backing up '${collectionName}'...`);
-            const querySnapshot = await getDocs(collection(db, collectionName));
+            const querySnapshot = await db.collection(collectionName).get();
             const docs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             backupData[collectionName] = docs;
             console.log(`  ...found ${docs.length} documents.`);

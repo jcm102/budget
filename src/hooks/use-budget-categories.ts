@@ -60,6 +60,20 @@ export function useBudgetCategories() {
       });
     }
   }, [toast, fetchCategories]);
+  
+  const updateCategory = useCallback(async (id: string, data: Partial<Category>) => {
+    try {
+      await BudgetCategoryService.updateCategory(id, data);
+      await fetchCategories();
+    } catch (error) {
+      console.error('Failed to update category:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update the category.',
+        variant: 'destructive',
+      });
+    }
+  }, [toast, fetchCategories]);
 
-  return { categories, addCategory, deleteCategory, isLoading, fetchCategories };
+  return { categories, addCategory, deleteCategory, updateCategory, isLoading, fetchCategories };
 }

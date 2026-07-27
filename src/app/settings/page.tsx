@@ -9,7 +9,6 @@ import { ArrowLeft } from 'lucide-react';
 import { AccountDetailsManager } from '@/components/transferee-manager';
 import { MileageRateManager } from '@/components/mileage-rate-manager';
 import { WorkCategoryManager } from '@/components/work-category-manager';
-import { LinkGroupManager } from '@/components/link-group-manager';
 import { PersonManager } from '@/components/person-manager';
 import { ExchangeRateManager } from '@/components/exchange-rate-manager';
 import { AccountManager } from '@/components/account-manager';
@@ -24,7 +23,7 @@ export default function SettingsPage() {
     <div className="container mx-auto max-w-2xl p-4 md:p-8">
       <header className="mb-8">
         <Button asChild variant="outline">
-          <Link href="/tasks">
+          <Link href="/">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Home
           </Link>
@@ -59,7 +58,6 @@ export default function SettingsPage() {
                 <TabsContent value="general" className="mt-6">
                     <div className="space-y-4">
                         <PersonManager />
-                        <LinkGroupManager />
                     </div>
                 </TabsContent>
                 <TabsContent value="rates" className="mt-6">

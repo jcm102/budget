@@ -14,7 +14,7 @@ export function useAutoShip() {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { selectedAccountId } = useSelectedAccount();
-  const { fetchBudget } = useMonthlyBudget();
+  useMonthlyBudget();
 
   const fetchAutoShipItems = useCallback(async (accountId: string | null) => {
     if (!accountId) {
@@ -46,7 +46,6 @@ export function useAutoShip() {
     try {
       await AutoShipService.addAutoShipItem(itemData);
       await fetchAutoShipItems(selectedAccountId);
-      await fetchBudget(); // Refetch budget to see changes
     } catch (error) {
       console.error('Failed to add auto-ship item:', error);
       toast({
@@ -55,13 +54,12 @@ export function useAutoShip() {
         variant: 'destructive',
       });
     }
-  }, [toast, selectedAccountId, fetchAutoShipItems, fetchBudget]);
+  }, [toast, selectedAccountId, fetchAutoShipItems]);
 
   const updateAutoShipItem = useCallback(async (id: string, itemData: Partial<Omit<AutoShipItem, 'id'>>) => {
     try {
       await AutoShipService.updateAutoShipItem(id, itemData);
       await fetchAutoShipItems(selectedAccountId);
-      await fetchBudget(); // Refetch budget to see changes
     } catch (error) {
       console.error('Failed to update auto-ship item:', error);
       toast({
@@ -70,13 +68,12 @@ export function useAutoShip() {
         variant: 'destructive',
       });
     }
-  }, [toast, selectedAccountId, fetchAutoShipItems, fetchBudget]);
+  }, [toast, selectedAccountId, fetchAutoShipItems]);
 
   const deleteAutoShipItem = useCallback(async (id: string) => {
     try {
       await AutoShipService.deleteAutoShipItem(id);
       await fetchAutoShipItems(selectedAccountId);
-      await fetchBudget(); // Refetch budget to see changes
     } catch (error) {
       console.error('Failed to delete auto-ship item:', error);
       toast({
@@ -85,7 +82,7 @@ export function useAutoShip() {
         variant: 'destructive',
       });
     }
-  }, [toast, selectedAccountId, fetchAutoShipItems, fetchBudget]);
+  }, [toast, selectedAccountId, fetchAutoShipItems]);
 
   const shipItem = useCallback(async (id: string) => {
     try {

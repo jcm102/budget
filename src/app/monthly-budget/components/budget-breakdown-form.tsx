@@ -23,7 +23,9 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import type { MonthlyBudgetItem, BudgetSubItem, Category } from '@/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import type { MonthlyBudgetItem, BudgetSubItem, Category, AccountDetails } from '@/types';
 import { PlusCircle, Trash2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -31,6 +33,10 @@ import { Separator } from '@/components/ui/separator';
 const breakdownItemSchema = z.object({
   name: z.string().min(1, 'Name is required.'),
   amount: z.coerce.number().min(0, 'Amount must be a positive number.'),
+  paymentMethod: z.string().nullable().optional(),
+  recurring: z.boolean().optional(),
+  defaultAmount: z.coerce.number().nullable().optional(),
+  isOneTimeException: z.boolean().optional(),
 });
 
 const formSchema = z.object({
@@ -43,9 +49,10 @@ type BudgetBreakdownFormProps = {
   onSave: (categoryId: string, breakdown: BudgetSubItem[]) => void;
   category: Category | null;
   budgetItem: MonthlyBudgetItem | null;
+  accounts: AccountDetails[];
 };
 
-export function BudgetBreakdownForm({ open, onOpenChange, onSave, category, budgetItem }: BudgetBreakdownFormProps) {
+export function BudgetBreakdownForm({ open, onOpenChange, onSave, category, budgetItem, accounts }: BudgetBreakdownFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -61,15 +68,38 @@ export function BudgetBreakdownForm({ open, onOpenChange, onSave, category, budg
   useEffect(() => {
     if (category) {
       const initialBreakdown = budgetItem?.breakdown?.length
-        ? budgetItem.breakdown
-        : [{ name: 'Default', amount: budgetItem?.budgeted || 0 }];
+        ? budgetItem.breakdown.map(item => {
+            const hasException = !!(item.recurring && item.defaultAmount !== undefined && item.defaultAmount !== null && item.defaultAmount !== item.amount);
+            return {
+              name: item.name,
+              amount: item.amount,
+              paymentMethod: item.paymentMethod || null,
+              recurring: item.recurring ?? true,
+              defaultAmount: item.defaultAmount || null,
+              isOneTimeException: hasException,
+            };
+          })
+        : [{ name: 'Default', amount: budgetItem?.budgeted || 0, paymentMethod: category.paymentMethod || null, recurring: true, defaultAmount: null, isOneTimeException: false }];
       form.reset({ breakdown: initialBreakdown });
     }
   }, [category, budgetItem, open, form]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     if (category) {
-      onSave(category.id, values.breakdown);
+      const mappedBreakdown: BudgetSubItem[] = values.breakdown.map(item => {
+        const isException = !!(item.recurring && item.isOneTimeException);
+        const existingSub = budgetItem?.breakdown?.find(ex => ex.name === item.name);
+        const baseline = existingSub?.defaultAmount ?? existingSub?.amount ?? item.amount;
+
+        return {
+          name: item.name,
+          amount: item.amount,
+          paymentMethod: item.paymentMethod || null,
+          recurring: item.recurring ?? true,
+          defaultAmount: isException ? baseline : item.amount
+        };
+      });
+      onSave(category.id, mappedBreakdown);
     }
     onOpenChange(false);
   }
@@ -90,8 +120,8 @@ export function BudgetBreakdownForm({ open, onOpenChange, onSave, category, budg
              <ScrollArea className="h-64 pr-6">
                 <div className="space-y-4">
                     {fields.map((field, index) => (
-                    <div key={field.id} className="flex items-end gap-2 p-3 border rounded-lg">
-                        <div className="grid grid-cols-2 gap-2 flex-grow">
+                    <div key={field.id} className="flex flex-col gap-2.5 p-3 border rounded-lg">
+                        <div className="grid grid-cols-3 gap-2 flex-grow">
                             <FormField
                                 control={form.control}
                                 name={`breakdown.${index}.name`}
@@ -118,16 +148,82 @@ export function BudgetBreakdownForm({ open, onOpenChange, onSave, category, budg
                                 </FormItem>
                                 )}
                             />
+                            <FormField
+                                control={form.control}
+                                name={`breakdown.${index}.paymentMethod`}
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-xs">Payment Account</FormLabel>
+                                    <Select 
+                                      value={field.value || 'none'} 
+                                      onValueChange={(val) => field.onChange(val === 'none' ? null : val)}
+                                    >
+                                      <FormControl>
+                                        <SelectTrigger className="h-9 text-xs">
+                                          <SelectValue placeholder="Account" />
+                                        </SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                        <SelectItem value="none">Category Default</SelectItem>
+                                        {accounts.map(acc => (
+                                          <SelectItem key={acc.id} value={acc.name}>{acc.name}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
                         </div>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-9 w-9 text-destructive"
-                            onClick={() => remove(index)}
-                        >
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex flex-wrap items-center justify-between mt-1 gap-2">
+                          <div className="flex items-center gap-4">
+                            <FormField
+                                control={form.control}
+                                name={`breakdown.${index}.recurring`}
+                                render={({ field }) => (
+                                <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                                    <FormControl>
+                                        <Checkbox 
+                                            checked={field.value} 
+                                            onCheckedChange={field.onChange} 
+                                        />
+                                    </FormControl>
+                                    <FormLabel className="text-xs font-normal text-muted-foreground cursor-pointer">
+                                        Repeat Monthly
+                                    </FormLabel>
+                                </FormItem>
+                                )}
+                            />
+                            {form.watch(`breakdown.${index}.recurring`) && (
+                              <FormField
+                                  control={form.control}
+                                  name={`breakdown.${index}.isOneTimeException`}
+                                  render={({ field }) => (
+                                  <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                                      <FormControl>
+                                          <Checkbox 
+                                              checked={field.value} 
+                                              onCheckedChange={field.onChange} 
+                                          />
+                                      </FormControl>
+                                      <FormLabel className="text-xs font-semibold text-primary cursor-pointer">
+                                          This month only (one-time exception)
+                                      </FormLabel>
+                                  </FormItem>
+                                  )}
+                              />
+                            )}
+                          </div>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 text-destructive hover:bg-destructive/10"
+                                onClick={() => remove(index)}
+                            >
+                                <Trash2 className="mr-1 h-3.5 w-3.5" /> Remove
+                            </Button>
+                        </div>
                     </div>
                     ))}
                 </div>
@@ -136,7 +232,7 @@ export function BudgetBreakdownForm({ open, onOpenChange, onSave, category, budg
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => append({ name: '', amount: 0 })}
+              onClick={() => append({ name: '', amount: 0, paymentMethod: category?.paymentMethod || null, recurring: true })}
             >
               <PlusCircle className="mr-2 h-4 w-4" />
               Add Item

@@ -115,9 +115,9 @@ type SortConfig = {
     direction: 'ascending' | 'descending';
 } | null;
 
-const SortableHeader = ({ column, label, sortConfig, requestSort, className }: { column: SortConfig['key'], label: string, sortConfig: SortConfig, requestSort: (key: SortConfig['key']) => void, className?: string }) => {
-  const isSorted = sortConfig?.key === column;
-  const direction = isSorted ? sortConfig.direction : 'ascending';
+const SortableHeader = ({ column, label, sortConfig, requestSort, className }: { column: NonNullable<SortConfig>['key'], label: string, sortConfig: SortConfig, requestSort: (key: NonNullable<SortConfig>['key']) => void, className?: string }) => {
+  const isSorted = sortConfig !== null && sortConfig.key === column;
+  const direction = isSorted && sortConfig ? sortConfig.direction : 'ascending';
   return (
     <TableHead className={className}>
       <Button variant="ghost" onClick={() => requestSort(column)}>
@@ -156,7 +156,7 @@ export function AccountLedgerTable({
     }
   };
 
-  const requestSort = (key: SortConfig['key']) => {
+  const requestSort = (key: NonNullable<SortConfig>['key']) => {
     if (!key) return;
     let direction: 'ascending' | 'descending' = 'ascending';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {

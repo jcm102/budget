@@ -173,8 +173,8 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
   };
 
   const getBreakdownOptions = (categoryId: string) => {
-    const budgetItem = budgetItems.find(b => b.categoryId === categoryId);
-    return budgetItem?.breakdown?.filter(b => b.name !== 'Default') || [];
+    const budgetItem = budgetItems.find((b: any) => b.categoryId === categoryId);
+    return budgetItem?.breakdown?.filter((b: any) => b.name !== 'Default') || [];
   };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -265,8 +265,36 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                         <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                             <div className="space-y-0.5">
                                 <FormLabel className="flex items-center gap-2">
-                                    <Handshake />
-                                    Paid by Someone Else (IOU)
+                                    <Handshake className="h-5 w-5" />
+                                    <span>Paid by Someone Else (IOU)</span>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button type="button" variant="ghost" className="h-6 w-6 p-0 hover:bg-transparent text-muted-foreground hover:text-primary">
+                                                <Info className="h-4 w-4" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-80" side="top" align="start">
+                                            <h4 className="font-semibold leading-none mb-2 text-primary">Splitwise / IOU Guide</h4>
+                                            <div className="text-xs text-muted-foreground space-y-2">
+                                                <div>
+                                                    <h5 className="font-semibold text-foreground">If You Paid (Partner owes half):</h5>
+                                                    <p className="pl-1">1. Keep this switch <b>OFF</b>.</p>
+                                                    <p className="pl-1">2. Select the card/account you paid with.</p>
+                                                    <p className="pl-1">3. Enter the <b>full transaction amount</b>.</p>
+                                                    <p className="pl-1">4. Add 2 splits:</p>
+                                                    <p className="pl-2">• <b>Expense:</b> Your half (e.g. Groceries).</p>
+                                                    <p className="pl-2">• <b>Transfer:</b> Partner's half (Destination: <b>Splitwise</b>).</p>
+                                                </div>
+                                                <div className="pt-1 border-t">
+                                                    <h5 className="font-semibold text-foreground">If Your Partner Paid (You owe half):</h5>
+                                                    <p className="pl-1">1. Turn this switch <b>ON</b>.</p>
+                                                    <p className="pl-1">2. Set "Paid By" to <b>Splitwise</b>.</p>
+                                                    <p className="pl-1">3. Enter <b>your half of the cost</b> as the total.</p>
+                                                    <p className="pl-1">4. Select the category for the expense.</p>
+                                                </div>
+                                            </div>
+                                        </PopoverContent>
+                                    </Popover>
                                 </FormLabel>
                             </div>
                             <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
@@ -408,7 +436,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                                                             <SelectTrigger><SelectValue placeholder="Select a specific item" /></SelectTrigger>
                                                             </FormControl>
                                                             <SelectContent>
-                                                                {breakdownOptions.map(opt => (
+                                                                {breakdownOptions.map((opt: any) => (
                                                                     <SelectItem key={opt.name} value={opt.name}>{opt.name}</SelectItem>
                                                                 ))}
                                                             </SelectContent>

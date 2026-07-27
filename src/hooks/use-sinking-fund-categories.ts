@@ -26,5 +26,23 @@ export function useSinkingFundCategories() {
     fetchCategories();
   }, [fetchCategories]);
 
-  return { categories, isLoading };
+  const addCategory = useCallback(async (name: string) => {
+    try {
+      await CategoryService.addCategory(name);
+      await fetchCategories();
+    } catch (error) {
+      console.error('Failed to add sinking fund category:', error);
+    }
+  }, [fetchCategories]);
+
+  const deleteCategory = useCallback(async (id: string) => {
+    try {
+      await CategoryService.deleteCategory(id);
+      await fetchCategories();
+    } catch (error) {
+      console.error('Failed to delete sinking fund category:', error);
+    }
+  }, [fetchCategories]);
+
+  return { categories, addCategory, deleteCategory, isLoading };
 }

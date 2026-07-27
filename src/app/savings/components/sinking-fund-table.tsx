@@ -134,9 +134,9 @@ type SortConfig = {
     direction: 'ascending' | 'descending';
 } | null;
 
-const SortableHeader = ({ column, label, sortConfig, requestSort, className }: { column: SortConfig['key'], label: string, sortConfig: SortConfig, requestSort: (key: SortConfig['key']) => void, className?: string }) => {
-  const isSorted = sortConfig?.key === column;
-  const direction = isSorted ? sortConfig.direction : 'ascending';
+const SortableHeader = ({ column, label, sortConfig, requestSort, className }: { column: NonNullable<SortConfig>['key'], label: string, sortConfig: SortConfig, requestSort: (key: NonNullable<SortConfig>['key']) => void, className?: string }) => {
+  const isSorted = sortConfig !== null && sortConfig.key === column;
+  const direction = isSorted && sortConfig ? sortConfig.direction : 'ascending';
   return (
     <TableHead className={className}>
       <Button variant="ghost" onClick={() => requestSort(column)}>
@@ -370,7 +370,7 @@ export function SinkingFundTable() {
     }
   };
   
-  const requestSort = (key: SortConfig['key']) => {
+  const requestSort = (key: NonNullable<SortConfig>['key']) => {
     if (!key) return;
     let direction: 'ascending' | 'descending' = 'ascending';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
@@ -383,10 +383,10 @@ export function SinkingFundTable() {
     if (!user) return;
     try {
         if (type === 'deposit') {
-            await fundSinkingFund(item.id, amount, user.uid);
+            await fundSinkingFund(item.id, amount);
             toast({ title: "Success!", description: `${formatCurrency(amount)} deposited to "${item.name}".`});
         } else {
-            await withdrawFromSinkingFund(item.id, amount, user.uid);
+            await withdrawFromSinkingFund(item.id, amount);
             toast({ title: "Success!", description: `${formatCurrency(amount)} withdrawn from "${item.name}".`});
         }
     } catch (error: any) {
@@ -397,7 +397,7 @@ export function SinkingFundTable() {
   const handleReset = async (item: SavingsItem) => {
     if (!user) return;
     try {
-        await resetSinkingFund(item.id, user.uid);
+        await resetSinkingFund(item.id);
         toast({ title: 'Success!', description: `"${item.name}" has been reset.`});
     } catch (error: any) {
         toast({ title: 'Error', description: error.message || 'Could not reset the fund.', variant: 'destructive'});
@@ -407,7 +407,7 @@ export function SinkingFundTable() {
   const handleTransfer = async (fromFundId: string, toFundId: string, amount: number) => {
     if (!user) return;
     try {
-        await transferSinkingFund(fromFundId, toFundId, amount, user.uid);
+        await transferSinkingFund(fromFundId, toFundId, amount);
         toast({ title: 'Success!', description: 'Funds have been transferred.'});
         setIsTransferFormOpen(false);
     } catch (error: any) {

@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Printer, PiggyBank, Landmark, Truck, Repeat, Star, ChevronsUpDown, View } from 'lucide-react';
 import { GoalTable } from './components/goal-table';
@@ -10,7 +10,7 @@ import { AutoShipTable } from './components/autoship-table';
 import { SubscriptionTable } from './components/subscription-table';
 import { AccountLedgerTable } from './components/account-ledger-table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAccounts } from '@/hooks/use-accounts';
+import { useAccountDetails } from '@/hooks/use-account-details';
 import { useSelectedAccount } from '@/hooks/use-selected-account';
 import {
   DropdownMenu,
@@ -28,12 +28,23 @@ import { useSavings } from './hooks/use-savings';
 
 
 export default function SavingsPage() {
-  const { accounts, isLoading: isLoadingAccounts } = useAccounts();
+  const { accounts, isLoading: isLoadingAccounts } = useAccountDetails();
   const { selectedAccountId, setSelectedAccountId } = useSelectedAccount();
   const { includeGoalSavings, setIncludeGoalSavings, includeSinkingFunds, setIncludeSinkingFunds } = useLedgerSettings();
   const { goals, isLoading: isLoadingGoals } = useGoals();
   const { exchangeRate } = useExchangeRate();
   const { savingsItems } = useSavings();
+
+  useEffect(() => {
+    if (!selectedAccountId && accounts.length > 0) {
+      const eqSinkingFunds = accounts.find(a => a.name.toLowerCase() === 'eq sinking funds');
+      if (eqSinkingFunds) {
+        setSelectedAccountId(eqSinkingFunds.id);
+      } else {
+        setSelectedAccountId(accounts[0].id);
+      }
+    }
+  }, [selectedAccountId, accounts, setSelectedAccountId]);
 
   const handlePrint = () => {
     window.print();
@@ -65,7 +76,7 @@ export default function SavingsPage() {
     <div className="container mx-auto max-w-7xl p-4 md:p-8">
        <header className="mb-8 flex justify-between items-center no-print">
         <Button asChild variant="outline">
-          <Link href="/tasks">
+          <Link href="/">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Home
           </Link>
@@ -74,7 +85,7 @@ export default function SavingsPage() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="w-[200px] justify-between">
-                  {selectedAccount ? selectedAccount.name : 'Select Account'}
+                  {selectedAccountId === 'all' ? 'All Accounts' : (selectedAccount ? selectedAccount.name : 'Select Account')}
                   <ChevronsUpDown className="h-4 w-4 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
@@ -82,15 +93,23 @@ export default function SavingsPage() {
                 {isLoadingAccounts ? (
                   <DropdownMenuItem disabled>Loading...</DropdownMenuItem>
                 ) : (
-                  accounts.map(account => (
+                  <>
                     <DropdownMenuItem 
-                      key={account.id} 
-                      onSelect={() => setSelectedAccountId(account.id)}
-                      disabled={account.id === selectedAccountId}
+                      onSelect={() => setSelectedAccountId('all')}
+                      disabled={selectedAccountId === 'all'}
                     >
-                      {account.name}
+                      All Accounts
                     </DropdownMenuItem>
-                  ))
+                    {accounts.map(account => (
+                      <DropdownMenuItem 
+                        key={account.id} 
+                        onSelect={() => setSelectedAccountId(account.id)}
+                        disabled={account.id === selectedAccountId}
+                      >
+                        {account.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </>
                 )}
               </DropdownMenuContent>
             </DropdownMenu>

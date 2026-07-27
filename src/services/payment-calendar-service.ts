@@ -1,33 +1,24 @@
-
 'use server';
 
-import { db } from '@/lib/firebase';
+import { db } from '@/lib/firebase-admin';
 import type { CalendarColumn, CalendarRow } from '@/types';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 const CALENDAR_COLLECTION = 'payment-calendar';
 const CALENDAR_STATE_DOC = 'singleton_state';
 
 interface CalendarState {
-    columns: CalendarColumn[];
-    rows: CalendarRow[];
+  columns: CalendarColumn[];
+  rows: CalendarRow[];
 }
 
 export async function getCalendarState(): Promise<CalendarState | null> {
-  const docRef = doc(db, CALENDAR_COLLECTION, CALENDAR_STATE_DOC);
-  const docSnap = await getDoc(docRef);
-
-  if (docSnap.exists()) {
+  const docSnap = await db.collection(CALENDAR_COLLECTION).doc(CALENDAR_STATE_DOC).get();
+  if (docSnap.exists) {
     return docSnap.data() as CalendarState;
-  } else {
-    // If the document doesn't exist, it's the first run or has been cleared.
-    // Return null to allow the hook to initialize a default state.
-    return null;
   }
+  return null;
 }
 
 export async function updateCalendarState(state: CalendarState): Promise<void> {
-  const docRef = doc(db, CALENDAR_COLLECTION, CALENDAR_STATE_DOC);
-  // Using setDoc with merge: false will overwrite the entire document, which is what we want.
-  await setDoc(docRef, state);
+  await db.collection(CALENDAR_COLLECTION).doc(CALENDAR_STATE_DOC).set(state);
 }

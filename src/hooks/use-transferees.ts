@@ -5,6 +5,9 @@ import { collection, onSnapshot, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { AccountDetails } from '@/types';
 
+// Re-export useAccountDetails so files importing from '@/hooks/use-transferees' work correctly
+export { useAccountDetails } from '@/hooks/use-account-details';
+
 export function useTransferees() {
   const [accounts, setAccounts] = useState<AccountDetails[]>([]);
   const [loading, setLoading] = useState(true);

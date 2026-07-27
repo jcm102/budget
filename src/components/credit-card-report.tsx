@@ -130,7 +130,7 @@ export function CreditCardReport() {
 
       transactions.forEach(tx => {
         const sourceAccount = accounts.find(acc => acc.id === tx.sourceAccountId);
-        if (sourceAccount && sourceAccount.type === 'Credit') {
+        if (sourceAccount && sourceAccount.type === 'Credit' && tx.sourceAccountId) {
             const cardId = tx.sourceAccountId;
             const currentTotal = totalsByCard.get(cardId) || 0;
             totalsByCard.set(cardId, currentTotal + tx.amount);
@@ -151,7 +151,7 @@ export function CreditCardReport() {
       setReportData(formattedReport);
       setGroupedTransactions(transactionsByCard);
       
-      await updateCreditCardReportLastRunDate(db, endDate);
+      await updateCreditCardReportLastRunDate(endDate);
 
     } catch (error) {
       console.error("Failed to generate report:", error);

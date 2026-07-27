@@ -1,6 +1,7 @@
 
 rules_version = '2';
 
+
 service cloud.firestore {
   match /databases/{database}/documents {
     // Allow public read access, but only allow writes for authenticated users.
@@ -12,11 +13,3 @@ service cloud.firestore {
   }
 }
 
-service firebase.storage {
-  match /b/{bucket}/o {
-    // Allow authenticated users to read and write files
-    match /{allPaths=**} {
-      allow read, write: if request.auth != null;
-    }
-  }
-}

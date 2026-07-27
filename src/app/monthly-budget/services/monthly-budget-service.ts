@@ -1,11 +1,10 @@
 
-'use server';
-
-import { Firestore, collection, getDocs, doc, updateDoc, addDoc, getDoc, query, where, orderBy, runTransaction, deleteDoc, writeBatch, limit } from 'firebase/firestore';
+import { Firestore, collection, getDocs, doc, updateDoc, addDoc, getDoc, query, where, orderBy, runTransaction, deleteDoc, writeBatch, limit, DocumentSnapshot, Transaction as FirestoreTransaction } from 'firebase/firestore';
 import type { MonthlyBudgetItem, Transaction, TransactionSplit, BudgetItem, AccountDetails, Debt, BudgetSubItem } from '@/types';
 import { format, addMonths } from 'date-fns';
 import { createAutomatedBackup } from '@/services/backup-service';
 import { cycleBudgetItems as cycleOverviewItems } from '@/app/budget/services/budget-service';
+import { syncSinkingFundsBudget } from '@/services/savings-service';
 
 const BUDGET_ITEMS_COLLECTION = 'monthly-budget-items';
 const TRANSACTIONS_COLLECTION = 'transactions';
@@ -210,7 +209,7 @@ export async function addTransaction(db: Firestore, transactionData: Partial<Omi
     return { id: docSnap.id, ...(docSnap.data() as Omit<Transaction, 'id'>) };
 }
 
-async function revertTransaction(db: Firestore, transaction: FirebaseFirestore.Transaction, oldData: Transaction, accountSnaps: Map<string, FirebaseFirestore.DocumentSnapshot>) {
+async function revertTransaction(db: Firestore, transaction: FirestoreTransaction, oldData: Transaction, accountSnaps: Map<string, DocumentSnapshot>) {
     const effectiveSourceId = oldData.paidById || oldData.sourceAccountId;
     if (effectiveSourceId) {
         const sourceSnap = accountSnaps.get(effectiveSourceId);
@@ -241,7 +240,7 @@ async function revertTransaction(db: Firestore, transaction: FirebaseFirestore.T
     }
 }
 
-async function applyTransaction(db: Firestore, transaction: FirebaseFirestore.Transaction, newData: Transaction, accountSnaps: Map<string, FirebaseFirestore.DocumentSnapshot>) {
+async function applyTransaction(db: Firestore, transaction: FirestoreTransaction, newData: Transaction, accountSnaps: Map<string, DocumentSnapshot>) {
     const effectiveSourceId = newData.paidById || newData.sourceAccountId;
     if (effectiveSourceId) {
         const sourceSnap = accountSnaps.get(effectiveSourceId);
@@ -351,4 +350,86 @@ export async function deleteTransaction(db: Firestore, id: string): Promise<void
         await revertTransaction(db, transaction, oldData, accountSnapsMap);
         transaction.delete(transactionRef);
     });
+}
+
+export async function initializeMonthBudget(db: Firestore, targetMonth: string): Promise<void> {
+  // Always sync sinking funds budget to ensure the target month is up-to-date
+  await syncSinkingFundsBudget(targetMonth);
+
+  const targetQuery = query(collection(db, BUDGET_ITEMS_COLLECTION), where('month', '==', targetMonth));
+  const targetSnapshot = await getDocs(targetQuery);
+  if (!targetSnapshot.empty) {
+    return; // Already initialized!
+  }
+
+  const targetDate = new Date(`${targetMonth}-01T00:00:00`);
+  const prevMonthDate = addMonths(targetDate, -1);
+  const prevMonthString = format(prevMonthDate, 'yyyy-MM');
+
+  const prevQuery = query(collection(db, BUDGET_ITEMS_COLLECTION), where('month', '==', prevMonthString));
+  const prevSnapshot = await getDocs(prevQuery);
+  if (prevSnapshot.empty) {
+    return; // No previous month data
+  }
+
+  const batch = writeBatch(db);
+  let hasWrites = false;
+
+  prevSnapshot.forEach(docSnap => {
+    const data = docSnap.data() as MonthlyBudgetItem;
+    if (data.breakdown && data.breakdown.length > 0) {
+      const recurringSubItems = data.breakdown
+        .filter(sub => sub.recurring !== false)
+        .map(sub => {
+          const baseAmt = sub.defaultAmount !== undefined && sub.defaultAmount !== null ? sub.defaultAmount : sub.amount;
+          return {
+            ...sub,
+            amount: baseAmt,
+            defaultAmount: baseAmt
+          };
+        });
+        
+      if (recurringSubItems.length > 0) {
+        const newBudgeted = recurringSubItems.reduce((sum, item) => sum + (item.amount || 0), 0);
+        const newDocRef = doc(collection(db, BUDGET_ITEMS_COLLECTION));
+        batch.set(newDocRef, {
+          categoryId: data.categoryId,
+          month: targetMonth,
+          budgeted: newBudgeted,
+          breakdown: recurringSubItems
+        });
+        hasWrites = true;
+      }
+    }
+  });
+
+  if (hasWrites) {
+    await batch.commit();
+    console.log(`Initialized budget for ${targetMonth} with recurring items.`);
+  }
+}
+
+export async function checkAndAutoCycle(db: Firestore): Promise<void> {
+  if (typeof window === 'undefined') return;
+  const today = new Date();
+  const currentMonthStr = format(today, 'yyyy-MM');
+  const lastCycled = localStorage.getItem('budget_last_cycled_month');
+  
+  if (lastCycled && lastCycled !== currentMonthStr) {
+    console.log(`Auto-cycling overview items for the new month: ${currentMonthStr}`);
+    const batch = writeBatch(db);
+    const qOverview = query(
+      collection(db, 'budget-items'), 
+      where('type', 'in', ['Pre-Authorized Payments', 'Debt Payments'])
+    );
+    const snapshot = await getDocs(qOverview);
+    snapshot.forEach(docSnap => {
+      batch.update(docSnap.ref, { completed: false });
+    });
+    
+    await batch.commit();
+    console.log(`Successfully reset checklist items for the new month.`);
+  }
+  
+  localStorage.setItem('budget_last_cycled_month', currentMonthStr);
 }

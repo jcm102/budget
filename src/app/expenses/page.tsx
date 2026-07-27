@@ -10,7 +10,7 @@ import { useExpenseFunds } from './hooks/use-expense-funds';
 import { ExpenseTable } from './components/expense-table';
 import { MileageTable } from './components/mileage-table';
 import { HonorariumTable } from './components/honorarium-table';
-import * as ExpenseService from './services/expense-service';
+import * as ExpenseService from '@/services/expense-service';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import * as XLSX from 'xlsx';
@@ -217,11 +217,11 @@ export default function ExpensesPage() {
                         <>
                             <div className="p-4 border rounded-lg bg-card">
                                 <h4 className="text-muted-foreground flex items-center gap-2"><HandCoins className="h-4 w-4"/>Honorarium Fund</h4>
-                                <p className="text-2xl font-semibold">{formatCurrency(honorariumFund?.amount || 0)}</p>
+                                <p className="text-2xl font-semibold">{formatCurrency(honorariumFund?.balance || 0)}</p>
                             </div>
                             <div className="p-4 border rounded-lg bg-card">
                                 <h4 className="text-muted-foreground flex items-center gap-2"><Landmark className="h-4 w-4"/>Reimbursable Fund</h4>
-                                <p className="text-2xl font-semibold">{formatCurrency(reimbursableFund?.amount || 0)}</p>
+                                <p className="text-2xl font-semibold">{formatCurrency(reimbursableFund?.balance || 0)}</p>
                             </div>
                             <div className="p-4 border rounded-lg bg-card">
                                 <h4 className="text-muted-foreground flex items-center gap-2"><DollarSign className="h-4 w-4"/>Reimbursable Expenses</h4>

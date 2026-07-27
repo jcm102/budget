@@ -33,9 +33,10 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import type { SavingsItem, SavingsRecurrence } from '@/types';
-import { useAccounts } from '@/hooks/use-accounts';
+import { useAccountDetails } from '@/hooks/use-account-details';
 import { useSinkingFundCategories } from '@/hooks/use-sinking-fund-categories';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useSelectedAccount } from '@/hooks/use-selected-account';
 
 
 const formSchema = z.object({
@@ -62,8 +63,9 @@ type SinkingFundFormProps = {
 };
 
 export function SinkingFundForm({ open, onOpenChange, addSavingsItem, updateSavingsItem, editingItem }: SinkingFundFormProps) {
-  const { accounts, isLoading: isLoadingAccounts } = useAccounts();
+  const { accounts, isLoading: isLoadingAccounts } = useAccountDetails();
   const { categories, isLoading: isLoadingCategories } = useSinkingFundCategories();
+  const { selectedAccountId } = useSelectedAccount();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -106,7 +108,7 @@ export function SinkingFundForm({ open, onOpenChange, addSavingsItem, updateSavi
       } else {
         form.reset({
           name: '',
-          accountId: accounts[0]?.id || '',
+          accountId: selectedAccountId || accounts[0]?.id || '',
           amount: 0,
           currency: 'CAD',
           goal: undefined,

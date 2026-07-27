@@ -1,17 +1,7 @@
-
 'use server';
 
 import { db } from '@/lib/firebase-admin';
-import {
-  collection,
-  getDocs,
-  doc,
-  setDoc,
-  serverTimestamp,
-  query,
-  orderBy,
-  limit,
-} from 'firebase/firestore';
+import * as admin from 'firebase-admin';
 
 const collectionsToBackup = [
     'accounts',
@@ -44,7 +34,7 @@ export async function createAutomatedBackup(reason: string): Promise<string> {
 
     for (const collectionName of collectionsToBackup) {
         try {
-            const querySnapshot = await getDocs(collection(db, collectionName));
+            const querySnapshot = await db.collection(collectionName).get();
             const docs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             backupData[collectionName] = docs;
             totalDocs += docs.length;
@@ -54,11 +44,11 @@ export async function createAutomatedBackup(reason: string): Promise<string> {
         }
     }
 
-    const backupDocRef = doc(collection(db, 'backups'));
+    const backupDocRef = db.collection('backups').doc();
     
-    await setDoc(backupDocRef, {
+    await backupDocRef.set({
         reason: reason,
-        createdAt: serverTimestamp(),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
         data: backupData,
         totalDocs: totalDocs,
     });
@@ -68,16 +58,22 @@ export async function createAutomatedBackup(reason: string): Promise<string> {
 }
 
 export async function getBackups() {
-    const backupCollection = collection(db, 'backups');
-    const q = query(backupCollection, orderBy('createdAt', 'desc'), limit(50));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-            id: doc.id,
-            reason: data.reason,
-            createdAt: data.createdAt.toDate().toISOString(),
-            totalDocs: data.totalDocs,
-        };
-    });
+    try {
+        const querySnapshot = await db.collection('backups')
+            .orderBy('createdAt', 'desc')
+            .limit(50)
+            .get();
+        return querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                reason: data.reason,
+                createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
+                totalDocs: data.totalDocs,
+            };
+        });
+    } catch (error) {
+        console.error('Error fetching backups:', error);
+        return [];
+    }
 }

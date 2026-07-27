@@ -20,7 +20,7 @@ export function useTransactions(month?: string) {
 
   const selectedMonth = month || format(new Date(), 'yyyy-MM');
   
-  const { fetchBudget } = useMonthlyBudget(selectedMonth);
+  useMonthlyBudget(selectedMonth);
   const { accounts, fetchAccounts } = useAccountDetails();
   const { fetchBudgetItems } = useBudget(); // Import from useBudget
 
@@ -70,14 +70,14 @@ export function useTransactions(month?: string) {
     if (!db) return;
     await MonthlyBudgetService.addTransaction(db, transactionData);
     // Refetch all relevant data
-    await Promise.all([fetchTransactions(), fetchBudget(), fetchAccounts(), fetchBudgetItems()]); 
-  }, [fetchTransactions, fetchBudget, fetchAccounts, fetchBudgetItems, db]);
+    await Promise.all([fetchTransactions(), fetchAccounts(), fetchBudgetItems()]); 
+  }, [fetchTransactions, fetchAccounts, fetchBudgetItems, db]);
 
   const updateTransaction = useCallback(async (id: string, transactionData: Partial<Omit<Transaction, 'id'>>) => {
     if (!db) return;
     await MonthlyBudgetService.updateTransaction(db, id, transactionData);
-    await Promise.all([fetchTransactions(), fetchBudget(), fetchAccounts(), fetchBudgetItems()]); // Refetch all
-  }, [fetchTransactions, fetchBudget, fetchAccounts, fetchBudgetItems, db]);
+    await Promise.all([fetchTransactions(), fetchAccounts(), fetchBudgetItems()]); // Refetch all
+  }, [fetchTransactions, fetchAccounts, fetchBudgetItems, db]);
 
   const deleteTransaction = useCallback(async (id: string, accountId?: string) => {
     if (!db) return;
@@ -85,7 +85,6 @@ export function useTransactions(month?: string) {
       await MonthlyBudgetService.deleteTransaction(db, id);
       const refetchPromises = [
         fetchTransactions(),
-        fetchBudget(),
         fetchAccounts(),
         fetchBudgetItems()
       ];
@@ -101,7 +100,7 @@ export function useTransactions(month?: string) {
         variant: 'destructive',
       });
     }
-  }, [toast, fetchTransactions, fetchBudget, fetchAccounts, fetchBudgetItems, fetchTransactionsForAccount, db]);
+  }, [toast, fetchTransactions, fetchAccounts, fetchBudgetItems, fetchTransactionsForAccount, db]);
 
   return { transactions, accountTransactions, accounts, addTransaction, updateTransaction, deleteTransaction, isLoading, fetchTransactions, fetchTransactionsForAccount };
 }

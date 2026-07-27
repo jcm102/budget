@@ -33,10 +33,11 @@ export async function getExpenseFunds() {
  * LEDGER ITEM CRUD (Using correct Admin SDK syntax)
  */
 export async function getLedgerItems(accountId: string): Promise<AccountLedgerItem[]> {
-  const snapshot = await db.collection(LEDGER_COLLECTION)
-    .where('accountId', '==', accountId)
-    .get();
-    
+  let query = db.collection(LEDGER_COLLECTION);
+  if (accountId !== 'all') {
+    query = query.where('accountId', '==', accountId) as any;
+  }
+  const snapshot = await query.get();
   const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccountLedgerItem));
   return items.sort((a, b) => a.name.localeCompare(b.name));
 }

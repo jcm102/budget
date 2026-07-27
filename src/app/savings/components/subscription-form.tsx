@@ -32,9 +32,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { SubscriptionItem, SubscriptionBillingFrequency, Category } from '@/types';
-import { useAccounts } from '@/hooks/use-accounts';
+import { useAccountDetails } from '@/hooks/use-account-details';
 import { Switch } from '@/components/ui/switch';
 import { useMonthlyBudget } from '@/app/monthly-budget/hooks/use-monthly-budget';
+import { useSelectedAccount } from '@/hooks/use-selected-account';
 
 type CategoryWithChildren = Category & { children: CategoryWithChildren[] };
 
@@ -58,8 +59,9 @@ type SubscriptionFormProps = {
 };
 
 export function SubscriptionForm({ open, onOpenChange, addSubscription, updateSubscription, editingItem }: SubscriptionFormProps) {
-  const { accounts, isLoading: isLoadingAccounts } = useAccounts();
+  const { accounts, isLoading: isLoadingAccounts } = useAccountDetails();
   const { categories: budgetCategories, isLoading: isLoadingCategories } = useMonthlyBudget();
+  const { selectedAccountId } = useSelectedAccount();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -125,7 +127,7 @@ export function SubscriptionForm({ open, onOpenChange, addSubscription, updateSu
         });
       } else {
         form.reset({
-          accountId: accounts[0]?.id || '',
+          accountId: selectedAccountId || accounts[0]?.id || '',
           serviceName: '',
           billingFrequency: 'Monthly',
           cost: 0,
@@ -142,6 +144,7 @@ export function SubscriptionForm({ open, onOpenChange, addSubscription, updateSu
         ...values,
         billingFrequency: values.billingFrequency as SubscriptionBillingFrequency,
         budgetCategoryId: values.budgetCategoryId === 'null' ? undefined : values.budgetCategoryId,
+        type: 'Subscription' as const,
     };
 
     if (editingItem) {

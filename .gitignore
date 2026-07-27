@@ -43,3 +43,9 @@ next-env.d.ts
 # firebase
 firebase-debug.log
 firestore-debug.log
+
+# scratch files
+/backup.json
+/check.ts
+/scratch_typecheck.txt
+/scripts/find-value.ts

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect } from 'react';
@@ -32,15 +31,10 @@ const formSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.'),
   interestRate: z.coerce.number().min(0, 'Interest rate must be a positive number.'),
   debtType: z.enum(['Credit Card', 'Loan', 'Line of Credit']),
-  // Current month fields
   balance: z.coerce.number().min(0, 'Balance must be a positive number.'),
   minimumPayment: z.coerce.number().min(0, 'Minimum payment must be a positive number.'),
   plannedPayment: z.coerce.number().min(0, 'Planned payment must be a positive number.'),
   dueDate: z.string().min(1, 'A due date is required.'),
-  // Next month fields
-  nextBalance: z.coerce.number().optional(),
-  nextMinimumPayment: z.coerce.number().optional(),
-  nextDueDate: z.string().optional(),
 });
 
 type DebtFormProps = {
@@ -62,9 +56,6 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
       minimumPayment: 0,
       plannedPayment: 0,
       dueDate: '',
-      nextBalance: 0,
-      nextMinimumPayment: 0,
-      nextDueDate: '',
     },
   });
 
@@ -75,13 +66,10 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
           name: editingDebt.name,
           interestRate: editingDebt.interestRate || 0,
           debtType: editingDebt.debtType || 'Credit Card',
-          balance: editingDebt.balance,
-          minimumPayment: editingDebt.minimumPayment,
-          plannedPayment: editingDebt.plannedPayment,
-          dueDate: editingDebt.dueDate,
-          nextBalance: editingDebt.nextBalance || 0,
-          nextMinimumPayment: editingDebt.nextMinimumPayment || 0,
-          nextDueDate: editingDebt.nextDueDate || '',
+          balance: editingDebt.balance || 0,
+          minimumPayment: editingDebt.minimumPayment || 0,
+          plannedPayment: editingDebt.plannedPayment || 0,
+          dueDate: editingDebt.dueDate || '',
         });
       } else {
         const today = new Date().toISOString().split('T')[0];
@@ -93,9 +81,6 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
           minimumPayment: 0,
           plannedPayment: 0,
           dueDate: today,
-          nextBalance: 0,
-          nextMinimumPayment: 0,
-          nextDueDate: today,
         });
       }
     }
@@ -169,7 +154,7 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
                     </div>
 
                     <Separator />
-                    <h4 className="text-md font-medium text-center">Current Month</h4>
+                    <h4 className="text-md font-medium text-center">Monthly Plan details</h4>
                     <Separator />
 
                     <FormField control={form.control} name="balance" render={({ field }) => (
@@ -194,7 +179,20 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
                     />
                     <FormField control={form.control} name="plannedPayment" render={({ field }) => (
                         <FormItem>
-                        <FormLabel>Planned Payment</FormLabel>
+                        <div className="flex justify-between items-center">
+                            <FormLabel>Planned Payment</FormLabel>
+                            <Button 
+                              type="button" 
+                              variant="link" 
+                              className="h-auto p-0 text-xs text-primary" 
+                              onClick={() => {
+                                const minPay = form.getValues('minimumPayment');
+                                form.setValue('plannedPayment', minPay);
+                              }}
+                            >
+                              Copy Minimum
+                            </Button>
+                        </div>
                         <FormControl>
                             <Input type="number" step="0.01" {...field} />
                         </FormControl>
@@ -205,41 +203,6 @@ export function DebtForm({ open, onOpenChange, addDebt, updateDebt, editingDebt 
                     <FormField control={form.control} name="dueDate" render={({ field }) => (
                         <FormItem>
                         <FormLabel>Due Date</FormLabel>
-                        <FormControl>
-                            <Input type="date" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-                    
-                    <Separator />
-                    <h4 className="text-md font-medium text-center">Next Month</h4>
-                    <Separator />
-
-                    <FormField control={form.control} name="nextBalance" render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Next Balance</FormLabel>
-                        <FormControl>
-                            <Input type="number" step="0.01" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-                    <FormField control={form.control} name="nextMinimumPayment" render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Next Minimum Payment</FormLabel>
-                        <FormControl>
-                            <Input type="number" step="0.01" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-                    <FormField control={form.control} name="nextDueDate" render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Next Due Date</FormLabel>
                         <FormControl>
                             <Input type="date" {...field} />
                         </FormControl>

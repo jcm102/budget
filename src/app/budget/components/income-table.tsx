@@ -3,7 +3,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { format, parse } from 'date-fns';
+import { format, parse, addMonths } from 'date-fns';
 import { Pencil, Trash2, PlusCircle, Repeat, ArrowUpDown, ArrowRight } from 'lucide-react';
 import type { BudgetItem } from '@/types';
 import {
@@ -82,7 +82,7 @@ function IncomeTableContent({ items, isLoading, onEdit, onDelete }: {
         let sortableItems = [...items];
         if (sortConfig !== null) {
         sortableItems.sort((a, b) => {
-            let aValue, bValue;
+            let aValue: any, bValue: any;
 
             if (sortConfig.key === 'date') {
                 aValue = new Date(a.date).getTime();
@@ -193,10 +193,13 @@ function IncomeTableContent({ items, isLoading, onEdit, onDelete }: {
     )
 }
 
-export function IncomeTable() {
-  const { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, isLoading, fetchBudgetItems } = useBudget();
+export function IncomeTable({ month, onMutation }: { month: string, onMutation?: () => void }) {
+  const { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, isLoading } = useBudget(month, onMutation);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<BudgetItem | null>(null);
+
+  const currentMonthLabel = format(parse(month + '-01', 'yyyy-MM-dd', new Date()), 'MMMM');
+  const nextMonthLabel = format(addMonths(parse(month + '-01', 'yyyy-MM-dd', new Date()), 1), 'MMMM');
 
   const { currentMonthItems, nextMonthItems } = useMemo(() => {
     const allIncome = budgetItems.filter(item => item.type === 'Income');
@@ -235,8 +238,8 @@ export function IncomeTable() {
       </div>
       <Tabs defaultValue="current" className="w-full">
         <TabsList className="grid w-full grid-cols-2 bg-secondary/50 mb-6 no-print">
-            <TabsTrigger value="current">Current Month</TabsTrigger>
-            <TabsTrigger value="next">Next Month</TabsTrigger>
+            <TabsTrigger value="current">{currentMonthLabel}</TabsTrigger>
+            <TabsTrigger value="next">{nextMonthLabel}</TabsTrigger>
         </TabsList>
         <TabsContent value="current">
             <IncomeTableContent 

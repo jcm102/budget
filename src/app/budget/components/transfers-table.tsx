@@ -59,13 +59,13 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
   )
 }
 
-export function TransfersTable() {
-  const { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, toggleBudgetItemCompleted, isLoading } = useBudget();
+export function TransfersTable({ month, onMutation }: { month: string, onMutation?: () => void }) {
+  const { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, toggleBudgetItemCompleted, isLoading } = useBudget(month, onMutation);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<BudgetItem | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'ascending' });
 
-  const transferItems = useMemo(() => budgetItems.filter(item => item.type === 'Transfers'), [budgetItems]);
+  const transferItems = useMemo(() => budgetItems.filter(item => item.type === 'Transfers' && !item.forNextMonth), [budgetItems]);
 
   const handleEdit = (item: BudgetItem) => {
     setEditingItem(item);
@@ -95,7 +95,7 @@ export function TransfersTable() {
     let sortableItems = [...transferItems];
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
-        let aValue, bValue;
+        let aValue: any, bValue: any;
         if (sortConfig.key === 'date') {
             aValue = new Date(a.date).getTime();
             bValue = new Date(b.date).getTime();

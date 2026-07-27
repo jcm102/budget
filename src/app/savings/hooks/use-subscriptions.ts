@@ -14,7 +14,7 @@ export function useSubscriptions() {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { selectedAccountId } = useSelectedAccount();
-  const { fetchBudget } = useMonthlyBudget();
+  useMonthlyBudget();
 
   const fetchSubscriptions = useCallback(async (accountId: string | null) => {
     if (!accountId) {
@@ -46,7 +46,6 @@ export function useSubscriptions() {
     try {
       await SubscriptionService.addSubscription(itemData);
       await fetchSubscriptions(selectedAccountId);
-      await fetchBudget(); // Refetch budget to see changes
     } catch (error) {
       console.error('Failed to add subscription:', error);
       toast({
@@ -55,13 +54,12 @@ export function useSubscriptions() {
         variant: 'destructive',
       });
     }
-  }, [toast, selectedAccountId, fetchSubscriptions, fetchBudget]);
+  }, [toast, selectedAccountId, fetchSubscriptions]);
 
   const updateSubscription = useCallback(async (id: string, itemData: Partial<Omit<SubscriptionItem, 'id'>>) => {
     try {
       await SubscriptionService.updateSubscription(id, itemData);
       await fetchSubscriptions(selectedAccountId);
-      await fetchBudget(); // Refetch budget to see changes
     } catch (error) {
       console.error('Failed to update subscription:', error);
       toast({
@@ -70,13 +68,12 @@ export function useSubscriptions() {
         variant: 'destructive',
       });
     }
-  }, [toast, selectedAccountId, fetchSubscriptions, fetchBudget]);
+  }, [toast, selectedAccountId, fetchSubscriptions]);
 
   const deleteSubscription = useCallback(async (id: string) => {
     try {
       await SubscriptionService.deleteSubscription(id);
       await fetchSubscriptions(selectedAccountId);
-      await fetchBudget(); // Refetch budget to see changes
     } catch (error) {
       console.error('Failed to delete subscription:', error);
       toast({
@@ -85,7 +82,7 @@ export function useSubscriptions() {
         variant: 'destructive',
       });
     }
-  }, [toast, selectedAccountId, fetchSubscriptions, fetchBudget]);
+  }, [toast, selectedAccountId, fetchSubscriptions]);
 
   return { subscriptions, isLoading, addSubscription, updateSubscription, deleteSubscription, fetchSubscriptions: () => fetchSubscriptions(selectedAccountId) };
 }

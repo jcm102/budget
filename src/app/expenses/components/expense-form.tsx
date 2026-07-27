@@ -52,7 +52,7 @@ const formSchema = z.object({
   category: z.string().optional(),
   transferee: z.string().optional(),
   reimbursable: z.boolean().optional(),
-  frequency: z.enum(['One-Time', 'Weekly', 'Bi-Weekly', 'Monthly']).optional(),
+  frequency: z.enum(['One-Time', 'Weekly', 'Bi-Weekly', 'Monthly', 'Monthly (Last Day)']).optional(),
   receipt: z.any().optional().nullable(),
   // Mileage fields
   origin: z.string().optional(),

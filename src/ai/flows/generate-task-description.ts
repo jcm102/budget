@@ -1,24 +1,14 @@
 'use server';
 
-import { genkit } from 'genkit';
-import { dotprompt } from '@genkit-ai/dotprompt';
-// Note: Ensure your genkit instance is configured correctly here
-// or import a pre-configured instance from a lib file.
-
-/**
- * Server Action to generate task descriptions using Genkit.
- * This runs ONLY on the server, avoiding Webpack errors.
- */
-export async function generateTaskDescription(taskTitle: string) {
+export async function generateTaskDescription(input: { taskDescription: string }) {
   try {
-    // Basic example of a Genkit call
-    // Replace this with your specific Genkit flow/prompt logic
-    console.log("Generating description for:", taskTitle);
+    const taskTitle = input.taskDescription;
+    console.log("Refining task description using Mock AI flow for:", taskTitle);
     
-    // Example: const response = await ai.generate(`Describe: ${taskTitle}`);
-    // return response.text();
-    
-    return `Automated description for: ${taskTitle}`; 
+    // Instead of actual AI calls that fail due to dependencies, we return a mock description.
+    return {
+      refinedTaskDescription: `Refined task: ${taskTitle}\n\nTask details and checklist:\n- [ ] Initial research\n- [ ] Implementation\n- [ ] Verification`
+    };
   } catch (error) {
     console.error("Genkit Error:", error);
     throw new Error("Failed to generate AI description");
