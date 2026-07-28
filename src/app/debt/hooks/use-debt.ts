@@ -82,7 +82,7 @@ export function useDebt(selectedMonth: string = new Date().toISOString().slice(0
     const originalDebts = debts;
     setDebts((prevDebts) => prevDebts.filter((debt) => debt.id !== id));
     try {
-      await DebtService.deleteDebt(id);
+      await DebtService.deleteDebt(id, selectedMonth);
     } catch (error) {
       console.error('Failed to delete debt:', error);
       setDebts(originalDebts);

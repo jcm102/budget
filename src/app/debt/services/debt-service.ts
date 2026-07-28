@@ -1,8 +1,9 @@
 'use server';
 
 import { db } from '@/lib/firebase-admin';
-import type { Debt } from '@/types';
+import type { Debt, Category } from '@/types';
 import { createAutomatedBackup } from '@/services/backup-service';
+import { format, addMonths } from 'date-fns';
 
 const DEBT_COLLECTION = 'debts';
 
@@ -79,6 +80,11 @@ export async function getDebts(month: string, includeArchived = false): Promise<
 
 export async function archiveDebt(id: string, archived: boolean): Promise<void> {
   await db.collection(DEBT_COLLECTION).doc(id).update({ archived });
+  const today = new Date();
+  const currentMonth = format(today, 'yyyy-MM');
+  const nextMonth = format(addMonths(today, 1), 'yyyy-MM');
+  await syncDebtPaymentsToMonthlyBudget(currentMonth);
+  await syncDebtPaymentsToMonthlyBudget(nextMonth);
 }
 
 export async function addDebt(debtData: Omit<Debt, 'id' | 'order'>, month: string): Promise<Debt> {
@@ -105,6 +111,7 @@ export async function addDebt(debtData: Omit<Debt, 'id' | 'order'>, month: strin
   };
   
   await docRef.collection('months').doc(month).set(monthlyData);
+  await syncDebtPaymentsToMonthlyBudget(month);
   
   return {
     id: docRef.id,
@@ -135,6 +142,8 @@ export async function updateDebt(id: string, month: string, debtData: Partial<Om
   if (Object.keys(monthlyUpdate).length > 0) {
     await debtRef.collection('months').doc(month).set(monthlyUpdate, { merge: true });
   }
+
+  await syncDebtPaymentsToMonthlyBudget(month);
 }
 
 export async function addExtraPayment(id: string, month: string, amount: number): Promise<void> {
@@ -144,6 +153,8 @@ export async function addExtraPayment(id: string, month: string, amount: number)
     const currentPayment = docSnap.exists ? (docSnap.data()?.plannedPayment || 0) : 0;
     transaction.set(monthlyRef, { plannedPayment: currentPayment + amount }, { merge: true });
   });
+
+  await syncDebtPaymentsToMonthlyBudget(month);
 }
 
 export async function updateDebtOrder(debts: Debt[]): Promise<void> {
@@ -154,8 +165,10 @@ export async function updateDebtOrder(debts: Debt[]): Promise<void> {
   await batch.commit();
 }
 
-export async function deleteDebt(id: string): Promise<void> {
+export async function deleteDebt(id: string, month?: string): Promise<void> {
   await db.collection(DEBT_COLLECTION).doc(id).delete();
+  const monthToSync = month || format(addMonths(new Date(), 1), 'yyyy-MM');
+  await syncDebtPaymentsToMonthlyBudget(monthToSync);
 }
 
 export async function resetDebtValues(month: string): Promise<void> {
@@ -173,6 +186,8 @@ export async function resetDebtValues(month: string): Promise<void> {
     });
   });
   await batch.commit();
+
+  await syncDebtPaymentsToMonthlyBudget(month);
 }
 
 export async function applyPaymentsToBudget(month: string, payments: Record<string, number>): Promise<void> {
@@ -182,4 +197,95 @@ export async function applyPaymentsToBudget(month: string, payments: Record<stri
       transaction.set(monthlyRef, { minimumPayment: payments[debtId] }, { merge: true });
     }
   });
+
+  await syncDebtPaymentsToMonthlyBudget(month);
+}
+
+export async function syncDebtPaymentsToMonthlyBudget(month: string): Promise<void> {
+  const baseDebtsSnapshot = await db.collection(DEBT_COLLECTION).orderBy('order').get();
+  const debtPromises = baseDebtsSnapshot.docs.map(async (docSnap) => {
+    const baseData = docSnap.data();
+    const monthlyRef = docSnap.ref.collection('months').doc(month);
+    const monthlySnap = await monthlyRef.get();
+    let monthlyData = {};
+    if (monthlySnap.exists) {
+      monthlyData = monthlySnap.data() || {};
+    }
+    return {
+      id: docSnap.id,
+      ...baseData,
+      ...monthlyData
+    } as Debt;
+  });
+  const debts = await Promise.all(debtPromises);
+
+  const categoriesSnapshot = await db.collection('budget-categories').get();
+  const budgetCategories = categoriesSnapshot.docs
+    .filter(doc => doc.id !== '_seeded')
+    .map(doc => ({ id: doc.id, ...doc.data() } as Category));
+
+  const categoryMap = new Map<string, string>();
+  budgetCategories.forEach(cat => categoryMap.set(cat.name, cat.id));
+
+  const categoryAggregates: Record<string, { total: number; breakdown: { name: string; amount: number }[] }> = {};
+
+  const today = new Date();
+  const currentMonth = format(today, 'yyyy-MM');
+  const isFutureMonth = month > currentMonth;
+
+  for (const debt of debts) {
+    if (debt.archived && (debt.balance || 0) <= 0) continue;
+
+    const amount = isFutureMonth ? (debt.minimumPayment || 0) : (debt.plannedPayment || 0);
+    if (amount <= 0 || !debt.debtType) continue;
+
+    const categoryName: string | undefined = {
+      'Credit Card': 'Credit Cards',
+      'Loan': 'Loans',
+      'Line of Credit': 'Line of Credit'
+    }[debt.debtType];
+
+    const categoryId = categoryName ? categoryMap.get(categoryName) : undefined;
+    if (!categoryId) continue;
+
+    if (!categoryAggregates[categoryId]) {
+      categoryAggregates[categoryId] = { total: 0, breakdown: [] };
+    }
+    categoryAggregates[categoryId].total += amount;
+    categoryAggregates[categoryId].breakdown.push({ name: debt.name, amount });
+  }
+
+  const MONTHLY_BUDGET_COLLECTION = 'monthly-budget-items';
+  
+  const debtCategoryIds = [
+    categoryMap.get('Credit Cards'),
+    categoryMap.get('Loans'),
+    categoryMap.get('Line of Credit')
+  ].filter((id): id is string => !!id);
+
+  for (const categoryId of debtCategoryIds) {
+    const aggregate = categoryAggregates[categoryId] || { total: 0, breakdown: [] };
+    
+    const budgetItemQuery = await db.collection(MONTHLY_BUDGET_COLLECTION)
+      .where('month', '==', month)
+      .where('categoryId', '==', categoryId)
+      .limit(1)
+      .get();
+
+    const data = {
+      categoryId,
+      month,
+      budgeted: aggregate.total,
+      breakdown: aggregate.breakdown
+    };
+
+    if (budgetItemQuery.empty) {
+      if (aggregate.total > 0) {
+        await db.collection(MONTHLY_BUDGET_COLLECTION).add(data);
+      }
+    } else {
+      const docRef = budgetItemQuery.docs[0].ref;
+      await docRef.set(data, { merge: true });
+    }
+  }
 }
