@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Banknote, PiggyBank, Settings, Users, Wallet, Briefcase, LayoutGrid, Landmark, Calculator, TrendingUp, LogOut } from 'lucide-react';
+import { Banknote, PiggyBank, Settings, Users, Wallet, Briefcase, LayoutGrid, Landmark, Calculator, TrendingUp, LogOut, Receipt } from 'lucide-react';
 import {
   SidebarContent,
   SidebarMenu,
@@ -18,6 +18,7 @@ import { signOut } from 'firebase/auth';
 const navItems = [
     { href: '/budget', icon: Banknote, label: 'Budget Overview' },
     { href: '/accounts', icon: Landmark, label: 'Accounts' },
+    { href: '/transactions', icon: Receipt, label: 'Transaction Ledger' },
     { href: '/debt', icon: Wallet, label: 'Debt Worksheet' },
     { href: '/monthly-budget', icon: LayoutGrid, label: 'Monthly Budget' },
     { href: '/expenses', icon: Briefcase, label: 'Work Expenses' },
