@@ -161,10 +161,25 @@ export async function getTransactionsForAccount(db: Firestore, accountId: string
     return relevantTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
+function stripUndefined(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(item => stripUndefined(item));
+  } else if (obj !== null && typeof obj === 'object') {
+    const result: any = {};
+    Object.keys(obj).forEach(key => {
+      if (obj[key] !== undefined) {
+        result[key] = stripUndefined(obj[key]);
+      }
+    });
+    return result;
+  }
+  return obj;
+}
 
 export async function addTransaction(db: Firestore, transactionData: Partial<Omit<Transaction, 'id'>>): Promise<Transaction> {
+    const cleanData = stripUndefined(transactionData) as Partial<Omit<Transaction, 'id'>>;
     const newDocRef = await runTransaction(db, async (transaction) => {
-        const { sourceAccountId, amount, splits, paidById } = transactionData;
+        const { sourceAccountId, amount, splits, paidById } = cleanData;
         
         const accountIds = new Set<string>();
         if (paidById) accountIds.add(paidById);
@@ -178,9 +193,9 @@ export async function addTransaction(db: Firestore, transactionData: Partial<Omi
         const accountSnapsMap = new Map(accountSnaps.map(snap => [snap.id, snap]));
 
         const newTransactionRef = doc(collection(db, TRANSACTIONS_COLLECTION));
-        transaction.set(newTransactionRef, transactionData);
+        transaction.set(newTransactionRef, cleanData);
         
-        await applyTransaction(db, transaction, transactionData as Transaction, accountSnapsMap);
+        await applyTransaction(db, transaction, cleanData as Transaction, accountSnapsMap);
         
         return newTransactionRef;
     });
@@ -287,6 +302,7 @@ async function applyTransaction(db: Firestore, transaction: FirestoreTransaction
 
 
 export async function updateTransaction(db: Firestore, id: string, transactionData: Partial<Omit<Transaction, 'id'>>): Promise<void> {
+    const cleanData = stripUndefined(transactionData);
     await runTransaction(db, async (transaction) => {
         // --- Start READS ---
         const transactionRef = doc(db, TRANSACTIONS_COLLECTION, id);
@@ -298,7 +314,7 @@ export async function updateTransaction(db: Firestore, id: string, transactionDa
         
         const newData: Transaction = {
             ...oldData,
-            ...transactionData,
+            ...cleanData,
             id: id,
         };
         
@@ -314,21 +330,21 @@ export async function updateTransaction(db: Firestore, id: string, transactionDa
         });
         
         accountIds.delete(''); // remove any empty strings
-
+ 
         const accountRefs = Array.from(accountIds).map(accId => doc(db, ACCOUNTS_COLLECTION, accId));
         const accountSnaps = await Promise.all(accountRefs.map(ref => transaction.get(ref)));
         const accountSnapsMap = new Map(accountSnaps.map(snap => [snap.id, snap]));
         // --- End READS ---
-
+ 
         // --- Start WRITES ---
         await revertTransaction(db, transaction, oldData, accountSnapsMap);
         await applyTransaction(db, transaction, newData, accountSnapsMap);
         
-        transaction.update(transactionRef, transactionData);
+        transaction.update(transactionRef, cleanData);
     });
-
-    if (transactionData.payee) {
-        const payeeName = transactionData.payee.trim();
+ 
+    if (cleanData.payee) {
+        const payeeName = cleanData.payee.trim();
         if (payeeName) {
             const payeesQuery = query(collection(db, 'payees'), where('name', '==', payeeName), limit(1));
             const payeesSnap = await getDocs(payeesQuery);
