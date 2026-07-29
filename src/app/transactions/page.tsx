@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
+import { format, startOfMonth, endOfMonth, parseISO, parse, subMonths, addMonths } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -21,7 +21,9 @@ import {
   TrendingDown, 
   ArrowRightLeft,
   XCircle,
-  FileSpreadsheet
+  FileSpreadsheet,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -45,6 +47,7 @@ const formatCurrency = (amount: number) => {
 };
 
 export default function TransactionLedgerPage() {
+  const [selectedMonthString, setSelectedMonthString] = useState(() => format(new Date(), 'yyyy-MM'));
   const [startDate, setStartDate] = useState<string | undefined>(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState<string | undefined>(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   const [searchQuery, setSearchQuery] = useState('');
@@ -55,6 +58,25 @@ export default function TransactionLedgerPage() {
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+
+  const handleMonthChange = (newMonth: string) => {
+    setSelectedMonthString(newMonth);
+    const parsedDate = parse(newMonth + '-01', 'yyyy-MM-dd', new Date());
+    setStartDate(format(startOfMonth(parsedDate), 'yyyy-MM-dd'));
+    setEndDate(format(endOfMonth(parsedDate), 'yyyy-MM-dd'));
+  };
+
+  const handlePrevMonth = () => {
+    const parsedDate = parse(selectedMonthString + '-01', 'yyyy-MM-dd', new Date());
+    const prevDate = subMonths(parsedDate, 1);
+    handleMonthChange(format(prevDate, 'yyyy-MM'));
+  };
+
+  const handleNextMonth = () => {
+    const parsedDate = parse(selectedMonthString + '-01', 'yyyy-MM-dd', new Date());
+    const nextDate = addMonths(parsedDate, 1);
+    handleMonthChange(format(nextDate, 'yyyy-MM'));
+  };
 
   const {
     transactions,
@@ -203,10 +225,28 @@ export default function TransactionLedgerPage() {
             </p>
           </div>
 
-          <Button onClick={() => setIsFormOpen(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add Transaction
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Month Selector Group */}
+            <div className="flex items-center gap-2 bg-secondary/30 p-1.5 rounded-lg border border-border/80">
+              <Button variant="ghost" size="icon" onClick={handlePrevMonth} className="h-9 w-9">
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Input 
+                type="month" 
+                value={selectedMonthString} 
+                onChange={(e) => e.target.value && handleMonthChange(e.target.value)} 
+                className="w-[160px] h-9 text-center font-medium border-0 focus-visible:ring-0 bg-transparent cursor-pointer"
+              />
+              <Button variant="ghost" size="icon" onClick={handleNextMonth} className="h-9 w-9">
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <Button onClick={() => setIsFormOpen(true)}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add Transaction
+            </Button>
+          </div>
         </header>
 
         {/* Stats Cards */}
