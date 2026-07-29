@@ -82,6 +82,7 @@ export function useTransactionLedger(startDate: string, endDate: string) {
         description: 'Failed to add transaction.',
         variant: 'destructive',
       });
+      throw error;
     }
   }, [db, fetchAccounts, toast]);
 
@@ -101,6 +102,7 @@ export function useTransactionLedger(startDate: string, endDate: string) {
         description: 'Failed to update transaction.',
         variant: 'destructive',
       });
+      throw error;
     }
   }, [db, fetchAccounts, toast]);
 
@@ -120,6 +122,7 @@ export function useTransactionLedger(startDate: string, endDate: string) {
         description: 'Failed to delete transaction.',
         variant: 'destructive',
       });
+      throw error;
     }
   }, [db, fetchAccounts, toast]);
 
