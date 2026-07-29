@@ -27,6 +27,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { useTransactions } from '@/app/monthly-budget/hooks/use-transactions';
 import { DatePicker } from '@/components/date-picker';
 import { Label } from '@/components/ui/label';
+import { useSearchParams } from 'next/navigation';
 
 const parseDate = (dateString: string) => {
     // This safely parses a 'yyyy-MM-dd' string from a full ISO string into a local Date object.
@@ -49,6 +50,8 @@ export function AccountClientPage({
   allAccounts: AccountDetails[],
   allCategories: Category[]
 }) {
+  const searchParams = useSearchParams();
+  const fromPage = searchParams?.get('from');
   
   const { 
     accountTransactions,
@@ -150,7 +153,15 @@ export function AccountClientPage({
         editingTransaction={editingTransaction}
       />
       <div className="container mx-auto max-w-4xl p-4 md:p-8">
-        <header className="mb-8">
+        <header className="mb-8 flex gap-2">
+          {fromPage === 'budget' && (
+            <Button asChild variant="outline">
+              <Link href="/budget">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Budget Overview
+              </Link>
+            </Button>
+          )}
           <Button asChild variant="outline">
             <Link href="/accounts">
               <ArrowLeft className="mr-2 h-4 w-4" />

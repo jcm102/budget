@@ -148,7 +148,7 @@ export default function BudgetPage() {
                      ) : (
                          <>
                              {libroChequing ? (
-                                 <Link href={`/accounts/${libroChequing.id}`} className="block">
+                                 <Link href={`/accounts/${libroChequing.id}?from=budget`} className="block">
                                      <div className="p-4 border rounded-lg bg-card hover:bg-accent transition-colors flex flex-col justify-between shadow-sm h-full">
                                          <h4 className="text-muted-foreground text-sm font-medium">Libro Chequing</h4>
                                          <p className="text-2xl font-bold mt-2 text-primary">{formatCurrency(getBalance(libroChequing))}</p>
@@ -161,7 +161,7 @@ export default function BudgetPage() {
                                  </div>
                              )}
                              {wealthsimpleMastercard ? (
-                                 <Link href={`/accounts/${wealthsimpleMastercard.id}`} className="block">
+                                 <Link href={`/accounts/${wealthsimpleMastercard.id}?from=budget`} className="block">
                                      <div className="p-4 border rounded-lg bg-card hover:bg-accent transition-colors flex flex-col justify-between shadow-sm h-full">
                                          <h4 className="text-muted-foreground text-sm font-medium">Wealthsimple Mastercard</h4>
                                          <p className="text-2xl font-bold mt-2 text-primary">{formatCurrency(getBalance(wealthsimpleMastercard))}</p>
@@ -174,7 +174,7 @@ export default function BudgetPage() {
                                  </div>
                              )}
                              {eqBankCard ? (
-                                 <Link href={`/accounts/${eqBankCard.id}`} className="block">
+                                 <Link href={`/accounts/${eqBankCard.id}?from=budget`} className="block">
                                      <div className="p-4 border rounded-lg bg-card hover:bg-accent transition-colors flex flex-col justify-between shadow-sm h-full">
                                          <h4 className="text-muted-foreground text-sm font-medium">{eqBankCard.name}</h4>
                                          <p className="text-2xl font-bold mt-2 text-primary">{formatCurrency(getBalance(eqBankCard))}</p>
