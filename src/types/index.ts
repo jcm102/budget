@@ -287,6 +287,7 @@ export interface TransactionSplit {
 export interface Transaction {
     id: string;
     description: string;
+    payee?: string;
     amount: number; // The total amount of the transaction
     date: string; // ISO string
     sourceAccountId?: string; // The account the money came from

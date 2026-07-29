@@ -36,6 +36,8 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useCommonAccounts } from '@/hooks/use-common-accounts';
+import { useFirestore } from '@/firebase';
+import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 
 type CategoryWithChildren = Category & { children: CategoryWithChildren[] };
 
@@ -50,6 +52,7 @@ const splitSchema = z.object({
 
 const formSchema = z.object({
   description: z.string().min(2, 'Description must be at least 2 characters.'),
+  payee: z.string().optional(),
   amount: z.coerce.number().min(0.01, 'Amount must be greater than zero.'),
   date: z.string().min(1, 'A date is required.'),
   sourceAccountId: z.string().optional(),
@@ -86,11 +89,26 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
   const { commonAccountIds } = useCommonAccounts();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [payeesList, setPayeesList] = useState<string[]>([]);
+  const db = useFirestore();
+
+  useEffect(() => {
+    if (!db) return;
+    const q = query(collection(db, 'payees'), orderBy('name', 'asc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list = snapshot.docs.map(doc => doc.data().name as string);
+      setPayeesList(list);
+    }, (error) => {
+      console.error('Failed to load payees in form:', error);
+    });
+    return () => unsubscribe();
+  }, [db]);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       description: '',
+      payee: '',
       amount: 0,
       date: new Date().toISOString().split('T')[0],
       sourceAccountId: '',
@@ -132,6 +150,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
         const isIOU = !!editingTransaction.paidById;
         form.reset({
           description: editingTransaction.description,
+          payee: editingTransaction.payee || '',
           amount: editingTransaction.amount,
           date: editingTransaction.date.split('T')[0],
           sourceAccountId: isIOU ? '' : editingTransaction.sourceAccountId,
@@ -142,6 +161,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
       } else {
         form.reset({
           description: '',
+          payee: '',
           amount: 0,
           date: new Date().toISOString().split('T')[0],
           sourceAccountId: '',
@@ -188,6 +208,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
 
     const submissionData = { 
         description: values.description,
+        payee: values.payee,
         amount: values.amount,
         date: values.date,
         sourceAccountId: values.isIOUPayment ? undefined : values.sourceAccountId,
@@ -347,6 +368,27 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                     </FormItem>
                 )}
                 />
+                 <FormField control={form.control} name="payee" render={({ field }) => (
+                     <FormItem>
+                         <FormLabel>Payee</FormLabel>
+                         <FormControl>
+                             <>
+                                 <Input 
+                                     list="payees-list"
+                                     placeholder="Enter payee (e.g. Walmart, landlord)..."
+                                     {...field}
+                                 />
+                                 <datalist id="payees-list">
+                                     {payeesList.map(p => (
+                                         <option key={p} value={p} />
+                                     ))}
+                                 </datalist>
+                             </>
+                         </FormControl>
+                         <FormMessage />
+                     </FormItem>
+                  )}
+                 />
                  <FormField control={form.control} name="description" render={({ field }) => (
                     <FormItem>
                         <div className="flex justify-between items-center">

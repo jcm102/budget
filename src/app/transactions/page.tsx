@@ -122,10 +122,13 @@ export default function TransactionLedgerPage() {
   const filteredTransactions = useMemo(() => {
     let list = [...transactions];
 
-    // Search query filter (matches description)
+    // Search query filter (matches description or payee)
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      list = list.filter(tx => tx.description?.toLowerCase().includes(query));
+      list = list.filter(tx => 
+        tx.description?.toLowerCase().includes(query) ||
+        tx.payee?.toLowerCase().includes(query)
+      );
     }
 
     // Account ID filter (source or split destination)
@@ -392,6 +395,7 @@ export default function TransactionLedgerPage() {
                       </Button>
                     </TableHead>
                     <TableHead>Description</TableHead>
+                    <TableHead>Payee</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Category / Route</TableHead>
                     <TableHead>Account</TableHead>
@@ -446,6 +450,9 @@ export default function TransactionLedgerPage() {
                           </TableCell>
                           <TableCell className="font-medium max-w-[200px] truncate">
                             {tx.description || 'No Description'}
+                          </TableCell>
+                          <TableCell className="text-sm font-medium max-w-[150px] truncate text-muted-foreground">
+                            {tx.payee || '—'}
                           </TableCell>
                           <TableCell>
                             <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground bg-secondary/50 rounded-full px-2 py-0.5 font-medium">

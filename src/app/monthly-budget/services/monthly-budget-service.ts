@@ -203,7 +203,16 @@ export async function addTransaction(db: Firestore, transactionData: Partial<Omi
             await batch.commit();
         }
     }
-
+    if (transactionData.payee) {
+        const payeeName = transactionData.payee.trim();
+        if (payeeName) {
+            const payeesQuery = query(collection(db, 'payees'), where('name', '==', payeeName), limit(1));
+            const payeesSnap = await getDocs(payeesQuery);
+            if (payeesSnap.empty) {
+                await addDoc(collection(db, 'payees'), { name: payeeName, createdAt: new Date().toISOString() });
+            }
+        }
+    }
 
     const docSnap = await getDoc(newDocRef);
     return { id: docSnap.id, ...(docSnap.data() as Omit<Transaction, 'id'>) };
@@ -317,6 +326,17 @@ export async function updateTransaction(db: Firestore, id: string, transactionDa
         
         transaction.update(transactionRef, transactionData);
     });
+
+    if (transactionData.payee) {
+        const payeeName = transactionData.payee.trim();
+        if (payeeName) {
+            const payeesQuery = query(collection(db, 'payees'), where('name', '==', payeeName), limit(1));
+            const payeesSnap = await getDocs(payeesQuery);
+            if (payeesSnap.empty) {
+                await addDoc(collection(db, 'payees'), { name: payeeName, createdAt: new Date().toISOString() });
+            }
+        }
+    }
 }
 
 export async function deleteTransaction(db: Firestore, id: string): Promise<void> {

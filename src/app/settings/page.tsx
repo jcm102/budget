@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CommonlyUsedAccountsManager } from '@/components/commonly-used-accounts-manager';
 import { ChangePasswordForm } from '@/components/change-password-form';
 import { SinkingFundCategoryManager } from '@/components/sinking-fund-category-manager';
+import { PayeeManager } from '@/components/payee-manager';
 
 export default function SettingsPage() {
   return (
@@ -58,6 +59,7 @@ export default function SettingsPage() {
                 <TabsContent value="general" className="mt-6">
                     <div className="space-y-4">
                         <PersonManager />
+                        <PayeeManager />
                     </div>
                 </TabsContent>
                 <TabsContent value="rates" className="mt-6">
