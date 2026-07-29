@@ -6,6 +6,7 @@ import { SidebarProvider, Sidebar, SidebarInset, SidebarTrigger, SidebarHeader }
 import { AppNav } from '@/components/app-nav';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { AuthGuard } from '@/components/AuthGuard';
+import { FloatingCalculator } from '@/components/floating-calculator';
 
 export const metadata: Metadata = {
   title: 'TaskTrack Budget',
@@ -42,6 +43,7 @@ export default function RootLayout({
             </SidebarProvider>
           </AuthGuard>
         </FirebaseClientProvider>
+        <FloatingCalculator />
         <Toaster />
       </body>
     </html>

@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
+import { useFloatingCalculator } from '@/hooks/use-floating-calculator';
 
 const navItems = [
     { href: '/budget', icon: Banknote, label: 'Budget Overview' },
@@ -33,6 +34,7 @@ export function AppNav() {
   const pathname = usePathname();
   const router = useRouter();
   const auth = useAuth();
+  const { toggle: toggleCalculator } = useFloatingCalculator();
 
   const handleSignOut = async () => {
     await signOut(auth);
@@ -49,12 +51,19 @@ export function AppNav() {
         <SidebarMenu>
           {navItems.map((item) => (
             <SidebarMenuItem key={item.href}>
-              <Link href={item.href}>
-                <SidebarMenuButton isActive={pathname === item.href} tooltip={item.label}>
+              {item.href === '/calculator' ? (
+                <SidebarMenuButton onClick={toggleCalculator} tooltip={item.label}>
                   <item.icon />
                   <span>{item.label}</span>
                 </SidebarMenuButton>
-              </Link>
+              ) : (
+                <Link href={item.href}>
+                  <SidebarMenuButton isActive={pathname === item.href} tooltip={item.label}>
+                    <item.icon />
+                    <span>{item.label}</span>
+                  </SidebarMenuButton>
+                </Link>
+              )}
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
