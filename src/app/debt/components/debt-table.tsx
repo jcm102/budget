@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { format, parse } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, GripVertical, Archive, ArchiveRestore } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, GripVertical, Archive, ArchiveRestore, Loader2 } from 'lucide-react';
 import type { Debt } from '@/types';
 import {
   DndContext,
@@ -41,12 +41,34 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { DebtForm } from './debt-form';
 import { useDebt } from '../hooks/use-debt';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useAccountDetails } from '@/hooks/use-transferees';
+import { useFirestore } from '@/firebase';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import * as MonthlyBudgetService from '@/app/monthly-budget/services/monthly-budget-service';
+import { useToast } from '@/hooks/use-toast';
 
 
 export type ColumnVisibility = {
@@ -172,6 +194,34 @@ export function DebtTable({ month, includeArchived, columnVisibility, columnConf
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
 
+  const { accounts, fetchAccounts } = useAccountDetails();
+  const { toast } = useToast();
+  const db = useFirestore();
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+
+  const [paymentConfirmDebt, setPaymentConfirmDebt] = useState<Debt | null>(null);
+  const [paymentSourceAccountId, setPaymentSourceAccountId] = useState<string>('');
+  const [paymentAmount, setPaymentAmount] = useState<number>(0);
+  const [paymentDate, setPaymentDate] = useState<string>(() => format(new Date(), 'yyyy-MM-dd'));
+  const [paymentCategoryId, setPaymentCategoryId] = useState<string>('');
+  const [paymentPayee, setPaymentPayee] = useState<string>('');
+  const [paymentDescription, setPaymentDescription] = useState<string>('');
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!db) return;
+    const loadCats = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'budget-categories'));
+        const list = snap.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
+        setCategories(list);
+      } catch (err) {
+        console.error('Failed to load categories in debt table:', err);
+      }
+    };
+    loadCats();
+  }, [db]);
+
   // Sync state
   useState(() => {
     setIncludeArchived(includeArchived);
@@ -199,6 +249,119 @@ export function DebtTable({ month, includeArchived, columnVisibility, columnConf
     setIsFormOpen(isOpen);
     if (!isOpen) {
       setEditingDebt(null);
+    }
+  };
+
+  const handleTogglePaidClick = (id: string) => {
+    const debt = debts.find(d => d.id === id);
+    if (!debt) return;
+    
+    if (!debt.paid) {
+      // Toggle from unpaid -> paid: Open confirmation dialog
+      const initialAmount = debt.plannedPayment || debt.minimumPayment || 0;
+      setPaymentConfirmDebt(debt);
+      setPaymentAmount(initialAmount);
+      setPaymentPayee(debt.name);
+      setPaymentDescription(`Payment: ${debt.name}`);
+      setPaymentDate(format(new Date(), 'yyyy-MM-dd'));
+      
+      // Pre-select category based on debtType if untracked, or linked account if tracked
+      const linkedAccount = accounts.find(acc => acc.linkedDebtId === debt.id);
+      if (linkedAccount) {
+        setPaymentCategoryId(''); // not needed for transfers
+      } else {
+        const targetCategoryName = debt.debtType === 'Credit Card' ? 'Credit Cards' : 
+                                   debt.debtType === 'Loan' ? 'Loans' : 
+                                   debt.debtType === 'Line of Credit' ? 'Line of Credit' : '';
+        const defaultCat = categories.find(c => c.name.toLowerCase() === targetCategoryName.toLowerCase());
+        setPaymentCategoryId(defaultCat?.id || '');
+      }
+      
+      // Select first transferee account as default source if any exist
+      if (accounts.length > 0) {
+        const preferredAccount = accounts.find(acc => acc.name.toLowerCase().includes('chequing') || acc.name.toLowerCase().includes('card')) || accounts[0];
+        setPaymentSourceAccountId(preferredAccount.id);
+      } else {
+        setPaymentSourceAccountId('');
+      }
+    } else {
+      // Toggle back to unpaid directly
+      toggleDebtPaid(id);
+    }
+  };
+
+  const handleConfirmPayment = async () => {
+    if (!paymentConfirmDebt || !db) return;
+    setIsSubmittingPayment(true);
+    try {
+      const linkedAccount = accounts.find(acc => acc.linkedDebtId === paymentConfirmDebt.id);
+      let splits = [];
+      if (linkedAccount) {
+        // Transfer split
+        splits.push({
+          id: Math.random().toString(36).substring(2, 9),
+          type: 'transfer' as const,
+          amount: paymentAmount,
+          destinationAccountId: linkedAccount.id,
+        });
+      } else {
+        // Expense split
+        splits.push({
+          id: Math.random().toString(36).substring(2, 9),
+          type: 'expense' as const,
+          amount: paymentAmount,
+          categoryId: paymentCategoryId || undefined,
+          budgetItemName: paymentConfirmDebt.name,
+        });
+      }
+
+      const transactionData = {
+        description: paymentDescription,
+        payee: paymentPayee,
+        amount: paymentAmount,
+        date: paymentDate,
+        sourceAccountId: paymentSourceAccountId || undefined,
+        splits,
+      };
+
+      // 1. Log transaction in global ledger
+      await MonthlyBudgetService.addTransaction(db, transactionData);
+      
+      // 2. Mark debt as paid in sheet
+      await toggleDebtPaid(paymentConfirmDebt.id);
+
+      // 3. Force refetch accounts to reflect new balances immediately
+      await fetchAccounts();
+
+      toast({
+        title: 'Payment Logged!',
+        description: `Logged payment of ${formatCurrency(paymentAmount)} to "${paymentConfirmDebt.name}" in your ledger.`,
+      });
+
+      setPaymentConfirmDebt(null);
+    } catch (error) {
+      console.error('Failed to log payment transaction:', error);
+      toast({
+        title: 'Error logging payment',
+        description: 'Failed to record payment transaction in your ledger.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmittingPayment(false);
+    }
+  };
+
+  const handleMarkPaidOnly = async () => {
+    if (!paymentConfirmDebt) return;
+    try {
+      await toggleDebtPaid(paymentConfirmDebt.id);
+      toast({
+        title: 'Debt Marked Paid',
+        description: `"${paymentConfirmDebt.name}" marked as paid without creating a ledger transaction.`,
+      });
+      setPaymentConfirmDebt(null);
+    } catch (error) {
+      console.error('Failed to mark paid:', error);
     }
   };
   
@@ -258,6 +421,155 @@ export function DebtTable({ month, includeArchived, columnVisibility, columnConf
         updateDebt={updateDebt}
         editingDebt={editingDebt}
       />
+
+      {paymentConfirmDebt && (
+        <Dialog open={!!paymentConfirmDebt} onOpenChange={(open) => !open && setPaymentConfirmDebt(null)}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Record Payment: {paymentConfirmDebt.name}</DialogTitle>
+              <DialogDescription>
+                Select the payment details. This will mark the debt as paid in your worksheet and create a transaction in your ledger.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-4 py-4">
+              {/* Source Account Select */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="source-account" className="text-right">
+                  Source Account
+                </Label>
+                <div className="col-span-3">
+                  <Select value={paymentSourceAccountId} onValueChange={setPaymentSourceAccountId}>
+                    <SelectTrigger id="source-account">
+                      <SelectValue placeholder="Select account..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {accounts.map(acc => (
+                        <SelectItem key={acc.id} value={acc.id}>
+                          {acc.name} ({formatCurrency(acc.balance || 0)})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Mapped Category or Destination Account Link info */}
+              {(() => {
+                const linkedAccount = accounts.find(acc => acc.linkedDebtId === paymentConfirmDebt.id);
+                if (linkedAccount) {
+                  return (
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <div className="text-right text-xs font-semibold text-muted-foreground">
+                        Type
+                      </div>
+                      <div className="col-span-3 text-xs text-muted-foreground">
+                        Transfer to <strong>{linkedAccount.name}</strong> account.
+                      </div>
+                    </div>
+                  );
+                } else {
+                  return (
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="category" className="text-right">
+                        Category
+                      </Label>
+                      <div className="col-span-3">
+                        <Select value={paymentCategoryId} onValueChange={setPaymentCategoryId}>
+                          <SelectTrigger id="category">
+                            <SelectValue placeholder="Select category..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categories.map(cat => (
+                              <SelectItem key={cat.id} value={cat.id}>
+                                {cat.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  );
+                }
+              })()}
+
+              {/* Amount Input */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="amount" className="text-right">
+                  Amount
+                </Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  step="0.01"
+                  className="col-span-3"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(parseFloat(e.target.value) || 0)}
+                />
+              </div>
+
+              {/* Date Input */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="date" className="text-right">
+                  Date
+                </Label>
+                <Input
+                  id="date"
+                  type="date"
+                  className="col-span-3"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                />
+              </div>
+
+              {/* Payee Input */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="payee" className="text-right">
+                  Payee
+                </Label>
+                <Input
+                  id="payee"
+                  className="col-span-3"
+                  value={paymentPayee}
+                  onChange={(e) => setPaymentPayee(e.target.value)}
+                />
+              </div>
+
+              {/* Description Input */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="description" className="text-right">
+                  Description
+                </Label>
+                <Input
+                  id="description"
+                  className="col-span-3"
+                  value={paymentDescription}
+                  onChange={(e) => setPaymentDescription(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-0">
+              <Button variant="ghost" className="sm:mr-auto text-xs text-muted-foreground hover:text-foreground" onClick={handleMarkPaidOnly} disabled={isSubmittingPayment}>
+                Mark Paid Only
+              </Button>
+              <Button variant="outline" onClick={() => setPaymentConfirmDebt(null)} disabled={isSubmittingPayment}>
+                Cancel
+              </Button>
+              <Button onClick={handleConfirmPayment} disabled={isSubmittingPayment || !paymentSourceAccountId}>
+                {isSubmittingPayment ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin animate-infinite" />
+                    Saving...
+                  </>
+                ) : (
+                  'Confirm Payment'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
       <div className="flex justify-end items-center mb-6 gap-2">
           <Button onClick={() => setIsFormOpen(true)}>
             <PlusCircle className="mr-2 h-5 w-5" />
@@ -292,7 +604,7 @@ export function DebtTable({ month, includeArchived, columnVisibility, columnConf
                           debt={debt} 
                           onEdit={handleEdit} 
                           onDelete={deleteDebt}
-                          onTogglePaid={toggleDebtPaid}
+                          onTogglePaid={handleTogglePaidClick}
                           onArchive={archiveDebt}
                           formatCurrency={formatCurrency}
                           columnVisibility={columnVisibility}
