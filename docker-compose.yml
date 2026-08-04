@@ -8,5 +8,5 @@ services:
       - NODE_ENV=production
       - PORT=9002
     env_file:
-      - .env.local
+      - .env
     restart: unless-stopped
