@@ -22,7 +22,7 @@ jobs:
 
       - name: Create environment file
         run: |
-          echo "${{ secrets.PROJECT_2_ENV }}" > .env.local
+          echo "${{ secrets.BUDGET_ENV }}" > .env.local
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3
