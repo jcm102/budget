@@ -1,0 +1,12 @@
+services:
+  web:
+    image: ghcr.io/jcm102/project-2:latest
+    container_name: tasktrack-budget
+    ports:
+      - "9002:9002"
+    environment:
+      - NODE_ENV=production
+      - PORT=9002
+    env_file:
+      - .env.local
+    restart: unless-stopped

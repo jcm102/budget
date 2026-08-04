@@ -310,8 +310,12 @@ export async function updateBudgetItem(db: Firestore, id: string, itemData: Part
     // --- QUERY BEFORE TRANSACTION ---
     let preFetchedOverrideSnap: any = null;
     let preFetchedBaseSnap: any = null;
-    const isRecurringInstance = id && id.includes('-');
-    const baseId = isRecurringInstance ? id.split('-')[0] : id;
+    // A generated occurrence ID ends with a Unix timestamp (13+ digit number after the last dash).
+    // This correctly handles base IDs that contain dashes, e.g. 'sinking-funds-transfer-1785556800000'.
+    const lastDashIndex = id ? id.lastIndexOf('-') : -1;
+    const suffix = lastDashIndex >= 0 ? id.slice(lastDashIndex + 1) : '';
+    const isRecurringInstance = /^\d{10,}$/.test(suffix);
+    const baseId = isRecurringInstance ? id.slice(0, lastDashIndex) : id;
 
     if (isRecurringInstance && updateType !== 'pattern') {
         const overrideQuery = query(collection(db, BUDGET_COLLECTION), where('originalId', '==', id), limit(1));
@@ -417,13 +421,14 @@ export async function updateBudgetItem(db: Firestore, id: string, itemData: Part
         // Revert or apply account balance changes reactively based on completed checkbox state
         await adjustBalancesForItem(transaction, oldItemData, newData, preFetchedAccountsByName, db);
 
-        if (isRecurringInstance && !isOverride) {
+        if (isRecurringInstance && !isOverride && updateType !== 'pattern') {
+            const instanceTimestamp = id.slice(id.lastIndexOf('-') + 1);
             const newDocData: Omit<BudgetItem, 'id'> & { originalId: string } = {
                 ...(oldItemData as Omit<BudgetItem, 'id'>),
                 ...itemData,
                 frequency: 'One-Time',
                 originalId: id,
-                date: format(new Date(parseInt(id.split('-')[1])), 'yyyy-MM-dd'),
+                date: format(new Date(parseInt(instanceTimestamp)), 'yyyy-MM-dd'),
                 completed: itemData.completed ?? oldItemData!.completed,
             };
             if (itemData.date) newDocData.date = itemData.date;
@@ -464,7 +469,10 @@ export async function deleteBudgetItem(db: Firestore, id: string, deleteType?: '
     let itemToDelete: BudgetItem | null = null;
     let isOverride = false;
     
-    const isRecurringInstance = id && id.includes('-');
+    const lastDashIdx = id ? id.lastIndexOf('-') : -1;
+    const idSuffix = lastDashIdx >= 0 ? id.slice(lastDashIdx + 1) : '';
+    const isRecurringInstance = /^\d{10,}$/.test(idSuffix);
+    const baseId = isRecurringInstance ? id.slice(0, lastDashIdx) : id;
     
     if (isRecurringInstance) {
         const overrideQuery = query(collection(db, BUDGET_COLLECTION), where('originalId', '==', id), limit(1));
@@ -474,7 +482,6 @@ export async function deleteBudgetItem(db: Firestore, id: string, deleteType?: '
             itemToDeleteRef = overrideSnapshot.docs[0].ref;
             itemToDelete = { id: itemToDeleteRef.id, ...overrideSnapshot.docs[0].data() } as BudgetItem;
         } else {
-            const baseId = id.split('-')[0];
             const baseItemRef = doc(db, BUDGET_COLLECTION, baseId);
             const baseItemSnap = await getDoc(baseItemRef);
             if (baseItemSnap.exists()) {

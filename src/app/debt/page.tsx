@@ -47,6 +47,7 @@ export default function DebtPage() {
   const { setIncludeArchived: syncArchivedSetting } = useDebt(selectedMonthString);
   
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
+    scheduled: true,
     paid: true,
     name: true,
     debtType: true,
@@ -59,6 +60,7 @@ export default function DebtPage() {
   });
 
   const columnConfig = {
+    scheduled: { label: 'Scheduled' },
     paid: { label: 'Paid' },
     name: { label: 'Debt Name' },
     debtType: { label: 'Type'},

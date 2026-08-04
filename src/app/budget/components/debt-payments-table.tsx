@@ -257,6 +257,7 @@ export function DebtPaymentsTable({ month, onMutation }: { month: string, onMuta
         addBudgetItem={addBudgetItem}
         updateBudgetItem={updateBudgetItem}
         editingItem={editingItem}
+        month={month}
       />
       <div className="flex justify-between items-center mb-6 gap-2 no-print">
         <div className="flex items-center gap-2">

@@ -37,6 +37,7 @@ const breakdownItemSchema = z.object({
   recurring: z.boolean().optional(),
   defaultAmount: z.coerce.number().nullable().optional(),
   isOneTimeException: z.boolean().optional(),
+  notes: z.string().optional(),
 });
 
 const formSchema = z.object({
@@ -77,9 +78,10 @@ export function BudgetBreakdownForm({ open, onOpenChange, onSave, category, budg
               recurring: item.recurring ?? true,
               defaultAmount: item.defaultAmount || null,
               isOneTimeException: hasException,
+              notes: item.notes || '',
             };
           })
-        : [{ name: 'Default', amount: budgetItem?.budgeted || 0, paymentMethod: category.paymentMethod || null, recurring: true, defaultAmount: null, isOneTimeException: false }];
+        : [{ name: 'Default', amount: budgetItem?.budgeted || 0, paymentMethod: category.paymentMethod || null, recurring: true, defaultAmount: null, isOneTimeException: false, notes: '' }];
       form.reset({ breakdown: initialBreakdown });
     }
   }, [category, budgetItem, open, form]);
@@ -96,7 +98,8 @@ export function BudgetBreakdownForm({ open, onOpenChange, onSave, category, budg
           amount: item.amount,
           paymentMethod: item.paymentMethod || null,
           recurring: item.recurring ?? true,
-          defaultAmount: isException ? baseline : item.amount
+          defaultAmount: isException ? baseline : item.amount,
+          notes: item.notes || ''
         };
       });
       onSave(category.id, mappedBreakdown);
@@ -214,6 +217,23 @@ export function BudgetBreakdownForm({ open, onOpenChange, onSave, category, budg
                               />
                             )}
                           </div>
+                          <FormField
+                            control={form.control}
+                            name={`breakdown.${index}.notes`}
+                            render={({ field }) => (
+                              <FormItem className="w-full mt-2">
+                                <FormControl>
+                                  <Input 
+                                    placeholder="Add notes..." 
+                                    className="h-8 text-xs" 
+                                    {...field} 
+                                    value={field.value || ''}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
                             <Button
                                 type="button"
                                 variant="ghost"

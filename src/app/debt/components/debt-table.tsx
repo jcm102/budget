@@ -87,12 +87,13 @@ type SortableDebtRowProps = {
   onEdit: (debt: Debt) => void;
   onDelete: (id: string) => void;
   onTogglePaid: (id: string) => void;
+  onToggleScheduled: (id: string) => void;
   onArchive: (id: string, archived: boolean) => void;
   formatCurrency: (amount: number) => string;
   columnVisibility: ColumnVisibility;
 };
 
-function SortableDebtRow({ debt, onEdit, onDelete, onTogglePaid, onArchive, formatCurrency, columnVisibility }: SortableDebtRowProps) {
+function SortableDebtRow({ debt, onEdit, onDelete, onTogglePaid, onToggleScheduled, onArchive, formatCurrency, columnVisibility }: SortableDebtRowProps) {
   const {
     attributes,
     listeners,
@@ -121,6 +122,14 @@ function SortableDebtRow({ debt, onEdit, onDelete, onTogglePaid, onArchive, form
                 <GripVertical className="h-4 w-4 text-muted-foreground" />
             </Button>
         </TableCell>
+        {columnVisibility.scheduled && <TableCell>
+            <Checkbox
+              checked={debt.scheduled ?? false}
+              onCheckedChange={() => onToggleScheduled(debt.id)}
+              aria-label={`Mark ${debt.name} payment as scheduled`}
+              className="mr-2"
+            />
+        </TableCell>}
         {columnVisibility.paid && <TableCell>
             <Checkbox
               checked={isPaid}
@@ -190,7 +199,7 @@ type DebtTableProps = {
 };
 
 export function DebtTable({ month, includeArchived, columnVisibility, columnConfig }: DebtTableProps) {
-  const { debts, addDebt, updateDebt, deleteDebt, updateDebtOrder, toggleDebtPaid, archiveDebt, setIncludeArchived, isLoading } = useDebt(month);
+  const { debts, addDebt, updateDebt, deleteDebt, updateDebtOrder, toggleDebtPaid, toggleDebtScheduled, archiveDebt, setIncludeArchived, isLoading } = useDebt(month);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
 
@@ -398,6 +407,7 @@ export function DebtTable({ month, includeArchived, columnVisibility, columnConf
   
   const getColSpanForTotalsLabel = () => {
     let span = 0;
+    if (columnVisibility.scheduled) span++;
     if (columnVisibility.paid) span++;
     if (columnVisibility.name) span++;
     if (columnVisibility.debtType) span++;
@@ -587,7 +597,7 @@ export function DebtTable({ month, includeArchived, columnVisibility, columnConf
                         <TableHead key={key} className={cn(
                             isNumeric && "text-right",
                             isAction && "w-[120px] text-right",
-                            key === 'paid' && "w-[50px]"
+                            (key === 'paid' || key === 'scheduled') && "w-[50px]"
                         )}>{label}</TableHead>
                     )
                 ))}
@@ -605,6 +615,7 @@ export function DebtTable({ month, includeArchived, columnVisibility, columnConf
                           onEdit={handleEdit} 
                           onDelete={deleteDebt}
                           onTogglePaid={handleTogglePaidClick}
+                          onToggleScheduled={toggleDebtScheduled}
                           onArchive={archiveDebt}
                           formatCurrency={formatCurrency}
                           columnVisibility={columnVisibility}

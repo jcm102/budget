@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
   // 1. Allow the Cloud Workstation URL to perform cross-origin requests
   experimental: {
     allowedDevOrigins: [

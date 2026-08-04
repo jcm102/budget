@@ -24,23 +24,20 @@ import { Label } from '@/components/ui/label';
 import { useGoals } from './hooks/use-goals';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
 import { SinkingFundTable } from './components/sinking-fund-table';
-import { useSavings } from './hooks/use-savings';
+import { useSavings, getExchangeRateForItem } from './hooks/use-savings';
 
 
 export default function SavingsPage() {
   const { accounts, isLoading: isLoadingAccounts } = useAccountDetails();
   const { selectedAccountId, setSelectedAccountId } = useSelectedAccount();
   const { includeGoalSavings, setIncludeGoalSavings, includeSinkingFunds, setIncludeSinkingFunds } = useLedgerSettings();
-  const { goals, isLoading: isLoadingGoals } = useGoals();
   const { exchangeRate } = useExchangeRate();
   const { savingsItems } = useSavings();
+  const { goals } = useGoals();
 
   useEffect(() => {
-    if (!selectedAccountId && accounts.length > 0) {
-      const eqSinkingFunds = accounts.find(a => a.name.toLowerCase() === 'eq sinking funds');
-      if (eqSinkingFunds) {
-        setSelectedAccountId(eqSinkingFunds.id);
-      } else {
+    if (selectedAccountId === '') {
+      if (accounts.length > 0) {
         setSelectedAccountId(accounts[0].id);
       }
     }
@@ -62,10 +59,8 @@ export default function SavingsPage() {
       
     const fundsSum = includeSinkingFunds
       ? savingsItems.reduce((acc, fund) => {
-          if (fund.currency === 'USD' && exchangeRate) {
-            return acc + (fund.amount * exchangeRate);
-          }
-          return acc + fund.amount;
+          const rate = getExchangeRateForItem(fund, exchangeRate);
+          return acc + (fund.amount * rate);
         }, 0)
       : 0;
 

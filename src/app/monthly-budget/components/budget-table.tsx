@@ -360,12 +360,15 @@ export function BudgetTable({
           return (
             <TableRow key={`${row.id}-sub-${sub.name}`} className="bg-muted/10 border-l-4 border-primary/20 hover:bg-muted/20">
               <TableCell className="pl-14 text-xs font-normal text-muted-foreground">
-                <div className="flex flex-col">
-                  <span>{sub.name}</span>
-                  {sub.paymentMethod && sub.paymentMethod !== row.paymentMethod && (
-                    <span className="text-[9px] text-primary/75 italic font-medium">({sub.paymentMethod})</span>
-                  )}
-                </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span>{sub.name}</span>
+                    {sub.paymentMethod && sub.paymentMethod !== row.paymentMethod && (
+                      <span className="text-[9px] text-primary/75 italic font-medium">({sub.paymentMethod})</span>
+                    )}
+                    {sub.notes && (
+                      <span className="text-[10px] text-muted-foreground/75 italic font-light">— {sub.notes}</span>
+                    )}
+                  </div>
               </TableCell>
               <TableCell className="text-xs text-muted-foreground">
                 {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(subBudgeted)}

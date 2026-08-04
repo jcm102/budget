@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -70,6 +70,36 @@ export function Calculator({ onUseResult }: { onUseResult?: (result: string) => 
         onUseResult(valueToUse);
     }
   }
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      if (e.metaKey || e.ctrlKey || e.altKey) {
+        return;
+      }
+
+      const key = e.key;
+
+      if (/[0-9]/.test(key) || ['+', '-', '*', '/', '(', ')', '.'].includes(key)) {
+        e.preventDefault();
+        handleInput(key);
+      } else if (key === 'Enter' || key === '=') {
+        e.preventDefault();
+        calculateResult();
+      } else if (key === 'Backspace') {
+        e.preventDefault();
+        backspace();
+      } else if (key === 'Escape' || key === 'c' || key === 'C') {
+        e.preventDefault();
+        clearInput();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [input, result]);
 
   const buttons = [
     { label: 'C', action: clearInput, className: 'bg-destructive/80 hover:bg-destructive text-destructive-foreground' },

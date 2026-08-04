@@ -2,8 +2,8 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { format, parseISO } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, DollarSign, MinusCircle, Info, ChevronDown, MoreHorizontal, RotateCcw, ArrowRightLeft } from 'lucide-react';
+import { format, parseISO, addMonths, subMonths } from 'date-fns';
+import { Pencil, Trash2, PlusCircle, DollarSign, MinusCircle, Info, ChevronDown, MoreHorizontal, RotateCcw, ArrowRightLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { SavingsItem, Category } from '@/types';
 import * as z from 'zod';
 import { useForm } from 'react-hook-form';
@@ -56,7 +56,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { SinkingFundForm } from './sinking-fund-form';
-import { useSavings } from '../hooks/use-savings';
+import { useSavings, getExchangeRateForItem, calculateMonthlyAmount, getActiveCycle } from '../hooks/use-savings';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
@@ -79,11 +79,12 @@ const formatCurrency = (amount: number, currency: 'CAD' | 'USD' = 'USD') => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
 };
 
-function TransactionDialog({ item, transactionType, onSave, children }: { item: SavingsItem, transactionType: 'deposit' | 'withdraw', onSave: (amount: number) => void, children: React.ReactNode }) {
+function TransactionDialog({ item, transactionType, onSave, children, defaultAmount, displayCurrency = 'CAD' }: { item: SavingsItem, transactionType: 'deposit' | 'withdraw', onSave: (amount: number) => void, children: React.ReactNode, defaultAmount: number, displayCurrency?: string }) {
     const [isOpen, setIsOpen] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
     const form = useForm<z.infer<typeof transactionSchema>>({
         resolver: zodResolver(transactionSchema),
-        defaultValues: { amount: 0 },
+        defaultValues: { amount: defaultAmount },
     });
 
     const onSubmit = (values: z.infer<typeof transactionSchema>) => {
@@ -104,21 +105,30 @@ function TransactionDialog({ item, transactionType, onSave, children }: { item: 
                 </DialogHeader>
                  <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                         <FormField
-                            control={form.control}
-                            name="amount"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Amount</FormLabel>
-                                    <FormControl>
-                                        <Input type="number" step="0.01" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                         {isEditing ? (
+    <FormField
+        control={form.control}
+        name="amount"
+        render={({ field }) => (
+            <FormItem>
+                <FormLabel>Amount</FormLabel>
+                <FormControl>
+                    <Input type="number" step="0.01" {...field} />
+                </FormControl>
+                <FormMessage />
+            </FormItem>
+        )}
+    />
+) : (
+    <div className="flex items-center space-x-2">
+        <span className="text-sm font-medium">{formatCurrency(form.getValues('amount'), displayCurrency)}</span>
+        <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)}>
+            Edit
+        </Button>
+    </div>
+)}
                         <DialogFooter>
-                            <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
+                            <Button type="button" variant="ghost" onClick={() => { setIsEditing(false); setIsOpen(false); form.reset({ amount: defaultAmount }); }}>Cancel</Button>
                             <Button type="submit">Confirm {transactionType}</Button>
                         </DialogFooter>
                     </form>
@@ -194,18 +204,20 @@ function FundsTable({
         }
         return sortableItems;
     }, [items, sortConfig]);
-    
     const [currentItem, setCurrentItem] = useState<SavingsItem | null>(null);
+
 
     
     const totals = useMemo(() => {
         return items.reduce((acc, item) => {
-            acc.balance += item.amount;
-            acc.goal += item.totalCost || 0;
-            acc.monthly += item.monthlyAmount || 0;
+            const rate = getExchangeRateForItem(item, exchangeRate);
+            const isUsd = item.currency === 'USD';
+            acc.balance += isUsd ? item.amount * rate : item.amount;
+            acc.goal += isUsd ? (item.totalCost || 0) * rate : (item.totalCost || 0);
+            acc.monthly += isUsd ? (item.monthlyAmount || 0) * rate : (item.monthlyAmount || 0);
             return acc;
         }, { balance: 0, goal: 0, monthly: 0 });
-    }, [items]);
+    }, [items, exchangeRate]);
 
 
     return (
@@ -213,14 +225,14 @@ function FundsTable({
             <TableHeader>
                 <TableRow className="group">
                     <SortableHeader column="name" label="Fund Name" sortConfig={sortConfig} requestSort={requestSort} />
-                    <SortableHeader column="amount" label="Balance" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
-                    <SortableHeader column="totalCost" label="Total Goal" sortConfig={sortConfig} requestSort={requestSort} className="text-right"/>
-                    <SortableHeader column="progress" label="Progress" sortConfig={sortConfig} requestSort={requestSort}/>
-                    <SortableHeader column="monthlyAmount" label="Monthly Contribution" sortConfig={sortConfig} requestSort={requestSort} className="text-right" />
-                    <SortableHeader column="dueDate" label="Due Date" sortConfig={sortConfig} requestSort={requestSort}/>
-                    <TableHead>
+                    <SortableHeader column="amount" label="Balance" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[90px]"/>
+                    <SortableHeader column="totalCost" label="Goal" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[90px]"/>
+                    <SortableHeader column="progress" label="Progress" sortConfig={sortConfig} requestSort={requestSort} className="w-[120px]"/>
+                    <SortableHeader column="monthlyAmount" label="Monthly" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[100px]" />
+                    <SortableHeader column="dueDate" label="Due Date" sortConfig={sortConfig} requestSort={requestSort} className="w-[110px]"/>
+                    <TableHead className="w-[80px]">
                         <div className="flex items-center gap-1">
-                            CAD Contr.
+                            CAD
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground"><Info className="h-3 w-3" /></Button>
@@ -231,13 +243,14 @@ function FundsTable({
                             </Popover>
                         </div>
                     </TableHead>
-                    <TableHead className="w-[50px] text-right">Actions</TableHead>
+                    <TableHead className="w-[160px] text-right">Actions</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
                 {items.map((item) => {
                     const progress = item.totalCost && item.totalCost > 0 ? (item.amount / item.totalCost) * 100 : 0;
-                    const cadContribution = item.currency === 'USD' && item.monthlyAmount && exchangeRate ? item.monthlyAmount * exchangeRate : null;
+                    const rate = getExchangeRateForItem(item, exchangeRate);
+                    const cadContribution = item.currency === 'USD' && item.monthlyAmount ? item.monthlyAmount * rate : null;
                     return (
                     <TableRow key={item.id}>
                         <TableCell className="font-medium">
@@ -257,20 +270,21 @@ function FundsTable({
                         <TableCell className="text-right font-semibold text-primary">{item.monthlyAmount ? formatCurrency(item.monthlyAmount, item.currency) : '-'}</TableCell>
                         <TableCell>{item.dueDate ? format(parseISO(item.dueDate), 'PPP') : '-'}</TableCell>
                         <TableCell className="text-right text-muted-foreground">{cadContribution ? formatCurrency(cadContribution, 'CAD') : '-'}</TableCell>
-                        <TableCell className="text-right">
-                             <DropdownMenu>
+                        <TableCell className="text-right w-[160px]">
+                             <div className="flex items-center justify-end gap-1">
+                                 <TransactionDialog item={item} transactionType='deposit' defaultAmount={cadContribution ?? item.monthlyAmount ?? 0} displayCurrency="CAD" onSave={(amount) => handleTransaction(item, amount, 'deposit')}>
+                                     <Button variant="outline" size="sm" className="h-7 px-2 text-xs">
+                                         <DollarSign className="h-3.5 w-3.5 mr-1" />Fund
+                                     </Button>
+                                 </TransactionDialog>
+                                 <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="icon" className="h-8 w-8">
                                         <MoreHorizontal className="h-4 w-4" />
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                    <TransactionDialog item={item} transactionType='deposit' onSave={(amount) => handleTransaction(item, amount, 'deposit')}>
-                                        <button className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full">
-                                            <DollarSign className="mr-2 h-4 w-4" /> Deposit
-                                        </button>
-                                    </TransactionDialog>
-                                     <TransactionDialog item={item} transactionType='withdraw' onSave={(amount) => handleTransaction(item, amount, 'withdraw')}>
+                                     <TransactionDialog item={item} transactionType='withdraw' defaultAmount={cadContribution ?? item.monthlyAmount ?? 0} displayCurrency="CAD" onSave={(amount) => handleTransaction(item, amount, 'withdraw')}>
                                          <button className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full">
                                             <MinusCircle className="mr-2 h-4 w-4" /> Withdraw
                                         </button>
@@ -320,6 +334,7 @@ function FundsTable({
                                     </AlertDialog>
                                 </DropdownMenuContent>
                             </DropdownMenu>
+                            </div>
                         </TableCell>
                     </TableRow>
                     )
@@ -348,10 +363,46 @@ export function SinkingFundTable() {
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<SavingsItem | null>(null);
+  const [fundedItemPrompt, setFundedItemPrompt] = useState<SavingsItem | null>(null);
+  const [prefillItem, setPrefillItem] = useState<Partial<SavingsItem> | undefined>(undefined);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
   
   const [isTransferFormOpen, setIsTransferFormOpen] = useState(false);
   const [sourceFund, setSourceFund] = useState<SavingsItem | null>(null);
+
+  // Month navigation — defaults to the current month
+  const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'));
+  const currentMonth = format(new Date(), 'yyyy-MM');
+  const selectedMonthDate = useMemo(() => {
+    const [y, m] = selectedMonth.split('-').map(Number);
+    return new Date(y, m - 1, 1);
+  }, [selectedMonth]);
+  const goToPrevMonth = () => {
+    const prevMonth = format(subMonths(selectedMonthDate, 1), 'yyyy-MM');
+    if (prevMonth < currentMonth) {
+      // Prevent navigating to a month before the current month
+      setSelectedMonth(currentMonth);
+    } else {
+      setSelectedMonth(prevMonth);
+    }
+  };
+  const goToNextMonth = () => setSelectedMonth(format(addMonths(selectedMonthDate, 1), 'yyyy-MM'));
+
+  // Recompute monthlyAmount for every item relative to the selected month's start date.
+  // This lets the user see July / August / September projections without re-fetching.
+  const adjustedItems = useMemo(() =>
+    savingsItems.map(item => {
+      const activeCycle = getActiveCycle(item, selectedMonthDate);
+      return {
+        ...item,
+        dueDate: activeCycle.dueDate,
+        totalCost: activeCycle.totalCost,
+        goal: activeCycle.goal,
+        monthlyAmount: calculateMonthlyAmount(item, selectedMonthDate),
+      };
+    }),
+    [savingsItems, selectedMonthDate]
+  );
 
   const handleOpenTransferForm = (fund: SavingsItem) => {
     setSourceFund(fund);
@@ -367,6 +418,7 @@ export function SinkingFundTable() {
     setIsFormOpen(isOpen);
     if (!isOpen) {
       setEditingItem(null);
+      setPrefillItem(undefined);
     }
   };
   
@@ -379,12 +431,18 @@ export function SinkingFundTable() {
     setSortConfig({ key, direction });
   };
   
-  const handleTransaction = async (item: SavingsItem, amount: number, type: 'deposit' | 'withdraw') => {
+  const handleTransaction = async (item: SavingsItem, amountEnteredCAD: number, type: 'deposit' | 'withdraw') => {
     if (!user) return;
     try {
+        const rate = getExchangeRateForItem(item, exchangeRate);
+        const amount = item.currency === 'USD' ? amountEnteredCAD / rate : amountEnteredCAD;
+
         if (type === 'deposit') {
             await fundSinkingFund(item.id, amount);
             toast({ title: "Success!", description: `${formatCurrency(amount)} deposited to "${item.name}".`});
+            if (item.totalCost && (item.amount + amount) >= item.totalCost) {
+                setFundedItemPrompt({ ...item, amount: item.amount + amount });
+            }
         } else {
             await withdrawFromSinkingFund(item.id, amount);
             toast({ title: "Success!", description: `${formatCurrency(amount)} withdrawn from "${item.name}".`});
@@ -423,18 +481,19 @@ export function SinkingFundTable() {
   );
 
   const { grandTotalBalance, grandTotalGoal, grandTotalMonthly } = useMemo(() => {
-    return savingsItems.reduce((acc, item) => {
-        acc.grandTotalBalance += item.amount;
-        acc.grandTotalGoal += item.totalCost || 0;
-        acc.grandTotalMonthly += item.monthlyAmount || 0;
+    return adjustedItems.reduce((acc, item) => {
+        const rate = getExchangeRateForItem(item, exchangeRate);
+        acc.grandTotalBalance += item.currency === 'USD' ? item.amount * rate : item.amount;
+        acc.grandTotalGoal += item.totalCost ? (item.currency === 'USD' ? item.totalCost * rate : item.totalCost) : 0;
+        acc.grandTotalMonthly += item.monthlyAmount ? (item.currency === 'USD' ? item.monthlyAmount * rate : item.monthlyAmount) : 0;
         return acc;
     }, { grandTotalBalance: 0, grandTotalGoal: 0, grandTotalMonthly: 0 });
-  }, [savingsItems]);
+  }, [adjustedItems, exchangeRate]);
   
   const groupedFunds = useMemo(() => {
     const groupMap: Record<string, { category: Category | null, items: SavingsItem[] }> = {};
 
-    savingsItems.forEach(item => {
+    adjustedItems.forEach(item => {
         const categoryId = item.categoryId || 'uncategorized';
         if (!groupMap[categoryId]) {
             const category = categories.find(c => c.id === item.categoryId) || null;
@@ -450,7 +509,7 @@ export function SinkingFundTable() {
         return a.category.name.localeCompare(b.category.name);
     });
 
-  }, [savingsItems, categories]);
+  }, [adjustedItems, categories]);
 
 
   return (
@@ -461,7 +520,57 @@ export function SinkingFundTable() {
         addSavingsItem={addSavingsItem}
         updateSavingsItem={updateSavingsItem}
         editingItem={editingItem}
+        prefillItem={prefillItem}
       />
+      
+      {/* Renewal Prompt Dialog */}
+      <AlertDialog open={!!fundedItemPrompt} onOpenChange={(open) => !open && setFundedItemPrompt(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Goal Reached! 🎉</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have fully funded <strong>{fundedItemPrompt?.name}</strong>. Would you like to automatically advance the due date for the next cycle?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No, Thanks</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+                if (fundedItemPrompt) {
+                    // Start editing the existing item to keep the balance and just push the due date forward.
+                    let newDueDate = fundedItemPrompt.dueDate;
+                    if (newDueDate) {
+                        const parts = newDueDate.split('T')[0].split('-');
+                        if (parts.length === 3) {
+                            const year = parseInt(parts[0], 10) + 1; // Add 1 year
+                            const month = parts[1];
+                            const day = parts[2];
+                            newDueDate = `${year}-${month}-${day}`;
+                        }
+                    }
+
+                    const previousCycles = [...(fundedItemPrompt.previousCycles || [])];
+                    if (fundedItemPrompt.dueDate && fundedItemPrompt.totalCost) {
+                        previousCycles.push({
+                            dueDate: fundedItemPrompt.dueDate,
+                            totalCost: fundedItemPrompt.totalCost,
+                            goal: fundedItemPrompt.goal
+                        });
+                    }
+
+                    setEditingItem({
+                        ...fundedItemPrompt,
+                        dueDate: newDueDate,
+                        previousCycles
+                    });
+                    setIsFormOpen(true);
+                }
+            }}>
+              Yes, Renew
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {sourceFund && (
           <SinkingFundTransferForm
             open={isTransferFormOpen}
@@ -471,12 +580,58 @@ export function SinkingFundTable() {
             onConfirm={handleTransfer}
           />
       )}
-      <div className="flex justify-end items-center mb-6 gap-2">
+      <div className="flex justify-between items-center mb-6 gap-2">
+          {/* Month navigation */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={goToPrevMonth}
+              disabled={selectedMonth === currentMonth}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-base font-semibold w-36 text-center">
+              {format(selectedMonthDate, 'MMMM yyyy')}
+            </span>
+            <Button variant="outline" size="icon" onClick={goToNextMonth}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
           <Button onClick={() => setIsFormOpen(true)}>
             <PlusCircle className="mr-2 h-5 w-5" />
             Add Sinking Fund
           </Button>
       </div>
+
+      {savingsItems.length > 0 && !isLoading && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Total Balance</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-3xl font-semibold">{formatCurrency(grandTotalBalance)}</p>
+                </CardContent>
+            </Card>
+             <Card>
+                <CardHeader>
+                    <CardTitle>Total Goal</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-3xl font-semibold">{formatCurrency(grandTotalGoal)}</p>
+                </CardContent>
+            </Card>
+             <Card>
+                <CardHeader>
+                    <CardTitle>Monthly Contribution — {format(selectedMonthDate, 'MMM yyyy')}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-3xl font-semibold text-primary">{formatCurrency(grandTotalMonthly)}</p>
+                </CardContent>
+            </Card>
+        </div>
+      )}
 
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
          {isLoading || isLoadingCategories ? (
@@ -486,13 +641,31 @@ export function SinkingFundTable() {
          ) : savingsItems.length > 0 ? (
             <Accordion type="multiple" className="w-full" defaultValue={groupedFunds.map(g => g.category?.id || 'uncategorized')}>
               {groupedFunds.map(({ category, items }) => {
-                const categoryTotalMonthly = items.reduce((sum, item) => sum + (item.monthlyAmount || 0), 0);
+                const categoryTotalMonthly = items.reduce((sum, item) => {
+                  const rate = getExchangeRateForItem(item, exchangeRate);
+                  const amount = item.monthlyAmount || 0;
+                  return sum + (item.currency === 'USD' ? amount * rate : amount);
+                }, 0);
+                const categoryTotalFunded = items.reduce((sum, item) => {
+                  const rate = getExchangeRateForItem(item, exchangeRate);
+                  const amount = item.amount || 0;
+                  return sum + (item.currency === 'USD' ? amount * rate : amount);
+                }, 0);
                 return (
                   <AccordionItem key={category?.id || 'uncategorized'} value={category?.id || 'uncategorized'}>
                     <AccordionTrigger className="px-4 py-2 hover:bg-muted/50">
-                        <div className="flex justify-between items-center w-full">
+                        <div className="flex justify-between items-center w-full pr-4">
                             <span className="font-semibold text-lg">{category?.name || 'Uncategorized'}</span>
-                            <span className="text-muted-foreground text-base">{formatCurrency(categoryTotalMonthly)} / month</span>
+                            <div className="flex gap-4">
+                                <div className="bg-background border px-3 py-1 rounded-md flex gap-2 items-center text-sm shadow-sm">
+                                    <span className="text-muted-foreground">Monthly:</span>
+                                    <span className="font-semibold text-primary">{formatCurrency(categoryTotalMonthly)}</span>
+                                </div>
+                                <div className="bg-background border px-3 py-1 rounded-md flex gap-2 items-center text-sm shadow-sm">
+                                    <span className="text-muted-foreground">Funded (Balance):</span>
+                                    <span className="font-semibold">{formatCurrency(categoryTotalFunded)}</span>
+                                </div>
+                            </div>
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="p-0">
@@ -518,34 +691,6 @@ export function SinkingFundTable() {
             </div>
          )}
       </div>
-      {savingsItems.length > 0 && !isLoading && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Total Balance</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-3xl font-semibold">{formatCurrency(grandTotalBalance)}</p>
-                </CardContent>
-            </Card>
-             <Card>
-                <CardHeader>
-                    <CardTitle>Total Goal</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-3xl font-semibold">{formatCurrency(grandTotalGoal)}</p>
-                </CardContent>
-            </Card>
-             <Card>
-                <CardHeader>
-                    <CardTitle>Total Monthly Contribution</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-3xl font-semibold text-primary">{formatCurrency(grandTotalMonthly)}</p>
-                </CardContent>
-            </Card>
-        </div>
-      )}
     </>
   );
 }

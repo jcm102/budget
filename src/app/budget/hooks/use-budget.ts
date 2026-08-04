@@ -8,6 +8,9 @@ import * as DebtService from '@/app/debt/services/debt-service';
 import { useAccountDetails } from '@/hooks/use-transferees';
 import { useFirestore } from '@/firebase';
 import { format, addMonths, parse } from 'date-fns';
+import { collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { addTransaction, deleteTransaction } from '@/app/monthly-budget/services/monthly-budget-service';
+import { bulkFundSinkingFunds, bulkWithdrawSinkingFunds } from '@/services/savings-service';
 
 export function useBudget(selectedMonth: string = format(new Date(), 'yyyy-MM'), onMutation?: () => void) {
   const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
@@ -166,23 +169,106 @@ export function useBudget(selectedMonth: string = format(new Date(), 'yyyy-MM'),
     }
 
     if (!db) return;
+    const item = budgetItems.find(i => i.id === id);
+    if (!item) return;
+
     const originalItems = [...budgetItems];
-    setBudgetItems(prev =>
-      prev.map(item =>
-        item.id === id ? { ...item, completed: !item.completed } : item
-      )
-    );
-    try {
-      await BudgetService.updateBudgetItem(db, id, { completed: !completed });
-      onMutation?.();
-    } catch (error) {
-      console.error('Failed to toggle budget item:', error);
-      setBudgetItems(originalItems);
-      toast({
-        title: 'Error',
-        description: 'Failed to update item completion status.',
-        variant: 'destructive',
-      });
+    
+    if (!completed) {
+      try {
+        let transactionId = item.transactionId || null;
+        
+        if (item.type === 'Transfers') {
+          let sourceAccountId = '';
+          if (item.transferFrom) {
+            const q = query(collection(db, 'transferees'), where('name', '==', item.transferFrom), limit(1));
+            const snap = await getDocs(q);
+            if (!snap.empty) sourceAccountId = snap.docs[0].id;
+          }
+
+          let txSplits: any[] = [];
+          if (item.splits && item.splits.length > 0) {
+            txSplits = item.splits.map(s => ({
+              id: crypto.randomUUID(),
+              type: s.type,
+              amount: s.amount,
+              categoryId: s.categoryId || undefined,
+              budgetItemName: s.budgetItemName || undefined,
+              destinationAccountId: s.destinationAccountId || undefined
+            }));
+          } else {
+            let destAccountId = '';
+            if (item.transferTo) {
+              const q = query(collection(db, 'transferees'), where('name', '==', item.transferTo), limit(1));
+              const snap = await getDocs(q);
+              if (!snap.empty) destAccountId = snap.docs[0].id;
+            }
+            txSplits = [{
+              id: crypto.randomUUID(),
+              type: 'transfer',
+              amount: item.amount,
+              destinationAccountId: destAccountId || undefined
+            }];
+          }
+
+          const txData = {
+            description: item.description,
+            amount: item.amount,
+            date: item.date,
+            sourceAccountId: sourceAccountId || undefined,
+            splits: txSplits
+          };
+
+          const createdTx = await addTransaction(db, txData);
+          transactionId = createdTx.id;
+        }
+
+        setBudgetItems(prev =>
+          prev.map(i =>
+            i.id === id ? { ...i, completed: true, transactionId } : i
+          )
+        );
+        await BudgetService.updateBudgetItem(db, id, { completed: true, transactionId });
+        // If this is the EFT to Sinking Funds transfer, auto-fund all active sinking fund items
+        if (item.description === 'EFT to Sinking Funds') {
+          await bulkFundSinkingFunds(selectedMonth);
+        }
+        onMutation?.();
+      } catch (error) {
+        console.error('Failed to complete budget item and write transaction:', error);
+        setBudgetItems(originalItems);
+        toast({
+          title: 'Error',
+          description: 'Failed to complete item and log transaction.',
+          variant: 'destructive',
+        });
+      }
+    } else {
+      try {
+        if (item.type === 'Transfers' && item.transactionId) {
+          await deleteTransaction(db, item.transactionId);
+        }
+
+        setBudgetItems(prev =>
+          prev.map(i =>
+            i.id === id ? { ...i, completed: false, transactionId: null } : i
+          )
+        );
+        await BudgetService.updateBudgetItem(db, id, { completed: false, transactionId: null });
+        // If this is the EFT to Sinking Funds transfer, reverse the auto-funding
+        if (item.description === 'EFT to Sinking Funds') {
+          await bulkWithdrawSinkingFunds(selectedMonth);
+        }
+        onMutation?.();
+      } catch (error) {
+        console.error('Failed to revert budget item completion:', error);
+        setBudgetItems(originalItems);
+        toast({
+          title: 'Error',
+          description: 'Failed to revert completion.',
+          variant: 'destructive',
+        });
+      }
     }
   }, [budgetItems, toast, db, fetchBudgetItems, selectedMonth, onMutation]);
 
@@ -206,12 +292,38 @@ export function useBudget(selectedMonth: string = format(new Date(), 'yyyy-MM'),
     }
   }, [fetchBudgetItems, toast, db, onMutation]);
 
+  const toggleBudgetItemScheduled = useCallback(async (id: string, scheduled: boolean) => {
+    if (!db) return;
+    const item = budgetItems.find(i => i.id === id);
+    if (!item) return;
+
+    const originalItems = [...budgetItems];
+    try {
+      setBudgetItems(prev =>
+        prev.map(i =>
+          i.id === id ? { ...i, scheduled: !scheduled } : i
+        )
+      );
+      await BudgetService.updateBudgetItem(db, id, { scheduled: !scheduled });
+      onMutation?.();
+    } catch (error) {
+      console.error('Failed to toggle budget item scheduled status:', error);
+      setBudgetItems(originalItems);
+      toast({
+        title: 'Error',
+        description: 'Failed to update scheduled status.',
+        variant: 'destructive',
+      });
+    }
+  }, [db, budgetItems, onMutation, toast]);
+
   return { 
     budgetItems, 
     addBudgetItem, 
     updateBudgetItem, 
     deleteBudgetItem, 
     toggleBudgetItemCompleted, 
+    toggleBudgetItemScheduled,
     cycleBudgetItems,
     isLoading,
     fetchBudgetItems,

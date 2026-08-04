@@ -60,7 +60,7 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
 }
 
 export function TransfersTable({ month, onMutation }: { month: string, onMutation?: () => void }) {
-  const { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, toggleBudgetItemCompleted, isLoading } = useBudget(month, onMutation);
+  const { budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, toggleBudgetItemCompleted, toggleBudgetItemScheduled, isLoading } = useBudget(month, onMutation);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<BudgetItem | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'ascending' });
@@ -99,9 +99,12 @@ export function TransfersTable({ month, onMutation }: { month: string, onMutatio
         if (sortConfig.key === 'date') {
             aValue = new Date(a.date).getTime();
             bValue = new Date(b.date).getTime();
+        } else if (sortConfig.key === 'amount') {
+            aValue = a.amount;
+            bValue = b.amount;
         } else {
-            aValue = a[sortConfig.key as keyof BudgetItem];
-            bValue = b[sortConfig.key as keyof BudgetItem];
+            aValue = a[sortConfig.key];
+            bValue = b[sortConfig.key];
         }
         if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
         if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
@@ -111,13 +114,21 @@ export function TransfersTable({ month, onMutation }: { month: string, onMutatio
     return sortableItems;
   }, [transferItems, sortConfig]);
 
-  const renderLoadingSkeleton = () => (
-    Array.from({ length: 3 }).map((_, i) => (
-      <TableRow key={`skeleton-transfer-${i}`}>
-        <TableCell colSpan={7}><Skeleton className="h-8 w-full" /></TableCell>
+  const renderLoadingSkeleton = () => {
+    return Array.from({ length: 5 }).map((_, idx) => (
+      <TableRow key={idx}>
+        <TableCell><Skeleton className="h-4 w-4" /></TableCell>
+        <TableCell><Skeleton className="h-4 w-4" /></TableCell>
+        <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
+        <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+        <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+        <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>
+        <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>
+        <TableCell><Skeleton className="h-4 w-[60px]" /></TableCell>
+        <TableCell className="text-right"><Skeleton className="h-8 w-16 ml-auto" /></TableCell>
       </TableRow>
-    ))
-  );
+    ));
+  };
 
   const total = transferItems.reduce((acc, item) => acc + item.amount, 0);
   const remainingTotal = transferItems.filter(item => !item.completed).reduce((acc, item) => acc + item.amount, 0);
@@ -130,6 +141,7 @@ export function TransfersTable({ month, onMutation }: { month: string, onMutatio
         addBudgetItem={addBudgetItem}
         updateBudgetItem={updateBudgetItem}
         editingItem={editingItem}
+        month={month}
       />
       <div className="flex justify-end items-center mb-6 gap-2 no-print">
         <Button onClick={() => setIsFormOpen(true)}>
@@ -142,7 +154,8 @@ export function TransfersTable({ month, onMutation }: { month: string, onMutatio
             <Table>
                 <TableHeader>
                     <TableRow className="group">
-                        <TableHead className="w-[50px]">Paid</TableHead>
+                        <TableHead className="w-[50px]">Scheduled</TableHead>
+                        <TableHead className="w-[50px]">Complete</TableHead>
                         <SortableHeader column="description" label="Description" sortConfig={sortConfig} requestSort={requestSort} />
                         <TableHead>From</TableHead>
                         <TableHead>To</TableHead>
@@ -159,11 +172,18 @@ export function TransfersTable({ month, onMutation }: { month: string, onMutatio
                     sortedItems.map((item) => (
                     <TableRow key={item.id} data-state={item.completed ? "completed" : "" } className={cn(item.completed && "bg-accent/30 text-muted-foreground")}>
                         <TableCell>
-                            <Checkbox
-                            checked={item.completed}
-                            onCheckedChange={() => toggleBudgetItemCompleted(item.id, item.completed || false)}
-                            aria-label={`Mark ${item.description} as paid`}
-                            />
+                             <Checkbox
+                             checked={item.scheduled}
+                             onCheckedChange={() => toggleBudgetItemScheduled(item.id, item.scheduled || false)}
+                             aria-label={`Mark ${item.description} as scheduled`}
+                             />
+                        </TableCell>
+                        <TableCell>
+                             <Checkbox
+                             checked={item.completed}
+                             onCheckedChange={() => toggleBudgetItemCompleted(item.id, item.completed || false)}
+                             aria-label={`Mark ${item.description} as complete`}
+                             />
                         </TableCell>
                         <TableCell className={cn("font-medium", item.completed && "line-through")}>{item.description}</TableCell>
                         <TableCell>{item.transferFrom}</TableCell>
@@ -211,7 +231,7 @@ export function TransfersTable({ month, onMutation }: { month: string, onMutatio
                     ))
                 ) : (
                     <TableRow>
-                    <TableCell colSpan={8} className="h-24 text-center">
+                    <TableCell colSpan={9} className="h-24 text-center">
                         No transfers added yet.
                     </TableCell>
                     </TableRow>
@@ -220,12 +240,12 @@ export function TransfersTable({ month, onMutation }: { month: string, onMutatio
                 {sortedItems.length > 0 && (
                     <TableFooter>
                             <TableRow>
-                                <TableCell colSpan={6} className="font-semibold text-right">Remaining</TableCell>
+                                <TableCell colSpan={7} className="font-semibold text-right">Remaining</TableCell>
                                 <TableCell className="text-right font-semibold">{formatCurrency(remainingTotal)}</TableCell>
                                 <TableCell />
                             </TableRow>
                             <TableRow>
-                                <TableCell colSpan={6} className="font-semibold text-right">Total</TableCell>
+                                <TableCell colSpan={7} className="font-semibold text-right">Total</TableCell>
                                 <TableCell className="text-right font-semibold">{formatCurrency(total)}</TableCell>
                                 <TableCell />
                             </TableRow>

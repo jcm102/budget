@@ -122,6 +122,14 @@ export function useDebt(selectedMonth: string = new Date().toISOString().slice(0
     updateDebt(id, { paid: isPaid });
   }, [debts, updateDebt]);
 
+  const toggleDebtScheduled = useCallback(async (id: string) => {
+    const debtToToggle = debts.find((d) => d.id === id);
+    if (!debtToToggle) return;
+
+    const isScheduled = !(debtToToggle.scheduled ?? false);
+    updateDebt(id, { scheduled: isScheduled });
+  }, [debts, updateDebt]);
+
   const archiveDebt = useCallback(async (id: string, archived: boolean) => {
     try {
       await DebtService.archiveDebt(id, archived);
@@ -154,6 +162,7 @@ export function useDebt(selectedMonth: string = new Date().toISOString().slice(0
     updateDebtOrder,
     isLoading,
     toggleDebtPaid,
+    toggleDebtScheduled,
     fetchDebts,
     archiveDebt,
     includeArchived,

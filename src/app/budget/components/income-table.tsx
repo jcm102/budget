@@ -229,6 +229,7 @@ export function IncomeTable({ month, onMutation }: { month: string, onMutation?:
         addBudgetItem={addBudgetItem}
         updateBudgetItem={updateBudgetItem}
         editingItem={editingItem}
+        month={month}
       />
       <div className="flex justify-end items-center mb-6 gap-2 no-print">
         <Button onClick={() => setIsFormOpen(true)}>

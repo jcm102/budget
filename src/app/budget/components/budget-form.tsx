@@ -4,7 +4,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import {
@@ -30,6 +30,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectGroup,
+  SelectLabel,
 } from '@/components/ui/select';
 import type { BudgetItem, BudgetItemType, BudgetItemFrequency, Category, MonthlyBudgetItem } from '@/types';
 import { useIncomeCategories } from '@/hooks/use-income-categories';
@@ -40,12 +42,15 @@ import { useDebt } from '@/app/debt/hooks/use-debt';
 import * as GoalService from '@/services/goal-service';
 import * as DebtService from '@/app/debt/services/debt-service';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, ChevronsUpDown } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { useMonthlyBudget } from '@/app/monthly-budget/hooks/use-monthly-budget';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 
 type CategoryWithChildren = Category & { children: CategoryWithChildren[] };
 
@@ -65,6 +70,13 @@ const formSchema = z.object({
     allocationType: z.enum(['none', 'goal', 'debt']).default('none'),
     allocationTargetId: z.string().optional(),
     allocationAmount: z.coerce.number().optional(),
+    splits: z.array(z.object({
+      type: z.enum(['expense', 'transfer']),
+      amount: z.coerce.number().min(0.01, 'Amount must be greater than 0.'),
+      categoryId: z.string().optional(),
+      budgetItemName: z.string().optional(),
+      destinationAccountId: z.string().optional(),
+    })).optional(),
   }).refine(data => {
     if (data.type === 'Transfers') {
       return !!data.transferTo && !!data.transferFrom;
@@ -89,11 +101,12 @@ type BudgetFormProps = {
   addBudgetItem: (item: Omit<BudgetItem, 'id'>) => void;
   updateBudgetItem: (id: string, item: Omit<BudgetItem, 'id'>, updateType?: 'instance' | 'pattern') => void;
   editingItem: BudgetItem | null;
+  month?: string;
 };
 
-export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem, editingItem }: BudgetFormProps) {
+export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem, editingItem, month }: BudgetFormProps) {
   const { categories: incomeCategories } = useIncomeCategories();
-  const { categories: budgetCategories } = useMonthlyBudget();
+  const { categories: budgetCategories, budgetItems: monthlyBudgetItems } = useMonthlyBudget(month);
   const { accounts: transferees } = useAccountDetails();
   const { goals, fetchGoals } = useGoals();
   const { debts, fetchDebts } = useDebt();
@@ -119,7 +132,13 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
       allocationType: 'none',
       allocationTargetId: '',
       allocationAmount: 0,
+      splits: [],
     },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: 'splits'
   });
 
   const itemType = form.watch('type');
@@ -138,12 +157,20 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
         fun: splitAmount,
       });
       // Automatically set the allocation amount to the full savings portion
-      form.setValue('allocationAmount', splitAmount);
+      if (form.getValues('allocationAmount') !== splitAmount) {
+        form.setValue('allocationAmount', splitAmount);
+      }
     } else {
-        // Reset allocation when calculator is not shown
+      // Reset allocation when calculator is not shown
+      if (form.getValues('allocationType') !== 'none') {
         form.setValue('allocationType', 'none');
+      }
+      if (form.getValues('allocationTargetId') !== '') {
         form.setValue('allocationTargetId', '');
+      }
+      if (form.getValues('allocationAmount') !== 0) {
         form.setValue('allocationAmount', 0);
+      }
     }
   }, [amount, showCalculator, form]);
   
@@ -165,6 +192,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
           allocationType: 'none',
           allocationTargetId: '',
           allocationAmount: 0,
+          splits: editingItem.splits || [],
         });
       } else {
         form.reset({
@@ -182,6 +210,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
           allocationType: 'none',
           allocationTargetId: '',
           allocationAmount: 0,
+          splits: [],
         });
       }
     }
@@ -189,21 +218,21 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
 
   useEffect(() => {
     if (itemType !== 'Income') {
-        form.setValue('category', 'N/A');
-        form.setValue('destinationAccountId', undefined);
-        form.setValue('forNextMonth', false);
+      if (form.getValues('category') !== 'N/A') form.setValue('category', 'N/A');
+      if (form.getValues('destinationAccountId') !== undefined) form.setValue('destinationAccountId', undefined);
+      if (form.getValues('forNextMonth') !== false) form.setValue('forNextMonth', false);
     } else {
-        const currentCategory = form.getValues('category');
-        if(currentCategory === 'N/A'){
-             form.setValue('category', '');
-        }
+      const currentCategory = form.getValues('category');
+      if (currentCategory === 'N/A') {
+        form.setValue('category', '');
+      }
     }
-     if (itemType !== 'Transfers') {
-      form.setValue('transferFrom', undefined);
-      form.setValue('transferTo', undefined);
+    if (itemType !== 'Transfers') {
+      if (form.getValues('transferFrom') !== undefined) form.setValue('transferFrom', undefined);
+      if (form.getValues('transferTo') !== undefined) form.setValue('transferTo', undefined);
     }
-     if (itemType !== 'Pre-Authorized Payments') {
-      form.setValue('budgetCategoryId', undefined);
+    if (itemType !== 'Pre-Authorized Payments') {
+      if (form.getValues('budgetCategoryId') !== undefined) form.setValue('budgetCategoryId', undefined);
     }
   }, [itemType, form]);
 
@@ -211,11 +240,25 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
 
+    if (values.type === 'Transfers' && values.splits && values.splits.length > 0) {
+      const splitsSum = values.splits.reduce((sum, s) => sum + (s.amount || 0), 0);
+      if (Math.abs(splitsSum - values.amount) > 0.01) {
+        toast({
+          title: 'Error',
+          description: 'The sum of the splits must equal the total transfer amount.',
+          variant: 'destructive',
+        });
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     const submissionData = {
       ...values,
       type: values.type as BudgetItemType,
       frequency: values.frequency as BudgetItemFrequency,
       budgetCategoryId: values.budgetCategoryId === 'null-value' ? null : values.budgetCategoryId,
+      splits: values.type === 'Transfers' ? values.splits : undefined
     };
     
     // Handle allocation logic
@@ -269,6 +312,11 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
 
   const formatCurrency = (value: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
 
+  const getBreakdownOptions = (categoryId: string) => {
+    const budgetItem = monthlyBudgetItems.find((b: any) => b.categoryId === categoryId);
+    return budgetItem?.breakdown?.filter((b: any) => b.name !== 'Default') || [];
+  };
+
   const categoryTree = useMemo(() => {
     const buildTree = (parentId: string | null = null): CategoryWithChildren[] => {
         return budgetCategories
@@ -299,7 +347,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{editingItem ? 'Edit Item' : 'Add New Item'}</DialogTitle>
           <DialogDescription>
@@ -534,6 +582,238 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                             </FormItem>
                         )}
                         />
+
+                        <Separator className="my-4" />
+                        
+                        <div className="flex justify-between items-center mb-2">
+                            <Label className="text-sm font-semibold">Transfer Splits (Sub-categories)</Label>
+                        </div>
+
+                        {fields.length > 0 && (
+                            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                                {fields.map((fieldItem, index) => {
+                                    const split = form.watch(`splits.${index}`);
+                                    if (!split) return null;
+                                    const breakdownOptions = getBreakdownOptions(split.categoryId || '');
+                                    
+                                    return (
+                                        <Card key={fieldItem.id} className="bg-secondary/30 border">
+                                            <CardHeader className="p-2 flex flex-row items-center justify-between space-y-0">
+                                                <CardTitle className="text-xs font-semibold text-primary">{split.type === 'expense' ? 'Expense Split' : 'Transfer Split'}</CardTitle>
+                                                <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:bg-destructive/10" onClick={() => remove(index)}>
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </CardHeader>
+                                            <CardContent className="p-2 pt-0 grid gap-2">
+                                                <FormField control={form.control} name={`splits.${index}.amount`} render={({ field }) => (
+                                                    <FormItem className="space-y-1">
+                                                        <FormLabel className="text-[10px]">Amount</FormLabel>
+                                                        <FormControl>
+                                                            <Input type="number" step="0.01" className="h-8 text-xs" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}/>
+
+                                                {split.type === 'expense' && (
+                                                    <>
+                                                        <FormField control={form.control} name={`splits.${index}.categoryId`} render={({ field }) => {
+                                                            const [searchQuery, setSearchQuery] = useState('');
+                                                            const [isOpen, setIsOpen] = useState(false);
+                                                            
+                                                            const flatCategories = useMemo(() => {
+                                                                const flatten = (nodes: CategoryWithChildren[], parentName = ''): { id: string; fullName: string; isSubItem: boolean; subItemName?: string }[] => {
+                                                                    let list: { id: string; fullName: string; isSubItem: boolean; subItemName?: string }[] = [];
+                                                                    nodes.forEach(node => {
+                                                                        const fullName = parentName ? `${parentName} > ${node.name}` : node.name;
+                                                                        
+                                                                        const budgetItem = monthlyBudgetItems.find((b: any) => b.categoryId === node.id);
+                                                                        const subItems = budgetItem?.breakdown?.filter((b: any) => b.name !== 'Default') || [];
+                                                                        
+                                                                        if (subItems.length > 0) {
+                                                                            subItems.forEach((sub: any) => {
+                                                                                list.push({
+                                                                                    id: node.id,
+                                                                                    isSubItem: true,
+                                                                                    subItemName: sub.name,
+                                                                                    fullName: `${fullName} > ${sub.name}`
+                                                                                });
+                                                                            });
+                                                                            list.push({ id: node.id, isSubItem: false, fullName });
+                                                                        } else {
+                                                                            list.push({ id: node.id, isSubItem: false, fullName });
+                                                                        }
+                                                                        
+                                                                        if (node.children && node.children.length > 0) {
+                                                                            list = list.concat(flatten(node.children, fullName));
+                                                                        }
+                                                                    });
+                                                                    return list;
+                                                                };
+                                                                return flatten(categoryTree);
+                                                            }, [categoryTree, monthlyBudgetItems]);
+
+                                                            const filteredCategories = flatCategories.filter(cat => 
+                                                                cat.fullName.toLowerCase().includes(searchQuery.toLowerCase())
+                                                            );
+
+                                                            const budgetItemName = form.watch(`splits.${index}.budgetItemName`) || '';
+                                                            const selectedCategory = flatCategories.find(c => 
+                                                                c.id === field.value && 
+                                                                (budgetItemName ? (c.isSubItem && c.subItemName === budgetItemName) : !c.isSubItem)
+                                                            );
+
+                                                            return (
+                                                                <FormItem className="space-y-1 flex flex-col w-full">
+                                                                    <FormLabel className="text-[10px]">Category</FormLabel>
+                                                                    <Popover open={isOpen} onOpenChange={setIsOpen}>
+                                                                        <PopoverTrigger asChild>
+                                                                            <FormControl>
+                                                                                <Button
+                                                                                    variant="outline"
+                                                                                    role="combobox"
+                                                                                    className={cn(
+                                                                                        "h-8 text-xs justify-between font-normal w-full px-2 text-left",
+                                                                                        !field.value && "text-muted-foreground"
+                                                                                    )}
+                                                                                >
+                                                                                    <span className="truncate">{selectedCategory ? selectedCategory.fullName : "Select a category / sub-item"}</span>
+                                                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                                                </Button>
+                                                                            </FormControl>
+                                                                        </PopoverTrigger>
+                                                                        <PopoverContent className="w-[380px] p-2" align="start">
+                                                                            <Input
+                                                                                placeholder="Search categories and sub-items..."
+                                                                                className="h-8 text-xs mb-2"
+                                                                                value={searchQuery}
+                                                                                onChange={e => setSearchQuery(e.target.value)}
+                                                                            />
+                                                                            <ScrollArea className="h-[200px] pr-1">
+                                                                                {filteredCategories.length > 0 ? (
+                                                                                    <div className="space-y-1">
+                                                                                        {filteredCategories.map(cat => (
+                                                                                            <button
+                                                                                                key={cat.isSubItem ? `${cat.id}-${cat.subItemName}` : cat.id}
+                                                                                                type="button"
+                                                                                                className={cn(
+                                                                                                    "w-full text-left px-2 py-1.5 text-xs rounded hover:bg-accent hover:text-accent-foreground transition-colors",
+                                                                                                    field.value === cat.id && 
+                                                                                                    (cat.isSubItem ? budgetItemName === cat.subItemName : !budgetItemName) && 
+                                                                                                    "bg-accent font-medium text-accent-foreground"
+                                                                                                )}
+                                                                                                onClick={() => {
+                                                                                                    field.onChange(cat.id);
+                                                                                                    form.setValue(`splits.${index}.budgetItemName`, cat.isSubItem ? (cat.subItemName || '') : '');
+                                                                                                    setIsOpen(false);
+                                                                                                    setSearchQuery('');
+                                                                                                }}
+                                                                                            >
+                                                                                                {cat.fullName}
+                                                                                            </button>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <div className="text-xs text-center py-4 text-muted-foreground">
+                                                                                        No categories found.
+                                                                                    </div>
+                                                                                )}
+                                                                            </ScrollArea>
+                                                                        </PopoverContent>
+                                                                    </Popover>
+                                                                    <FormMessage />
+                                                                </FormItem>
+                                                            );
+                                                        }}/>
+                                                        {breakdownOptions.length > 0 && (
+                                                            <FormField control={form.control} name={`splits.${index}.budgetItemName`} render={({ field }) => (
+                                                                <FormItem className="space-y-1">
+                                                                    <FormLabel className="text-[10px]">Budget Sub-item</FormLabel>
+                                                                    <Select onValueChange={field.onChange} value={field.value || ''}>
+                                                                        <FormControl>
+                                                                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select a sub-item" /></SelectTrigger>
+                                                                        </FormControl>
+                                                                        <SelectContent>
+                                                                            {breakdownOptions.map((opt: any) => (
+                                                                                <SelectItem key={opt.name} value={opt.name}>{opt.name}</SelectItem>
+                                                                            ))}
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                    <FormMessage />
+                                                                </FormItem>
+                                                            )}/>
+                                                        )}
+                                                    </>
+                                                )}
+
+                                                {split.type === 'transfer' && (
+                                                    <FormField control={form.control} name={`splits.${index}.destinationAccountId`} render={({ field }) => (
+                                                        <FormItem className="space-y-1">
+                                                            <FormLabel className="text-[10px]">Destination Account</FormLabel>
+                                                            <Select onValueChange={field.onChange} value={field.value || ''}>
+                                                                <FormControl>
+                                                                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select an account" /></SelectTrigger>
+                                                                </FormControl>
+                                                                <SelectContent>
+                                                                    {(() => {
+                                                                        const myAccounts = transferees.filter(t => t.type !== 'IOU');
+                                                                        const iouAccounts = transferees.filter(t => t.type === 'IOU');
+                                                                        return (
+                                                                            <>
+                                                                                {myAccounts.length > 0 && (
+                                                                                    <SelectGroup>
+                                                                                        <SelectLabel className="text-[10px] font-bold text-muted-foreground px-2 py-1">My Accounts</SelectLabel>
+                                                                                        {myAccounts.map(t => (
+                                                                                            <SelectItem key={t.id} value={t.id}>{t.name} ({t.type})</SelectItem>
+                                                                                        ))}
+                                                                                    </SelectGroup>
+                                                                                )}
+                                                                                {iouAccounts.length > 0 && (
+                                                                                    <SelectGroup>
+                                                                                        <SelectLabel className="text-[10px] font-bold text-primary px-2 py-1">People / IOUs</SelectLabel>
+                                                                                        {iouAccounts.map(t => (
+                                                                                            <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                                                                                        ))}
+                                                                                    </SelectGroup>
+                                                                                )}
+                                                                            </>
+                                                                        );
+                                                                    })()}
+                                                                </SelectContent>
+                                                            </Select>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}/>
+                                                )}
+                                            </CardContent>
+                                        </Card>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        <div className="flex items-center gap-2 mt-3 justify-end">
+                            <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => append({ type: 'expense', amount: 0, categoryId: '', budgetItemName: '' })}>
+                                <PlusCircle className="mr-1.5 h-3.5 w-3.5" /> Add Expense Split
+                            </Button>
+                            <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => append({ type: 'transfer', amount: 0, destinationAccountId: '' })}>
+                                <PlusCircle className="mr-1.5 h-3.5 w-3.5" /> Add Transfer Split
+                            </Button>
+                        </div>
+
+                        {form.watch('splits') && form.watch('splits')!.length > 0 && (() => {
+                            const splits = form.watch('splits') || [];
+                            const splitsSum = splits.reduce((sum, s) => sum + (s?.amount || 0), 0);
+                            const remainingAmount = amount - splitsSum;
+                            return (
+                                <div className={cn("text-right text-xs font-semibold py-1 px-2 rounded mt-2 border bg-accent/25", Math.abs(remainingAmount) > 0.01 ? 'text-destructive' : 'text-green-600')}>
+                                    {Math.abs(remainingAmount) > 0.01 
+                                        ? `Amount left to assign: ${formatCurrency(remainingAmount)}`
+                                        : 'All split amounts match the total!'
+                                    }
+                                </div>
+                            );
+                        })()}
                     </>
                     )}
 
@@ -541,23 +821,100 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
                         <FormField
                             control={form.control}
                             name="budgetCategoryId"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Budget Category (Optional)</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value || ''}>
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Link to a monthly budget category" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="null-value">None</SelectItem>
-                                            {renderCategoryOptions(categoryTree)}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
+                            render={({ field }) => {
+                                const [searchQuery, setSearchQuery] = useState('');
+                                const [isOpen, setIsOpen] = useState(false);
+                                
+                                const flatCategories = useMemo(() => {
+                                    const flatten = (nodes: CategoryWithChildren[], parentName = ''): { id: string; fullName: string }[] => {
+                                        let list: { id: string; fullName: string }[] = [];
+                                        nodes.forEach(node => {
+                                            const fullName = parentName ? `${parentName} > ${node.name}` : node.name;
+                                            list.push({ id: node.id, fullName });
+                                            if (node.children && node.children.length > 0) {
+                                                list = list.concat(flatten(node.children, fullName));
+                                            }
+                                        });
+                                        return list;
+                                    };
+                                    return flatten(categoryTree);
+                                }, [categoryTree]);
+
+                                const filteredCategories = flatCategories.filter(cat => 
+                                    cat.fullName.toLowerCase().includes(searchQuery.toLowerCase())
+                                );
+
+                                const selectedCategory = flatCategories.find(c => c.id === field.value);
+
+                                return (
+                                    <FormItem className="space-y-1 flex flex-col w-full">
+                                        <FormLabel>Budget Category (Optional)</FormLabel>
+                                        <Popover open={isOpen} onOpenChange={setIsOpen}>
+                                            <PopoverTrigger asChild>
+                                                <FormControl>
+                                                    <Button
+                                                        variant="outline"
+                                                        role="combobox"
+                                                        className={cn(
+                                                            "h-10 justify-between font-normal w-full px-3 text-left",
+                                                            !field.value && "text-muted-foreground"
+                                                        )}
+                                                    >
+                                                        <span className="truncate">{selectedCategory ? selectedCategory.fullName : (field.value === 'null-value' || !field.value ? "None" : "Select a category")}</span>
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </FormControl>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-[300px] p-2" align="start">
+                                                <Input
+                                                    placeholder="Search categories..."
+                                                    className="h-8 text-xs mb-2"
+                                                    value={searchQuery}
+                                                    onChange={e => setSearchQuery(e.target.value)}
+                                                />
+                                                <ScrollArea className="h-[200px] pr-1">
+                                                    <button
+                                                        type="button"
+                                                        className={cn(
+                                                            "w-full text-left px-2 py-1.5 text-xs rounded hover:bg-accent hover:text-accent-foreground transition-colors",
+                                                            (field.value === 'null-value' || !field.value) && "bg-accent font-medium text-accent-foreground"
+                                                        )}
+                                                        onClick={() => {
+                                                            field.onChange('null-value');
+                                                            setIsOpen(false);
+                                                            setSearchQuery('');
+                                                        }}
+                                                    >
+                                                        None
+                                                    </button>
+                                                    {filteredCategories.length > 0 && (
+                                                        <div className="space-y-1 mt-1 pt-1 border-t">
+                                                            {filteredCategories.map(cat => (
+                                                                <button
+                                                                    key={cat.id}
+                                                                    type="button"
+                                                                    className={cn(
+                                                                        "w-full text-left px-2 py-1.5 text-xs rounded hover:bg-accent hover:text-accent-foreground transition-colors",
+                                                                        field.value === cat.id && "bg-accent font-medium text-accent-foreground"
+                                                                    )}
+                                                                    onClick={() => {
+                                                                        field.onChange(cat.id);
+                                                                        setIsOpen(false);
+                                                                        setSearchQuery('');
+                                                                    }}
+                                                                >
+                                                                    {cat.fullName}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </ScrollArea>
+                                            </PopoverContent>
+                                        </Popover>
+                                        <FormMessage />
+                                    </FormItem>
+                                );
+                            }}
                         />
                     )}
 

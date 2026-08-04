@@ -53,6 +53,7 @@ export interface Debt {
   plannedPayment: number;
   dueDate: string; // Should be a date string
   paid?: boolean;
+  scheduled?: boolean;
   // Next Month
   nextBalance?: number;
   nextMinimumPayment?: number;
@@ -85,6 +86,9 @@ export interface BudgetItem {
   archived?: boolean;
   deleted?: boolean;
   isVirtual?: boolean;
+  splits?: TransactionSplit[];
+  transactionId?: string | null;
+  scheduled?: boolean;
 }
 
 export interface Category {
@@ -159,6 +163,7 @@ export interface SavingsItem {
   name: string;
   amount: number;
   currency: 'CAD' | 'USD';
+  exchangeRateType?: 'current' | '5year' | '10year';
   goal?: number | null; // Monthly contribution goal
   isCustomGoal?: boolean;
   totalCost?: number | null; // Optional total cost for the fund
@@ -170,6 +175,11 @@ export interface SavingsItem {
   monthlyAmount?: number; // Calculated field
   lastFundedAt?: string | null; // ISO string
   categoryId?: string | null;
+  previousCycles?: {
+    dueDate: string;
+    totalCost: number;
+    goal?: number | null;
+  }[];
 }
 
 export interface SinkingFundTransaction {
@@ -261,6 +271,7 @@ export interface BudgetSubItem {
   paymentMethod?: string | null;
   recurring?: boolean;
   defaultAmount?: number | null;
+  notes?: string;
 }
 
 export interface MonthlyBudgetItem {

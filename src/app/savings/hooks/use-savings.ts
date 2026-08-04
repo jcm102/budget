@@ -7,31 +7,81 @@ import * as SavingsService from '@/services/savings-service';
 import { useSelectedAccount } from '@/hooks/use-selected-account';
 import { initializeFirebase } from '@/firebase';
 
-export function calculateMonthlyAmount(item: Omit<SavingsItem, 'monthlyAmount'>): number {
-  if (item.isCustomGoal && item.goal != null) {
-    return item.goal;
+export function getExchangeRateForItem(item: SavingsItem, currentRate: number | null): number {
+  if (item.currency !== 'USD') return 1;
+  if (item.exchangeRateType === '5year') return 1.3344;
+  if (item.exchangeRateType === '10year') return 1.3260;
+  return currentRate || 1.35;
+}
+
+export function getActiveCycle(item: Omit<SavingsItem, 'monthlyAmount'>, referenceDate?: Date) {
+  const currentCycle = {
+    dueDate: item.dueDate,
+    totalCost: item.totalCost || 0,
+    goal: item.goal || 0,
+  };
+
+  if (!item.previousCycles || item.previousCycles.length === 0) {
+    return currentCycle;
   }
 
-  const totalCost = item.totalCost || 0;
-  const amount = item.amount || 0;
-  const remainingCost = Math.max(0, totalCost - amount);
+  const allCycles = [...item.previousCycles, currentCycle].filter(c => c.dueDate);
+  allCycles.sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
 
-  if (item.dueDate) {
-    const today = new Date();
-    const parts = item.dueDate.split('T')[0].split('-');
+  const today = referenceDate ?? new Date();
+  
+  for (const cycle of allCycles) {
+    if (cycle.dueDate) {
+      const parts = cycle.dueDate.split('T')[0].split('-');
+      if (parts.length === 3) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+        const dueDateObj = new Date(year, month, day);
+
+        const yearDiff = dueDateObj.getFullYear() - today.getFullYear();
+        const monthDiff = dueDateObj.getMonth() - today.getMonth();
+        const monthsRemaining = yearDiff * 12 + monthDiff;
+
+        if (monthsRemaining > 0) {
+          return cycle;
+        }
+      }
+    }
+  }
+
+  return currentCycle;
+}
+
+export function calculateMonthlyAmount(item: Omit<SavingsItem, 'monthlyAmount'>, referenceDate?: Date): number {
+  const activeCycle = getActiveCycle(item, referenceDate);
+  const isCustomGoal = item.isCustomGoal;
+
+  if (isCustomGoal && activeCycle.goal != null) {
+    return activeCycle.goal;
+  }
+
+  const totalCost = activeCycle.totalCost || 0;
+
+  if (activeCycle.dueDate) {
+    const today = referenceDate ?? new Date();
+    const parts = activeCycle.dueDate.split('T')[0].split('-');
     if (parts.length === 3) {
       const year = parseInt(parts[0], 10);
       const month = parseInt(parts[1], 10) - 1;
       const day = parseInt(parts[2], 10);
       const dueDate = new Date(year, month, day);
 
-      // Calculate months remaining including current month
+      // Months to save: from the reference month up to (and including) the month
+      // BEFORE the due month, so the full amount is ready at the START of the due month.
       const yearDiff = dueDate.getFullYear() - today.getFullYear();
       const monthDiff = dueDate.getMonth() - today.getMonth();
-      const monthsRemaining = yearDiff * 12 + monthDiff + 1;
+      const monthsRemaining = yearDiff * 12 + monthDiff;
 
       if (monthsRemaining > 0) {
-        return remainingCost / monthsRemaining;
+        // Static planned rate — always based on totalCost, not remaining balance.
+        // This keeps the monthly column constant regardless of how much has been funded.
+        return totalCost / monthsRemaining;
       }
     }
   }
@@ -53,8 +103,9 @@ export function calculateMonthlyAmount(item: Omit<SavingsItem, 'monthlyAmount'>)
     }
   }
 
-  return 0;
+  return item.goal ?? 0;
 }
+
 
 export function useSavings() {
   const [savingsItems, setSavingsItems] = useState<SavingsItem[]>([]);

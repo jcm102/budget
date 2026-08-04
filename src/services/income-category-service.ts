@@ -7,26 +7,30 @@ const CATEGORY_COLLECTION = 'income-categories';
 const defaultCategories = ['Paycheck', 'Bonus', 'Freelance', 'Other'];
 
 async function seedDefaultCategories() {
-  const snapshot = await db.collection(CATEGORY_COLLECTION)
-    .where('name', 'in', defaultCategories)
-    .get();
-  const existingNames = snapshot.docs.map(doc => doc.data().name as string);
-  const missingCategories = defaultCategories.filter(name => !existingNames.includes(name));
+  const seedFlagRef = db.collection(CATEGORY_COLLECTION).doc('_seeded');
+  const seedFlagSnap = await seedFlagRef.get();
+  if (seedFlagSnap.exists) return;
 
-  if (missingCategories.length > 0) {
-    const batch = db.batch();
-    missingCategories.forEach(categoryName => {
+  const snapshot = await db.collection(CATEGORY_COLLECTION).limit(2).get();
+  const hasExisting = snapshot.docs.some(doc => doc.id !== '_seeded');
+
+  const batch = db.batch();
+  if (!hasExisting) {
+    defaultCategories.forEach(categoryName => {
       const newDocRef = db.collection(CATEGORY_COLLECTION).doc();
       batch.set(newDocRef, { name: categoryName });
     });
-    await batch.commit();
   }
+  batch.set(seedFlagRef, { seeded: true });
+  await batch.commit();
 }
 
 export async function getCategories(): Promise<Category[]> {
   await seedDefaultCategories();
   const querySnapshot = await db.collection(CATEGORY_COLLECTION).orderBy('name').get();
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
+  return querySnapshot.docs
+    .filter(doc => doc.id !== '_seeded')
+    .map(doc => ({ id: doc.id, ...doc.data() } as Category));
 }
 
 export async function addCategory(name: string): Promise<Category> {

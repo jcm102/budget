@@ -4,7 +4,7 @@ import type { MonthlyBudgetItem, Transaction, TransactionSplit, BudgetItem, Acco
 import { format, addMonths } from 'date-fns';
 import { createAutomatedBackup } from '@/services/backup-service';
 import { cycleBudgetItems as cycleOverviewItems } from '@/app/budget/services/budget-service';
-import { syncSinkingFundsBudget } from '@/services/savings-service';
+import { syncSinkingFundsBudget, syncWealthsimpleTransfer } from '@/services/savings-service';
 
 const BUDGET_ITEMS_COLLECTION = 'monthly-budget-items';
 const TRANSACTIONS_COLLECTION = 'transactions';
@@ -81,6 +81,9 @@ export async function cycleToNextMonth(db: Firestore): Promise<void> {
   // After successfully cycling the main budget, also cycle the overview items.
   await cycleOverviewItems(db, 'Pre-Authorized Payments');
   await cycleOverviewItems(db, 'Debt Payments');
+  // Sync automatic transfer amounts for the new current month
+  await syncSinkingFundsBudget(undefined, true);
+  await syncWealthsimpleTransfer();
 }
 
 

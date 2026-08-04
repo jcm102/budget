@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -44,13 +44,14 @@ const formSchema = z.object({
   accountId: z.string().min(1, 'An account is required.'),
   amount: z.coerce.number().min(0, 'Amount must be a positive number.'),
   currency: z.enum(['CAD', 'USD']),
-  goal: z.coerce.number().optional(),
-  isCustomGoal: z.boolean().optional(),
-  totalCost: z.coerce.number().optional(),
+  exchangeRateType: z.enum(['current', '5year', '10year']).optional(),
+  goal: z.coerce.number().min(0).default(0),
+  isCustomGoal: z.boolean().default(false),
+  totalCost: z.coerce.number().min(0).default(0),
   dueDate: z.string().optional(),
-  recurrence: z.enum(['None', 'Quarterly', 'Semi-Annually', 'Annually', 'Bi-Annually', 'Semi-Annually (Custom)']).optional(),
-  primaryPaymentMonth: z.coerce.number().optional(),
-  secondaryPaymentMonth: z.coerce.number().optional(),
+  recurrence: z.enum(['None', 'Quarterly', 'Semi-Annually', 'Annually', 'Bi-Annually', 'Semi-Annually (Custom)']).default('None'),
+  primaryPaymentMonth: z.coerce.number().min(0).default(0),
+  secondaryPaymentMonth: z.coerce.number().min(0).default(6),
   categoryId: z.string().optional(),
 });
 
@@ -60,20 +61,32 @@ type SinkingFundFormProps = {
   addSavingsItem: (item: Omit<SavingsItem, 'id' | 'monthlyAmount'>) => void;
   updateSavingsItem: (id: string, item: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>) => void;
   editingItem: SavingsItem | null;
+  prefillItem?: Partial<SavingsItem>;
 };
 
-export function SinkingFundForm({ open, onOpenChange, addSavingsItem, updateSavingsItem, editingItem }: SinkingFundFormProps) {
+export function SinkingFundForm({ open, onOpenChange, addSavingsItem, updateSavingsItem, editingItem, prefillItem }: SinkingFundFormProps) {
   const { accounts, isLoading: isLoadingAccounts } = useAccountDetails();
   const { categories, isLoading: isLoadingCategories } = useSinkingFundCategories();
   const { selectedAccountId } = useSelectedAccount();
+
+  // Only show savings accounts in the account picker
+  const savingsAccounts = useMemo(() => accounts.filter(a => a.type === 'Savings'), [accounts]);
+
+  // Best default account: currently selected (if savings), else EQ Sinking Funds, else first savings account
+  const defaultAccountId = useMemo(() => {
+    if (savingsAccounts.find(a => a.id === selectedAccountId)) return selectedAccountId;
+    const eq = savingsAccounts.find(a => a.name.toLowerCase().includes('sinking'));
+    return eq?.id || savingsAccounts[0]?.id || '';
+  }, [savingsAccounts, selectedAccountId]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
-      accountId: '',
+      accountId: defaultAccountId,
       amount: 0,
       currency: 'CAD',
+      exchangeRateType: 'current',
       goal: 0,
       isCustomGoal: false,
       totalCost: 0,
@@ -94,26 +107,44 @@ export function SinkingFundForm({ open, onOpenChange, addSavingsItem, updateSavi
         form.reset({
           name: editingItem.name,
           accountId: editingItem.accountId,
-          amount: editingItem.amount,
+          amount: editingItem.amount ?? 0,
           currency: editingItem.currency,
-          goal: editingItem.goal || undefined,
+          exchangeRateType: editingItem.exchangeRateType || 'current',
+          goal: editingItem.goal ?? 0,
           isCustomGoal: editingItem.isCustomGoal || false,
-          totalCost: editingItem.totalCost || undefined,
+          totalCost: editingItem.totalCost ?? 0,
           dueDate: editingItem.dueDate ? editingItem.dueDate.split('T')[0] : '',
           recurrence: editingItem.recurrence || 'None',
-          primaryPaymentMonth: editingItem.primaryPaymentMonth || 0,
-          secondaryPaymentMonth: editingItem.secondaryPaymentMonth || 6,
+          primaryPaymentMonth: editingItem.primaryPaymentMonth ?? 0,
+          secondaryPaymentMonth: editingItem.secondaryPaymentMonth ?? 6,
           categoryId: editingItem.categoryId || '',
+        });
+      } else if (prefillItem) {
+        form.reset({
+          name: prefillItem.name || '',
+          accountId: prefillItem.accountId || defaultAccountId,
+          amount: 0,
+          currency: prefillItem.currency || 'CAD',
+          exchangeRateType: prefillItem.exchangeRateType || 'current',
+          goal: prefillItem.goal || 0,
+          isCustomGoal: prefillItem.isCustomGoal || false,
+          totalCost: prefillItem.totalCost || 0,
+          dueDate: prefillItem.dueDate ? prefillItem.dueDate.split('T')[0] : '',
+          recurrence: prefillItem.recurrence || 'None',
+          primaryPaymentMonth: prefillItem.primaryPaymentMonth || 0,
+          secondaryPaymentMonth: prefillItem.secondaryPaymentMonth || 6,
+          categoryId: prefillItem.categoryId || '',
         });
       } else {
         form.reset({
           name: '',
-          accountId: selectedAccountId || accounts[0]?.id || '',
+          accountId: defaultAccountId,
           amount: 0,
           currency: 'CAD',
-          goal: undefined,
+          exchangeRateType: 'current',
+          goal: 0,
           isCustomGoal: false,
-          totalCost: undefined,
+          totalCost: 0,
           dueDate: '',
           recurrence: 'None',
           primaryPaymentMonth: 0,
@@ -122,13 +153,15 @@ export function SinkingFundForm({ open, onOpenChange, addSavingsItem, updateSavi
         });
       }
     }
-  }, [editingItem, open, form, accounts]);
+  }, [editingItem, open, form, defaultAccountId, prefillItem]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const submissionData = { 
         ...values, 
         recurrence: values.recurrence as SavingsRecurrence,
-        goal: values.isCustomGoal ? values.goal : null,
+        goal: values.isCustomGoal ? (values.goal || null) : null,
+        totalCost: values.totalCost || null,
+        ...(editingItem?.previousCycles ? { previousCycles: editingItem.previousCycles } : {})
     };
 
     if (editingItem) {
@@ -179,7 +212,7 @@ export function SinkingFundForm({ open, onOpenChange, addSavingsItem, updateSavi
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {accounts.map(account => (
+                          {savingsAccounts.map(account => (
                             <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>
                           ))}
                         </SelectContent>
@@ -235,6 +268,23 @@ export function SinkingFundForm({ open, onOpenChange, addSavingsItem, updateSavi
                         </FormItem>
                     )}/>
                 </div>
+
+                {form.watch('currency') === 'USD' && (
+                    <FormField control={form.control} name="exchangeRateType" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>USD Conversion Rate Mode</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value || 'current'}>
+                                <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                    <SelectItem value="current">Current Rate (from Settings)</SelectItem>
+                                    <SelectItem value="5year">5-Year Average (1.3344)</SelectItem>
+                                    <SelectItem value="10year">10-Year Average (1.3260)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )}/>
+                )}
 
                 <FormField control={form.control} name="totalCost" render={({ field }) => (
                     <FormItem>
