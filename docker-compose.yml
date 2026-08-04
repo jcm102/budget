@@ -1,6 +1,6 @@
 services:
   web:
-    image: ghcr.io/jcm102/project-2:latest
+    image: ghcr.io/jcm102/budget:latest
     container_name: tasktrack-budget
     ports:
       - "9002:9002"

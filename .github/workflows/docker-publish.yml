@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: jcm102/project-2
+  IMAGE_NAME: jcm102/budget
 
 jobs:
   build-and-push:
