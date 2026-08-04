@@ -32,32 +32,71 @@ export async function getSavingsItems(accountId: string): Promise<SavingsItem[]>
   }
 }
 
-function calculateMonthlyAmount(item: any, targetMonthStr?: string): number {
-  if (item.isCustomGoal && item.goal != null) {
-    return item.goal;
+function getActiveCycle(item: any, referenceDate?: Date) {
+  const currentCycle = {
+    dueDate: item.dueDate,
+    totalCost: item.totalCost || 0,
+    goal: item.goal || 0,
+  };
+
+  if (!item.previousCycles || item.previousCycles.length === 0) {
+    return currentCycle;
   }
 
-  const totalCost = item.totalCost || 0;
-  const amount = item.amount || 0;
+  const allCycles = [...item.previousCycles, currentCycle].filter(c => c.dueDate);
+  allCycles.sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
 
-  if (item.dueDate) {
-    let refDate = new Date();
-    if (targetMonthStr) {
-      const parts = targetMonthStr.split('-');
-      if (parts.length === 2) {
-        refDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
+  const today = referenceDate ?? new Date();
+  
+  for (const cycle of allCycles) {
+    if (cycle.dueDate) {
+      const parts = cycle.dueDate.split('T')[0].split('-');
+      if (parts.length === 3) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+        const dueDateObj = new Date(year, month, day);
+
+        const yearDiff = dueDateObj.getFullYear() - today.getFullYear();
+        const monthDiff = dueDateObj.getMonth() - today.getMonth();
+        const monthsRemaining = yearDiff * 12 + monthDiff;
+
+        if (monthsRemaining > 0) {
+          return cycle;
+        }
       }
     }
+  }
 
-    const parts = item.dueDate.split('T')[0].split('-');
+  return currentCycle;
+}
+
+function calculateMonthlyAmount(item: any, targetMonthStr?: string): number {
+  let refDate = new Date();
+  if (targetMonthStr) {
+    const parts = targetMonthStr.split('-');
+    if (parts.length === 2) {
+      refDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
+    }
+  }
+
+  const activeCycle = getActiveCycle(item, refDate);
+  const isCustomGoal = item.isCustomGoal;
+
+  if (isCustomGoal && activeCycle.goal != null) {
+    return activeCycle.goal;
+  }
+
+  const totalCost = activeCycle.totalCost || 0;
+
+  if (activeCycle.dueDate) {
+    const parts = activeCycle.dueDate.split('T')[0].split('-');
     if (parts.length === 3) {
       const year = parseInt(parts[0], 10);
       const month = parseInt(parts[1], 10) - 1;
       const day = parseInt(parts[2], 10);
       const dueDate = new Date(year, month, day);
 
-      // Months to save: reference month up to (and including) the month BEFORE the due month.
-      // Full amount ready at the START of the due month.
       const yearDiff = dueDate.getFullYear() - refDate.getFullYear();
       const monthDiff = dueDate.getMonth() - refDate.getMonth();
       const monthsRemaining = yearDiff * 12 + monthDiff;
@@ -84,7 +123,7 @@ function calculateMonthlyAmount(item: any, targetMonthStr?: string): number {
     }
   }
 
-  return 0;
+  return item.goal ?? 0;
 }
 
 function getExchangeRate(item: any, currentRate: number): number {
@@ -109,21 +148,13 @@ export async function syncSinkingFundsBudget(targetMonth?: string, fromCycle?: b
     const currentMonth = format(today, 'yyyy-MM');
     const nextMonth = format(addMonths(today, 1), 'yyyy-MM');
 
-    // When called from fund/add/update/delete (not the monthly cycle), only update
-    // NEXT month — this freezes the current month's planned amount once it has started.
-    // When called from cycleToNextMonth (fromCycle=true), update both months.
-    const months = targetMonth
-      ? [targetMonth]
-      : fromCycle
-        ? [currentMonth, nextMonth]
-        : [nextMonth];
+    // Always update both current and next month, or the specific target month if provided
+    const months = targetMonth ? [targetMonth] : [currentMonth, nextMonth];
 
     const BUDGET_ITEMS_COLLECTION = 'monthly-budget-items';
 
-    // Current month total used for the stable transfer doc (only updated during cycle)
+    // Current month total used for the stable transfer doc
     const currentTotalMonthly = items.reduce((sum, item) => {
-      // Always use the TARGET month as reference so pre-calculations are accurate
-      // and consistent regardless of when the sync runs.
       const monthly = calculateMonthlyAmount(item, currentMonth);
       const rate = getExchangeRate(item, currentRate);
       return sum + (monthly * rate);
@@ -146,8 +177,6 @@ export async function syncSinkingFundsBudget(targetMonth?: string, fromCycle?: b
         continue;
       }
 
-      // Use the TARGET month's start date as the reference for accuracy —
-      // this ensures August's amount is the same whether calculated in July or August.
       const totalMonthly = items.reduce((sum, item) => {
         const monthly = calculateMonthlyAmount(item, month);
         const rate = getExchangeRate(item, currentRate);
@@ -175,63 +204,59 @@ export async function syncSinkingFundsBudget(targetMonth?: string, fromCycle?: b
       }
     }
 
-    // Only update the stable transfer doc during a monthly cycle or targeted call.
-    // During the month, the planned transfer amount must stay frozen so the user
-    // sees a consistent number to transfer, not a live-recalculated one.
-    if (fromCycle || targetMonth) {
-      const STABLE_TRANSFER_ID = 'sinking-funds-transfer';
-      const TRANSFER_START_DATE = '2026-08-01';
-      const stableDocRef = db.collection('budget-items').doc(STABLE_TRANSFER_ID);
-      const stableDocSnap = await stableDocRef.get();
+    // Always update the stable transfer doc so it matches the current month's contributions
+    const STABLE_TRANSFER_ID = 'sinking-funds-transfer';
+    const TRANSFER_START_DATE = '2026-08-01';
+    const stableDocRef = db.collection('budget-items').doc(STABLE_TRANSFER_ID);
+    const stableDocSnap = await stableDocRef.get();
 
-      if (stableDocSnap.exists) {
-        const data = stableDocSnap.data();
-        const currentSplits = data?.splits || [];
-        let updatedSplits = currentSplits.map((s: any) => {
-          if (s.type === 'expense' && s.categoryId === SINKING_FUNDS_CATEGORY_ID) {
-            return { ...s, amount: currentTotalMonthly };
-          }
-          return s;
-        });
-        if (updatedSplits.length === 0) {
-          updatedSplits = [{
-            id: 'sinking-funds-split',
-            type: 'expense',
-            amount: currentTotalMonthly,
-            categoryId: SINKING_FUNDS_CATEGORY_ID
-          }];
+    if (stableDocSnap.exists) {
+      const data = stableDocSnap.data();
+      const currentSplits = data?.splits || [];
+      let updatedSplits = currentSplits.map((s: any) => {
+        if (s.type === 'expense' && s.categoryId === SINKING_FUNDS_CATEGORY_ID) {
+          return { ...s, amount: currentTotalMonthly };
         }
-        await stableDocRef.update({
+        return s;
+      });
+      if (updatedSplits.length === 0) {
+        updatedSplits = [{
+          id: 'sinking-funds-split',
+          type: 'expense',
           amount: currentTotalMonthly,
-          date: TRANSFER_START_DATE,
-          splits: updatedSplits
-        });
-      } else {
-        await stableDocRef.set({
-          type: 'Transfers',
-          description: 'EFT to Sinking Funds',
-          amount: currentTotalMonthly,
-          date: TRANSFER_START_DATE,
-          frequency: 'Monthly',
-          transferFrom: 'Libro Chequing',
-          transferTo: 'EQ Sinking Funds',
-          completed: false,
-          scheduled: false,
-          splits: [{
-            id: 'sinking-funds-split',
-            type: 'expense',
-            amount: currentTotalMonthly,
-            categoryId: SINKING_FUNDS_CATEGORY_ID
-          }]
-        });
+          categoryId: SINKING_FUNDS_CATEGORY_ID
+        }];
       }
+      await stableDocRef.update({
+        amount: currentTotalMonthly,
+        date: TRANSFER_START_DATE,
+        splits: updatedSplits
+      });
+    } else {
+      await stableDocRef.set({
+        type: 'Transfers',
+        description: 'EFT to Sinking Funds',
+        amount: currentTotalMonthly,
+        date: TRANSFER_START_DATE,
+        frequency: 'Monthly',
+        transferFrom: 'Libro Chequing',
+        transferTo: 'EQ Sinking Funds',
+        completed: false,
+        scheduled: false,
+        splits: [{
+          id: 'sinking-funds-split',
+          type: 'expense',
+          amount: currentTotalMonthly,
+          categoryId: SINKING_FUNDS_CATEGORY_ID
+        }]
+      });
+    }
 
-      // Clean up any old per-month transfer docs
-      for (const month of [currentMonth, nextMonth]) {
-        const oldDocRef = db.collection('budget-items').doc(`sinking-funds-transfer-${month}`);
-        const oldDocSnap = await oldDocRef.get();
-        if (oldDocSnap.exists) { await oldDocRef.delete(); }
-      }
+    // Clean up any old per-month transfer docs
+    for (const month of [currentMonth, nextMonth]) {
+      const oldDocRef = db.collection('budget-items').doc(`sinking-funds-transfer-${month}`);
+      const oldDocSnap = await oldDocRef.get();
+      if (oldDocSnap.exists) { await oldDocRef.delete(); }
     }
 
   } catch (error) {

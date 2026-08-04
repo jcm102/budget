@@ -24,7 +24,7 @@ const formatCurrency = (amount: number) => {
 
 export default function BudgetPage() {
   const [selectedMonthString, setSelectedMonthString] = useState(() => format(new Date(), 'yyyy-MM'));
-  const { budgetItems, updateBudgetItem, deleteBudgetItem, isLoading, fetchBudgetItems } = useBudget(selectedMonthString);
+  const { budgetItems, updateBudgetItem, deleteBudgetItem, toggleBudgetItemCompleted, isLoading, fetchBudgetItems } = useBudget(selectedMonthString);
   const { accounts, isLoading: isLoadingAccounts } = useAccountDetails();
   const { debts, isLoading: isLoadingDebts } = useDebt();
 
@@ -41,6 +41,18 @@ export default function BudgetPage() {
   const libroChequing = enrichedAccounts.find(a => a.name === 'Libro Chequing');
   const wealthsimpleMastercard = enrichedAccounts.find(a => a.name === 'Wealthsimple Mastercard');
   const eqBankCard = enrichedAccounts.find(a => a.name === 'EQ Bank Mastercard') || enrichedAccounts.find(a => a.name === 'EQ Card');
+
+  const unrealizedIncome = useMemo(() => {
+    if (!libroChequing) return 0;
+    return budgetItems
+      .filter(item => 
+        item.type === 'Income' && 
+        !item.completed && 
+        (!item.destinationAccountId || item.destinationAccountId === libroChequing.id) &&
+        !item.isNextMonthView
+      )
+      .reduce((sum, item) => sum + item.amount, 0);
+  }, [budgetItems, libroChequing]);
 
   const getBalance = (account: any) => {
     if (!account) return 0;
@@ -61,11 +73,11 @@ export default function BudgetPage() {
     setSelectedMonthString(format(addMonths(d, 1), 'yyyy-MM'));
   };
 
-  const totalIncome = budgetItems.filter(i => i.type === 'Income' && !i.forNextMonth).reduce((acc, i) => acc + i.amount, 0);
-  const totalDebtPayments = budgetItems.filter(i => i.type === 'Debt Payments' && !i.forNextMonth).reduce((acc, i) => acc + i.amount, 0);
-  const totalTransfers = budgetItems.filter(i => i.type === 'Transfers' && !i.forNextMonth).reduce((acc, i) => acc + i.amount, 0);
+  const totalIncome = budgetItems.filter(i => i.type === 'Income' && !i.isNextMonthView).reduce((acc, i) => acc + i.amount, 0);
+  const totalDebtPayments = budgetItems.filter(i => i.type === 'Debt Payments' && !i.isNextMonthView).reduce((acc, i) => acc + i.amount, 0);
+  const totalTransfers = budgetItems.filter(i => i.type === 'Transfers' && !i.isNextMonthView).reduce((acc, i) => acc + i.amount, 0);
   const remainingPAPayments = budgetItems
-    .filter(i => i.type === 'Pre-Authorized Payments' && !i.completed && !i.forNextMonth)
+    .filter(i => i.type === 'Pre-Authorized Payments' && !i.completed && !i.isNextMonthView)
     .reduce((acc, i) => acc + i.amount, 0);
 
   const renderSummarySkeleton = () => (
@@ -151,7 +163,16 @@ export default function BudgetPage() {
                                  <Link href={`/accounts/${libroChequing.id}?from=budget`} className="block">
                                      <div className="p-4 border rounded-lg bg-card hover:bg-accent transition-colors flex flex-col justify-between shadow-sm h-full">
                                          <h4 className="text-muted-foreground text-sm font-medium">Libro Chequing</h4>
-                                         <p className="text-2xl font-bold mt-2 text-primary">{formatCurrency(getBalance(libroChequing))}</p>
+                                         <div className="grid grid-cols-2 gap-4 mt-2">
+                                              <div>
+                                                  <span className="text-xs text-muted-foreground block">Actual</span>
+                                                  <span className="text-xl font-bold text-primary">{formatCurrency(getBalance(libroChequing))}</span>
+                                              </div>
+                                              <div>
+                                                  <span className="text-xs text-muted-foreground block">Book</span>
+                                                  <span className="text-xl font-bold text-primary">{formatCurrency(getBalance(libroChequing) + unrealizedIncome)}</span>
+                                              </div>
+                                          </div>
                                      </div>
                                  </Link>
                              ) : (
@@ -219,7 +240,9 @@ export default function BudgetPage() {
 
       <PendingPaymentsModal
         budgetItems={budgetItems}
-        onMarkPaid={updateBudgetItem}
+        onMarkPaid={async (id) => {
+          await toggleBudgetItemCompleted(id, false);
+        }}
         onSkip={deleteBudgetItem}
         onClose={fetchBudgetItems}
       />

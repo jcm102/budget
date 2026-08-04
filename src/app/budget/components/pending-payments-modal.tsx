@@ -11,7 +11,7 @@ import type { BudgetItem } from '@/types';
 
 type PendingPaymentsModalProps = {
   budgetItems: BudgetItem[];
-  onMarkPaid: (id: string, itemData: Partial<Omit<BudgetItem, 'id' | 'originalId'>>, updateType?: 'instance' | 'pattern') => Promise<void>;
+  onMarkPaid: (id: string) => Promise<void>;
   onSkip: (id: string, deleteType?: 'instance' | 'pattern') => Promise<void>;
   onClose: () => void;
 };
@@ -37,8 +37,8 @@ export function PendingPaymentsModal({ budgetItems, onMarkPaid, onSkip, onClose 
     const today = startOfDay(new Date());
 
     return budgetItems.filter(item => {
-      // Only check recurring items
-      if (item.frequency === 'One-Time') return false;
+      // Only check recurring items (or overrides of recurring items)
+      if (item.frequency === 'One-Time' && !item.originalId) return false;
       if (item.completed) return false;
       
       const itemDate = startOfDay(parse(item.date, 'yyyy-MM-dd', new Date()));
@@ -75,7 +75,7 @@ export function PendingPaymentsModal({ budgetItems, onMarkPaid, onSkip, onClose 
 
   const handleMarkPaid = async (item: BudgetItem) => {
     try {
-      await onMarkPaid(item.id, { completed: true }, 'instance');
+      await onMarkPaid(item.id);
       setProcessedItemIds(prev => {
         const next = new Set(prev);
         next.add(item.id);
@@ -110,8 +110,8 @@ export function PendingPaymentsModal({ budgetItems, onMarkPaid, onSkip, onClose 
   const handleFinishCheck = () => {
     if (typeof window === 'undefined') return;
 
-    // Find the oldest postponed item's date
-    const postponedItems = pendingItems.filter(item => postponedItemIds.has(item.id));
+    // Unresolved items are those that were not processed (either marked paid or skipped)
+    const postponedItems = pendingItems.filter(item => !processedItemIds.has(item.id));
     if (postponedItems.length > 0) {
       // Find oldest date
       const oldestDate = postponedItems.reduce((oldest, current) => {
@@ -120,7 +120,7 @@ export function PendingPaymentsModal({ budgetItems, onMarkPaid, onSkip, onClose 
         return isBefore(currentD, oldestD) ? current : oldest;
       });
       
-      // Set last checked date to the day before the oldest postponed item
+      // Set last checked date to the day before the oldest postponed/unresolved item
       const postponedDate = parse(oldestDate.date, 'yyyy-MM-dd', new Date());
       const dayBefore = subDays(postponedDate, 1);
       localStorage.setItem('budget_last_checked_date', format(dayBefore, 'yyyy-MM-dd'));

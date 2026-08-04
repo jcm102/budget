@@ -8,7 +8,7 @@ import * as DebtService from '@/app/debt/services/debt-service';
 import { useAccountDetails } from '@/hooks/use-transferees';
 import { useFirestore } from '@/firebase';
 import { format, addMonths, parse } from 'date-fns';
-import { collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit, doc, getDoc } from 'firebase/firestore';
 import { addTransaction, deleteTransaction } from '@/app/monthly-budget/services/monthly-budget-service';
 import { bulkFundSinkingFunds, bulkWithdrawSinkingFunds } from '@/services/savings-service';
 
@@ -50,6 +50,7 @@ export function useBudget(selectedMonth: string = format(new Date(), 'yyyy-MM'),
             frequency: 'One-Time',
             completed: debt.paid || false,
             forNextMonth: false,
+            isNextMonthView: false,
             isVirtual: true,
             debtId: debt.id
           } as any);
@@ -67,6 +68,7 @@ export function useBudget(selectedMonth: string = format(new Date(), 'yyyy-MM'),
             frequency: 'One-Time',
             completed: false,
             forNextMonth: true,
+            isNextMonthView: true,
             isVirtual: true,
             debtId: debt.id
           } as any);
@@ -221,6 +223,59 @@ export function useBudget(selectedMonth: string = format(new Date(), 'yyyy-MM'),
 
           const createdTx = await addTransaction(db, txData);
           transactionId = createdTx.id;
+        } else if (item.type === 'Pre-Authorized Payments') {
+          let sourceAccountId = '';
+          let paymentMethod = '';
+
+          if (item.budgetCategoryId) {
+            const catDoc = await getDoc(doc(db, 'budget-categories', item.budgetCategoryId));
+            if (catDoc.exists()) {
+              const catData = catDoc.data();
+              paymentMethod = catData.paymentMethod || '';
+
+              if (!paymentMethod && catData.parentId) {
+                const parentDoc = await getDoc(doc(db, 'budget-categories', catData.parentId));
+                if (parentDoc.exists()) {
+                  paymentMethod = parentDoc.data().paymentMethod || '';
+                }
+              }
+            }
+          }
+
+          if (!paymentMethod) {
+            paymentMethod = 'Libro Chequing';
+          }
+
+          const q = query(collection(db, 'transferees'), where('name', '==', paymentMethod), limit(1));
+          const snap = await getDocs(q);
+          if (!snap.empty) {
+            sourceAccountId = snap.docs[0].id;
+          } else {
+            const fallbackQ = query(collection(db, 'transferees'), where('name', '==', 'Libro Chequing'), limit(1));
+            const fallbackSnap = await getDocs(fallbackQ);
+            if (!fallbackSnap.empty) {
+              sourceAccountId = fallbackSnap.docs[0].id;
+            }
+          }
+
+          const txSplits = [{
+            id: crypto.randomUUID(),
+            type: 'expense' as const,
+            amount: item.amount,
+            categoryId: item.budgetCategoryId || undefined,
+            budgetItemName: item.description
+          }];
+
+          const txData = {
+            description: item.description,
+            amount: item.amount,
+            date: item.date,
+            sourceAccountId: sourceAccountId || undefined,
+            splits: txSplits
+          };
+
+          const createdTx = await addTransaction(db, txData, true);
+          transactionId = createdTx.id;
         }
 
         setBudgetItems(prev =>
@@ -245,7 +300,7 @@ export function useBudget(selectedMonth: string = format(new Date(), 'yyyy-MM'),
       }
     } else {
       try {
-        if (item.type === 'Transfers' && item.transactionId) {
+        if ((item.type === 'Transfers' || item.type === 'Pre-Authorized Payments') && item.transactionId) {
           await deleteTransaction(db, item.transactionId);
         }
 

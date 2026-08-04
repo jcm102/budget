@@ -234,8 +234,8 @@ export function DebtPaymentsTable({ month, onMutation }: { month: string, onMuta
   const currentMonthLabel = format(parse(month + '-01', 'yyyy-MM-dd', new Date()), 'MMMM');
   const nextMonthLabel = format(addMonths(parse(month + '-01', 'yyyy-MM-dd', new Date()), 1), 'MMMM');
 
-  const currentMonthItems = useMemo(() => budgetItems.filter(item => item.type === 'Debt Payments' && !item.forNextMonth), [budgetItems]);
-  const nextMonthItems = useMemo(() => budgetItems.filter(item => item.type === 'Debt Payments' && item.forNextMonth), [budgetItems]);
+  const currentMonthItems = useMemo(() => budgetItems.filter(item => item.type === 'Debt Payments' && !item.isNextMonthView), [budgetItems]);
+  const nextMonthItems = useMemo(() => budgetItems.filter(item => item.type === 'Debt Payments' && item.isNextMonthView), [budgetItems]);
 
   const handleEdit = (item: BudgetItem) => {
     setEditingItem(item);

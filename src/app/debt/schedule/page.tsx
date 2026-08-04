@@ -3,19 +3,14 @@
 import { useSearchParams } from 'next/navigation';
 import { useDebt } from '../hooks/use-debt';
 import { useMemo, useEffect, useState } from 'react';
-import type { Debt } from '@/types';
+import type { Debt, DebtPlanSettings, PlannedAdjustment } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Printer, Loader2 } from 'lucide-react';
 import { format, parse } from 'date-fns';
-
-interface ScheduleEntry {
-  month: number;
-  payments: Record<string, number>;
-  balances: Record<string, number>;
-  totalPaid: number;
-}
+import * as DebtService from '../services/debt-service';
+import { calculatePayoffSchedule, ScheduleEntry } from '../services/debt-calculator';
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
@@ -24,111 +19,59 @@ const formatCurrency = (amount: number) => {
 export default function DebtScheduleReportPage() {
   const searchParams = useSearchParams();
   const month = searchParams.get('month') || format(new Date(), 'yyyy-MM');
-  const { debts, isLoading } = useDebt(month);
+  const { debts, isLoading: isDebtsLoading } = useDebt(month);
   
-  const [totalMonthlyPayment, setTotalMonthlyPayment] = useState<number>(0);
-  const [extraPayment, setExtraPayment] = useState<number>(0);
+  const [settings, setSettings] = useState<DebtPlanSettings>({
+    strategy: 'avalanche',
+    totalMonthlyPayment: 0,
+    customPriorityOrder: []
+  });
+  const [adjustments, setAdjustments] = useState<Record<string, PlannedAdjustment[]>>({});
+  const [isPlanLoading, setIsPlanLoading] = useState(true);
 
   const totalMinimumPayment = useMemo(() => {
     return debts.reduce((sum, d) => sum + (d.minimumPayment || 0), 0);
   }, [debts]);
 
-  // Load calculator preferences from localStorage if they exist
+  // Load calculator preferences and overrides from database
   useEffect(() => {
-    const savedState = localStorage.getItem('debtCalculatorState');
-    if (savedState) {
+    const loadPlanData = async () => {
       try {
-        const parsed = JSON.parse(savedState);
-        setTotalMonthlyPayment(parsed.totalMonthlyPayment || 0);
-        setExtraPayment(parsed.extraPayment || 0);
+        setIsPlanLoading(true);
+        const fetchedSettings = await DebtService.getPlanSettings();
+        setSettings(fetchedSettings);
+        
+        const fetchedAdjustments: Record<string, PlannedAdjustment[]> = {};
+        await Promise.all(
+          debts.map(async (d) => {
+            const adjs = await DebtService.getPlannedAdjustments(d.id);
+            fetchedAdjustments[d.id] = adjs;
+          })
+        );
+        setAdjustments(fetchedAdjustments);
       } catch (e) {
-        console.error("Failed to load calculator settings", e);
+        console.error("Failed to load plan settings/adjustments", e);
+      } finally {
+        setIsPlanLoading(false);
       }
+    };
+    
+    if (debts.length > 0) {
+      loadPlanData();
+    } else if (!isDebtsLoading) {
+      setIsPlanLoading(false);
     }
-  }, []);
+  }, [debts, isDebtsLoading]);
 
   const schedule = useMemo(() => {
-    if (debts.length === 0) return [];
-    
-    const activeDebts = debts.filter(d => (d.balance || 0) > 0);
-    if (activeDebts.length === 0) return [];
-
-    const minReq = activeDebts.reduce((sum, d) => sum + (d.minimumPayment || 0), 0);
-    let targetPayment = totalMonthlyPayment > 0 ? totalMonthlyPayment : minReq;
-    if (targetPayment < minReq) targetPayment = minReq;
-
-    let currentDebts = activeDebts.map(d => ({
-      id: d.id,
-      name: d.name,
-      balance: d.balance || 0,
-      minimumPayment: d.minimumPayment || 0,
-      interestRate: d.interestRate || 0,
-    }));
-
-    const newSchedule: ScheduleEntry[] = [];
-    let limit = 0;
-    const maxMonths = 360;
-
-    const sortedForExtra = [...currentDebts].sort((a, b) => b.interestRate - a.interestRate);
-
-    while (currentDebts.length > 0 && limit < maxMonths) {
-      limit++;
-      const monthNum = limit;
-      const monthlyPayments: Record<string, number> = {};
-      let paymentForMonth = targetPayment;
-      
-      if (monthNum === 1 && extraPayment > 0) {
-        paymentForMonth += extraPayment;
-      }
-
-      // 1. Pay all minimums
-      currentDebts.forEach(debt => {
-        const minPay = Math.min(debt.minimumPayment, debt.balance);
-        monthlyPayments[debt.id] = minPay;
-        debt.balance -= minPay;
-        paymentForMonth -= minPay;
-      });
-
-      // 2. Extra allocation
-      if (paymentForMonth > 0) {
-        const activeSorted = sortedForExtra.filter(d => {
-          const live = currentDebts.find(cd => cd.id === d.id);
-          return live && live.balance > 0;
-        });
-        
-        for (const sortedDebt of activeSorted) {
-          const debt = currentDebts.find(d => d.id === sortedDebt.id)!;
-          const extraAmount = Math.min(paymentForMonth, debt.balance);
-          monthlyPayments[debt.id] = (monthlyPayments[debt.id] || 0) + extraAmount;
-          debt.balance -= extraAmount;
-          paymentForMonth -= extraAmount;
-          if (paymentForMonth <= 0.01) break;
-        }
-      }
-      
-      const monthlyBalances: Record<string, number> = {};
-      let totalMonthPayment = 0;
-      activeDebts.forEach(debt => {
-        const currentDebtState = currentDebts.find(d => d.id === debt.id);
-        monthlyBalances[debt.id] = currentDebtState ? Math.max(0, currentDebtState.balance) : 0;
-        totalMonthPayment += (monthlyPayments[debt.id] || 0);
-      });
-
-      newSchedule.push({
-        month: monthNum,
-        payments: monthlyPayments,
-        balances: monthlyBalances,
-        totalPaid: totalMonthPayment
-      });
-      
-      currentDebts = currentDebts.filter(d => d.balance > 0);
-    }
-    return newSchedule;
-  }, [debts, totalMonthlyPayment, extraPayment]);
+    return calculatePayoffSchedule(debts, settings, adjustments, month);
+  }, [debts, settings, adjustments, month]);
 
   const handlePrint = () => {
     window.print();
   };
+
+  const isLoading = isDebtsLoading || isPlanLoading;
 
   if (isLoading) {
     return (
@@ -171,11 +114,11 @@ export default function DebtScheduleReportPage() {
         </div>
         <div>
           <span className="text-xs text-gray-500 uppercase font-semibold">Planned Payment</span>
-          <p className="text-lg font-bold">{formatCurrency(totalMonthlyPayment || totalMinimumPayment)}/mo</p>
+          <p className="text-lg font-bold">{formatCurrency(Math.max(settings.totalMonthlyPayment || 0, totalMinimumPayment))}/mo</p>
         </div>
-        {extraPayment > 0 && <div>
-          <span className="text-xs text-gray-500 uppercase font-semibold">One-time Extra Payment</span>
-          <p className="text-lg font-bold text-green-600">{formatCurrency(extraPayment)}</p>
+        {settings.totalMonthlyPayment > totalMinimumPayment && <div>
+          <span className="text-xs text-gray-500 uppercase font-semibold">Extra Payoff Snowball</span>
+          <p className="text-lg font-bold text-green-600">{formatCurrency(settings.totalMonthlyPayment - totalMinimumPayment)}/mo</p>
         </div>}
       </section>
 

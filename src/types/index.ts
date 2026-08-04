@@ -62,6 +62,20 @@ export interface Debt {
   archived?: boolean;
 }
 
+export interface DebtPlanSettings {
+  strategy: 'avalanche' | 'snowball' | 'custom';
+  totalMonthlyPayment: number;
+  customPriorityOrder: string[];
+}
+
+export interface PlannedAdjustment {
+  id: string;
+  month: string;
+  amount: number;
+  type: 'charge' | 'fee' | 'windfall';
+  description: string;
+}
+
 export type BudgetItemType = 'Income' | 'Debt Payments' | 'Transfers' | 'Pre-Authorized Payments';
 export type BudgetItemFrequency = 'One-Time' | 'Weekly' | 'Bi-Weekly' | 'Monthly' | 'Monthly (Last Day)';
 
@@ -82,6 +96,7 @@ export interface BudgetItem {
   allocationTargetId?: string;
   allocationAmount?: number;
   forNextMonth?: boolean;
+  isNextMonthView?: boolean;
   budgetCategoryId?: string | null; // New field to link to a budget category
   archived?: boolean;
   deleted?: boolean;
@@ -284,7 +299,7 @@ export interface MonthlyBudgetItem {
 
 export interface TransactionSplit {
     id: string; // A unique ID for the split itself
-    type: 'expense' | 'transfer';
+    type: 'expense' | 'transfer' | 'income';
     amount: number;
     
     // An expense against a category

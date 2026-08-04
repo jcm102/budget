@@ -28,7 +28,7 @@ import {
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
 import type { ColumnVisibility } from '@/app/debt/components/debt-table';
-import { DebtSnowballCalculator } from '@/app/debt/components/debt-snowball-calculator';
+import { DebtPlanner } from '@/app/debt/components/debt-planner';
 import { useUser } from '@/firebase';
 import { Loader2 } from 'lucide-react';
 import { format, addMonths, subMonths, parse } from 'date-fns';
@@ -203,7 +203,7 @@ export default function DebtPage() {
           />
         </div>
         <div className="mt-12">
-            <DebtSnowballCalculator debts={debts} month={selectedMonthString} onRefresh={fetchDebts} />
+            <DebtPlanner debts={debts} month={selectedMonthString} onRefresh={fetchDebts} />
         </div>
       </main>
     </div>

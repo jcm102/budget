@@ -288,7 +288,7 @@ export function DebtTable({ month, includeArchived, columnVisibility, columnConf
       
       // Select first transferee account as default source if any exist
       if (accounts.length > 0) {
-        const preferredAccount = accounts.find(acc => acc.name.toLowerCase().includes('chequing') || acc.name.toLowerCase().includes('card')) || accounts[0];
+        const preferredAccount = accounts.find(acc => acc.name.toLowerCase().includes('chequing') || acc.name.toLowerCase().includes('savings')) || accounts[0];
         setPaymentSourceAccountId(preferredAccount.id);
       } else {
         setPaymentSourceAccountId('');

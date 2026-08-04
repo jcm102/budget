@@ -408,6 +408,7 @@ export default function TransactionLedgerPage() {
                     filteredTransactions.map(tx => {
                       const expenseSplits = tx.splits?.filter(s => s.type === 'expense') || [];
                       const transferSplits = tx.splits?.filter(s => s.type === 'transfer') || [];
+                      const incomeSplits = tx.splits?.filter(s => s.type === 'income') || [];
                       
                       const isTransfer = transferSplits.length > 0;
                       const isExpense = expenseSplits.length > 0 && !isTransfer;
@@ -463,7 +464,9 @@ export default function TransactionLedgerPage() {
                             {categoryDetails}
                           </TableCell>
                           <TableCell className="text-sm">
-                            {accountMap[tx.sourceAccountId || ''] || 'No Account'}
+                            {isIncome 
+                              ? (incomeSplits.length > 0 ? accountMap[incomeSplits[0].destinationAccountId || ''] || 'No Account' : 'No Account') 
+                              : accountMap[tx.sourceAccountId || ''] || 'No Account'}
                           </TableCell>
                           <TableCell className={cn("text-right font-medium", amountColor)}>
                             {amountPrefix}{formatCurrency(tx.amount || 0)}

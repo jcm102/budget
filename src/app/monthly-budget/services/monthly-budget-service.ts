@@ -150,7 +150,7 @@ export async function getTransactionsForAccount(db: Firestore, accountId: string
     allTransactionsSnapshot.docs.forEach(doc => {
         const tx = { id: doc.id, ...doc.data() } as Transaction;
         const isSource = tx.sourceAccountId === accountId;
-        const isDestination = (tx.splits || []).some(s => s.type === 'transfer' && s.destinationAccountId === accountId);
+        const isDestination = (tx.splits || []).some(s => (s.type === 'transfer' || s.type === 'income') && s.destinationAccountId === accountId);
         
         if (isSource || isDestination) {
             if (!transactionsMap.has(doc.id)) {
@@ -179,7 +179,7 @@ function stripUndefined(obj: any): any {
   return obj;
 }
 
-export async function addTransaction(db: Firestore, transactionData: Partial<Omit<Transaction, 'id'>>): Promise<Transaction> {
+export async function addTransaction(db: Firestore, transactionData: Partial<Omit<Transaction, 'id'>>, skipPaAutoResolve = false): Promise<Transaction> {
     const cleanData = stripUndefined(transactionData) as Partial<Omit<Transaction, 'id'>>;
     const newDocRef = await runTransaction(db, async (transaction) => {
         const { sourceAccountId, amount, splits, paidById } = cleanData;
@@ -198,14 +198,24 @@ export async function addTransaction(db: Firestore, transactionData: Partial<Omi
         const newTransactionRef = doc(collection(db, TRANSACTIONS_COLLECTION));
         transaction.set(newTransactionRef, cleanData);
         
-        await applyTransaction(db, transaction, cleanData as Transaction, accountSnapsMap);
+        const offsets = new Map<string, number>();
+        calculateApplyOffsets(cleanData as Transaction, accountSnapsMap, offsets);
+        for (const [accId, offset] of offsets.entries()) {
+            const snap = accountSnapsMap.get(accId)!;
+            const currentBalance = (snap.data() as AccountDetails).balance || 0;
+            transaction.update(snap.ref, { balance: currentBalance + offset });
+        }
         
         return newTransactionRef;
     });
 
     // Post-transaction: Mark PA payments as complete. This is not atomic with the transaction, but it's safer.
-     if (transactionData.splits) {
-        const categoryIds = transactionData.splits.filter(s => s.type === 'expense').map(s => s.categoryId);
+     if (!skipPaAutoResolve && transactionData.splits) {
+        const categoryIds = transactionData.splits
+            .filter(s => s.type === 'expense' && s.categoryId)
+            .map(s => s.categoryId as string)
+            .filter(id => id.trim() !== '');
+
         if (categoryIds.length > 0) {
             const paPaymentsQuery = query(
                 collection(db, PA_PAYMENTS_COLLECTION),
@@ -236,68 +246,45 @@ export async function addTransaction(db: Firestore, transactionData: Partial<Omi
     return { id: docSnap.id, ...(docSnap.data() as Omit<Transaction, 'id'>) };
 }
 
-async function revertTransaction(db: Firestore, transaction: FirestoreTransaction, oldData: Transaction, accountSnaps: Map<string, DocumentSnapshot>) {
+function calculateRevertOffsets(oldData: Transaction, accountSnaps: Map<string, DocumentSnapshot>, offsets: Map<string, number>) {
     const effectiveSourceId = oldData.paidById || oldData.sourceAccountId;
     if (effectiveSourceId) {
         const sourceSnap = accountSnaps.get(effectiveSourceId);
         if (sourceSnap?.exists()) {
-            const sourceData = sourceSnap.data() as AccountDetails;
-            const sourceBalance = sourceData.balance || 0;
-            if (sourceData.type === 'Credit' || sourceData.type === 'IOU') {
-                transaction.update(sourceSnap.ref, { balance: sourceBalance + oldData.amount });
-            } else {
-                transaction.update(sourceSnap.ref, { balance: sourceBalance + oldData.amount });
-            }
+            const current = offsets.get(effectiveSourceId) || 0;
+            offsets.set(effectiveSourceId, current + oldData.amount);
         }
     }
     
     for (const split of (oldData.splits || [])) {
-        if (split.type === 'transfer' && split.destinationAccountId) {
+        if ((split.type === 'transfer' || split.type === 'income') && split.destinationAccountId) {
             const destSnap = accountSnaps.get(split.destinationAccountId);
             if(destSnap?.exists()) {
-                const destData = destSnap.data() as AccountDetails;
-                const destBalance = destData.balance || 0;
-                 if (destData.type === 'IOU' || destData.type === 'Credit') {
-                    transaction.update(destSnap.ref, { balance: destBalance - split.amount });
-                 } else {
-                    transaction.update(destSnap.ref, { balance: destBalance - split.amount });
-                 }
+                const current = offsets.get(split.destinationAccountId) || 0;
+                offsets.set(split.destinationAccountId, current - split.amount);
             }
         }
     }
 }
 
-async function applyTransaction(db: Firestore, transaction: FirestoreTransaction, newData: Transaction, accountSnaps: Map<string, DocumentSnapshot>) {
+function calculateApplyOffsets(newData: Transaction, accountSnaps: Map<string, DocumentSnapshot>, offsets: Map<string, number>) {
     const effectiveSourceId = newData.paidById || newData.sourceAccountId;
     if (effectiveSourceId) {
         const sourceSnap = accountSnaps.get(effectiveSourceId);
-        if (!sourceSnap?.exists()) throw new Error(`Source account with ID ${effectiveSourceId} not found.`);
-        
-        const sourceData = sourceSnap.data() as AccountDetails;
-        const sourceBalance = sourceData.balance || 0;
-        
-        if (sourceData.type === 'Credit' || sourceData.type === 'IOU') {
-            transaction.update(sourceSnap.ref, { balance: sourceBalance - newData.amount });
-        } else {
-            transaction.update(sourceSnap.ref, { balance: sourceBalance - newData.amount });
+        if (sourceSnap?.exists()) {
+            const current = offsets.get(effectiveSourceId) || 0;
+            offsets.set(effectiveSourceId, current - newData.amount);
         }
     }
-
+    
     for (const split of (newData.splits || [])) {
-        if (split.type === 'transfer' && split.destinationAccountId) {
-            // This was the source of the error. We don't re-process the IOU source account.
+        if ((split.type === 'transfer' || split.type === 'income') && split.destinationAccountId) {
             if (split.destinationAccountId === effectiveSourceId) continue;
             
             const destSnap = accountSnaps.get(split.destinationAccountId);
-            if (!destSnap?.exists()) throw new Error(`Destination account with ID ${split.destinationAccountId} not found.`);
-
-            const destData = destSnap.data() as AccountDetails;
-            const destBalance = destData.balance || 0;
-
-            if (destData.type === 'IOU' || destData.type === 'Credit') {
-                 transaction.update(destSnap.ref, { balance: destBalance + split.amount });
-            } else {
-                 transaction.update(destSnap.ref, { balance: destBalance + split.amount });
+            if (destSnap?.exists()) {
+                const current = offsets.get(split.destinationAccountId) || 0;
+                offsets.set(split.destinationAccountId, current + split.amount);
             }
         }
     }
@@ -340,8 +327,14 @@ export async function updateTransaction(db: Firestore, id: string, transactionDa
         // --- End READS ---
  
         // --- Start WRITES ---
-        await revertTransaction(db, transaction, oldData, accountSnapsMap);
-        await applyTransaction(db, transaction, newData, accountSnapsMap);
+        const offsets = new Map<string, number>();
+        calculateRevertOffsets(oldData, accountSnapsMap, offsets);
+        calculateApplyOffsets(newData, accountSnapsMap, offsets);
+        for (const [accId, offset] of offsets.entries()) {
+            const snap = accountSnapsMap.get(accId)!;
+            const currentBalance = (snap.data() as AccountDetails).balance || 0;
+            transaction.update(snap.ref, { balance: currentBalance + offset });
+        }
         
         transaction.update(transactionRef, cleanData);
     });
@@ -386,7 +379,13 @@ export async function deleteTransaction(db: Firestore, id: string): Promise<void
         // --- End READS ---
         
         // --- Start WRITES ---
-        await revertTransaction(db, transaction, oldData, accountSnapsMap);
+        const offsets = new Map<string, number>();
+        calculateRevertOffsets(oldData, accountSnapsMap, offsets);
+        for (const [accId, offset] of offsets.entries()) {
+            const snap = accountSnapsMap.get(accId)!;
+            const currentBalance = (snap.data() as AccountDetails).balance || 0;
+            transaction.update(snap.ref, { balance: currentBalance + offset });
+        }
         transaction.delete(transactionRef);
     });
 }

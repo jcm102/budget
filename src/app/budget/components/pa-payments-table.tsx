@@ -287,8 +287,8 @@ export function PaPaymentsTable({ month, onMutation }: { month: string, onMutati
   const { currentMonthItems, nextMonthItems } = useMemo(() => {
     const allPaPayments = budgetItems.filter(item => item.type === 'Pre-Authorized Payments');
     return {
-      currentMonthItems: allPaPayments.filter(item => !item.forNextMonth),
-      nextMonthItems: allPaPayments.filter(item => item.forNextMonth),
+      currentMonthItems: allPaPayments.filter(item => !item.isNextMonthView),
+      nextMonthItems: allPaPayments.filter(item => item.isNextMonthView),
     }
   }, [budgetItems]);
 

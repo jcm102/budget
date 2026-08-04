@@ -64,7 +64,7 @@ export async function getBudgetItems(db: Firestore, selectedMonth: string): Prom
           if (!override.archived && !override.deleted) {
               generatedItems.push({
                   ...override,
-                  forNextMonth: !isSameMonth(budgetDate, startOfCurrentMonth),
+                  isNextMonthView: !isSameMonth(budgetDate, startOfCurrentMonth),
               });
           }
           // Mark the original instance as overridden
@@ -84,7 +84,7 @@ export async function getBudgetItems(db: Firestore, selectedMonth: string): Prom
         if (budgetDate >= startOfCurrentMonth && budgetDate <= endOfNextMonth) {
             generatedItems.push({
                 ...item,
-                forNextMonth: !isSameMonth(budgetDate, startOfCurrentMonth),
+                isNextMonthView: !isSameMonth(budgetDate, startOfCurrentMonth),
             });
         }
         return; // Continue to next item
@@ -128,7 +128,7 @@ export async function getBudgetItems(db: Firestore, selectedMonth: string): Prom
                     id: instanceId, // Use a unique ID for this specific instance
                     date: format(instanceDate, 'yyyy-MM-dd'),
                     completed: item.completed || false, // Ensure completed has a value
-                    forNextMonth: !isSameMonth(budgetDate, startOfCurrentMonth),
+                    isNextMonthView: !isSameMonth(budgetDate, startOfCurrentMonth),
                 });
             }
         }
@@ -211,6 +211,7 @@ async function adjustBalancesForItem(
     const isOldCompleted = oldItem?.completed || false;
     const isNewCompleted = newItem.completed || false;
     
+    if (oldItem?.transactionId || newItem.transactionId) return;
     if (newItem.type !== 'Income' && newItem.type !== 'Transfers') return;
     if (newItem.forNextMonth) return;
 

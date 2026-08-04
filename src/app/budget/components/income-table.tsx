@@ -16,6 +16,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +29,15 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { BudgetForm } from '@/app/budget/components/budget-form';
+import { useAccountDetails } from '@/hooks/use-transferees';
+import { useFirestore } from '@/firebase';
+import * as MonthlyBudgetService from '@/app/monthly-budget/services/monthly-budget-service';
+import { getDocs, collection } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Loader2, Check } from 'lucide-react';
 import { useBudget } from '@/app/budget/hooks/use-budget';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -62,11 +72,12 @@ const SortableHeader = ({ column, label, sortConfig, requestSort, className }: {
   )
 }
 
-function IncomeTableContent({ items, isLoading, onEdit, onDelete }: {
+function IncomeTableContent({ items, isLoading, onEdit, onDelete, onReceive }: {
     items: BudgetItem[],
     isLoading: boolean,
     onEdit: (item: BudgetItem) => void,
     onDelete: (id: string) => void,
+    onReceive: (item: BudgetItem) => void,
 }) {
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'ascending' });
 
@@ -128,7 +139,7 @@ function IncomeTableContent({ items, isLoading, onEdit, onDelete }: {
                     renderLoadingSkeleton()
                 ) : sortedItems.length > 0 ? (
                     sortedItems.map((item) => (
-                    <TableRow key={item.id}>
+                    <TableRow key={item.id} data-state={item.completed ? "completed" : ""} className={item.completed ? "bg-accent/30 text-muted-foreground" : ""}>
                         <TableCell className="font-medium">
                             {item.description}
                         </TableCell>
@@ -149,6 +160,11 @@ function IncomeTableContent({ items, isLoading, onEdit, onDelete }: {
                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(item)}>
                             <Pencil className="h-4 w-4" />
                             </Button>
+                            {!item.completed && (
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => onReceive(item)} title="Receive Income">
+                                <Check className="h-4 w-4" />
+                                </Button>
+                            )}
                             <AlertDialog>
                             <AlertDialogTrigger asChild>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive">
@@ -198,14 +214,98 @@ export function IncomeTable({ month, onMutation }: { month: string, onMutation?:
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<BudgetItem | null>(null);
 
+  const { accounts, fetchAccounts } = useAccountDetails();
+  const { toast } = useToast();
+  const db = useFirestore();
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+
+  const [paymentConfirmIncome, setPaymentConfirmIncome] = useState<BudgetItem | null>(null);
+  const [paymentDestAccountId, setPaymentDestAccountId] = useState<string>('');
+  const [paymentAmount, setPaymentAmount] = useState<number>(0);
+  const [paymentDate, setPaymentDate] = useState<string>(() => format(new Date(), 'yyyy-MM-dd'));
+  const [paymentCategoryId, setPaymentCategoryId] = useState<string>('');
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState<boolean>(false);
+
+  // Load categories
+  useMemo(() => {
+    if (!db) return;
+    const loadCats = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'budget-categories'));
+        const list = snap.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
+        setCategories(list);
+      } catch (err) {
+        console.error('Failed to load categories:', err);
+      }
+    };
+    loadCats();
+  }, [db]);
+
+  const handleReceive = (item: BudgetItem) => {
+    setPaymentConfirmIncome(item);
+    setPaymentAmount(item.amount);
+    setPaymentDate(format(new Date(), 'yyyy-MM-dd'));
+    
+    // Use the category already assigned to this budget item
+    setPaymentCategoryId(item.budgetCategoryId || '');
+    
+    if (accounts.length > 0) {
+      const preferredAccount = accounts.find(acc => acc.name.toLowerCase().includes('chequing') || acc.name.toLowerCase().includes('savings')) || accounts[0];
+      setPaymentDestAccountId(preferredAccount.id);
+    } else {
+      setPaymentDestAccountId('');
+    }
+  };
+
+  const handleConfirmReceive = async () => {
+    if (!paymentConfirmIncome || !db) return;
+    setIsSubmittingPayment(true);
+    try {
+      const transactionData = {
+        description: `Income: ${paymentConfirmIncome.description}`,
+        amount: paymentAmount,
+        date: paymentDate,
+        splits: [{
+          id: Math.random().toString(36).substring(2, 9),
+          type: 'income',
+          amount: paymentAmount,
+          categoryId: paymentCategoryId || undefined,
+          budgetItemName: paymentConfirmIncome.description,
+          destinationAccountId: paymentDestAccountId || undefined,
+        }],
+      };
+
+      const createdTx = await MonthlyBudgetService.addTransaction(db, transactionData as any);
+      await updateBudgetItem(paymentConfirmIncome.id, { completed: true, transactionId: createdTx.id });
+      await fetchAccounts();
+
+      toast({
+        title: 'Income Logged!',
+        description: `Logged ${formatCurrency(paymentAmount)} to your ledger.`,
+      });
+
+      setPaymentConfirmIncome(null);
+    } catch (error) {
+      console.error('Failed to log income transaction:', error);
+      toast({
+        title: 'Error logging income',
+        description: 'Failed to record transaction in your ledger.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmittingPayment(false);
+    }
+  };
+
+
   const currentMonthLabel = format(parse(month + '-01', 'yyyy-MM-dd', new Date()), 'MMMM');
   const nextMonthLabel = format(addMonths(parse(month + '-01', 'yyyy-MM-dd', new Date()), 1), 'MMMM');
 
   const { currentMonthItems, nextMonthItems } = useMemo(() => {
     const allIncome = budgetItems.filter(item => item.type === 'Income');
     return {
-      currentMonthItems: allIncome.filter(item => !item.forNextMonth),
-      nextMonthItems: allIncome.filter(item => item.forNextMonth),
+      currentMonthItems: allIncome.filter(item => !item.isNextMonthView),
+      nextMonthItems: allIncome.filter(item => item.isNextMonthView),
     }
   }, [budgetItems]);
 
@@ -223,6 +323,67 @@ export function IncomeTable({ month, onMutation }: { month: string, onMutation?:
   
   return (
     <>
+      {paymentConfirmIncome && (
+        <Dialog open={!!paymentConfirmIncome} onOpenChange={(open) => !open && setPaymentConfirmIncome(null)}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Receive Income: {paymentConfirmIncome.description}</DialogTitle>
+              <DialogDescription>
+                Select the destination account where this money was deposited.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="dest-account" className="text-right">Account</Label>
+                <div className="col-span-3">
+                  <Select value={paymentDestAccountId} onValueChange={setPaymentDestAccountId}>
+                    <SelectTrigger id="dest-account">
+                      <SelectValue placeholder="Select account..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {accounts.map(acc => (
+                        <SelectItem key={acc.id} value={acc.id}>
+                          {acc.name} ({formatCurrency(acc.balance || 0)})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="amount" className="text-right">Amount</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  className="col-span-3"
+                  value={paymentAmount || ''}
+                  onChange={(e) => setPaymentAmount(parseFloat(e.target.value) || 0)}
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="date" className="text-right">Date</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  className="col-span-3"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setPaymentConfirmIncome(null)} disabled={isSubmittingPayment}>Cancel</Button>
+              <Button onClick={handleConfirmReceive} disabled={isSubmittingPayment || !paymentDestAccountId}>
+                {isSubmittingPayment ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Log Income'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
       <BudgetForm
         open={isFormOpen}
         onOpenChange={handleFormOpenChange}
@@ -248,6 +409,7 @@ export function IncomeTable({ month, onMutation }: { month: string, onMutation?:
                 isLoading={isLoading}
                 onEdit={handleEdit}
                 onDelete={deleteBudgetItem}
+                onReceive={handleReceive}
             />
         </TabsContent>
         <TabsContent value="next">
@@ -256,6 +418,7 @@ export function IncomeTable({ month, onMutation }: { month: string, onMutation?:
                 isLoading={isLoading}
                 onEdit={handleEdit}
                 onDelete={deleteBudgetItem}
+                onReceive={handleReceive}
             />
         </TabsContent>
       </Tabs>

@@ -65,7 +65,7 @@ export function TransfersTable({ month, onMutation }: { month: string, onMutatio
   const [editingItem, setEditingItem] = useState<BudgetItem | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'ascending' });
 
-  const transferItems = useMemo(() => budgetItems.filter(item => item.type === 'Transfers' && !item.forNextMonth), [budgetItems]);
+  const transferItems = useMemo(() => budgetItems.filter(item => item.type === 'Transfers' && !item.isNextMonthView), [budgetItems]);
 
   const handleEdit = (item: BudgetItem) => {
     setEditingItem(item);

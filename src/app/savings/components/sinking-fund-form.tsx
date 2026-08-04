@@ -83,7 +83,7 @@ export function SinkingFundForm({ open, onOpenChange, addSavingsItem, updateSavi
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
-      accountId: defaultAccountId,
+      accountId: defaultAccountId || undefined,
       amount: 0,
       currency: 'CAD',
       exchangeRateType: 'current',
@@ -122,7 +122,7 @@ export function SinkingFundForm({ open, onOpenChange, addSavingsItem, updateSavi
       } else if (prefillItem) {
         form.reset({
           name: prefillItem.name || '',
-          accountId: prefillItem.accountId || defaultAccountId,
+          accountId: prefillItem.accountId || defaultAccountId || undefined,
           amount: 0,
           currency: prefillItem.currency || 'CAD',
           exchangeRateType: prefillItem.exchangeRateType || 'current',
@@ -138,7 +138,7 @@ export function SinkingFundForm({ open, onOpenChange, addSavingsItem, updateSavi
       } else {
         form.reset({
           name: '',
-          accountId: defaultAccountId,
+          accountId: defaultAccountId || undefined,
           amount: 0,
           currency: 'CAD',
           exchangeRateType: 'current',

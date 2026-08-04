@@ -71,7 +71,8 @@ const formSchema = z.object({
     allocationTargetId: z.string().optional(),
     allocationAmount: z.coerce.number().optional(),
     splits: z.array(z.object({
-      type: z.enum(['expense', 'transfer']),
+      id: z.string().optional(),
+      type: z.enum(['expense', 'transfer', 'income']),
       amount: z.coerce.number().min(0.01, 'Amount must be greater than 0.'),
       categoryId: z.string().optional(),
       budgetItemName: z.string().optional(),
@@ -258,7 +259,7 @@ export function BudgetForm({ open, onOpenChange, addBudgetItem, updateBudgetItem
       type: values.type as BudgetItemType,
       frequency: values.frequency as BudgetItemFrequency,
       budgetCategoryId: values.budgetCategoryId === 'null-value' ? null : values.budgetCategoryId,
-      splits: values.type === 'Transfers' ? values.splits : undefined
+      splits: values.type === 'Transfers' ? values.splits?.map(s => ({ ...s, id: s.id || Math.random().toString(36).substring(2, 9) })) : undefined
     };
     
     // Handle allocation logic

@@ -121,7 +121,7 @@ function TransactionDialog({ item, transactionType, onSave, children, defaultAmo
     />
 ) : (
     <div className="flex items-center space-x-2">
-        <span className="text-sm font-medium">{formatCurrency(form.getValues('amount'), displayCurrency)}</span>
+        <span className="text-sm font-medium">{formatCurrency(form.getValues('amount'), displayCurrency as "CAD" | "USD")}</span>
         <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)}>
             Edit
         </Button>
@@ -228,7 +228,7 @@ function FundsTable({
                     <SortableHeader column="amount" label="Balance" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[90px]"/>
                     <SortableHeader column="totalCost" label="Goal" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[90px]"/>
                     <SortableHeader column="progress" label="Progress" sortConfig={sortConfig} requestSort={requestSort} className="w-[120px]"/>
-                    <SortableHeader column="monthlyAmount" label="Monthly" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[100px]" />
+                    <SortableHeader column="monthlyAmount" label="Monthly" sortConfig={sortConfig} requestSort={requestSort} className="text-right w-[80px]" />
                     <SortableHeader column="dueDate" label="Due Date" sortConfig={sortConfig} requestSort={requestSort} className="w-[110px]"/>
                     <TableHead className="w-[80px]">
                         <div className="flex items-center gap-1">

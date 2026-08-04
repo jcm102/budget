@@ -1,7 +1,7 @@
 'use server';
 
 import { db } from '@/lib/firebase-admin';
-import type { Debt, Category } from '@/types';
+import type { Debt, Category, DebtPlanSettings, PlannedAdjustment } from '@/types';
 import { createAutomatedBackup } from '@/services/backup-service';
 import { format, addMonths } from 'date-fns';
 
@@ -288,4 +288,54 @@ export async function syncDebtPaymentsToMonthlyBudget(month: string): Promise<vo
       await docRef.set(data, { merge: true });
     }
   }
+}
+
+export async function getPlanSettings(): Promise<DebtPlanSettings> {
+  const docRef = db.collection('settings').doc('debt-plan');
+  const snap = await docRef.get();
+  if (snap.exists) {
+    const data = snap.data();
+    return {
+      strategy: data?.strategy || 'avalanche',
+      totalMonthlyPayment: data?.totalMonthlyPayment !== undefined ? data.totalMonthlyPayment : (data?.extraMonthlyPayment || 0),
+      customPriorityOrder: data?.customPriorityOrder || []
+    };
+  }
+  return {
+    strategy: 'avalanche',
+    totalMonthlyPayment: 0,
+    customPriorityOrder: []
+  };
+}
+
+export async function savePlanSettings(settings: DebtPlanSettings): Promise<void> {
+  const docRef = db.collection('settings').doc('debt-plan');
+  await docRef.set(settings);
+}
+
+export async function getPlannedAdjustments(debtId: string): Promise<PlannedAdjustment[]> {
+  const snapshot = await db.collection(DEBT_COLLECTION).doc(debtId).collection('adjustments').get();
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  } as PlannedAdjustment));
+}
+
+export async function addPlannedAdjustment(debtId: string, adjustment: Omit<PlannedAdjustment, 'id'>): Promise<PlannedAdjustment> {
+  const docRef = db.collection(DEBT_COLLECTION).doc(debtId).collection('adjustments').doc();
+  const data = {
+    month: adjustment.month,
+    amount: adjustment.amount,
+    type: adjustment.type,
+    description: adjustment.description
+  };
+  await docRef.set(data);
+  return {
+    id: docRef.id,
+    ...data
+  };
+}
+
+export async function deletePlannedAdjustment(debtId: string, adjustmentId: string): Promise<void> {
+  await db.collection(DEBT_COLLECTION).doc(debtId).collection('adjustments').doc(adjustmentId).delete();
 }

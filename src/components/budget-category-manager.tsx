@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Trash2, PlusCircle, ChevronRight, CornerDownRight } from 'lucide-react';
+import { Trash2, PlusCircle, ChevronRight, CornerDownRight, Edit2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,6 +36,7 @@ function CategoryItem({
   onDelete,
   onAddSubCategory,
   onUpdatePaymentMethod,
+  onUpdateName,
   paymentMethodOptions,
 }: {
   category: Category;
@@ -43,9 +44,28 @@ function CategoryItem({
   onDelete: (id: string) => void;
   onAddSubCategory: (parentId: string) => void;
   onUpdatePaymentMethod: (id: string, val: string | null) => void;
+  onUpdateName: (id: string, name: string) => void;
   paymentMethodOptions: string[];
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editingName, setEditingName] = useState(category.name);
+
+  const handleSaveName = () => {
+    const trimmed = editingName.trim();
+    if (trimmed && trimmed !== category.name) {
+      onUpdateName(category.id, trimmed);
+    }
+    setIsEditingName(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleSaveName();
+    if (e.key === 'Escape') {
+      setEditingName(category.name);
+      setIsEditingName(false);
+    }
+  };
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -56,7 +76,39 @@ function CategoryItem({
                 <ChevronRight className={cn("h-4 w-4 transition-transform", isOpen && "rotate-90")} />
              </Button>
           </CollapsibleTrigger>
-          <span>{category.name}</span>
+          {isEditingName ? (
+            <div className="flex items-center gap-1">
+              <Input
+                value={editingName}
+                onChange={(e) => setEditingName(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onBlur={handleSaveName}
+                className="h-7 py-0.5 px-2 text-sm w-[150px] md:w-[200px]"
+                autoFocus
+              />
+              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={handleSaveName}>
+                ✓
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span 
+                className="cursor-pointer hover:underline font-medium text-sm" 
+                onDoubleClick={() => setIsEditingName(true)}
+                title="Double click to edit name"
+              >
+                {category.name}
+              </span>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" 
+                onClick={() => setIsEditingName(true)}
+              >
+                <Edit2 className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Select 
@@ -88,7 +140,7 @@ function CategoryItem({
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
+                   <AlertDialogDescription>
                     This will permanently delete the &quot;{category.name}&quot; category. This cannot be undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
@@ -167,6 +219,10 @@ export function BudgetCategoryManager() {
     updateCategory(id, { paymentMethod });
   };
 
+  const handleUpdateName = (id: string, name: string) => {
+    updateCategory(id, { name });
+  };
+
   const renderCategoryTree = (nodes: any[]) => {
     return nodes.map(node => (
       <CategoryItem
@@ -175,6 +231,7 @@ export function BudgetCategoryManager() {
         onDelete={deleteCategory}
         onAddSubCategory={handleInitiateAdd}
         onUpdatePaymentMethod={handleUpdatePaymentMethod}
+        onUpdateName={handleUpdateName}
         paymentMethodOptions={paymentMethodOptions}
       >
         {node.children.length > 0 && renderCategoryTree(node.children)}
