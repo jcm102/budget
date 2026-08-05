@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { generateUUID } from '@/lib/utils';
 import type { BudgetItem, BudgetItemType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import * as BudgetService from '@/app/budget/services/budget-service';
@@ -191,7 +192,7 @@ export function useBudget(selectedMonth: string = format(new Date(), 'yyyy-MM'),
           let txSplits: any[] = [];
           if (item.splits && item.splits.length > 0) {
             txSplits = item.splits.map(s => ({
-              id: crypto.randomUUID(),
+              id: generateUUID(),
               type: s.type,
               amount: s.amount,
               categoryId: s.categoryId || undefined,
@@ -206,7 +207,7 @@ export function useBudget(selectedMonth: string = format(new Date(), 'yyyy-MM'),
               if (!snap.empty) destAccountId = snap.docs[0].id;
             }
             txSplits = [{
-              id: crypto.randomUUID(),
+              id: generateUUID(),
               type: 'transfer',
               amount: item.amount,
               destinationAccountId: destAccountId || undefined
@@ -259,7 +260,7 @@ export function useBudget(selectedMonth: string = format(new Date(), 'yyyy-MM'),
           }
 
           const txSplits = [{
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             type: 'expense' as const,
             amount: item.amount,
             categoryId: item.budgetCategoryId || undefined,

@@ -32,7 +32,7 @@ import { Switch } from '@/components/ui/switch';
 import { Calculator } from '@/components/calculator';
 import type { Transaction, AccountDetails, Category } from '@/types';
 import { useMonthlyBudget } from '../hooks/use-monthly-budget';
-import { cn } from '@/lib/utils';
+import { cn, generateUUID } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useCommonAccounts } from '@/hooks/use-common-accounts';
@@ -205,7 +205,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
 
   const handleAddSplit = (type: 'expense' | 'transfer' | 'income') => {
     append({
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         type,
         amount: remainingAmount > 0 ? remainingAmount : 0,
         categoryId: '',
@@ -230,7 +230,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
 
     if (values.isOpeningBalance) {
       finalSplits = [{
-        id: values.splits[0]?.id || crypto.randomUUID(),
+        id: values.splits[0]?.id || generateUUID(),
         type: 'income' as const,
         amount: values.amount,
         destinationAccountId: values.splits[0]?.destinationAccountId || '',

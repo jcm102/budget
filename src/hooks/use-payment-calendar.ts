@@ -7,6 +7,7 @@ import { useToast } from './use-toast';
 import * as PaymentCalendarService from '@/services/payment-calendar-service';
 import { useDebounce } from './use-debounce';
 import { db } from '@/lib/firebase';
+import { generateUUID } from '@/lib/utils';
 
 export function usePaymentCalendar() {
   const [columns, setColumns] = useState<CalendarColumn[]>([]);
@@ -26,8 +27,8 @@ export function usePaymentCalendar() {
         setRows(data.rows);
       } else {
         // Initialize with default state if nothing in DB
-        setColumns([{ id: crypto.randomUUID(), payeeId: '' }]);
-        setRows([{ id: crypto.randomUUID(), description: '', values: {} }]);
+        setColumns([{ id: generateUUID(), payeeId: '' }]);
+        setRows([{ id: generateUUID(), description: '', values: {} }]);
       }
     } catch (error) {
       console.error('Failed to load calendar state:', error);
@@ -54,7 +55,7 @@ export function usePaymentCalendar() {
 
 
   const addColumn = () => {
-    setColumns(prev => [...prev, { id: crypto.randomUUID(), payeeId: '' }]);
+    setColumns(prev => [...prev, { id: generateUUID(), payeeId: '' }]);
   };
 
   const updateColumn = (id: string, updatedColumn: CalendarColumn) => {
@@ -71,7 +72,7 @@ export function usePaymentCalendar() {
   };
 
   const addRow = () => {
-    setRows(prev => [...prev, { id: crypto.randomUUID(), description: '', values: {} }]);
+    setRows(prev => [...prev, { id: generateUUID(), description: '', values: {} }]);
   };
 
   const updateRow = (id: string, updatedRow: CalendarRow) => {
@@ -83,8 +84,8 @@ export function usePaymentCalendar() {
   };
   
   const clearAll = async () => {
-    const defaultColumns = [{ id: crypto.randomUUID(), payeeId: '' }];
-    const defaultRows = [{ id: crypto.randomUUID(), description: '', values: {} }];
+    const defaultColumns = [{ id: generateUUID(), payeeId: '' }];
+    const defaultRows = [{ id: generateUUID(), description: '', values: {} }];
     setColumns(defaultColumns);
     setRows(defaultRows);
     try {

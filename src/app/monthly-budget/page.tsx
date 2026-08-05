@@ -25,7 +25,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { cn } from '@/lib/utils';
+import { cn, generateUUID } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
 import {
   Card,
@@ -186,7 +186,7 @@ export default function MonthlyBudgetPage() {
       sourceAccountId,
       splits: [
         {
-          id: crypto.randomUUID(),
+          id: generateUUID(),
           type: 'expense' as const,
           amount: amount,
           categoryId: categoryId,

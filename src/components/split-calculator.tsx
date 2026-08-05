@@ -28,6 +28,7 @@ import { Label } from './ui/label';
 import { usePeople } from '@/hooks/use-people';
 import { Skeleton } from './ui/skeleton';
 import { Badge } from './ui/badge';
+import { generateUUID } from '@/lib/utils';
 
 type SplitItem = {
   id: string;
@@ -67,7 +68,7 @@ export function SplitCalculator() {
 
         if (items.length === 0) {
             setItems([
-                { id: crypto.randomUUID(), amount: 0, taxRate: 0, assignedTo: defaultPersonIds },
+                { id: generateUUID(), amount: 0, taxRate: 0, assignedTo: defaultPersonIds },
             ]);
         }
         if (selectedPersonIds.length === 0) {
@@ -85,7 +86,7 @@ export function SplitCalculator() {
         }
         
         setItems([
-            { id: crypto.randomUUID(), amount: 0, taxRate: 0, assignedTo: defaultPersonIds },
+            { id: generateUUID(), amount: 0, taxRate: 0, assignedTo: defaultPersonIds },
         ]);
         setSelectedPersonIds(defaultPersonIds);
     } else {
@@ -95,7 +96,7 @@ export function SplitCalculator() {
   };
 
   const handleAddItem = () => {
-    setItems([...items, { id: crypto.randomUUID(), amount: 0, taxRate: 0, assignedTo: selectedPersonIds }]);
+    setItems([...items, { id: generateUUID(), amount: 0, taxRate: 0, assignedTo: selectedPersonIds }]);
   };
 
   const handleRemoveItem = (id: string) => {
