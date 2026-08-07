@@ -22,7 +22,7 @@ export function useTransactions(month?: string) {
   
   useMonthlyBudget(selectedMonth);
   const { accounts, fetchAccounts } = useAccountDetails();
-  const { fetchBudgetItems } = useBudget(); // Import from useBudget
+  const { fetchBudgetItems } = useBudget(selectedMonth); // Import from useBudget
 
   const fetchTransactions = useCallback(async () => {
     if (!db) return;

@@ -111,21 +111,18 @@ export default function MonthlyBudgetPage() {
 
   const { transactions, accounts, addTransaction, updateTransaction, deleteTransaction, isLoading: isLoadingTransactions } = useTransactions(selectedMonthString);
   const { budgetItems: monthlyBudgetItems, categories, updateBudgetItemWithBreakdown, isLoading: isLoadingBudget, updateBudgetItem, copyCategoryFromPreviousMonth, copyBudgetItemToNextMonth, cycleToNextMonth } = useMonthlyBudget(selectedMonthString);
-  const { budgetItems, isLoading: isLoadingIncome } = useBudget();
+  const { budgetItems, isLoading: isLoadingIncome } = useBudget(selectedMonthString);
   
   const { incomeAmount, paPaymentCategoryIds } = useMemo(() => {
-    const relevantIncome = view === 'next'
-      ? budgetItems.filter(i => i.type === 'Income' && i.forNextMonth)
-      : budgetItems.filter(i => i.type === 'Income' && !i.forNextMonth);
-    
-    const paItems = budgetItems.filter(i => i.type === 'Pre-Authorized Payments');
+    const relevantIncome = budgetItems.filter(i => i.type === 'Income' && !i.isNextMonthView);
+    const paItems = budgetItems.filter(i => i.type === 'Pre-Authorized Payments' && !i.isNextMonthView);
     const paIds = new Set(paItems.map(item => item.budgetCategoryId).filter(id => !!id));
       
     return {
       incomeAmount: relevantIncome.reduce((acc, i) => acc + i.amount, 0),
       paPaymentCategoryIds: paIds,
     }
-  }, [budgetItems, view]);
+  }, [budgetItems]);
 
 
   const totalBudgeted = monthlyBudgetItems.reduce((acc, item) => acc + item.budgeted, 0);

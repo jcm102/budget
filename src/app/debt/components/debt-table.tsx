@@ -274,17 +274,12 @@ export function DebtTable({ month, includeArchived, columnVisibility, columnConf
       setPaymentDescription(`Payment: ${debt.name}`);
       setPaymentDate(format(new Date(), 'yyyy-MM-dd'));
       
-      // Pre-select category based on debtType if untracked, or linked account if tracked
-      const linkedAccount = accounts.find(acc => acc.linkedDebtId === debt.id);
-      if (linkedAccount) {
-        setPaymentCategoryId(''); // not needed for transfers
-      } else {
-        const targetCategoryName = debt.debtType === 'Credit Card' ? 'Credit Cards' : 
-                                   debt.debtType === 'Loan' ? 'Loans' : 
-                                   debt.debtType === 'Line of Credit' ? 'Line of Credit' : '';
-        const defaultCat = categories.find(c => c.name.toLowerCase() === targetCategoryName.toLowerCase());
-        setPaymentCategoryId(defaultCat?.id || '');
-      }
+      // Pre-select category based on debtType
+      const targetCategoryName = debt.debtType === 'Credit Card' ? 'Credit Cards' : 
+                                 debt.debtType === 'Loan' ? 'Loans' : 
+                                 debt.debtType === 'Line of Credit' ? 'Line of Credit' : '';
+      const defaultCat = categories.find(c => c.name.toLowerCase() === targetCategoryName.toLowerCase());
+      setPaymentCategoryId(defaultCat?.id || '');
       
       // Select first transferee account as default source if any exist
       if (accounts.length > 0) {
@@ -311,6 +306,8 @@ export function DebtTable({ month, includeArchived, columnVisibility, columnConf
           id: Math.random().toString(36).substring(2, 9),
           type: 'transfer' as const,
           amount: paymentAmount,
+          categoryId: paymentCategoryId || undefined,
+          budgetItemName: paymentConfirmDebt.name,
           destinationAccountId: linkedAccount.id,
         });
       } else {
