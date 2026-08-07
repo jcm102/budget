@@ -120,3 +120,23 @@
     margin: 0.5in;
   }
 }
+
+/* Reset parent container heights to fit mobile layout within 100dvh */
+html:has(.mobile-page),
+html:has(.mobile-page) body {
+  height: 100dvh !important;
+  min-height: 100dvh !important;
+  max-height: 100dvh !important;
+  overflow: hidden !important;
+}
+
+html:has(.mobile-page) [data-sidebar="provider"],
+html:has(.mobile-page) [data-sidebar="inset"],
+html:has(.mobile-page) [data-sidebar="inset"] > div,
+html:has(.mobile-page) main {
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
+  overflow: hidden !important;
+}
+

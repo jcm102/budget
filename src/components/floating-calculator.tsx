@@ -2,12 +2,12 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { X, GripVertical } from 'lucide-react';
+import { X, GripVertical, Minus, Calculator as CalcIcon } from 'lucide-react';
 import { Calculator } from './calculator';
 import { useFloatingCalculator } from '@/hooks/use-floating-calculator';
 
 export function FloatingCalculator() {
-  const { isOpen, setIsOpen } = useFloatingCalculator();
+  const { isOpen, setIsOpen, isMinimized, setIsMinimized, onUseResult } = useFloatingCalculator();
   const [position, setPosition] = useState({ x: 100, y: 100 });
   const dragRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
@@ -84,17 +84,46 @@ export function FloatingCalculator() {
   if (!isOpen) return null;
 
   return (
-    <div 
-      ref={dragRef}
-      style={{
-        position: 'fixed',
-        left: `${position.x}px`,
-        top: `${position.y}px`,
-        zIndex: 9999,
-        touchAction: 'none'
-      }}
-      className="w-[320px] bg-background border rounded-xl shadow-2xl overflow-hidden select-none no-print"
-    >
+    <>
+      {/* Minimized Bubble */}
+      {isMinimized && (
+        <button
+          onClick={() => setIsMinimized(false)}
+          data-calculator="floating"
+          className="fixed bottom-6 right-6 z-[9999] h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-2xl flex items-center justify-center border hover:scale-105 active:scale-95 transition-all duration-200 no-print pointer-events-auto"
+          style={{ pointerEvents: 'auto' }}
+          title="Maximize Calculator"
+        >
+          <CalcIcon className="h-6 w-6" />
+        </button>
+      )}
+
+      {/* Maximized Window */}
+      <div 
+        ref={dragRef}
+        data-calculator="floating"
+        onMouseDown={() => {
+          if (document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement) {
+            document.activeElement.blur();
+          }
+        }}
+        onTouchStart={() => {
+          if (document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement) {
+            document.activeElement.blur();
+          }
+        }}
+        style={{
+          position: 'fixed',
+          left: `${position.x}px`,
+          top: `${position.y}px`,
+          zIndex: 9999,
+          touchAction: 'none',
+          pointerEvents: isMinimized ? 'none' : 'auto'
+        }}
+        className={`w-[320px] bg-background border rounded-xl shadow-2xl overflow-hidden select-none no-print pointer-events-auto transition-all duration-200 ${
+          isMinimized ? 'scale-0 opacity-0 pointer-events-none origin-bottom-right' : 'scale-100 opacity-100'
+        }`}
+      >
       {/* Drag handle / Titlebar */}
       <div 
         onMouseDown={handleMouseDown}
@@ -105,19 +134,34 @@ export function FloatingCalculator() {
           <GripVertical className="h-4 w-4 opacity-75" />
           <span>Calculator</span>
         </div>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={() => setIsOpen(false)}
-          className="h-6 w-6 text-primary-foreground hover:bg-primary-foreground/20"
-        >
-          <X className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => setIsMinimized(true)}
+            className="h-6 w-6 text-primary-foreground hover:bg-primary-foreground/20"
+          >
+            <Minus className="h-4 w-4" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => setIsOpen(false)}
+            className="h-6 w-6 text-primary-foreground hover:bg-primary-foreground/20"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <div className="p-1">
-        <Calculator />
+        <Calculator onUseResult={(val) => {
+          if (onUseResult) {
+            onUseResult(val);
+          }
+        }} />
       </div>
     </div>
+  </>
   );
 }

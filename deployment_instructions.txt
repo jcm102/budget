@@ -1,0 +1,38 @@
+================================================================================
+DEPLOYMENT INSTRUCTIONS: BUDGET QUICK LOG UPDATES
+================================================================================
+
+STEP 1: PUSH CHANGES TO GITHUB (Local Machine)
+----------------------------------------------
+Run these commands in your project root folder:
+
+1. Confirm modified files:
+   git status
+
+2. Stage all changes:
+   git add .
+
+3. Commit changes:
+   git commit -m "feat: mobile quick-entry page, Embla carousel, and minimizable calculator persistent state"
+
+4. Push to GitHub:
+   git push origin main
+
+
+STEP 2: UPDATE AND DEPLOY IN DOCKGE (Proxmox Server)
+---------------------------------------------------
+Run these steps to update your containers:
+
+1. SSH into the Proxmox container/VM hosting your Dockge/Budget stack.
+
+2. Navigate to the mapped stacks project folder:
+   cd /path/to/your/dockge/stacks/budget-app-folder
+
+3. Pull the latest code:
+   git pull
+
+4. Rebuild and restart:
+   - In the Dockge Web UI: Open your stack and click 'Update' or 'Restart'.
+   - Or in the terminal, run:
+     docker compose up -d --build
+================================================================================

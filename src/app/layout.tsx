@@ -29,14 +29,14 @@ export default function RootLayout({
         <FirebaseClientProvider>
           <AuthGuard>
             <SidebarProvider>
-                <Sidebar>
+                <Sidebar className="[html:has(.mobile-page)_&]:hidden">
                     <AppNav />
                 </Sidebar>
                 <SidebarInset className="flex flex-col">
-                    <SidebarHeader>
+                    <SidebarHeader className="[html:has(.mobile-page)_&]:hidden">
                         <SidebarTrigger />
                     </SidebarHeader>
-                    <div className="flex-1 overflow-y-auto">
+                    <div className="flex-grow overflow-y-auto">
                         {children}
                     </div>
                 </SidebarInset>
