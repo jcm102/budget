@@ -25,7 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, SelectLabel } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Trash2, User, Users, Info, Copy, Loader2, Handshake } from 'lucide-react';
+import { Trash2, User, Users, Info, Copy, Loader2, Handshake, Calculator as CalcIcon } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Switch } from '@/components/ui/switch';
@@ -38,6 +38,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useCommonAccounts } from '@/hooks/use-common-accounts';
 import { useFirestore } from '@/firebase';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { useFloatingCalculator } from '@/hooks/use-floating-calculator';
 
 type CategoryWithChildren = Category & { children: CategoryWithChildren[] };
 
@@ -101,6 +102,24 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [payeesList, setPayeesList] = useState<string[]>([]);
   const db = useFirestore();
+
+  // Floating calculator integration
+  const setIsCalculatorOpen = useFloatingCalculator(state => state.setIsOpen);
+  const setIsCalculatorMinimized = useFloatingCalculator(state => state.setIsMinimized);
+  const setOnUseCalculatorResult = useFloatingCalculator(state => state.setOnUseResult);
+
+  const handleOpenCalculator = (fieldName: 'amount' | `splits.${number}.amount` = 'amount') => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    
+    setOnUseCalculatorResult((value) => {
+      form.setValue(fieldName, parseFloat(value) || 0, { shouldValidate: true });
+      setIsCalculatorOpen(false);
+    });
+    setIsCalculatorOpen(true);
+    setIsCalculatorMinimized(false);
+  };
 
   useEffect(() => {
     if (!db) return;
@@ -448,14 +467,26 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                         )}/>
                     )}
                 </div>
-                <FormField control={form.control} name="amount" render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Total Transaction Amount</FormLabel>
-                    <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
+                 <FormField control={form.control} name="amount" render={({ field }) => (
+                     <FormItem>
+                     <FormLabel>Total Transaction Amount</FormLabel>
+                     <div className="relative flex rounded-md shadow-sm w-full">
+                         <FormControl>
+                             <Input type="number" step="0.01" {...field} className="pr-10" />
+                         </FormControl>
+                         <Button
+                             type="button"
+                             variant="ghost"
+                             size="icon"
+                             onClick={() => handleOpenCalculator('amount')}
+                             className="absolute right-1 top-1 h-8 w-8 text-muted-foreground hover:text-primary hover:bg-transparent"
+                         >
+                             <CalcIcon className="h-4 w-4" />
+                         </Button>
+                     </div>
+                     <FormMessage />
+                     </FormItem>
+                 )}/>
                 {!isOpeningBalance && (
                     <>
                          <FormField control={form.control} name="payee" render={({ field }) => (
@@ -540,10 +571,23 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                                          <FormField control={form.control} name={`splits.${index}.amount`} render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>Amount</FormLabel>
-                                                <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                                                <div className="relative flex rounded-md shadow-sm w-full">
+                                                    <FormControl>
+                                                        <Input type="number" step="0.01" {...field} className="pr-10" />
+                                                    </FormControl>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => handleOpenCalculator(`splits.${index}.amount` as const)}
+                                                        className="absolute right-1 top-1 h-8 w-8 text-muted-foreground hover:text-primary hover:bg-transparent"
+                                                    >
+                                                        <CalcIcon className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
                                                 <FormMessage />
                                             </FormItem>
-                                         )}/>
+                                        )}/>
                                           {(split.type === 'expense' || split.type === 'transfer' || split.type === 'income') && (
                                             <>
                                                <FormField control={form.control} name={`splits.${index}.categoryId`} render={({ field }) => (
