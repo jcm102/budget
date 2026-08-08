@@ -27,8 +27,12 @@ import {
   Loader2,
   Check,
   Monitor,
-  LogOut
+  LogOut,
+  Handshake,
+  Info
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { cn, generateUUID } from '@/lib/utils';
 import { useTransactionLedger } from '@/app/transactions/hooks/use-transaction-ledger';
 import { useFloatingCalculator } from '@/hooks/use-floating-calculator';
@@ -66,6 +70,11 @@ export default function MobileTransactionPage() {
   const [categoryId, setCategoryId] = useState<string>('');
   const [date, setDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isIOUPayment, setIsIOUPayment] = useState(false);
+  const [paidById, setPaidById] = useState<string>('');
+
+  // Filter to find IOU accounts
+  const iouAccounts = useMemo(() => accounts.filter(a => a.type === 'IOU'), [accounts]);
 
   // Calculator Integration
   const setIsCalculatorOpen = useFloatingCalculator(state => state.setIsOpen);
@@ -133,10 +142,19 @@ export default function MobileTransactionPage() {
     setDescription('');
     setDestinationAccountId('');
     setDate(format(new Date(), 'yyyy-MM-dd'));
+    setIsIOUPayment(false);
+    setPaidById('');
     if (categories.length > 0) {
       setCategoryId(categories[0].id);
     }
   }, [activeDialog, categories]);
+
+  // Auto-populate default paidById when isIOUPayment becomes active
+  useEffect(() => {
+    if (isIOUPayment && iouAccounts.length > 0 && !paidById) {
+      setPaidById(iouAccounts[0].id);
+    }
+  }, [isIOUPayment, iouAccounts, paidById]);
 
   // Bind calculator result callback
   const handleOpenCalculator = () => {
@@ -227,7 +245,11 @@ export default function MobileTransactionPage() {
       };
 
       if (activeDialog === 'expense') {
-        transactionData.sourceAccountId = selectedAccountId;
+        if (isIOUPayment) {
+          transactionData.paidById = paidById;
+        } else {
+          transactionData.sourceAccountId = selectedAccountId;
+        }
         transactionData.splits = [{
           id: generateUUID(),
           type: 'expense' as const,
@@ -457,6 +479,64 @@ export default function MobileTransactionPage() {
                 required={activeDialog !== 'transfer'}
               />
             </div>
+
+            {/* Paid by IOU Switch (Only for expenses) */}
+            {activeDialog === 'expense' && (
+              <div className="flex items-center justify-between rounded-xl border p-3 shadow-sm bg-background/50">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <Handshake className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-xs font-semibold">Paid by IOU</span>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button type="button" variant="ghost" className="h-5 w-5 p-0 hover:bg-transparent text-muted-foreground hover:text-primary">
+                          <Info className="h-3.5 w-3.5" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-72 p-3 text-xs" side="top" align="start">
+                        <h4 className="font-semibold mb-1 text-primary">Splitwise / IOU Guide</h4>
+                        <div className="text-muted-foreground space-y-1">
+                          <div>
+                            <h5 className="font-semibold text-foreground">If You Paid (Partner owes half):</h5>
+                            <p>1. Keep this switch <b>OFF</b>.</p>
+                            <p>2. Select the card/account paid with.</p>
+                            <p>3. Enter <b>full amount</b>.</p>
+                            <p>4. Save expense, then log partner's half as a Transfer to Splitwise (on desktop).</p>
+                          </div>
+                          <div className="pt-1 mt-1 border-t">
+                            <h5 className="font-semibold text-foreground">If Partner Paid (You owe half):</h5>
+                            <p>1. Turn this switch <b>ON</b>.</p>
+                            <p>2. Set "Paid By" to <b>Splitwise</b>.</p>
+                            <p>3. Enter <b>your half of the cost</b>.</p>
+                            <p>4. Select the category for the expense.</p>
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+                <Switch checked={isIOUPayment} onCheckedChange={setIsIOUPayment} />
+              </div>
+            )}
+
+            {/* Paid By Selector (when Paid by IOU is active) */}
+            {activeDialog === 'expense' && isIOUPayment && (
+              <div className="space-y-1.5 w-full">
+                <Label htmlFor="paidBy" className="font-semibold text-xs">Paid By</Label>
+                <Select value={paidById} onValueChange={setPaidById}>
+                  <SelectTrigger id="paidBy" className="h-11 text-left rounded-xl w-full box-border">
+                    <SelectValue placeholder="Select who paid" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {iouAccounts.map((acc) => (
+                      <SelectItem key={acc.id} value={acc.id}>
+                        {acc.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Conditional Category/Destination Selectors */}
             {activeDialog !== 'transfer' && activeDialog !== null && (
