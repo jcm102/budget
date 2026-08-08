@@ -36,6 +36,7 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { cn, generateUUID } from '@/lib/utils';
 import { useTransactionLedger } from '@/app/transactions/hooks/use-transaction-ledger';
 import { useFloatingCalculator } from '@/hooks/use-floating-calculator';
+import { useMonthlyBudget } from '@/app/monthly-budget/hooks/use-monthly-budget';
 import type { AccountDetails } from '@/types';
 
 const formatCurrency = (amount: number) => {
@@ -59,6 +60,8 @@ export default function MobileTransactionPage() {
     addTransaction,
   } = useTransactionLedger(startOfCurrMonth, endOfCurrMonth);
 
+  const { budgetItems: monthlyBudgetItems } = useMonthlyBudget();
+
   // Layout states
   const [activeDialog, setActiveDialog] = useState<'expense' | 'income' | 'transfer' | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
@@ -72,9 +75,17 @@ export default function MobileTransactionPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isIOUPayment, setIsIOUPayment] = useState(false);
   const [paidById, setPaidById] = useState<string>('');
+  const [budgetItemName, setBudgetItemName] = useState<string>('');
 
   // Filter to find IOU accounts
   const iouAccounts = useMemo(() => accounts.filter(a => a.type === 'IOU'), [accounts]);
+
+  // Retrieve breakdown options for selected category
+  const breakdownOptions = useMemo(() => {
+    if (!categoryId) return [];
+    const budgetItem = monthlyBudgetItems.find((b: any) => b.categoryId === categoryId);
+    return budgetItem?.breakdown?.filter((b: any) => b.name !== 'Default') || [];
+  }, [categoryId, monthlyBudgetItems]);
 
   // Calculator Integration
   const setIsCalculatorOpen = useFloatingCalculator(state => state.setIsOpen);
@@ -144,10 +155,16 @@ export default function MobileTransactionPage() {
     setDate(format(new Date(), 'yyyy-MM-dd'));
     setIsIOUPayment(false);
     setPaidById('');
+    setBudgetItemName('');
     if (categories.length > 0) {
       setCategoryId(categories[0].id);
     }
   }, [activeDialog, categories]);
+
+  // Reset budgetItemName when category changes
+  useEffect(() => {
+    setBudgetItemName('');
+  }, [categoryId]);
 
   // Auto-populate default paidById when isIOUPayment becomes active
   useEffect(() => {
@@ -255,6 +272,7 @@ export default function MobileTransactionPage() {
           type: 'expense' as const,
           amount: numAmount,
           categoryId: categoryId,
+          budgetItemName: budgetItemName || undefined,
         }];
       } else if (activeDialog === 'income') {
         transactionData.splits = [{
@@ -550,6 +568,25 @@ export default function MobileTransactionPage() {
                     {categories.map((cat) => (
                       <SelectItem key={cat.id} value={cat.id}>
                         {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Budget Item Dropdown (when category has sub-items/breakdowns) */}
+            {activeDialog === 'expense' && breakdownOptions.length > 0 && (
+              <div className="space-y-1.5 w-full">
+                <Label htmlFor="budgetItem" className="font-semibold text-xs">Budget Item</Label>
+                <Select value={budgetItemName} onValueChange={setBudgetItemName}>
+                  <SelectTrigger id="budgetItem" className="h-11 text-left rounded-xl w-full box-border">
+                    <SelectValue placeholder="Select a specific item" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {breakdownOptions.map((opt: any) => (
+                      <SelectItem key={opt.name} value={opt.name}>
+                        {opt.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
