@@ -526,16 +526,16 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                         />
  
                         <Separator />
-                        <div className="flex justify-between items-center">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                             <h4 className="font-medium">Transaction Splits</h4>
-                            <div className="flex items-center gap-2">
-                                <Button type="button" variant="outline" size="sm" onClick={() => handleAddSplit('expense')}>
+                            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                                <Button type="button" variant="outline" size="sm" onClick={() => handleAddSplit('expense')} className="flex-1 sm:flex-initial justify-center">
                                     <User className="mr-2 h-4 w-4" /> Expense
                                 </Button>
-                                <Button type="button" variant="outline" size="sm" onClick={() => handleAddSplit('transfer')}>
+                                <Button type="button" variant="outline" size="sm" onClick={() => handleAddSplit('transfer')} className="flex-1 sm:flex-initial justify-center">
                                     <Users className="mr-2 h-4 w-4" /> Transfer
                                 </Button>
-                                <Button type="button" variant="outline" size="sm" onClick={() => handleAddSplit('income')}>
+                                <Button type="button" variant="outline" size="sm" onClick={() => handleAddSplit('income')} className="flex-1 sm:flex-initial justify-center">
                                     <Handshake className="mr-2 h-4 w-4" /> Income
                                 </Button>
                             </div>
