@@ -5,6 +5,7 @@ import { format, addMonths } from 'date-fns';
 import { createAutomatedBackup } from '@/services/backup-service';
 import { cycleBudgetItems as cycleOverviewItems } from '@/app/budget/services/budget-service';
 import { syncSinkingFundsBudget, syncWealthsimpleTransfer } from '@/services/savings-service';
+import { syncDebtPaymentsToMonthlyBudget } from '@/app/debt/services/debt-service';
 
 const BUDGET_ITEMS_COLLECTION = 'monthly-budget-items';
 const TRANSACTIONS_COLLECTION = 'transactions';
@@ -398,13 +399,26 @@ export async function initializeMonthBudget(db: Firestore, targetMonth: string):
   const targetQuery = query(collection(db, BUDGET_ITEMS_COLLECTION), where('month', '==', targetMonth));
   const targetSnapshot = await getDocs(targetQuery);
 
-  // Filter out sinking funds category items to check if other budget categories are initialized
-  const otherItems = targetSnapshot.docs.filter(
-    docSnap => (docSnap.data() as MonthlyBudgetItem).categoryId !== SINKING_FUNDS_CATEGORY_ID
-  );
+  // Fetch all budget categories to find debt payment category IDs
+  const categoriesQuery = query(collection(db, 'budget-categories'));
+  const categoriesSnapshot = await getDocs(categoriesQuery);
+  const debtCategoryIds = new Set<string>();
+  categoriesSnapshot.docs.forEach(docSnap => {
+    const data = docSnap.data();
+    if (['Credit Cards', 'Loans', 'Line of Credit'].includes(data.name)) {
+      debtCategoryIds.add(docSnap.id);
+    }
+  });
 
-  // Always sync sinking funds budget to ensure the target month is up-to-date
+  // Filter out sinking funds and debt payment category items to check if other budget categories are initialized
+  const otherItems = targetSnapshot.docs.filter(docSnap => {
+    const catId = (docSnap.data() as MonthlyBudgetItem).categoryId;
+    return catId !== SINKING_FUNDS_CATEGORY_ID && !debtCategoryIds.has(catId);
+  });
+
+  // Always sync sinking funds and debt payments budget to ensure the target month is up-to-date
   await syncSinkingFundsBudget(targetMonth);
+  await syncDebtPaymentsToMonthlyBudget(targetMonth);
 
   // If other categories have already been initialized, we don't need to copy recurring items again
   if (otherItems.length > 0) {
@@ -431,8 +445,8 @@ export async function initializeMonthBudget(db: Firestore, targetMonth: string):
   prevSnapshot.forEach(docSnap => {
     const data = docSnap.data() as MonthlyBudgetItem;
     
-    // Skip copying sinking funds category, as it is synced separately by syncSinkingFundsBudget
-    if (data.categoryId === SINKING_FUNDS_CATEGORY_ID) {
+    // Skip copying sinking funds or debt categories, as they are synced separately from worksheets
+    if (data.categoryId === SINKING_FUNDS_CATEGORY_ID || debtCategoryIds.has(data.categoryId)) {
       return;
     }
 
