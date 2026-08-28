@@ -11,6 +11,7 @@ const TRANSACTIONS_COLLECTION = 'transactions';
 const ACCOUNTS_COLLECTION = 'transferees';
 const PA_PAYMENTS_COLLECTION = 'budget-items';
 const DEBT_COLLECTION = 'debts';
+const SINKING_FUNDS_CATEGORY_ID = 'KbWSJVpQRZBOTmu8HxjI';
 
 
 // ===== Budget Items =====
@@ -111,10 +112,13 @@ export async function getAccountDetails(db: Firestore, accountId: string): Promi
 }
 
 export async function getTransactionsForMonth(db: Firestore, month: string): Promise<Transaction[]> {
-  const startDate = new Date(`${month}-01T00:00:00`);
+  const parts = month.split('-');
+  const year = parseInt(parts[0], 10);
+  const mValue = parseInt(parts[1], 10);
+  const startDate = new Date(year, mValue - 1, 1);
   
   const startString = `${month}-01`;
-  const nextMonthDate = addMonths(new Date(startDate), 1);
+  const nextMonthDate = addMonths(startDate, 1);
   const nextMonthString = format(nextMonthDate, 'yyyy-MM-dd');
 
   const q = query(
@@ -391,16 +395,27 @@ export async function deleteTransaction(db: Firestore, id: string): Promise<void
 }
 
 export async function initializeMonthBudget(db: Firestore, targetMonth: string): Promise<void> {
+  const targetQuery = query(collection(db, BUDGET_ITEMS_COLLECTION), where('month', '==', targetMonth));
+  const targetSnapshot = await getDocs(targetQuery);
+
+  // Filter out sinking funds category items to check if other budget categories are initialized
+  const otherItems = targetSnapshot.docs.filter(
+    docSnap => (docSnap.data() as MonthlyBudgetItem).categoryId !== SINKING_FUNDS_CATEGORY_ID
+  );
+
   // Always sync sinking funds budget to ensure the target month is up-to-date
   await syncSinkingFundsBudget(targetMonth);
 
-  const targetQuery = query(collection(db, BUDGET_ITEMS_COLLECTION), where('month', '==', targetMonth));
-  const targetSnapshot = await getDocs(targetQuery);
-  if (!targetSnapshot.empty) {
-    return; // Already initialized!
+  // If other categories have already been initialized, we don't need to copy recurring items again
+  if (otherItems.length > 0) {
+    return;
   }
 
-  const targetDate = new Date(`${targetMonth}-01T00:00:00`);
+  // Parse the target month safely in the local timezone
+  const parts = targetMonth.split('-');
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10);
+  const targetDate = new Date(year, month - 1, 1);
   const prevMonthDate = addMonths(targetDate, -1);
   const prevMonthString = format(prevMonthDate, 'yyyy-MM');
 
@@ -415,6 +430,12 @@ export async function initializeMonthBudget(db: Firestore, targetMonth: string):
 
   prevSnapshot.forEach(docSnap => {
     const data = docSnap.data() as MonthlyBudgetItem;
+    
+    // Skip copying sinking funds category, as it is synced separately by syncSinkingFundsBudget
+    if (data.categoryId === SINKING_FUNDS_CATEGORY_ID) {
+      return;
+    }
+
     if (data.breakdown && data.breakdown.length > 0) {
       const recurringSubItems = data.breakdown
         .filter(sub => sub.recurring !== false)
