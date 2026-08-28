@@ -127,7 +127,7 @@ export function SubscriptionForm({ open, onOpenChange, addSubscription, updateSu
         });
       } else {
         form.reset({
-          accountId: selectedAccountId || accounts[0]?.id || '',
+          accountId: (selectedAccountId && selectedAccountId !== 'all') ? selectedAccountId : (accounts[0]?.id || ''),
           serviceName: '',
           billingFrequency: 'Monthly',
           cost: 0,

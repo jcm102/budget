@@ -72,7 +72,7 @@ export function AccountLedgerForm({ open, onOpenChange, addItem, updateItem, edi
         form.reset({
           name: '',
           amount: 0,
-          accountId: selectedAccountId || accounts[0]?.id || '',
+          accountId: (selectedAccountId && selectedAccountId !== 'all') ? selectedAccountId : (accounts[0]?.id || ''),
         });
       }
     }

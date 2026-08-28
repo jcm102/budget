@@ -11,7 +11,7 @@ type SelectedAccountState = {
 export const useSelectedAccount = create<SelectedAccountState>()(
   persist(
     (set) => ({
-      selectedAccountId: null,
+      selectedAccountId: 'all',
       setSelectedAccountId: (accountId) => set({ selectedAccountId: accountId }),
     }),
     {

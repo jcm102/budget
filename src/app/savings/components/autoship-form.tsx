@@ -112,7 +112,7 @@ export function AutoShipForm({ open, onOpenChange, addAutoShipItem, updateAutoSh
         });
       } else {
         form.reset({
-          accountId: selectedAccountId || accounts[0]?.id || '',
+          accountId: (selectedAccountId && selectedAccountId !== 'all') ? selectedAccountId : (accounts[0]?.id || ''),
           item: '',
           nextShipmentDate: new Date().toISOString().split('T')[0],
           frequency: 'Monthly',

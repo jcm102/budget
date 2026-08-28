@@ -74,7 +74,7 @@ export function GoalForm({ open, onOpenChange, addGoal, updateGoal, editingItem 
       } else {
         form.reset({
           name: '',
-          accountId: selectedAccountId || accounts[0]?.id || '',
+          accountId: (selectedAccountId && selectedAccountId !== 'all') ? selectedAccountId : (accounts[0]?.id || ''),
           cost: 0,
           amount: 0,
           link: '',
