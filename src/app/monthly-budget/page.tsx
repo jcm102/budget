@@ -95,6 +95,7 @@ export default function MonthlyBudgetPage() {
   const [applyBudgetData, setApplyBudgetData] = useState<{ categoryId: string, categoryName: string, amount: number, budgetItemName?: string } | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [initialTransactionData, setInitialTransactionData] = useState<Partial<Transaction> | null>(null);
   const [view, setView] = useState<'current' | 'next' | 'previous'>('current');
   const [groupBy, setGroupBy] = useState<'category' | 'source'>('category');
   
@@ -154,17 +155,19 @@ export default function MonthlyBudgetPage() {
     updateBudgetItemWithBreakdown(categoryId, breakdown);
   }
   
-  const handleOpenTransactionForm = (transaction: Transaction | null) => {
+  const handleOpenTransactionForm = useCallback((transaction: Transaction | null, initialData?: Partial<Transaction> | null) => {
     setEditingTransaction(transaction);
+    setInitialTransactionData(initialData || null);
     setIsTransactionFormOpen(true);
-  };
+  }, []);
   
-  const handleCloseTransactionForm = (isOpen: boolean) => {
+  const handleCloseTransactionForm = useCallback((isOpen: boolean) => {
     if (!isOpen) {
         setEditingTransaction(null);
+        setInitialTransactionData(null);
     }
     setIsTransactionFormOpen(isOpen);
-  }
+  }, []);
 
   const handleApplyBudget = useCallback((categoryId: string, categoryName: string, amount: number, budgetItemName?: string) => {
     setApplyBudgetData({ categoryId, categoryName, amount, budgetItemName });
@@ -229,6 +232,7 @@ export default function MonthlyBudgetPage() {
         updateTransaction={updateTransaction}
         deleteTransaction={deleteTransaction}
         editingTransaction={editingTransaction}
+        initialData={initialTransactionData}
       />
       <BudgetBreakdownForm
         open={isBreakdownFormOpen}

@@ -38,6 +38,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useCommonAccounts } from '@/hooks/use-common-accounts';
 import { useFirestore } from '@/firebase';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { format } from 'date-fns';
 import { useFloatingCalculator } from '@/hooks/use-floating-calculator';
 
 type CategoryWithChildren = Category & { children: CategoryWithChildren[] };
@@ -92,10 +93,11 @@ type TransactionFormProps = {
   updateTransaction: (id: string, item: Partial<Omit<Transaction, 'id'>>) => Promise<void>;
   deleteTransaction: (id: string) => void;
   editingTransaction: Transaction | null;
+  initialData?: Partial<Transaction> | null;
   isPage?: boolean;
 };
 
-export function TransactionForm({ open, onOpenChange, accounts, addTransaction, updateTransaction, editingTransaction, isPage = false }: TransactionFormProps) {
+export function TransactionForm({ open, onOpenChange, accounts, addTransaction, updateTransaction, editingTransaction, initialData, isPage = false }: TransactionFormProps) {
   const { categories, budgetItems } = useMonthlyBudget();
   const { commonAccountIds } = useCommonAccounts();
   const { toast } = useToast();
@@ -139,7 +141,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
       description: '',
       payee: '',
       amount: 0,
-      date: new Date().toISOString().split('T')[0],
+      date: format(new Date(), 'yyyy-MM-dd'),
       sourceAccountId: '',
       splits: [],
       isIOUPayment: false,
@@ -191,12 +193,26 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
           paidById: isIOU ? editingTransaction.paidById : '',
           isOpeningBalance: isOpening,
         });
+      } else if (initialData) {
+        const initialAmount = initialData.amount ?? 0;
+        const initialDate = initialData.date ? initialData.date.split('T')[0] : format(new Date(), 'yyyy-MM-dd');
+        form.reset({
+          description: initialData.description || '',
+          payee: initialData.payee || initialData.description || '',
+          amount: initialAmount,
+          date: initialDate,
+          sourceAccountId: initialData.sourceAccountId || '',
+          splits: initialData.splits || [],
+          isIOUPayment: false,
+          paidById: '',
+          isOpeningBalance: false,
+        });
       } else {
         form.reset({
           description: '',
           payee: '',
           amount: 0,
-          date: new Date().toISOString().split('T')[0],
+          date: format(new Date(), 'yyyy-MM-dd'),
           sourceAccountId: '',
           splits: [],
           isIOUPayment: false,
@@ -205,7 +221,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
         });
       }
     }
-  }, [editingTransaction, open, form]);
+  }, [editingTransaction, initialData, open, form]);
 
   const totalAmount = form.watch('amount');
   const splitAmounts = form.watch('splits');

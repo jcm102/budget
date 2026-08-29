@@ -10,8 +10,9 @@ import {
   TableRow 
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Edit2, ChevronDown, ChevronRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Edit2, ChevronDown, ChevronRight, PlusCircle } from 'lucide-react';
+import { cn, generateUUID } from '@/lib/utils';
+import { format } from 'date-fns';
 
 interface BudgetTableProps {
   budgetItems: any[];
@@ -20,7 +21,7 @@ interface BudgetTableProps {
   accounts: any[];
   isLoading: boolean;
   onEditBreakdown: (category: any) => void;
-  onEditTransaction: (transaction: any) => void;
+  onEditTransaction: (transaction: any, initialData?: any) => void;
   onUpdateBudget: (categoryId: string, amount: number) => void;
   onCopyCategory: (categoryId: string) => void;
   onCopyToNextMonth: (item: any) => void;
@@ -36,6 +37,7 @@ export function BudgetTable({
   accounts,
   isLoading,
   onEditBreakdown,
+  onEditTransaction,
   groupBy
 }: BudgetTableProps) {
 
@@ -286,6 +288,51 @@ export function BudgetTable({
     }
   };
 
+  const handleCreateTransaction = ({
+    description,
+    amount,
+    categoryId,
+    budgetItemName,
+    paymentMethod,
+  }: {
+    description: string;
+    amount: number;
+    categoryId: string;
+    budgetItemName?: string;
+    paymentMethod?: string;
+  }) => {
+    let matchedAccountId = '';
+    if (paymentMethod && paymentMethod !== 'none' && paymentMethod !== 'Other') {
+      const matchedAccount = accounts.find(
+        acc => acc.name.toLowerCase() === paymentMethod.toLowerCase()
+      );
+      if (matchedAccount) {
+        matchedAccountId = matchedAccount.id;
+      }
+    }
+
+    const initialAmount = Math.max(0, amount);
+
+    const initialData = {
+      description,
+      payee: description,
+      amount: initialAmount,
+      date: format(new Date(), 'yyyy-MM-dd'),
+      sourceAccountId: matchedAccountId,
+      splits: [
+        {
+          id: generateUUID(),
+          type: 'expense' as const,
+          amount: initialAmount,
+          categoryId: categoryId,
+          budgetItemName: budgetItemName || '',
+        },
+      ],
+    };
+
+    onEditTransaction(null, initialData);
+  };
+
   if (isLoading) {
     return <div className="p-8 text-center text-muted-foreground">Loading budget data...</div>;
   }
@@ -338,7 +385,29 @@ export function BudgetTable({
              {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(row.actualSpent)}
           </TableCell>
           <TableCell className={cn("font-medium", row.remaining < 0 ? "text-destructive" : "text-green-600")}>
-             {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(row.remaining)}
+             <div className="flex items-center justify-between gap-2">
+               <span>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(row.remaining)}</span>
+               {!row.hasChildren && (
+                 <Button
+                   variant="outline"
+                   size="sm"
+                   className="h-6 px-2 text-[11px] font-medium text-muted-foreground hover:text-primary hover:bg-primary/10 gap-1 border-dashed no-print"
+                   onClick={(e) => {
+                     e.stopPropagation();
+                     handleCreateTransaction({
+                       description: row.name,
+                       amount: row.remaining > 0 ? row.remaining : row.budgeted,
+                       categoryId: row.id,
+                       paymentMethod: row.paymentMethod,
+                     });
+                   }}
+                   title={`Create transaction for ${row.name}`}
+                 >
+                   <PlusCircle className="h-3.5 w-3.5" />
+                   <span className="hidden sm:inline">Add Tx</span>
+                 </Button>
+               )}
+             </div>
           </TableCell>
         </TableRow>
 
@@ -377,7 +446,28 @@ export function BudgetTable({
                 {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(subActualSpent)}
               </TableCell>
               <TableCell className={cn("text-xs", subRemaining < 0 ? "text-destructive" : "text-green-600/85")}>
-                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(subRemaining)}
+                <div className="flex items-center justify-between gap-2">
+                  <span>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(subRemaining)}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-5 px-1.5 text-[10px] font-medium text-muted-foreground hover:text-primary hover:bg-primary/10 gap-1 border-dashed no-print"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCreateTransaction({
+                        description: sub.name,
+                        amount: subRemaining > 0 ? subRemaining : subBudgeted,
+                        categoryId: row.id,
+                        budgetItemName: sub.name,
+                        paymentMethod: sub.paymentMethod || row.paymentMethod,
+                      });
+                    }}
+                    title={`Create transaction for ${sub.name}`}
+                  >
+                    <PlusCircle className="h-3 w-3" />
+                    <span className="hidden sm:inline">Add Tx</span>
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
           );
@@ -537,7 +627,31 @@ export function BudgetTable({
                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(row.actualSpent)}
                             </TableCell>
                             <TableCell className={row.remaining < 0 ? "text-destructive font-medium" : "text-green-600 font-medium"}>
-                               {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(row.remaining)}
+                               <div className="flex items-center justify-between gap-2">
+                                 <span>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(row.remaining)}</span>
+                                 <Button
+                                   variant="outline"
+                                   size="sm"
+                                   className="h-5 px-1.5 text-[10px] font-medium text-muted-foreground hover:text-primary hover:bg-primary/10 gap-1 border-dashed no-print"
+                                   onClick={(e) => {
+                                     e.stopPropagation();
+                                     const categoryId = row.isSubItem ? row.parentCategory?.id : row.id;
+                                     const budgetItemName = row.isSubItem ? row.name : '';
+                                     const description = row.name;
+                                     handleCreateTransaction({
+                                       description,
+                                       amount: row.remaining > 0 ? row.remaining : row.budgeted,
+                                       categoryId,
+                                       budgetItemName,
+                                       paymentMethod: row.paymentMethod,
+                                     });
+                                   }}
+                                   title={`Create transaction for ${row.name}`}
+                                 >
+                                   <PlusCircle className="h-3 w-3" />
+                                   <span className="hidden sm:inline">Add Tx</span>
+                                 </Button>
+                               </div>
                             </TableCell>
                           </TableRow>
                         );
