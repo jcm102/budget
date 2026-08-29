@@ -17,6 +17,13 @@ export const useSelectedAccount = create<SelectedAccountState>()(
     {
       name: 'selected-account-storage', 
       storage: createJSONStorage(() => localStorage),
+      version: 1,
+      migrate: (persistedState: any, version: number) => {
+        if (version < 1 || !persistedState || !persistedState.selectedAccountId || persistedState.selectedAccountId === 'null') {
+          return { selectedAccountId: 'all' };
+        }
+        return persistedState as SelectedAccountState;
+      },
     }
   )
 );

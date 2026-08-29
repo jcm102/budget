@@ -116,18 +116,13 @@ export function useSavings() {
   const isFetching = useRef(false);
 
   const fetchAllData = useCallback(async (accountId: string | null) => {
-    if (!accountId || isFetching.current) {
-      if (!accountId) {
-        setSavingsItems([]);
-        setIsLoading(false);
-      }
-      return;
-    }
+    const targetAccountId = (!accountId || accountId === '' || accountId === 'null') ? 'all' : accountId;
+    if (isFetching.current) return;
 
     try {
       isFetching.current = true;
       setIsLoading(true);
-      const fetchedItems = await SavingsService.getSavingsItems(accountId);
+      const fetchedItems = await SavingsService.getSavingsItems(targetAccountId);
       const calculatedItems = fetchedItems.map(item => ({
         ...item,
         monthlyAmount: calculateMonthlyAmount(item)

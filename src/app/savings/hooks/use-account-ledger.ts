@@ -12,15 +12,10 @@ export function useAccountLedger(accountId: string | null) {
   const { toast } = useToast();
 
   const fetchItems = useCallback(async (currentAccountId: string | null) => {
-    if (!currentAccountId) {
-      setLedgerItems([]);
-      setIsLoading(false);
-      return;
-    }
-
+    const targetAccountId = (!currentAccountId || currentAccountId === '' || currentAccountId === 'null') ? 'all' : currentAccountId;
     try {
       setIsLoading(true);
-      const fetchedLedger = await AccountLedgerService.getLedgerItems(currentAccountId);
+      const fetchedLedger = await AccountLedgerService.getLedgerItems(targetAccountId);
       setLedgerItems(fetchedLedger);
     } catch (error) {
       console.error('Failed to load account ledger data:', error);

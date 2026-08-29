@@ -17,14 +17,10 @@ export function useSubscriptions() {
   useMonthlyBudget();
 
   const fetchSubscriptions = useCallback(async (accountId: string | null) => {
-    if (!accountId) {
-      setSubscriptions([]);
-      setIsLoading(false);
-      return;
-    }
+    const targetAccountId = (!accountId || accountId === '' || accountId === 'null') ? 'all' : accountId;
     try {
       setIsLoading(true);
-      const fetchedItems = await SubscriptionService.getSubscriptions(accountId);
+      const fetchedItems = await SubscriptionService.getSubscriptions(targetAccountId);
       setSubscriptions(fetchedItems);
     } catch (error) {
       console.error('Failed to load subscriptions:', error);

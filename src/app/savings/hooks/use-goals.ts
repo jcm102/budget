@@ -14,14 +14,10 @@ export function useGoals() {
   const { selectedAccountId } = useSelectedAccount();
 
   const fetchGoals = useCallback(async (accountId: string | null) => {
-    if (!accountId) {
-        setGoals([]);
-        setIsLoading(false);
-        return;
-    }
+    const targetAccountId = (!accountId || accountId === '' || accountId === 'null') ? 'all' : accountId;
     try {
       setIsLoading(true);
-      const fetchedItems = await GoalService.getGoals(accountId);
+      const fetchedItems = await GoalService.getGoals(targetAccountId);
       setGoals(fetchedItems);
     } catch (error) {
       console.error('Failed to load goals:', error);

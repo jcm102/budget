@@ -17,14 +17,10 @@ export function useAutoShip() {
   useMonthlyBudget();
 
   const fetchAutoShipItems = useCallback(async (accountId: string | null) => {
-    if (!accountId) {
-      setAutoShipItems([]);
-      setIsLoading(false);
-      return;
-    }
+    const targetAccountId = (!accountId || accountId === '' || accountId === 'null') ? 'all' : accountId;
     try {
       setIsLoading(true);
-      const fetchedItems = await AutoShipService.getAutoShipItems(accountId);
+      const fetchedItems = await AutoShipService.getAutoShipItems(targetAccountId);
       setAutoShipItems(fetchedItems);
     } catch (error) {
       console.error('Failed to load auto-ship items:', error);
