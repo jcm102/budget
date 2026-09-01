@@ -427,7 +427,7 @@ export async function updateBudgetItem(db: Firestore, id: string, itemData: Part
             const newDocData: Omit<BudgetItem, 'id'> & { originalId: string } = {
                 ...(oldItemData as Omit<BudgetItem, 'id'>),
                 ...itemData,
-                frequency: 'One-Time',
+                frequency: oldItemData!.frequency || 'One-Time',
                 originalId: id,
                 date: format(new Date(parseInt(instanceTimestamp)), 'yyyy-MM-dd'),
                 completed: itemData.completed ?? oldItemData!.completed,
