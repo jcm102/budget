@@ -3,7 +3,8 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { format, parseISO, addMonths, subMonths } from 'date-fns';
-import { Pencil, Trash2, PlusCircle, DollarSign, MinusCircle, Info, ChevronDown, MoreHorizontal, RotateCcw, ArrowRightLeft, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, DollarSign, MinusCircle, Info, ChevronDown, MoreHorizontal, RotateCcw, ArrowRightLeft, ChevronLeft, ChevronRight, Power } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import type { SavingsItem, Category } from '@/types';
 import * as z from 'zod';
 import { useForm } from 'react-hook-form';
@@ -166,6 +167,7 @@ function FundsTable({
     handleTransaction,
     handleReset,
     deleteSavingsItem,
+    updateSavingsItem,
     exchangeRate,
     onOpenTransfer
 } : {
@@ -176,6 +178,7 @@ function FundsTable({
     handleTransaction: (item: SavingsItem, amount: number, type: 'deposit' | 'withdraw') => void,
     handleReset: (item: SavingsItem) => void,
     deleteSavingsItem: (id: string) => void,
+    updateSavingsItem: (id: string, data: Partial<Omit<SavingsItem, 'id' | 'monthlyAmount'>>) => void,
     exchangeRate: number | null,
     onOpenTransfer: (sourceFund: SavingsItem) => void;
 }) {
@@ -252,10 +255,11 @@ function FundsTable({
                     const rate = getExchangeRateForItem(item, exchangeRate);
                     const cadContribution = item.currency === 'USD' && item.monthlyAmount ? item.monthlyAmount * rate : null;
                     return (
-                    <TableRow key={item.id}>
+                    <TableRow key={item.id} className={cn(item.status === 'inactive' ? 'opacity-60 bg-muted/20' : '')}>
                         <TableCell className="font-medium">
                             <Link href={`/sinking-funds/${item.id}`} className="hover:underline">{item.name}</Link>
                             {item.currency === 'USD' && <span className="text-xs text-muted-foreground ml-2">USD</span>}
+                            {item.status === 'inactive' && <Badge variant="outline" className="ml-2 bg-muted text-muted-foreground text-[10px] px-1.5 py-0">Inactive</Badge>}
                         </TableCell>
                         <TableCell className="text-right">{formatCurrency(item.amount, item.currency)}</TableCell>
                         <TableCell className="text-right">{item.totalCost ? formatCurrency(item.totalCost, item.currency) : '-'}</TableCell>
@@ -311,10 +315,20 @@ function FundsTable({
                                             </AlertDialogContent>
                                         </AlertDialog>
                                     )}
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={() => handleEdit(item)}>
-                                        <Pencil className="mr-2 h-4 w-4" /> Edit
-                                    </DropdownMenuItem>
+                                     <DropdownMenuSeparator />
+                                     <DropdownMenuItem onClick={() => {
+                                         const isActivating = item.status === 'inactive';
+                                         const todayStr = format(new Date(), 'yyyy-MM-dd');
+                                         updateSavingsItem(item.id, {
+                                             status: isActivating ? 'active' : 'inactive',
+                                             activatedAt: isActivating ? todayStr : null
+                                         });
+                                     }}>
+                                         <Power className="mr-2 h-4 w-4" /> {item.status === 'inactive' ? 'Mark Active' : 'Mark Inactive'}
+                                     </DropdownMenuItem>
+                                     <DropdownMenuItem onClick={() => handleEdit(item)}>
+                                         <Pencil className="mr-2 h-4 w-4" /> Edit
+                                     </DropdownMenuItem>
                                     <AlertDialog>
                                         <AlertDialogTrigger asChild>
                                             <button className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full text-destructive">
@@ -677,6 +691,7 @@ export function SinkingFundTable() {
                          handleTransaction={handleTransaction}
                          handleReset={handleReset}
                          deleteSavingsItem={deleteSavingsItem}
+                         updateSavingsItem={updateSavingsItem}
                          exchangeRate={exchangeRate}
                          onOpenTransfer={handleOpenTransferForm}
                        />

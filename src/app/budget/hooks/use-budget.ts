@@ -277,6 +277,34 @@ export function useBudget(selectedMonth: string = format(new Date(), 'yyyy-MM'),
 
           const createdTx = await addTransaction(db, txData, true);
           transactionId = createdTx.id;
+        } else if (item.type === 'Income') {
+          let destAccountId = item.destinationAccountId || '';
+          if (!destAccountId) {
+            const fallbackQ = query(collection(db, 'transferees'), where('name', '==', 'Libro Chequing'), limit(1));
+            const fallbackSnap = await getDocs(fallbackQ);
+            if (!fallbackSnap.empty) {
+              destAccountId = fallbackSnap.docs[0].id;
+            }
+          }
+
+          const txSplits = [{
+            id: generateUUID(),
+            type: 'income' as const,
+            amount: item.amount,
+            categoryId: item.budgetCategoryId || undefined,
+            budgetItemName: item.description,
+            destinationAccountId: destAccountId || undefined
+          }];
+
+          const txData = {
+            description: `Income: ${item.description}`,
+            amount: item.amount,
+            date: item.date,
+            splits: txSplits
+          };
+
+          const createdTx = await addTransaction(db, txData, true);
+          transactionId = createdTx.id;
         }
 
         setBudgetItems(prev =>
@@ -301,7 +329,7 @@ export function useBudget(selectedMonth: string = format(new Date(), 'yyyy-MM'),
       }
     } else {
       try {
-        if ((item.type === 'Transfers' || item.type === 'Pre-Authorized Payments') && item.transactionId) {
+        if ((item.type === 'Transfers' || item.type === 'Pre-Authorized Payments' || item.type === 'Income') && item.transactionId) {
           await deleteTransaction(db, item.transactionId);
         }
 

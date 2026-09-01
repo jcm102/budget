@@ -493,7 +493,7 @@ export async function checkAndAutoCycle(db: Firestore): Promise<void> {
     const batch = writeBatch(db);
     const qOverview = query(
       collection(db, 'budget-items'), 
-      where('type', 'in', ['Pre-Authorized Payments', 'Debt Payments'])
+      where('type', 'in', ['Income', 'Pre-Authorized Payments', 'Debt Payments'])
     );
     const snapshot = await getDocs(qOverview);
     snapshot.forEach(docSnap => {

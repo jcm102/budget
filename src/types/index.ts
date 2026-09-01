@@ -190,6 +190,8 @@ export interface SavingsItem {
   monthlyAmount?: number; // Calculated field
   lastFundedAt?: string | null; // ISO string
   categoryId?: string | null;
+  status?: 'active' | 'inactive';
+  activatedAt?: string | null;
   previousCycles?: {
     dueDate: string;
     totalCost: number;

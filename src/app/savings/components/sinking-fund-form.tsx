@@ -39,6 +39,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useSelectedAccount } from '@/hooks/use-selected-account';
 
 
+import { format } from 'date-fns';
+
 const formSchema = z.object({
   name: z.string().min(2, 'Fund name must be at least 2 characters.'),
   accountId: z.string().min(1, 'An account is required.'),
@@ -53,6 +55,8 @@ const formSchema = z.object({
   primaryPaymentMonth: z.coerce.number().min(0).default(0),
   secondaryPaymentMonth: z.coerce.number().min(0).default(6),
   categoryId: z.string().optional(),
+  status: z.enum(['active', 'inactive']).default('active'),
+  activatedAt: z.string().optional(),
 });
 
 type SinkingFundFormProps = {
@@ -95,14 +99,18 @@ export function SinkingFundForm({ open, onOpenChange, addSavingsItem, updateSavi
       primaryPaymentMonth: 0,
       secondaryPaymentMonth: 6,
       categoryId: '',
+      status: 'active',
+      activatedAt: format(new Date(), 'yyyy-MM-dd'),
     },
   });
 
   const recurrence = form.watch('recurrence');
   const isCustomGoal = form.watch('isCustomGoal');
+  const status = form.watch('status');
 
   useEffect(() => {
     if (open) {
+      const todayStr = format(new Date(), 'yyyy-MM-dd');
       if (editingItem) {
         form.reset({
           name: editingItem.name,
@@ -118,6 +126,8 @@ export function SinkingFundForm({ open, onOpenChange, addSavingsItem, updateSavi
           primaryPaymentMonth: editingItem.primaryPaymentMonth ?? 0,
           secondaryPaymentMonth: editingItem.secondaryPaymentMonth ?? 6,
           categoryId: editingItem.categoryId || '',
+          status: editingItem.status || 'active',
+          activatedAt: editingItem.activatedAt ? editingItem.activatedAt.split('T')[0] : todayStr,
         });
       } else if (prefillItem) {
         form.reset({
@@ -134,6 +144,8 @@ export function SinkingFundForm({ open, onOpenChange, addSavingsItem, updateSavi
           primaryPaymentMonth: prefillItem.primaryPaymentMonth || 0,
           secondaryPaymentMonth: prefillItem.secondaryPaymentMonth || 6,
           categoryId: prefillItem.categoryId || '',
+          status: prefillItem.status || 'active',
+          activatedAt: prefillItem.activatedAt ? prefillItem.activatedAt.split('T')[0] : todayStr,
         });
       } else {
         form.reset({
@@ -150,14 +162,29 @@ export function SinkingFundForm({ open, onOpenChange, addSavingsItem, updateSavi
           primaryPaymentMonth: 0,
           secondaryPaymentMonth: 6,
           categoryId: '',
+          status: 'active',
+          activatedAt: todayStr,
         });
       }
     }
   }, [editingItem, open, form, defaultAccountId, prefillItem]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    let activatedAt = values.activatedAt;
+
+    if (values.status === 'active') {
+      if (!activatedAt || (editingItem && editingItem.status === 'inactive')) {
+        activatedAt = todayStr;
+      }
+    } else {
+      activatedAt = undefined;
+    }
+
     const submissionData = { 
         ...values, 
+        status: values.status,
+        activatedAt: activatedAt || undefined,
         recurrence: values.recurrence as SavingsRecurrence,
         goal: values.isCustomGoal ? (values.goal || null) : null,
         totalCost: values.totalCost || null,
@@ -190,6 +217,38 @@ export function SinkingFundForm({ open, onOpenChange, addSavingsItem, updateSavi
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <ScrollArea className="h-[60vh] pr-6 -mr-6">
               <div className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base font-semibold">Active Fund</FormLabel>
+                        <p className="text-xs text-muted-foreground">
+                          {field.value === 'active' ? 'Fund is active and included in monthly target calculations.' : 'Fund is inactive and paused.'}
+                        </p>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value === 'active'}
+                          onCheckedChange={(checked) => field.onChange(checked ? 'active' : 'inactive')}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                {status === 'active' && (
+                  <FormField control={form.control} name="activatedAt" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Date Marked Active</FormLabel>
+                        <FormControl><Input type="date" {...field} value={field.value || ''} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
                 <FormField control={form.control} name="name" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Fund Name</FormLabel>

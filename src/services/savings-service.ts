@@ -142,7 +142,7 @@ export async function syncSinkingFundsBudget(targetMonth?: string, fromCycle?: b
     const snapshot = await db.collection(SAVINGS_COLLECTION).get();
     const items = snapshot.docs
       .map(doc => ({ id: doc.id, ...doc.data() } as SavingsItem))
-      .filter(item => activeAccountIds.has(item.accountId));
+      .filter(item => activeAccountIds.has(item.accountId) && item.status !== 'inactive');
 
     const today = new Date();
     const currentMonth = format(today, 'yyyy-MM');
@@ -293,7 +293,7 @@ export async function bulkFundSinkingFunds(month: string): Promise<void> {
   const fundsSnap = await db.collection(SAVINGS_COLLECTION).get();
   const items = fundsSnap.docs
     .map(d => ({ id: d.id, ...d.data() }))
-    .filter((item: any) => activeIds.has(item.accountId)) as any[];
+    .filter((item: any) => activeIds.has(item.accountId) && item.status !== 'inactive') as any[];
 
   const batch = db.batch();
   const now = new Date().toISOString();

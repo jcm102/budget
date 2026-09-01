@@ -127,7 +127,7 @@ export async function getBudgetItems(db: Firestore, selectedMonth: string): Prom
                     ...item,
                     id: instanceId, // Use a unique ID for this specific instance
                     date: format(instanceDate, 'yyyy-MM-dd'),
-                    completed: item.completed || false, // Ensure completed has a value
+                    completed: false,
                     isNextMonthView: !isSameMonth(budgetDate, startOfCurrentMonth),
                 });
             }

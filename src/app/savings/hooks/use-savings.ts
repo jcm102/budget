@@ -53,7 +53,23 @@ export function getActiveCycle(item: Omit<SavingsItem, 'monthlyAmount'>, referen
   return currentCycle;
 }
 
+export function parseLocalDate(dateStr: string): Date {
+  if (!dateStr) return new Date();
+  const parts = dateStr.split('T')[0].split('-');
+  if (parts.length === 3) {
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    return new Date(year, month, day);
+  }
+  return new Date(dateStr);
+}
+
 export function calculateMonthlyAmount(item: Omit<SavingsItem, 'monthlyAmount'>, referenceDate?: Date): number {
+  if (item.status === 'inactive') {
+    return 0;
+  }
+
   const activeCycle = getActiveCycle(item, referenceDate);
   const isCustomGoal = item.isCustomGoal;
 
@@ -64,7 +80,7 @@ export function calculateMonthlyAmount(item: Omit<SavingsItem, 'monthlyAmount'>,
   const totalCost = activeCycle.totalCost || 0;
 
   if (activeCycle.dueDate) {
-    const today = referenceDate ?? new Date();
+    const startRefDate = item.activatedAt ? parseLocalDate(item.activatedAt) : (referenceDate ?? new Date());
     const parts = activeCycle.dueDate.split('T')[0].split('-');
     if (parts.length === 3) {
       const year = parseInt(parts[0], 10);
@@ -72,15 +88,14 @@ export function calculateMonthlyAmount(item: Omit<SavingsItem, 'monthlyAmount'>,
       const day = parseInt(parts[2], 10);
       const dueDate = new Date(year, month, day);
 
-      // Months to save: from the reference month up to (and including) the month
+      // Months to save: from the active reference month up to (and including) the month
       // BEFORE the due month, so the full amount is ready at the START of the due month.
-      const yearDiff = dueDate.getFullYear() - today.getFullYear();
-      const monthDiff = dueDate.getMonth() - today.getMonth();
+      const yearDiff = dueDate.getFullYear() - startRefDate.getFullYear();
+      const monthDiff = dueDate.getMonth() - startRefDate.getMonth();
       const monthsRemaining = yearDiff * 12 + monthDiff;
 
       if (monthsRemaining > 0) {
-        // Static planned rate — always based on totalCost, not remaining balance.
-        // This keeps the monthly column constant regardless of how much has been funded.
+        // Static planned rate — always based on totalCost and active timeline.
         return totalCost / monthsRemaining;
       }
     }
