@@ -233,6 +233,7 @@ export default function MonthlyBudgetPage() {
         deleteTransaction={deleteTransaction}
         editingTransaction={editingTransaction}
         initialData={initialTransactionData}
+        month={selectedMonthString}
       />
       <BudgetBreakdownForm
         open={isBreakdownFormOpen}

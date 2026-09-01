@@ -94,11 +94,12 @@ type TransactionFormProps = {
   deleteTransaction: (id: string) => void;
   editingTransaction: Transaction | null;
   initialData?: Partial<Transaction> | null;
+  month?: string;
   isPage?: boolean;
 };
 
-export function TransactionForm({ open, onOpenChange, accounts, addTransaction, updateTransaction, editingTransaction, initialData, isPage = false }: TransactionFormProps) {
-  const { categories, budgetItems } = useMonthlyBudget();
+export function TransactionForm({ open, onOpenChange, accounts, addTransaction, updateTransaction, editingTransaction, initialData, month, isPage = false }: TransactionFormProps) {
+  const { categories, budgetItems } = useMonthlyBudget(month);
   const { commonAccountIds } = useCommonAccounts();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -177,6 +178,16 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
     return buildTree(null);
   }, [categories]);
 
+  const getDefaultDate = () => {
+    if (month) {
+      const currentMonth = format(new Date(), 'yyyy-MM');
+      if (month !== currentMonth) {
+        return `${month}-01`;
+      }
+    }
+    return format(new Date(), 'yyyy-MM-dd');
+  };
+
   useEffect(() => {
     if (open) {
       if (editingTransaction) {
@@ -195,7 +206,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
         });
       } else if (initialData) {
         const initialAmount = initialData.amount ?? 0;
-        const initialDate = initialData.date ? initialData.date.split('T')[0] : format(new Date(), 'yyyy-MM-dd');
+        const initialDate = initialData.date ? initialData.date.split('T')[0] : getDefaultDate();
         form.reset({
           description: initialData.description || '',
           payee: initialData.payee || initialData.description || '',
@@ -212,7 +223,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
           description: '',
           payee: '',
           amount: 0,
-          date: format(new Date(), 'yyyy-MM-dd'),
+          date: getDefaultDate(),
           sourceAccountId: '',
           splits: [],
           isIOUPayment: false,
@@ -221,7 +232,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
         });
       }
     }
-  }, [editingTransaction, initialData, open, form]);
+  }, [editingTransaction, initialData, open, form, month]);
 
   const totalAmount = form.watch('amount');
   const splitAmounts = form.watch('splits');
@@ -250,8 +261,45 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
   };
 
   const getBreakdownOptions = (categoryId: string) => {
-    const budgetItem = budgetItems.find((b: any) => b.categoryId === categoryId);
-    return budgetItem?.breakdown?.filter((b: any) => b.name !== 'Default') || [];
+    if (!categoryId) return [];
+
+    const category = categories.find(c => c.id === categoryId);
+    const categoryName = category?.name;
+
+    const relatedCategoryIds = new Set<string>([categoryId]);
+    const relatedCategoryNames = new Set<string>();
+    if (categoryName) relatedCategoryNames.add(categoryName);
+
+    const childCats = categories.filter(c => c.parentId === categoryId);
+    childCats.forEach(child => {
+      relatedCategoryIds.add(child.id);
+      relatedCategoryNames.add(child.name);
+    });
+
+    const optionsMap = new Map<string, { name: string }>();
+
+    budgetItems.forEach((b: any) => {
+      const matchesId = b.categoryId && relatedCategoryIds.has(b.categoryId);
+      const matchesName = b.category && relatedCategoryNames.has(b.category);
+
+      if (matchesId || matchesName) {
+        if (Array.isArray(b.breakdown) && b.breakdown.length > 0) {
+          b.breakdown.forEach((sub: any) => {
+            if (sub && sub.name && !optionsMap.has(sub.name)) {
+              optionsMap.set(sub.name, { name: sub.name });
+            }
+          });
+        }
+      }
+    });
+
+    childCats.forEach(child => {
+      if (!optionsMap.has(child.name)) {
+        optionsMap.set(child.name, { name: child.name });
+      }
+    });
+
+    return Array.from(optionsMap.values());
   };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -563,7 +611,13 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                     <div className="space-y-3">
                         {fields.map((field, index) => {
                             const split = form.watch(`splits.${index}`);
-                            const breakdownOptions = getBreakdownOptions(split.categoryId || '');
+                            const rawBreakdownOptions = getBreakdownOptions(split.categoryId || '');
+                            const currentBudgetItemName = form.watch(`splits.${index}.budgetItemName`);
+
+                            const breakdownOptions = [...rawBreakdownOptions];
+                            if (currentBudgetItemName && !breakdownOptions.some(opt => opt.name === currentBudgetItemName)) {
+                              breakdownOptions.unshift({ name: currentBudgetItemName });
+                            }
                             
                             return (
                                 <Card key={field.id} className="bg-secondary/50">

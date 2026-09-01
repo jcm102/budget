@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Edit2, ChevronDown, ChevronRight, PlusCircle } from 'lucide-react';
 import { cn, generateUUID } from '@/lib/utils';
-import { format } from 'date-fns';
+import { format, addMonths, subMonths } from 'date-fns';
 
 interface BudgetTableProps {
   budgetItems: any[];
@@ -38,6 +38,7 @@ export function BudgetTable({
   isLoading,
   onEditBreakdown,
   onEditTransaction,
+  view,
   groupBy
 }: BudgetTableProps) {
 
@@ -313,11 +314,21 @@ export function BudgetTable({
 
     const initialAmount = Math.max(0, amount);
 
+    const getTargetDate = () => {
+      if (view === 'next') {
+        return `${format(addMonths(new Date(), 1), 'yyyy-MM')}-01`;
+      }
+      if (view === 'previous') {
+        return `${format(subMonths(new Date(), 1), 'yyyy-MM')}-01`;
+      }
+      return format(new Date(), 'yyyy-MM-dd');
+    };
+
     const initialData = {
       description,
       payee: description,
       amount: initialAmount,
-      date: format(new Date(), 'yyyy-MM-dd'),
+      date: getTargetDate(),
       sourceAccountId: matchedAccountId,
       splits: [
         {
