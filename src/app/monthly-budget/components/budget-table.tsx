@@ -246,7 +246,14 @@ export function BudgetTable({
       // 2. Put subcategories under their root parents
       tableData.forEach(row => {
         const isRoot = !row.parentId || row.parentId === 'null' || row.parentId === 'undefined';
-        if (isRoot) return; // Root parents are headers, they don't list as rows
+        if (isRoot) {
+          // Top-level categories without children are leaf rows in their own group
+          if (!row.hasChildren) {
+            groups[row.name] = groups[row.name] || [];
+            groups[row.name].push(row);
+          }
+          return;
+        }
         if (row.hasChildren) return; // Middle-tier parents are also headers/non-editable, they don't list as rows
 
         const rootParent = getRootParent(row);
