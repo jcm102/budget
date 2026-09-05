@@ -126,25 +126,34 @@ function calculateMonthlyAmount(item: any, targetMonthStr?: string): number {
       const startRefDate = item.activatedAt ? parseLocalDate(item.activatedAt) : refDate;
       const totalMonths = (dueDate.getFullYear() - startRefDate.getFullYear()) * 12 + (dueDate.getMonth() - startRefDate.getMonth());
       const divisor = totalMonths > 0 ? totalMonths : monthsUntilDue;
-      return totalCost / divisor;
+      const plannedMonthly = totalCost / divisor;
+      const remainingCost = Math.max(0, totalCost - (item.amount || 0));
+      return Math.min(plannedMonthly, remainingCost);
     }
   }
 
   // If no due date, fall back to recurrence
   if (!activeCycle.dueDate && item.recurrence) {
+    const remainingCost = Math.max(0, totalCost - (item.amount || 0));
+    let planned = 0;
     switch (item.recurrence) {
       case 'Quarterly':
-        return totalCost / 3;
+        planned = totalCost / 3;
+        break;
       case 'Semi-Annually':
       case 'Semi-Annually (Custom)':
-        return totalCost / 6;
+        planned = totalCost / 6;
+        break;
       case 'Annually':
-        return totalCost / 12;
+        planned = totalCost / 12;
+        break;
       case 'Bi-Annually':
-        return totalCost / 24;
+        planned = totalCost / 24;
+        break;
       default:
-        return 0;
+        planned = 0;
     }
+    return Math.min(planned, remainingCost);
   }
 
   return item.goal ?? 0;
