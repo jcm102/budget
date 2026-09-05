@@ -79,8 +79,14 @@ export function calculateMonthlyAmount(item: Omit<SavingsItem, 'monthlyAmount'>,
 
   const totalCost = activeCycle.totalCost || 0;
 
+  // Fully funded funds do not require further monthly contributions
+  if (totalCost > 0 && (item.amount || 0) >= totalCost) {
+    return 0;
+  }
+
+  const refDate = referenceDate ?? new Date();
+
   if (activeCycle.dueDate) {
-    const startRefDate = item.activatedAt ? parseLocalDate(item.activatedAt) : (referenceDate ?? new Date());
     const parts = activeCycle.dueDate.split('T')[0].split('-');
     if (parts.length === 3) {
       const year = parseInt(parts[0], 10);
@@ -90,19 +96,20 @@ export function calculateMonthlyAmount(item: Omit<SavingsItem, 'monthlyAmount'>,
 
       // Months to save: from the active reference month up to (and including) the month
       // BEFORE the due month, so the full amount is ready at the START of the due month.
-      const yearDiff = dueDate.getFullYear() - startRefDate.getFullYear();
-      const monthDiff = dueDate.getMonth() - startRefDate.getMonth();
-      const monthsRemaining = yearDiff * 12 + monthDiff;
-
-      if (monthsRemaining > 0) {
-        // Static planned rate — always based on totalCost and active timeline.
-        return totalCost / monthsRemaining;
+      const monthsUntilDue = (dueDate.getFullYear() - refDate.getFullYear()) * 12 + (dueDate.getMonth() - refDate.getMonth());
+      if (monthsUntilDue <= 0) {
+        return 0;
       }
+
+      const startRefDate = item.activatedAt ? parseLocalDate(item.activatedAt) : refDate;
+      const totalMonths = (dueDate.getFullYear() - startRefDate.getFullYear()) * 12 + (dueDate.getMonth() - startRefDate.getMonth());
+      const divisor = totalMonths > 0 ? totalMonths : monthsUntilDue;
+      return totalCost / divisor;
     }
   }
 
-  // If no due date or due date is in the past, fall back to recurrence
-  if (item.recurrence) {
+  // If no due date, fall back to recurrence
+  if (!activeCycle.dueDate && item.recurrence) {
     switch (item.recurrence) {
       case 'Quarterly':
         return totalCost / 3;

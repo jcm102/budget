@@ -71,7 +71,23 @@ function getActiveCycle(item: any, referenceDate?: Date) {
   return currentCycle;
 }
 
+function parseLocalDate(dateStr: string): Date {
+  if (!dateStr) return new Date();
+  const parts = dateStr.split('T')[0].split('-');
+  if (parts.length === 3) {
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    return new Date(year, month, day);
+  }
+  return new Date(dateStr);
+}
+
 function calculateMonthlyAmount(item: any, targetMonthStr?: string): number {
+  if (item.status === 'inactive') {
+    return 0;
+  }
+
   let refDate = new Date();
   if (targetMonthStr) {
     const parts = targetMonthStr.split('-');
@@ -89,6 +105,11 @@ function calculateMonthlyAmount(item: any, targetMonthStr?: string): number {
 
   const totalCost = activeCycle.totalCost || 0;
 
+  // Fully funded funds do not require further monthly contributions
+  if (totalCost > 0 && (item.amount || 0) >= totalCost) {
+    return 0;
+  }
+
   if (activeCycle.dueDate) {
     const parts = activeCycle.dueDate.split('T')[0].split('-');
     if (parts.length === 3) {
@@ -97,17 +118,20 @@ function calculateMonthlyAmount(item: any, targetMonthStr?: string): number {
       const day = parseInt(parts[2], 10);
       const dueDate = new Date(year, month, day);
 
-      const yearDiff = dueDate.getFullYear() - refDate.getFullYear();
-      const monthDiff = dueDate.getMonth() - refDate.getMonth();
-      const monthsRemaining = yearDiff * 12 + monthDiff;
-
-      if (monthsRemaining > 0) {
-        return totalCost / monthsRemaining;
+      const monthsUntilDue = (dueDate.getFullYear() - refDate.getFullYear()) * 12 + (dueDate.getMonth() - refDate.getMonth());
+      if (monthsUntilDue <= 0) {
+        return 0;
       }
+
+      const startRefDate = item.activatedAt ? parseLocalDate(item.activatedAt) : refDate;
+      const totalMonths = (dueDate.getFullYear() - startRefDate.getFullYear()) * 12 + (dueDate.getMonth() - startRefDate.getMonth());
+      const divisor = totalMonths > 0 ? totalMonths : monthsUntilDue;
+      return totalCost / divisor;
     }
   }
 
-  if (item.recurrence) {
+  // If no due date, fall back to recurrence
+  if (!activeCycle.dueDate && item.recurrence) {
     switch (item.recurrence) {
       case 'Quarterly':
         return totalCost / 3;
