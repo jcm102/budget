@@ -12,6 +12,7 @@ import { useMonthlyBudget } from './hooks/use-monthly-budget';
 import { BudgetBreakdownForm } from './components/budget-breakdown-form';
 import type { Category, MonthlyBudgetItem, BudgetSubItem, Transaction, BudgetItem, AccountDetails } from '@/types';
 import { useBudget } from '@/app/budget/hooks/use-budget';
+import { useToast } from '@/hooks/use-toast';
 import { format, addMonths, subMonths } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -146,13 +147,27 @@ export default function MonthlyBudgetPage() {
     ? monthlyBudgetItems.find(b => b.categoryId === selectedCategory.id) 
     : null;
 
+  const { toast } = useToast();
+
   const handleEditBreakdown = (category: Category) => {
     setSelectedCategory(category);
     setIsBreakdownFormOpen(true);
   }
 
-  const handleSaveBreakdown = (categoryId: string, breakdown: BudgetSubItem[]) => {
-    updateBudgetItemWithBreakdown(categoryId, breakdown);
+  const handleSaveBreakdown = async (categoryId: string, breakdown: BudgetSubItem[]) => {
+    try {
+      await updateBudgetItemWithBreakdown(categoryId, breakdown);
+      toast({
+        title: 'Budget updated',
+        description: 'Category breakdown saved successfully.',
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Error saving budget',
+        description: err?.message || 'Failed to save category breakdown.',
+        variant: 'destructive',
+      });
+    }
   }
   
   const handleOpenTransactionForm = useCallback((transaction: Transaction | null, initialData?: Partial<Transaction> | null) => {

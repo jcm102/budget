@@ -67,17 +67,30 @@ export function useMonthlyBudget(selectedMonth: string = format(new Date(), 'yyy
     }
   };
 
+  const sanitizeBreakdown = (items: any[]): any[] => {
+    return items.map(item => {
+      const clean: Record<string, any> = {};
+      for (const [k, v] of Object.entries(item)) {
+        if (v !== undefined) {
+          clean[k] = v;
+        }
+      }
+      return clean;
+    });
+  };
+
   const updateBudgetItemWithBreakdown = async (categoryId: string, breakdown: any[]) => {
-    const budgeted = breakdown.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    const sanitized = sanitizeBreakdown(breakdown);
+    const budgeted = sanitized.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
     const existing = budgetItems.find(item => item.categoryId === categoryId);
     if (existing) {
-      await updateDoc(doc(db, 'monthly-budget-items', existing.id), { budgeted, breakdown });
+      await updateDoc(doc(db, 'monthly-budget-items', existing.id), { budgeted, breakdown: sanitized });
     } else {
       await addDoc(collection(db, 'monthly-budget-items'), {
         categoryId,
         budgeted,
         month: selectedMonth,
-        breakdown
+        breakdown: sanitized
       });
     }
   };

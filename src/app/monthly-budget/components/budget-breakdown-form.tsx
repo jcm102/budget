@@ -99,16 +99,26 @@ export function BudgetBreakdownForm({ open, onOpenChange, onSave, category, budg
         const existingSub = budgetItem?.breakdown?.find(ex => ex.name === item.name);
         const baseline = existingSub?.defaultAmount ?? existingSub?.amount ?? item.amount;
 
-        return {
+        const sub: BudgetSubItem = {
           name: item.name,
-          amount: item.amount,
+          amount: Number(item.amount) || 0,
           paymentMethod: item.paymentMethod || null,
           recurring: item.recurring ?? true,
-          defaultAmount: isException ? baseline : item.amount,
+          defaultAmount: isException ? baseline : (Number(item.amount) || 0),
           notes: item.notes || '',
-          debtId: item.debtId || (existingSub as any)?.debtId,
-          isWorksheet: item.isWorksheet ?? (existingSub as any)?.isWorksheet,
         };
+
+        const resolvedDebtId = item.debtId || (existingSub as any)?.debtId;
+        if (resolvedDebtId) {
+          sub.debtId = resolvedDebtId;
+        }
+
+        const resolvedIsWorksheet = item.isWorksheet ?? (existingSub as any)?.isWorksheet;
+        if (resolvedIsWorksheet) {
+          sub.isWorksheet = true;
+        }
+
+        return sub;
       });
       onSave(category.id, mappedBreakdown);
     }
