@@ -682,11 +682,28 @@ export async function syncDebtPaymentsToMonthlyBudget(db: Firestore): Promise<vo
       .filter(doc => doc.id !== '_seeded')
       .map(doc => ({ id: doc.id, ...doc.data() } as Category));
       
+    const activeDebtIds = new Set(debts.map(d => d.id));
+    const activeDebtNames = new Set(debts.map(d => d.name));
+
+    // Fetch existing budget items for nextMonth and debt categories to preserve manual breakdown items
+    const budgetItemQuery = query(
+        collection(db, MONTHLY_BUDGET_COLLECTION),
+        where('month', '==', nextMonth)
+    );
+    const existingBudgetSnapshot = await getDocs(budgetItemQuery);
+    const existingBudgetMap = new Map<string, { id: string; ref: any; data: any }>();
+    existingBudgetSnapshot.docs.forEach(docSnap => {
+        const d = docSnap.data();
+        if (d.categoryId) {
+            existingBudgetMap.set(d.categoryId, { id: docSnap.id, ref: docSnap.ref, data: d });
+        }
+    });
+
     await runTransaction(db, async (transaction) => {
         const categoryMap = new Map<string, string>();
         budgetCategories.forEach(cat => categoryMap.set(cat.name, cat.id));
 
-        const categoryAggregates: Record<string, { total: number; breakdown: { name: string; amount: number }[] }> = {};
+        const categoryAggregates: Record<string, { total: number; breakdown: { name: string; amount: number; debtId?: string; isWorksheet?: boolean }[] }> = {};
 
         // Aggregate payments by category
         for (const debt of debts) {
@@ -708,34 +725,45 @@ export async function syncDebtPaymentsToMonthlyBudget(db: Firestore): Promise<vo
                 categoryAggregates[categoryId] = { total: 0, breakdown: [] };
             }
             categoryAggregates[categoryId].total += amount;
-            categoryAggregates[categoryId].breakdown.push({ name: debt.name, amount });
+            categoryAggregates[categoryId].breakdown.push({
+                name: debt.name,
+                amount,
+                debtId: debt.id,
+                isWorksheet: true
+            });
         }
 
         // Update or create monthly budget items inside transaction
         for (const categoryId in categoryAggregates) {
-            const { total, breakdown } = categoryAggregates[categoryId];
-            
-            const budgetItemQuery = query(
-                collection(db, MONTHLY_BUDGET_COLLECTION),
-                where('month', '==', nextMonth),
-                where('categoryId', '==', categoryId),
-                limit(1)
-            );
-            const snapshot = await getDocs(budgetItemQuery);
-            
+            const { breakdown } = categoryAggregates[categoryId];
+            const existing = existingBudgetMap.get(categoryId);
+            let manualItems: any[] = [];
+            if (existing && Array.isArray(existing.data.breakdown)) {
+                manualItems = existing.data.breakdown.filter((item: any) => {
+                    if (item.debtId && activeDebtIds.has(item.debtId)) return false;
+                    if (item.isWorksheet) return false;
+                    if (activeDebtNames.has(item.name)) return false;
+                    return true;
+                });
+            }
+
+            const combinedBreakdown = [...breakdown, ...manualItems];
+            const combinedTotal = combinedBreakdown.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+
             const data = {
                 categoryId: categoryId,
                 month: nextMonth,
-                budgeted: total,
-                breakdown: breakdown,
+                budgeted: combinedTotal,
+                breakdown: combinedBreakdown,
             };
 
-            if (snapshot.empty) {
-                const newDocRef = doc(collection(db, MONTHLY_BUDGET_COLLECTION));
-                transaction.set(newDocRef, data);
+            if (!existing) {
+                if (combinedTotal > 0 || combinedBreakdown.length > 0) {
+                    const newDocRef = doc(collection(db, MONTHLY_BUDGET_COLLECTION));
+                    transaction.set(newDocRef, data);
+                }
             } else {
-                const docRef = snapshot.docs[0].ref;
-                transaction.set(docRef, data);
+                transaction.set(existing.ref, data, { merge: true });
             }
         }
     });

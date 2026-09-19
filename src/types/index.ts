@@ -289,6 +289,8 @@ export interface BudgetSubItem {
   recurring?: boolean;
   defaultAmount?: number | null;
   notes?: string;
+  debtId?: string;
+  isWorksheet?: boolean;
 }
 
 export interface MonthlyBudgetItem {

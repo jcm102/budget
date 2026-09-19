@@ -449,6 +449,9 @@ export function BudgetTable({
               <TableCell className="pl-14 text-xs font-normal text-muted-foreground">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span>{sub.name}</span>
+                    {sub.isWorksheet && (
+                      <span className="text-[10px] text-amber-600 font-semibold">(Live Worksheet)</span>
+                    )}
                     {sub.paymentMethod && sub.paymentMethod !== row.paymentMethod && (
                       <span className="text-[9px] text-primary/75 italic font-medium">({sub.paymentMethod})</span>
                     )}

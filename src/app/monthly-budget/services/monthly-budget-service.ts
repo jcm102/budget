@@ -445,14 +445,21 @@ export async function initializeMonthBudget(db: Firestore, targetMonth: string):
   prevSnapshot.forEach(docSnap => {
     const data = docSnap.data() as MonthlyBudgetItem;
     
-    // Skip copying sinking funds or debt categories, as they are synced separately from worksheets
-    if (data.categoryId === SINKING_FUNDS_CATEGORY_ID || debtCategoryIds.has(data.categoryId)) {
+    // Skip copying sinking funds, as they are synced separately from worksheets
+    if (data.categoryId === SINKING_FUNDS_CATEGORY_ID) {
       return;
     }
 
+    const isDebtCat = debtCategoryIds.has(data.categoryId);
+
     if (data.breakdown && data.breakdown.length > 0) {
       const recurringSubItems = data.breakdown
-        .filter(sub => sub.recurring !== false)
+        .filter(sub => {
+          if (sub.recurring === false) return false;
+          // For debt categories, skip worksheet items because worksheet debts sync directly from the Debt worksheet
+          if (isDebtCat && (sub.isWorksheet || sub.debtId)) return false;
+          return true;
+        })
         .map(sub => {
           const baseAmt = sub.defaultAmount !== undefined && sub.defaultAmount !== null ? sub.defaultAmount : sub.amount;
           return {
@@ -463,15 +470,27 @@ export async function initializeMonthBudget(db: Firestore, targetMonth: string):
         });
         
       if (recurringSubItems.length > 0) {
-        const newBudgeted = recurringSubItems.reduce((sum, item) => sum + (item.amount || 0), 0);
-        const newDocRef = doc(collection(db, BUDGET_ITEMS_COLLECTION));
-        batch.set(newDocRef, {
-          categoryId: data.categoryId,
-          month: targetMonth,
-          budgeted: newBudgeted,
-          breakdown: recurringSubItems
-        });
-        hasWrites = true;
+        const existingTargetDoc = targetSnapshot.docs.find(d => (d.data() as MonthlyBudgetItem).categoryId === data.categoryId);
+        if (isDebtCat && existingTargetDoc) {
+          const existingData = existingTargetDoc.data() as MonthlyBudgetItem;
+          const combined = [...(existingData.breakdown || []), ...recurringSubItems];
+          const newBudgeted = combined.reduce((sum, item) => sum + (item.amount || 0), 0);
+          batch.update(existingTargetDoc.ref, {
+            budgeted: newBudgeted,
+            breakdown: combined
+          });
+          hasWrites = true;
+        } else {
+          const newBudgeted = recurringSubItems.reduce((sum, item) => sum + (item.amount || 0), 0);
+          const newDocRef = doc(collection(db, BUDGET_ITEMS_COLLECTION));
+          batch.set(newDocRef, {
+            categoryId: data.categoryId,
+            month: targetMonth,
+            budgeted: newBudgeted,
+            breakdown: recurringSubItems
+          });
+          hasWrites = true;
+        }
       }
     }
   });
@@ -479,6 +498,7 @@ export async function initializeMonthBudget(db: Firestore, targetMonth: string):
   if (hasWrites) {
     await batch.commit();
     console.log(`Initialized budget for ${targetMonth} with recurring items.`);
+    await syncDebtPaymentsToMonthlyBudget(targetMonth);
   }
 }
 

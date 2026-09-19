@@ -227,7 +227,7 @@ export async function syncDebtPaymentsToMonthlyBudget(month: string): Promise<vo
   const categoryMap = new Map<string, string>();
   budgetCategories.forEach(cat => categoryMap.set(cat.name, cat.id));
 
-  const categoryAggregates: Record<string, { total: number; breakdown: { name: string; amount: number }[] }> = {};
+  const categoryAggregates: Record<string, { total: number; breakdown: { name: string; amount: number; debtId?: string; isWorksheet?: boolean }[] }> = {};
 
   const today = new Date();
   const currentMonth = format(today, 'yyyy-MM');
@@ -252,7 +252,12 @@ export async function syncDebtPaymentsToMonthlyBudget(month: string): Promise<vo
       categoryAggregates[categoryId] = { total: 0, breakdown: [] };
     }
     categoryAggregates[categoryId].total += amount;
-    categoryAggregates[categoryId].breakdown.push({ name: debt.name, amount });
+    categoryAggregates[categoryId].breakdown.push({
+      name: debt.name,
+      amount,
+      debtId: debt.id,
+      isWorksheet: true
+    });
   }
 
   const MONTHLY_BUDGET_COLLECTION = 'monthly-budget-items';
@@ -263,6 +268,9 @@ export async function syncDebtPaymentsToMonthlyBudget(month: string): Promise<vo
     categoryMap.get('Line of Credit')
   ].filter((id): id is string => !!id);
 
+  const activeDebtIds = new Set(debts.map(d => d.id));
+  const activeDebtNames = new Set(debts.map(d => d.name));
+
   for (const categoryId of debtCategoryIds) {
     const aggregate = categoryAggregates[categoryId] || { total: 0, breakdown: [] };
     
@@ -272,15 +280,31 @@ export async function syncDebtPaymentsToMonthlyBudget(month: string): Promise<vo
       .limit(1)
       .get();
 
+    let manualItems: any[] = [];
+    if (!budgetItemQuery.empty) {
+      const existingData = budgetItemQuery.docs[0].data();
+      if (Array.isArray(existingData.breakdown)) {
+        manualItems = existingData.breakdown.filter((item: any) => {
+          if (item.debtId && activeDebtIds.has(item.debtId)) return false;
+          if (item.isWorksheet) return false;
+          if (activeDebtNames.has(item.name)) return false;
+          return true;
+        });
+      }
+    }
+
+    const combinedBreakdown = [...aggregate.breakdown, ...manualItems];
+    const combinedTotal = combinedBreakdown.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+
     const data = {
       categoryId,
       month,
-      budgeted: aggregate.total,
-      breakdown: aggregate.breakdown
+      budgeted: combinedTotal,
+      breakdown: combinedBreakdown
     };
 
     if (budgetItemQuery.empty) {
-      if (aggregate.total > 0) {
+      if (combinedTotal > 0 || combinedBreakdown.length > 0) {
         await db.collection(MONTHLY_BUDGET_COLLECTION).add(data);
       }
     } else {
