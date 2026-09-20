@@ -13,6 +13,8 @@ const ACCOUNTS_COLLECTION = 'transferees';
 const PA_PAYMENTS_COLLECTION = 'budget-items';
 const DEBT_COLLECTION = 'debts';
 const SINKING_FUNDS_CATEGORY_ID = 'KbWSJVpQRZBOTmu8HxjI';
+const SINKING_FUNDS_COLLECTION = 'sinking-funds';
+const SINKING_FUND_TRANSACTIONS_COLLECTION = 'sinking-fund-transactions';
 
 
 // ===== Budget Items =====
@@ -200,6 +202,13 @@ export async function addTransaction(db: Firestore, transactionData: Partial<Omi
         const accountSnaps = await Promise.all(accountRefs.map(ref => transaction.get(ref)));
         const accountSnapsMap = new Map(accountSnaps.map(snap => [snap.id, snap]));
 
+        // Read sinking fund documents
+        const sfSplits = (splits || []).filter(s => s.type === 'expense' && s.sinkingFundId && s.amount > 0);
+        const sfIds = Array.from(new Set(sfSplits.map(s => s.sinkingFundId!)));
+        const sfRefs = sfIds.map(id => doc(db, SINKING_FUNDS_COLLECTION, id));
+        const sfSnaps = await Promise.all(sfRefs.map(ref => transaction.get(ref)));
+        const sfSnapsMap = new Map(sfSnaps.map(snap => [snap.id, snap]));
+
         const newTransactionRef = doc(collection(db, TRANSACTIONS_COLLECTION));
         transaction.set(newTransactionRef, cleanData);
         
@@ -209,6 +218,26 @@ export async function addTransaction(db: Firestore, transactionData: Partial<Omi
             const snap = accountSnapsMap.get(accId)!;
             const currentBalance = (snap.data() as AccountDetails).balance || 0;
             transaction.update(snap.ref, { balance: currentBalance + offset });
+        }
+
+        // Deduct from sinking funds (even if it goes negative)
+        for (const split of sfSplits) {
+            const snap = sfSnapsMap.get(split.sinkingFundId!);
+            if (snap?.exists()) {
+                const currentBal = snap.data()?.amount || 0;
+                const newBal = currentBal - split.amount;
+                transaction.update(snap.ref, { amount: newBal });
+
+                const logRef = doc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION));
+                transaction.set(logRef, {
+                    fundId: split.sinkingFundId,
+                    amount: split.amount,
+                    type: 'withdraw',
+                    notes: cleanData.description ? `Transaction: ${cleanData.description}` : 'Transaction Expense',
+                    date: cleanData.date || new Date().toISOString(),
+                    transactionId: newTransactionRef.id,
+                });
+            }
         }
         
         return newTransactionRef;
@@ -329,6 +358,17 @@ export async function updateTransaction(db: Firestore, id: string, transactionDa
         const accountRefs = Array.from(accountIds).map(accId => doc(db, ACCOUNTS_COLLECTION, accId));
         const accountSnaps = await Promise.all(accountRefs.map(ref => transaction.get(ref)));
         const accountSnapsMap = new Map(accountSnaps.map(snap => [snap.id, snap]));
+
+        // Read all old and new sinking funds
+        const oldSFSplits = (oldData.splits || []).filter(s => s.type === 'expense' && s.sinkingFundId && s.amount > 0);
+        const newSFSplits = (newData.splits || []).filter(s => s.type === 'expense' && s.sinkingFundId && s.amount > 0);
+        const allSFIds = new Set<string>();
+        oldSFSplits.forEach(s => allSFIds.add(s.sinkingFundId!));
+        newSFSplits.forEach(s => allSFIds.add(s.sinkingFundId!));
+
+        const sfRefs = Array.from(allSFIds).map(sfId => doc(db, SINKING_FUNDS_COLLECTION, sfId));
+        const sfSnaps = await Promise.all(sfRefs.map(ref => transaction.get(ref)));
+        const sfSnapsMap = new Map(sfSnaps.map(snap => [snap.id, snap]));
         // --- End READS ---
  
         // --- Start WRITES ---
@@ -339,6 +379,37 @@ export async function updateTransaction(db: Firestore, id: string, transactionDa
             const snap = accountSnapsMap.get(accId)!;
             const currentBalance = (snap.data() as AccountDetails).balance || 0;
             transaction.update(snap.ref, { balance: currentBalance + offset });
+        }
+
+        // Adjust sinking fund balances
+        const sfOffsets = new Map<string, number>();
+        // Revert old deductions (refund)
+        for (const s of oldSFSplits) {
+            const cur = sfOffsets.get(s.sinkingFundId!) || 0;
+            sfOffsets.set(s.sinkingFundId!, cur + s.amount);
+        }
+        // Apply new deductions
+        for (const s of newSFSplits) {
+            const cur = sfOffsets.get(s.sinkingFundId!) || 0;
+            sfOffsets.set(s.sinkingFundId!, cur - s.amount);
+        }
+        for (const [sfId, offset] of sfOffsets.entries()) {
+            if (offset === 0) continue;
+            const snap = sfSnapsMap.get(sfId);
+            if (snap?.exists()) {
+                const currentBal = snap.data()?.amount || 0;
+                transaction.update(snap.ref, { amount: currentBal + offset });
+
+                const logRef = doc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION));
+                transaction.set(logRef, {
+                    fundId: sfId,
+                    amount: Math.abs(offset),
+                    type: offset > 0 ? 'deposit' : 'withdraw',
+                    notes: `Transaction update adjustment: ${cleanData.description || oldData.description || ''}`,
+                    date: cleanData.date || oldData.date || new Date().toISOString(),
+                    transactionId: id,
+                });
+            }
         }
         
         transaction.update(transactionRef, cleanData);
@@ -381,6 +452,13 @@ export async function deleteTransaction(db: Firestore, id: string): Promise<void
         const accountRefs = Array.from(accountIds).map(accId => doc(db, ACCOUNTS_COLLECTION, accId));
         const accountSnaps = await Promise.all(accountRefs.map(ref => transaction.get(ref)));
         const accountSnapsMap = new Map(accountSnaps.map(snap => [snap.id, snap]));
+
+        // Read sinking funds from oldData
+        const oldSFSplits = (oldData.splits || []).filter(s => s.type === 'expense' && s.sinkingFundId && s.amount > 0);
+        const allSFIds = Array.from(new Set(oldSFSplits.map(s => s.sinkingFundId!)));
+        const sfRefs = allSFIds.map(sfId => doc(db, SINKING_FUNDS_COLLECTION, sfId));
+        const sfSnaps = await Promise.all(sfRefs.map(ref => transaction.get(ref)));
+        const sfSnapsMap = new Map(sfSnaps.map(snap => [snap.id, snap]));
         // --- End READS ---
         
         // --- Start WRITES ---
@@ -391,6 +469,26 @@ export async function deleteTransaction(db: Firestore, id: string): Promise<void
             const currentBalance = (snap.data() as AccountDetails).balance || 0;
             transaction.update(snap.ref, { balance: currentBalance + offset });
         }
+
+        // Refund sinking funds
+        for (const s of oldSFSplits) {
+            const snap = sfSnapsMap.get(s.sinkingFundId!);
+            if (snap?.exists()) {
+                const currentBal = snap.data()?.amount || 0;
+                transaction.update(snap.ref, { amount: currentBal + s.amount });
+
+                const logRef = doc(collection(db, SINKING_FUND_TRANSACTIONS_COLLECTION));
+                transaction.set(logRef, {
+                    fundId: s.sinkingFundId!,
+                    amount: s.amount,
+                    type: 'deposit',
+                    notes: `Reversal (deleted transaction): ${oldData.description || ''}`,
+                    date: new Date().toISOString(),
+                    transactionId: id,
+                });
+            }
+        }
+
         transaction.delete(transactionRef);
     });
 }

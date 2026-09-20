@@ -30,7 +30,7 @@ import { Separator } from '@/components/ui/separator';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Switch } from '@/components/ui/switch';
 import { Calculator } from '@/components/calculator';
-import type { Transaction, AccountDetails, Category } from '@/types';
+import type { Transaction, AccountDetails, Category, SavingsItem } from '@/types';
 import { useMonthlyBudget } from '../hooks/use-monthly-budget';
 import { cn, generateUUID } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -41,6 +41,8 @@ import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useFloatingCalculator } from '@/hooks/use-floating-calculator';
 
+const SINKING_FUNDS_CATEGORY_ID = 'KbWSJVpQRZBOTmu8HxjI';
+
 type CategoryWithChildren = Category & { children: CategoryWithChildren[] };
 
 const splitSchema = z.object({
@@ -50,6 +52,7 @@ const splitSchema = z.object({
     categoryId: z.string().optional(),
     budgetItemName: z.string().optional(),
     destinationAccountId: z.string().optional(),
+    sinkingFundId: z.string().optional(),
 });
 
 const formSchema = z.object({
@@ -104,6 +107,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [payeesList, setPayeesList] = useState<string[]>([]);
+  const [sinkingFunds, setSinkingFunds] = useState<SavingsItem[]>([]);
   const db = useFirestore();
 
   // Floating calculator integration
@@ -132,6 +136,17 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
       setPayeesList(list);
     }, (error) => {
       console.error('Failed to load payees in form:', error);
+    });
+    return () => unsubscribe();
+  }, [db]);
+
+  useEffect(() => {
+    if (!db) return;
+    const q = query(collection(db, 'sinking-funds'), orderBy('name', 'asc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setSinkingFunds(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SavingsItem)));
+    }, (error) => {
+      console.error('Failed to load sinking funds in form:', error);
     });
     return () => unsubscribe();
   }, [db]);
@@ -193,13 +208,21 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
       if (editingTransaction) {
         const isIOU = !!editingTransaction.paidById;
         const isOpening = editingTransaction.description === 'Opening Balance' && (editingTransaction.splits || []).some(s => s.type === 'income');
+        const splitsWithSF = (editingTransaction.splits || []).map(s => {
+          let sfId = s.sinkingFundId;
+          if (!sfId && s.budgetItemName) {
+            const matched = sinkingFunds.find(sf => sf.name.trim().toLowerCase() === s.budgetItemName?.trim().toLowerCase());
+            if (matched) sfId = matched.id;
+          }
+          return { ...s, sinkingFundId: sfId || '' };
+        });
         form.reset({
           description: editingTransaction.description,
           payee: editingTransaction.payee || '',
           amount: editingTransaction.amount,
           date: editingTransaction.date.split('T')[0],
           sourceAccountId: isIOU ? '' : editingTransaction.sourceAccountId,
-          splits: editingTransaction.splits || [],
+          splits: splitsWithSF,
           isIOUPayment: isIOU,
           paidById: isIOU ? editingTransaction.paidById : '',
           isOpeningBalance: isOpening,
@@ -207,13 +230,21 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
       } else if (initialData) {
         const initialAmount = initialData.amount ?? 0;
         const initialDate = initialData.date ? initialData.date.split('T')[0] : getDefaultDate();
+        const splitsWithSF = (initialData.splits || []).map(s => {
+          let sfId = s.sinkingFundId;
+          if (!sfId && s.budgetItemName) {
+            const matched = sinkingFunds.find(sf => sf.name.trim().toLowerCase() === s.budgetItemName?.trim().toLowerCase());
+            if (matched) sfId = matched.id;
+          }
+          return { ...s, sinkingFundId: sfId || '' };
+        });
         form.reset({
           description: initialData.description || '',
           payee: initialData.payee || initialData.description || '',
           amount: initialAmount,
           date: initialDate,
           sourceAccountId: initialData.sourceAccountId || '',
-          splits: initialData.splits || [],
+          splits: splitsWithSF,
           isIOUPayment: false,
           paidById: '',
           isOpeningBalance: false,
@@ -232,7 +263,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
         });
       }
     }
-  }, [editingTransaction, initialData, open, form, month]);
+  }, [editingTransaction, initialData, open, form, month, sinkingFunds]);
 
   const totalAmount = form.watch('amount');
   const splitAmounts = form.watch('splits');
@@ -257,6 +288,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
         categoryId: '',
         budgetItemName: '',
         destinationAccountId: '',
+        sinkingFundId: '',
     });
   };
 
@@ -265,6 +297,23 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
 
     const category = categories.find(c => c.id === categoryId);
     const categoryName = category?.name;
+    const isSinkingFundsCategory = categoryId === SINKING_FUNDS_CATEGORY_ID || categoryName?.toLowerCase().trim() === 'sinking funds';
+
+    if (isSinkingFundsCategory) {
+      return sinkingFunds.map(sf => {
+        const balFormatted = new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: sf.currency || 'CAD',
+        }).format(sf.amount || 0);
+        const statusLabel = sf.status === 'inactive' ? ' [Inactive]' : '';
+        return {
+          name: sf.name,
+          sinkingFundId: sf.id,
+          label: `${sf.name} (Balance: ${balFormatted})${statusLabel}`,
+          isSinkingFund: true,
+        };
+      });
+    }
 
     const relatedCategoryIds = new Set<string>([categoryId]);
     const relatedCategoryNames = new Set<string>();
@@ -276,7 +325,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
       relatedCategoryNames.add(child.name);
     });
 
-    const optionsMap = new Map<string, { name: string }>();
+    const optionsMap = new Map<string, { name: string; label?: string; sinkingFundId?: string; isSinkingFund?: boolean }>();
 
     budgetItems.forEach((b: any) => {
       const matchesId = b.categoryId && relatedCategoryIds.has(b.categoryId);
@@ -286,7 +335,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
         if (Array.isArray(b.breakdown) && b.breakdown.length > 0) {
           b.breakdown.forEach((sub: any) => {
             if (sub && sub.name && !optionsMap.has(sub.name)) {
-              optionsMap.set(sub.name, { name: sub.name });
+              optionsMap.set(sub.name, { name: sub.name, label: sub.name });
             }
           });
         }
@@ -295,7 +344,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
 
     childCats.forEach(child => {
       if (!optionsMap.has(child.name)) {
-        optionsMap.set(child.name, { name: child.name });
+        optionsMap.set(child.name, { name: child.name, label: child.name });
       }
     });
 
@@ -305,10 +354,15 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     let finalSplits = values.splits.map(split => {
-      if (split.type === 'expense') {
-        return { ...split, destinationAccountId: undefined };
+      let sfId = split.sinkingFundId;
+      if (!sfId && split.budgetItemName) {
+        const matched = sinkingFunds.find(sf => sf.name.trim().toLowerCase() === split.budgetItemName?.trim().toLowerCase());
+        if (matched) sfId = matched.id;
       }
-      return split;
+      if (split.type === 'expense') {
+        return { ...split, destinationAccountId: undefined, sinkingFundId: sfId || undefined };
+      }
+      return { ...split, sinkingFundId: undefined };
     });
 
     if (values.isOpeningBalance) {
@@ -317,6 +371,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
         type: 'income' as const,
         amount: values.amount,
         destinationAccountId: values.splits[0]?.destinationAccountId || '',
+        sinkingFundId: undefined,
       }];
     }
 
@@ -663,7 +718,15 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                                                <FormField control={form.control} name={`splits.${index}.categoryId`} render={({ field }) => (
                                                     <FormItem>
                                                         <FormLabel>Category</FormLabel>
-                                                        <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                                                        <Select 
+                                                            onValueChange={(val) => {
+                                                                field.onChange(val);
+                                                                form.setValue(`splits.${index}.budgetItemName`, '');
+                                                                form.setValue(`splits.${index}.sinkingFundId`, '');
+                                                            }} 
+                                                            value={field.value} 
+                                                            defaultValue={field.value}
+                                                        >
                                                             <FormControl>
                                                             <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
                                                             </FormControl>
@@ -683,13 +746,32 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
                                                     <FormField control={form.control} name={`splits.${index}.budgetItemName`} render={({ field }) => (
                                                         <FormItem>
                                                             <FormLabel>Budget Item</FormLabel>
-                                                            <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                                                            <Select 
+                                                                onValueChange={(val) => {
+                                                                    field.onChange(val);
+                                                                    const selectedOpt = breakdownOptions.find((opt: any) => opt.name === val);
+                                                                    if (selectedOpt?.sinkingFundId) {
+                                                                        form.setValue(`splits.${index}.sinkingFundId`, selectedOpt.sinkingFundId);
+                                                                    } else {
+                                                                        const sfMatch = sinkingFunds.find(sf => sf.name === val);
+                                                                        if (sfMatch && (split.categoryId === SINKING_FUNDS_CATEGORY_ID || categories.find(c => c.id === split.categoryId)?.name?.toLowerCase().trim() === 'sinking funds')) {
+                                                                            form.setValue(`splits.${index}.sinkingFundId`, sfMatch.id);
+                                                                        } else {
+                                                                            form.setValue(`splits.${index}.sinkingFundId`, '');
+                                                                        }
+                                                                    }
+                                                                }} 
+                                                                value={field.value} 
+                                                                defaultValue={field.value}
+                                                            >
                                                                 <FormControl>
                                                                 <SelectTrigger><SelectValue placeholder="Select a specific item" /></SelectTrigger>
                                                                 </FormControl>
                                                                 <SelectContent>
                                                                     {breakdownOptions.map((opt: any) => (
-                                                                        <SelectItem key={opt.name} value={opt.name}>{opt.name}</SelectItem>
+                                                                        <SelectItem key={opt.sinkingFundId ? `sf-${opt.sinkingFundId}` : opt.name} value={opt.name}>
+                                                                            {opt.label || opt.name}
+                                                                        </SelectItem>
                                                                     ))}
                                                                 </SelectContent>
                                                             </Select>

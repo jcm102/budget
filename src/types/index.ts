@@ -312,6 +312,9 @@ export interface TransactionSplit {
     
     // A transfer to another account
     destinationAccountId?: string;
+
+    // Sinking fund association
+    sinkingFundId?: string;
 }
 
 export interface Transaction {
