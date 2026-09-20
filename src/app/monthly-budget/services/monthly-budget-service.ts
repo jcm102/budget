@@ -156,7 +156,7 @@ export async function getTransactionsForAccount(db: Firestore, accountId: string
     
     allTransactionsSnapshot.docs.forEach(doc => {
         const tx = { id: doc.id, ...doc.data() } as Transaction;
-        const isSource = tx.sourceAccountId === accountId;
+        const isSource = tx.sourceAccountId === accountId || tx.paidById === accountId;
         const isDestination = (tx.splits || []).some(s => (s.type === 'transfer' || s.type === 'income') && s.destinationAccountId === accountId);
         
         if (isSource || isDestination) {

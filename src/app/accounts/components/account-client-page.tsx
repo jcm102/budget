@@ -218,7 +218,8 @@ export function AccountClientPage({
                             const expenseSplits = tx.splits.filter(s => s.type === 'expense');
                             const transferSplits = tx.splits.filter(s => s.type === 'transfer');
 
-                            const isCredit = tx.sourceAccountId !== account.id;
+                            const isSource = tx.sourceAccountId === account.id || tx.paidById === account.id;
+                            const isCredit = !isSource;
                             const displayAmount = isCredit 
                                 ? transferSplits.find(s => s.destinationAccountId === account.id)?.amount || tx.amount
                                 : tx.amount;

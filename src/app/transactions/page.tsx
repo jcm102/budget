@@ -466,6 +466,13 @@ export default function TransactionLedgerPage() {
                           <TableCell className="text-sm">
                             {isIncome 
                               ? (incomeSplits.length > 0 ? accountMap[incomeSplits[0].destinationAccountId || ''] || 'No Account' : 'No Account') 
+                              : tx.paidById
+                              ? (
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <span>{accountMap[tx.paidById] || 'IOU'}</span>
+                                    <span className="text-[10px] text-muted-foreground bg-secondary/80 rounded px-1 py-0.5 font-medium">IOU</span>
+                                  </span>
+                                )
                               : accountMap[tx.sourceAccountId || ''] || 'No Account'}
                           </TableCell>
                           <TableCell className={cn("text-right font-medium", amountColor)}>
