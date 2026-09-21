@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useFieldArray } from 'react-hook-form';
 import * as z from 'zod';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -13,6 +13,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   Form,
   FormControl,
@@ -25,7 +35,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, SelectLabel } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Trash2, User, Users, Info, Copy, Loader2, Handshake, Calculator as CalcIcon } from 'lucide-react';
+import { Trash2, User, Users, Info, Copy, Loader2, Handshake, Calculator as CalcIcon, Minus, Maximize2, Receipt, X, AlertTriangle } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Switch } from '@/components/ui/switch';
@@ -106,6 +116,8 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
   const { commonAccountIds } = useCommonAccounts();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [payeesList, setPayeesList] = useState<string[]>([]);
   const [sinkingFunds, setSinkingFunds] = useState<SavingsItem[]>([]);
   const db = useFirestore();
@@ -205,6 +217,7 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
 
   useEffect(() => {
     if (open) {
+      setIsMinimized(false);
       if (editingTransaction) {
         const isIOU = !!editingTransaction.paidById;
         const isOpening = editingTransaction.description === 'Opening Balance' && (editingTransaction.splits || []).some(s => s.type === 'income');
@@ -250,20 +263,62 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
           isOpeningBalance: false,
         });
       } else {
-        form.reset({
-          description: '',
-          payee: '',
-          amount: 0,
-          date: getDefaultDate(),
-          sourceAccountId: '',
-          splits: [],
-          isIOUPayment: false,
-          paidById: '',
-          isOpeningBalance: false,
-        });
+        // Check for saved draft in sessionStorage for new transactions
+        let restoredDraft: any = null;
+        if (typeof window !== 'undefined') {
+          try {
+            const raw = sessionStorage.getItem('tasktrack_tx_new_draft');
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (parsed && ((parsed.amount || 0) > 0 || (parsed.description || '').trim() !== '' || (parsed.splits || []).length > 0)) {
+                restoredDraft = parsed;
+              }
+            }
+          } catch (e) {}
+        }
+
+        if (restoredDraft) {
+          form.reset({
+            description: restoredDraft.description || '',
+            payee: restoredDraft.payee || '',
+            amount: restoredDraft.amount || 0,
+            date: restoredDraft.date || getDefaultDate(),
+            sourceAccountId: restoredDraft.sourceAccountId || '',
+            splits: restoredDraft.splits || [],
+            isIOUPayment: restoredDraft.isIOUPayment || false,
+            paidById: restoredDraft.paidById || '',
+            isOpeningBalance: restoredDraft.isOpeningBalance || false,
+          });
+        } else {
+          form.reset({
+            description: '',
+            payee: '',
+            amount: 0,
+            date: getDefaultDate(),
+            sourceAccountId: '',
+            splits: [],
+            isIOUPayment: false,
+            paidById: '',
+            isOpeningBalance: false,
+          });
+        }
       }
     }
   }, [editingTransaction, initialData, open, form, month, sinkingFunds]);
+
+  // Auto-save active new transaction draft to sessionStorage
+  useEffect(() => {
+    if (open && !editingTransaction && !initialData) {
+      const subscription = form.watch((value) => {
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem('tasktrack_tx_new_draft', JSON.stringify(value));
+          } catch (e) {}
+        }
+      });
+      return () => subscription.unsubscribe();
+    }
+  }, [open, editingTransaction, initialData, form]);
 
   const totalAmount = form.watch('amount');
   const splitAmounts = form.watch('splits');
@@ -393,6 +448,12 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
         } else {
           await addTransaction(submissionData, values.isIOUPayment);
         }
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.removeItem('tasktrack_tx_new_draft');
+          } catch (e) {}
+        }
+        setIsMinimized(false);
         toast({ title: "Success", description: "Transaction saved." });
         onOpenChange(false);
     } catch (error) {
@@ -401,6 +462,45 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
         setIsSubmitting(false);
     }
   }
+
+  const isFormDirty = () => {
+    const values = form.getValues();
+    const hasDesc = (values.description || '').trim().length > 0;
+    const hasPayee = (values.payee || '').trim().length > 0;
+    const hasAmount = (values.amount || 0) > 0;
+    const hasSplits = (values.splits || []).some(s => (s.amount || 0) > 0 || (s.categoryId || '') !== '');
+    return hasDesc || hasPayee || hasAmount || hasSplits;
+  };
+
+  const handleRequestClose = () => {
+    if (isFormDirty()) {
+      setShowDiscardConfirm(true);
+    } else {
+      handleConfirmDiscard();
+    }
+  };
+
+  const handleConfirmDiscard = () => {
+    setShowDiscardConfirm(false);
+    setIsMinimized(false);
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.removeItem('tasktrack_tx_new_draft');
+      } catch (e) {}
+    }
+    form.reset({
+      description: '',
+      payee: '',
+      amount: 0,
+      date: getDefaultDate(),
+      sourceAccountId: '',
+      splits: [],
+      isIOUPayment: false,
+      paidById: '',
+      isOpeningBalance: false,
+    });
+    onOpenChange(false);
+  };
 
   const handleUseCalculatorResult = (index: number) => (result: string) => {
     form.setValue(`splits.${index}.amount`, parseFloat(result), { shouldValidate: true });
@@ -823,16 +923,139 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
   if (isPage) return formContent;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle>{editingTransaction ? 'Edit Transaction' : 'Add New Transaction'}</DialogTitle>
-          <DialogDescription>
-            Enter transaction details and split it across categories or transfers.
-          </DialogDescription>
-        </DialogHeader>
-        {formContent}
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog 
+        open={open && !isMinimized} 
+        onOpenChange={(newOpen) => {
+          if (!newOpen) {
+            handleRequestClose();
+          } else {
+            onOpenChange(true);
+          }
+        }}
+      >
+        <DialogContent 
+          className="sm:max-w-xl max-h-[90vh] flex flex-col"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => {
+            e.preventDefault();
+            handleRequestClose();
+          }}
+        >
+          <DialogHeader className="pr-12 relative">
+            <div className="flex items-center justify-between">
+              <DialogTitle>{editingTransaction ? 'Edit Transaction' : 'Add New Transaction'}</DialogTitle>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-8 top-0 h-8 w-8 text-muted-foreground hover:text-foreground rounded-sm"
+                onClick={() => {
+                  setIsMinimized(true);
+                  toast({ title: "Transaction Minimized", description: "Click the floating widget at the bottom right to resume." });
+                }}
+                title="Minimize Form"
+              >
+                <Minus className="h-4 w-4" />
+                <span className="sr-only">Minimize</span>
+              </Button>
+            </div>
+            <DialogDescription>
+              Enter transaction details and split it across categories or transfers.
+            </DialogDescription>
+          </DialogHeader>
+          {formContent}
+        </DialogContent>
+      </Dialog>
+
+      {/* Minimized floating widget */}
+      {open && isMinimized && (
+        <div
+          className="fixed bottom-20 right-6 sm:bottom-6 sm:right-24 z-[9990] flex items-center gap-2.5 bg-background/95 backdrop-blur-md border border-primary/40 shadow-2xl rounded-full pl-4 pr-2.5 py-2 text-sm font-medium animate-in fade-in slide-in-from-bottom-4 duration-200 hover:border-primary transition-all cursor-pointer select-none group"
+          onClick={() => setIsMinimized(false)}
+        >
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
+            </span>
+            <Receipt className="h-4 w-4 text-primary" />
+            <span className="text-foreground font-medium max-w-[150px] sm:max-w-[220px] truncate">
+              {form.watch('description') || (editingTransaction ? 'Editing Transaction' : 'New Transaction')}
+            </span>
+            <span className="font-semibold text-primary ml-1">
+              {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(form.watch('amount') || 0)}
+            </span>
+          </div>
+          <div className="flex items-center gap-1 ml-1 border-l pl-2 border-border">
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsMinimized(false);
+              }}
+              title="Maximize Transaction Form"
+            >
+              <Maximize2 className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRequestClose();
+              }}
+              title="Close / Discard"
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Discard Confirmation Dialog */}
+      <AlertDialog open={showDiscardConfirm} onOpenChange={setShowDiscardConfirm}>
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
+              <AlertTriangle className="h-5 w-5" />
+              Unsaved Transaction
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              You have entered transaction details that haven&apos;t been saved yet. You can minimize this form to keep your changes while you browse, or discard them.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel onClick={() => setShowDiscardConfirm(false)}>
+              Keep Editing
+            </AlertDialogCancel>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => { 
+                setShowDiscardConfirm(false); 
+                setIsMinimized(true); 
+                toast({ title: "Transaction Minimized", description: "Click the floating widget at the bottom right to resume." });
+              }}
+            >
+              <Minus className="mr-1.5 h-4 w-4" />
+              Minimize
+            </Button>
+            <AlertDialogAction 
+              onClick={handleConfirmDiscard} 
+              className={cn(buttonVariants({ variant: "destructive" }))}
+            >
+              Discard
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
