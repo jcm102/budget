@@ -943,24 +943,19 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
             handleRequestClose();
           }}
         >
-          <DialogHeader className="pr-12 relative">
-            <div className="flex items-center justify-between">
-              <DialogTitle>{editingTransaction ? 'Edit Transaction' : 'Add New Transaction'}</DialogTitle>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-8 top-0 h-8 w-8 text-muted-foreground hover:text-foreground rounded-sm"
-                onClick={() => {
-                  setIsMinimized(true);
-                  toast({ title: "Transaction Minimized", description: "Click the floating widget at the bottom right to resume." });
-                }}
-                title="Minimize Form"
-              >
-                <Minus className="h-4 w-4" />
-                <span className="sr-only">Minimize</span>
-              </Button>
-            </div>
+          <button
+            type="button"
+            className="absolute right-10 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
+            onClick={() => {
+              setIsMinimized(true);
+            }}
+            title="Minimize Form"
+          >
+            <Minus className="h-4 w-4" />
+            <span className="sr-only">Minimize</span>
+          </button>
+          <DialogHeader className="pr-16">
+            <DialogTitle>{editingTransaction ? 'Edit Transaction' : 'Add New Transaction'}</DialogTitle>
             <DialogDescription>
               Enter transaction details and split it across categories or transfers.
             </DialogDescription>
@@ -1041,7 +1036,6 @@ export function TransactionForm({ open, onOpenChange, accounts, addTransaction, 
               onClick={() => { 
                 setShowDiscardConfirm(false); 
                 setIsMinimized(true); 
-                toast({ title: "Transaction Minimized", description: "Click the floating widget at the bottom right to resume." });
               }}
             >
               <Minus className="mr-1.5 h-4 w-4" />

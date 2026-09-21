@@ -26,19 +26,31 @@ export function FloatingCalculator() {
     return () => window.removeEventListener('resize', updateInitialPosition);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      document.body.style.userSelect = '';
+      document.body.style.webkitUserSelect = '';
+    };
+  }, []);
+
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return; // Only trigger on left-click
+    e.preventDefault();
     isDragging.current = true;
     offset.current = {
       x: e.clientX - position.x,
       y: e.clientY - position.y
     };
+    document.body.style.userSelect = 'none';
+    document.body.style.webkitUserSelect = 'none';
+    window.getSelection()?.removeAllRanges();
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };
 
   const handleMouseMove = (e: MouseEvent) => {
     if (!isDragging.current) return;
+    e.preventDefault();
     
     // Bounds check to ensure the calculator stays inside the viewport boundaries
     const newX = Math.max(10, Math.min(window.innerWidth - 330, e.clientX - offset.current.x));
@@ -49,6 +61,8 @@ export function FloatingCalculator() {
 
   const handleMouseUp = () => {
     isDragging.current = false;
+    document.body.style.userSelect = '';
+    document.body.style.webkitUserSelect = '';
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
   };
@@ -61,6 +75,8 @@ export function FloatingCalculator() {
       x: touch.clientX - position.x,
       y: touch.clientY - position.y
     };
+    document.body.style.userSelect = 'none';
+    document.body.style.webkitUserSelect = 'none';
     document.addEventListener('touchmove', handleTouchMove, { passive: false });
     document.addEventListener('touchend', handleTouchEnd);
   };
@@ -77,6 +93,8 @@ export function FloatingCalculator() {
 
   const handleTouchEnd = () => {
     isDragging.current = false;
+    document.body.style.userSelect = '';
+    document.body.style.webkitUserSelect = '';
     document.removeEventListener('touchmove', handleTouchMove);
     document.removeEventListener('touchend', handleTouchEnd);
   };

@@ -3,10 +3,12 @@ const nextConfig = {
   output: 'standalone',
   // 1. Allow the Cloud Workstation URL to perform cross-origin requests
   experimental: {
-    allowedDevOrigins: [
-      '9000-firebase-studio-1754251559574.cluster-f4iwdviaqvc2ct6pgytzw4xqy4.cloudworkstations.dev',
-      '*.cloudworkstations.dev'
-    ],
+    serverActions: {
+      allowedOrigins: [
+        '9000-firebase-studio-1754251559574.cluster-f4iwdviaqvc2ct6pgytzw4xqy4.cloudworkstations.dev',
+        '*.cloudworkstations.dev'
+      ],
+    },
     // 2. Prevent Node-only AI libraries from being bundled for the browser
     serverComponentsExternalPackages: [
       'genkit',
