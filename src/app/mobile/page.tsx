@@ -56,6 +56,13 @@ interface MobileSplitItem {
   sinkingFundId?: string;
 }
 
+interface CategoryBreakdownOption {
+  name: string;
+  label?: string;
+  sinkingFundId?: string;
+  isSinkingFund?: boolean;
+}
+
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 };
@@ -130,13 +137,13 @@ export default function MobileTransactionPage() {
   const iouAccounts = useMemo(() => accounts.filter(a => a.type === 'IOU'), [accounts]);
 
   // Retrieve breakdown & sinking fund options for any category
-  const getCategoryBreakdownOptions = useCallback((catId: string) => {
+  const getCategoryBreakdownOptions = useCallback((catId: string): CategoryBreakdownOption[] => {
     if (!catId) return [];
     const cat = categories.find(c => c.id === catId);
     const isSinkingFunds = catId === SINKING_FUNDS_CATEGORY_ID || cat?.name?.toLowerCase().trim() === 'sinking funds';
 
     if (isSinkingFunds && sinkingFunds.length > 0) {
-      return sinkingFunds.map(sf => {
+      return sinkingFunds.map((sf): CategoryBreakdownOption => {
         const bal = new Intl.NumberFormat('en-US', {
           style: 'currency',
           currency: sf.currency || 'CAD',
@@ -152,7 +159,7 @@ export default function MobileTransactionPage() {
     }
 
     const budgetItem = monthlyBudgetItems.find((b: any) => b.categoryId === catId);
-    return (budgetItem?.breakdown?.filter((b: any) => b.name !== 'Default') || []).map((b: any) => ({
+    return (budgetItem?.breakdown?.filter((b: any) => b.name !== 'Default') || []).map((b: any): CategoryBreakdownOption => ({
       name: b.name,
       label: b.name,
       sinkingFundId: undefined,
@@ -1001,7 +1008,7 @@ export default function MobileTransactionPage() {
                                   <Select
                                     value={split.budgetItemName}
                                     onValueChange={(val) => {
-                                      const opt = splitBreakdowns.find(o => o.name === val);
+                                      const opt = splitBreakdowns.find((o: CategoryBreakdownOption) => o.name === val);
                                       handleUpdateSplit(index, {
                                         budgetItemName: val,
                                         sinkingFundId: opt?.sinkingFundId,
@@ -1012,7 +1019,7 @@ export default function MobileTransactionPage() {
                                       <SelectValue placeholder="Select specific item" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      {splitBreakdowns.map((opt) => (
+                                      {splitBreakdowns.map((opt: CategoryBreakdownOption) => (
                                         <SelectItem key={opt.name} value={opt.name} className="text-xs">
                                           {opt.label || opt.name}
                                         </SelectItem>
