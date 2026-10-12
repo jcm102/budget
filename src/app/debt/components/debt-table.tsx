@@ -281,10 +281,15 @@ export function DebtTable({ month, includeArchived, columnVisibility, columnConf
       const defaultCat = categories.find(c => c.name.toLowerCase() === targetCategoryName.toLowerCase());
       setPaymentCategoryId(defaultCat?.id || '');
       
-      // Select first transferee account as default source if any exist
+      // Select preferred transferee account as default source (prefer Libro Chequing)
       if (accounts.length > 0) {
-        const preferredAccount = accounts.find(acc => acc.name.toLowerCase().includes('chequing') || acc.name.toLowerCase().includes('savings')) || accounts[0];
-        setPaymentSourceAccountId(preferredAccount.id);
+        const preferredAccount = 
+          accounts.find(acc => acc.name.toLowerCase() === 'libro chequing') ||
+          accounts.find(acc => acc.name.toLowerCase().includes('libro chequing')) ||
+          accounts.find(acc => acc.name.toLowerCase().includes('chequing')) ||
+          accounts.find(acc => acc.name.toLowerCase().includes('savings')) ||
+          accounts[0];
+        setPaymentSourceAccountId(preferredAccount ? preferredAccount.id : '');
       } else {
         setPaymentSourceAccountId('');
       }
@@ -293,6 +298,24 @@ export function DebtTable({ month, includeArchived, columnVisibility, columnConf
       toggleDebtPaid(id);
     }
   };
+
+  // Pre-select preferred source account if accounts load while modal is open
+  useEffect(() => {
+    if (paymentConfirmDebt && accounts.length > 0) {
+      const hasCurrent = accounts.some(acc => acc.id === paymentSourceAccountId);
+      if (!hasCurrent) {
+        const preferredAccount =
+          accounts.find(acc => acc.name.toLowerCase() === 'libro chequing') ||
+          accounts.find(acc => acc.name.toLowerCase().includes('libro chequing')) ||
+          accounts.find(acc => acc.name.toLowerCase().includes('chequing')) ||
+          accounts.find(acc => acc.name.toLowerCase().includes('savings')) ||
+          accounts[0];
+        if (preferredAccount) {
+          setPaymentSourceAccountId(preferredAccount.id);
+        }
+      }
+    }
+  }, [paymentConfirmDebt, accounts, paymentSourceAccountId]);
 
   const handleConfirmPayment = async () => {
     if (!paymentConfirmDebt || !db) return;
@@ -330,14 +353,15 @@ export function DebtTable({ month, includeArchived, columnVisibility, columnConf
         splits,
       };
 
-      // 1. Log transaction in global ledger
-      await MonthlyBudgetService.addTransaction(db, transactionData);
-      
-      // 2. Mark debt as paid in sheet
-      await toggleDebtPaid(paymentConfirmDebt.id);
+      // 1. Log transaction in global ledger (skip PA auto-resolve since this is a debt payment)
+      // and mark debt as paid concurrently
+      await Promise.all([
+        MonthlyBudgetService.addTransaction(db, transactionData, true),
+        updateDebt(paymentConfirmDebt.id, { paid: true }),
+      ]);
 
-      // 3. Force refetch accounts to reflect new balances immediately
-      await fetchAccounts();
+      // 2. Refetch accounts in the background to reflect new balances without delaying modal closure
+      fetchAccounts().catch(err => console.error('Failed to refetch accounts:', err));
 
       toast({
         title: 'Payment Logged!',
@@ -360,7 +384,7 @@ export function DebtTable({ month, includeArchived, columnVisibility, columnConf
   const handleMarkPaidOnly = async () => {
     if (!paymentConfirmDebt) return;
     try {
-      await toggleDebtPaid(paymentConfirmDebt.id);
+      await updateDebt(paymentConfirmDebt.id, { paid: true });
       toast({
         title: 'Debt Marked Paid',
         description: `"${paymentConfirmDebt.name}" marked as paid without creating a ledger transaction.`,

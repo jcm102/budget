@@ -57,10 +57,22 @@ export async function getBudgetItems(db: Firestore, selectedMonth: string): Prom
   const overriddenInstances = new Set<string>();
 
   // Process overrides first and populate generatedItems and the tracking set
-  overrideItems.forEach(override => {
+  // Sort so completed overrides take precedence over uncompleted duplicates
+  const sortedOverrides = [...overrideItems].sort((a, b) => {
+    if (a.completed && !b.completed) return -1;
+    if (!a.completed && b.completed) return 1;
+    return 0;
+  });
+
+  sortedOverrides.forEach(override => {
       const overrideDate = startOfDay(parseDateString(override.date));
       const budgetDate = override.forNextMonth ? addMonths(overrideDate, 1) : overrideDate;
       if (budgetDate >= startOfCurrentMonth && budgetDate <= endOfNextMonth) {
+          // If we already have an override for this recurring instance, do not add duplicate
+          if (override.originalId && overriddenInstances.has(override.originalId)) {
+            return;
+          }
+
           if (!override.archived && !override.deleted) {
               generatedItems.push({
                   ...override,

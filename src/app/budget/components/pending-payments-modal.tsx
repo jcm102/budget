@@ -33,8 +33,10 @@ export function PendingPaymentsModal({ budgetItems, onMarkPaid, onSkip, onClose 
   const pendingItems = useMemo(() => {
     if (!lastCheckedDateStr) return [];
     
-    const lastChecked = startOfDay(parse(lastCheckedDateStr, 'yyyy-MM-dd', new Date()));
+    const parsedLastChecked = startOfDay(parse(lastCheckedDateStr, 'yyyy-MM-dd', new Date()));
     const today = startOfDay(new Date());
+    const maxLookback = subDays(today, 7);
+    const lastChecked = isBefore(parsedLastChecked, maxLookback) ? maxLookback : parsedLastChecked;
 
     return budgetItems.filter(item => {
       // Only check recurring items (or overrides of recurring items)

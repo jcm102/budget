@@ -238,14 +238,16 @@ export default function BudgetPage() {
         </div>
       </main>
 
-      <PendingPaymentsModal
-        budgetItems={budgetItems}
-        onMarkPaid={async (id) => {
-          await toggleBudgetItemCompleted(id, false);
-        }}
-        onSkip={deleteBudgetItem}
-        onClose={fetchBudgetItems}
-      />
+      {selectedMonthString === format(new Date(), 'yyyy-MM') && (
+        <PendingPaymentsModal
+          budgetItems={budgetItems}
+          onMarkPaid={async (id) => {
+            await toggleBudgetItemCompleted(id, false);
+          }}
+          onSkip={deleteBudgetItem}
+          onClose={fetchBudgetItems}
+        />
+      )}
     </div>
   );
 }

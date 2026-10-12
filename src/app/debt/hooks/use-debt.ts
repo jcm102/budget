@@ -119,7 +119,7 @@ export function useDebt(selectedMonth: string = new Date().toISOString().slice(0
     if (!debtToToggle) return;
 
     const isPaid = !(debtToToggle.paid ?? false);
-    updateDebt(id, { paid: isPaid });
+    return updateDebt(id, { paid: isPaid });
   }, [debts, updateDebt]);
 
   const toggleDebtScheduled = useCallback(async (id: string) => {
@@ -127,7 +127,7 @@ export function useDebt(selectedMonth: string = new Date().toISOString().slice(0
     if (!debtToToggle) return;
 
     const isScheduled = !(debtToToggle.scheduled ?? false);
-    updateDebt(id, { scheduled: isScheduled });
+    return updateDebt(id, { scheduled: isScheduled });
   }, [debts, updateDebt]);
 
   const archiveDebt = useCallback(async (id: string, archived: boolean) => {

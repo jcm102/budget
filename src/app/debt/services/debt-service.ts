@@ -143,7 +143,11 @@ export async function updateDebt(id: string, month: string, debtData: Partial<Om
     await debtRef.collection('months').doc(month).set(monthlyUpdate, { merge: true });
   }
 
-  await syncDebtPaymentsToMonthlyBudget(month);
+  const budgetImpactingFields = ['plannedPayment', 'minimumPayment', 'debtType', 'name', 'archived', 'balance'];
+  const shouldSyncBudget = Object.keys(debtData).some(key => budgetImpactingFields.includes(key));
+  if (shouldSyncBudget) {
+    await syncDebtPaymentsToMonthlyBudget(month);
+  }
 }
 
 export async function addExtraPayment(id: string, month: string, amount: number): Promise<void> {

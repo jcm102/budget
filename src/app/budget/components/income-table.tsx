@@ -250,8 +250,10 @@ export function IncomeTable({ month, onMutation }: { month: string, onMutation?:
     setPaymentCategoryId(item.budgetCategoryId || '');
     
     if (accounts.length > 0) {
-      const preferredAccount = accounts.find(acc => acc.name.toLowerCase().includes('chequing') || acc.name.toLowerCase().includes('savings')) || accounts[0];
-      setPaymentDestAccountId(preferredAccount.id);
+      const preferredAccount = accounts.find(acc => acc.name.toLowerCase().includes('chequing')) 
+        || accounts.find(acc => acc.name.toLowerCase().includes('savings')) 
+        || accounts[0];
+      setPaymentDestAccountId(preferredAccount?.id || '');
     } else {
       setPaymentDestAccountId('');
     }
