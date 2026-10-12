@@ -83,23 +83,75 @@ export function AccountClientPage({
     }, {} as Record<string, string>);
   }, [allCategories]);
 
+  // Calculate running balance for every transaction of this account
+  const runningBalances = useMemo(() => {
+    if (!accountTransactions || accountTransactions.length === 0) {
+      return new Map<string, number>();
+    }
+
+    // Sort all account transactions chronologically (oldest first)
+    const chronological = [...accountTransactions].sort((a, b) => {
+      const timeA = parseDate(a.date).getTime();
+      const timeB = parseDate(b.date).getTime();
+      if (timeA !== timeB) return timeA - timeB;
+      return (a.id || '').localeCompare(b.id || '');
+    });
+
+    const currentBal = account.balance || 0;
+
+    // Calculate net effect of each transaction on this account
+    const netChanges = chronological.map(tx => {
+      const isSource = tx.sourceAccountId === account.id || tx.paidById === account.id;
+      const transferSplits = tx.splits?.filter(s => s.type === 'transfer' || s.type === 'income') || [];
+      const destSplit = transferSplits.find(s => s.destinationAccountId === account.id);
+
+      let change = 0;
+      if (isSource) {
+        change -= tx.amount;
+      }
+      if (destSplit) {
+        change += destSplit.amount;
+      } else if (!isSource) {
+        change += tx.amount;
+      }
+      return change;
+    });
+
+    // Walk backwards from newest to oldest:
+    // Balance after newest transaction is currentBal
+    const balanceMap = new Map<string, number>();
+    let rolling = currentBal;
+
+    for (let i = chronological.length - 1; i >= 0; i--) {
+      balanceMap.set(chronological[i].id, rolling);
+      rolling = rolling - netChanges[i];
+    }
+
+    return balanceMap;
+  }, [accountTransactions, account.id, account.balance]);
+
   const filteredTransactions = useMemo(() => {
     if (!startDate || !endDate) {
       return accountTransactions;
     }
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    end.setUTCHours(23, 59, 59, 999); // Set to end of day in UTC
+    const start = parseDate(startDate);
+    const end = parseDate(endDate);
+    end.setHours(23, 59, 59, 999);
 
     const filtered = accountTransactions.filter(tx => {
-      const txDate = new Date(tx.date);
+      const txDate = parseDate(tx.date);
       return txDate >= start && txDate <= end;
     });
 
     return filtered.sort((a, b) => {
-        const dateA = new Date(a.date).getTime();
-        const dateB = new Date(b.date).getTime();
-        return sortDirection === 'asc' ? dateA - dateB : dateB - a.amount;
+        const dateA = parseDate(a.date).getTime();
+        const dateB = parseDate(b.date).getTime();
+        if (dateA !== dateB) {
+          return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+        }
+        return sortDirection === 'asc' 
+          ? (a.id || '').localeCompare(b.id || '') 
+          : (b.id || '').localeCompare(a.id || '');
     });
 
   }, [accountTransactions, startDate, endDate, sortDirection]);
@@ -209,6 +261,7 @@ export function AccountClientPage({
                         <TableHead>Description</TableHead>
                         <TableHead>Category</TableHead>
                         <TableHead className="text-right">Amount</TableHead>
+                        <TableHead className="text-right">Balance</TableHead>
                         <TableHead className="w-[100px] text-right">Actions</TableHead>
                     </TableRow>
                     </TableHeader>
@@ -238,7 +291,10 @@ export function AccountClientPage({
                                         ? categoryMap[expenseSplits[0].categoryId || ''] || 'Uncategorized'
                                         : 'Transfer'}
                                 </TableCell>
-                                <TableCell className={cn("text-right", isCredit ? "text-green-600" : "")}>{isCredit ? '+' : '-'} {formatCurrency(displayAmount)}</TableCell>
+                                <TableCell className={cn("text-right font-medium", isCredit ? "text-green-600" : "")}>{isCredit ? '+' : '-'} {formatCurrency(displayAmount)}</TableCell>
+                                <TableCell className="text-right font-mono font-medium text-foreground">
+                                    {formatCurrency(runningBalances.get(tx.id) ?? 0)}
+                                </TableCell>
                                 <TableCell className="text-right">
                                 <div className="flex justify-end gap-1">
                                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditTransaction(tx)}>
@@ -275,7 +331,7 @@ export function AccountClientPage({
                         })
                     ) : (
                         <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center">
+                        <TableCell colSpan={6} className="h-24 text-center">
                             No transactions found for this date range.
                         </TableCell>
                         </TableRow>
