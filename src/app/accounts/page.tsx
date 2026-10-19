@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, RotateCcw } from 'lucide-react';
 import { useAccountDetails } from '@/hooks/use-transferees';
 import { useDebt } from '@/app/debt/hooks/use-debt';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
@@ -92,11 +92,19 @@ export default function AccountsPage() {
             Back to Home
           </Link>
         </Button>
-         <Button asChild>
-          <Link href="/settings">
-            Manage Accounts
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" className="border-amber-500/40 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/20">
+            <Link href="/settings?tab=backup">
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Reset Balances / Fresh Start
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/settings">
+              Manage Accounts
+            </Link>
+          </Button>
+        </div>
       </header>
       <main className="space-y-8">
         <h1 className="text-3xl font-bold font-headline text-primary mb-6">Accounts Overview</h1>

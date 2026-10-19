@@ -23,7 +23,8 @@ import {
   XCircle,
   FileSpreadsheet,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  RotateCcw
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -244,6 +245,13 @@ export default function TransactionLedgerPage() {
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
+
+            <Button asChild variant="outline" className="border-amber-500/40 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/20">
+              <Link href="/settings?tab=backup">
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Fresh Start & Backups
+              </Link>
+            </Button>
 
             <Button onClick={() => setIsFormOpen(true)}>
               <PlusCircle className="mr-2 h-4 w-4" />
