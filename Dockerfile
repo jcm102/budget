@@ -43,6 +43,9 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Ensure runtime environment variables from build secrets are present in standalone runner
+COPY --from=builder --chown=nextjs:nodejs /app/.env.local* ./
+
 USER nextjs
 
 EXPOSE 9002

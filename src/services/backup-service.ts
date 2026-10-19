@@ -3,7 +3,7 @@
 import { db } from '@/lib/firebase-admin';
 import * as admin from 'firebase-admin';
 
-export const collectionsToBackup = [
+const collectionsToBackup = [
     'accounts',
     'transferees',
     'budget-categories',
@@ -49,9 +49,13 @@ export interface FreshStartOptions {
  * Batch writer helper to respect Firestore's 500-operation transaction/batch limit
  */
 class BatchWriter {
-    private currentBatch = db.batch();
+    private currentBatch: admin.firestore.WriteBatch;
     private count = 0;
     private total = 0;
+
+    constructor() {
+        this.currentBatch = db.batch();
+    }
 
     async set(ref: admin.firestore.DocumentReference, data: any, options?: admin.firestore.SetOptions) {
         if (options) {
